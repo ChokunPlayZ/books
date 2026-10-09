@@ -30,7 +30,7 @@ function openBookApp() {
 function setupBookApp() {
   return withLock_(function () {
     const context = context_();
-    table_(context); // Also checks that the Sheets advanced service is enabled.
+    tableState_(context); // Also checks that the Sheets advanced service is enabled.
     [[BOOK_APP.trashName, TRASH_HEADERS], [BOOK_APP.operationsName, OP_HEADERS]].forEach(function (spec) {
       let sheet = context.ss.getSheetByName(spec[0]);
       if (!sheet) {
@@ -288,9 +288,9 @@ function book_(r, timeZone) {
   return b;
 }
 
-function table_(c) {
+function tableState_(c) {
   if (typeof Sheets === 'undefined') throw new Error('Enable Google Sheets API under Services in the Apps Script editor.');
-  const data = Sheets.Spreadsheets.get(BOOK_APP.spreadsheetId, { fields: 'sheets(properties(sheetId),tables)' });
+  const data = Sheets.Spreadsheets.get(BOOK_APP.spreadsheetId, { fields: 'sheets(properties(sheetId),tables,basicFilter(range,tableId))' });
   const s = (data.sheets || []).find(function (s) { return s.properties.sheetId === c.sheet.getSheetId(); });
   const table = s && (s.tables || []).find(function (t) { return t.name === BOOK_APP.tableName; });
   if (!table) throw new Error('Cannot find Table1. Check the table name in Sheet1 before saving; your spending formulas depend on it.');
@@ -299,13 +299,24 @@ function table_(c) {
     throw new Error('Table1 must start at A1 and cover columns A:J. No books were changed.');
   }
   if (table.rowsProperties && table.rowsProperties.footerColorStyle) throw new Error('Table1 has a footer. Remove the footer or adapt the app before saving.');
-  return table;
+  return { table: table, basicFilter: s.basicFilter };
+}
+
+function rangesOverlap_(a, b) {
+  if ((a.sheetId || 0) !== (b.sheetId || 0)) return false;
+  return ['Row', 'Column'].every(function (axis) {
+    const start = 'start' + axis + 'Index';
+    const end = 'end' + axis + 'Index';
+    return (a[start] || 0) < (b[end] === undefined ? Infinity : b[end]) &&
+      (b[start] || 0) < (a[end] === undefined ? Infinity : a[end]);
+  });
 }
 
 function writePlan_(c, row, values) {
   const requests = [];
   const id = c.sheet.getSheetId();
-  const table = table_(c);
+  const state = tableState_(c);
+  const table = state.table;
   if (row > c.sheet.getMaxRows()) {
     requests.push({ appendDimension: { sheetId: id, dimension: 'ROWS', length: row - c.sheet.getMaxRows() } });
   }
@@ -329,7 +340,15 @@ function writePlan_(c, row, values) {
     }
   });
   if (dropdownChanged) { update.columnProperties = columns; fields.push('columnProperties'); }
-  if (fields.length) requests.push({ updateTable: { table: update, fields: fields.join(',') } });
+  if (fields.length) {
+    const filter = state.basicFilter;
+    // Regular range filters block table updates. Keep table-backed filters and unrelated ranges.
+    // Clearing in this batch also preserves the filter if any part of the save fails.
+    if (filter && !filter.tableId && filter.range && rangesOverlap_(filter.range, update.range || table.range)) {
+      requests.push({ clearBasicFilter: { sheetId: id } });
+    }
+    requests.push({ updateTable: { table: update, fields: fields.join(',') } });
+  }
   requests.push({ updateCells: {
     start: { sheetId: id, rowIndex: row - 1, columnIndex: 0 },
     rows: [{ values: values.map(cell_) }], fields: 'userEnteredValue'

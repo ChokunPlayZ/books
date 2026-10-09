@@ -22,16 +22,20 @@ The manifest grants spreadsheet access because the Sheets API is needed to prese
 
 The collection starts with one entry per series, showing its owned-volume count, book types and a preview of volume numbers. Multiple copies are shown with a count such as `1 ×2`. Search and type/status filters find series with a matching book. Clicking one clears those filters and opens **every owned volume** in that series, with no volume pagination. Decimal volumes sort correctly; unnumbered books appear last.
 
-Choose **Add volume** inside a series to prefill its name and, when consistent, its type and publisher. Choose **All series** to return to the main view. The summary cards in the main view show totals for your entire collection.
+Choose **Add volume** inside a series, or select an existing title in **Add book**, to enter just the volume, reading status, price and date bought. The app reuses the type, publisher and shop from the most recently bought volume, filling missing shared details from older volumes of the same type and publisher. The inherited details appear above the short form; choose **Edit other details** to change them or add an ISBN or notes. ISBNs and notes start blank for each new volume. Choosing a different existing title updates the defaults; entering a new title brings back the full form and your previous manually entered defaults. Title matching ignores capitalization and surrounding spaces and saves the collection's existing spelling.
+
+Choose **All series** to return to the main view. The summary cards in the main view show totals for your entire collection.
 
 ## Scan and add books
 
-- Click **Add book → Scan → Start camera**. Allow camera access when prompted. Scan the long ISBN barcode that starts with **978** or **979**; some Japanese books also have a second barcode that is not the ISBN.
-- If live camera access is blocked by the browser or Google's embedded page, choose **Take / choose a photo**. Use a sharp photo with the whole barcode visible. Photo decoding happens on your device; images are not uploaded to a lookup provider or stored in your sheet.
+- Click **Add book → Scan**. Choose **Take photo** to use your phone's camera, **Choose photo** for an existing image, or **Live camera** for continuous scanning. Allow camera access when prompted. Scan the long ISBN barcode that starts with **978** or **979**; some Japanese books also have a second barcode that is not the ISBN.
+- If live camera access is blocked by the browser or Google's embedded page, use **Take photo** or **Choose photo**. Include the whole barcode and any printed ISBN above it. Photo decoding happens on your device; images are not uploaded to a lookup provider or stored in your sheet. The app bounds photo resolution before decoding to reduce phone memory use and honors the photo's orientation.
+- Some Thai editions have a shop barcode instead of an ISBN barcode. If no ISBN barcode is readable, the app tries reading the printed ISBN using local text recognition. Its first use downloads the text reader and English recognition data and can take a moment. Check the recognized digits against the cover, then choose **Use ISBN**. Only checksum-valid ISBNs are offered; the app does not substitute a shop code for an ISBN.
 - A USB or Bluetooth barcode scanner also works: focus the **ISBN** field and scan. Scanners that send Enter will trigger the lookup. You can also type an ISBN-10 or ISBN-13 and click **Look up**.
 - Lookup sends only the ISBN to Google Books and, if needed, Open Library. Their suggested title and publisher fill empty fields. Existing typed fields are retained. Review the edition, series name, language/type and volume before saving, especially for Thai/Japanese manga and light novels.
-- Choose the type and reading status, then enter any shop, price, acquisition date and notes. Click **Add book** to write it to your sheet.
-- Enable **Keep adding books** to retain type, publisher, shop, status and acquisition date for the next book. ISBN, volume, price and notes start fresh. When adding inside a series, **Keep adding volumes to this series** also retains that series name.
+- For a new title, choose the type and reading status, then enter any shop, sale price, date bought and notes. For an existing title, shared details are filled automatically and the form shows only volume, reading status, price and date bought. Enter **Sale price / amount paid** directly, or open **Calculate a discounted price** and fill in **Regular price** and **Discount**. Discounts can be **% off** or **Amount off**; calculated sale prices round to two decimal places. A sale price of `0` records a gift or a fully discounted book; leaving it blank records an unknown price. Click **Add book** or **Add volume** to write it to your sheet.
+- Only the final sale price is stored in the existing **Price** column and used in spending totals. Regular price and discount are optional calculation inputs and start blank when you reopen a book. You can override the calculated sale price directly; changing the regular price or discount calculates it again. Discounts must be non-negative, percentages cannot exceed 100%, and an amount discount cannot exceed the regular price.
+- Enable **Keep adding books** to retain type, publisher, shop, status and date bought for the next book. ISBN, volume, regular price, discount, sale price and notes start fresh. When an existing title is selected, **Keep adding volumes to this series** also retains that series name and its short form.
 - If you own another copy with the same ISBN, select **Another copy**. Otherwise the app prevents an accidental duplicate, including equivalent ISBN-10 and ISBN-13 values.
 
 ## Check a book in the store
@@ -76,6 +80,16 @@ The hidden **_BookAppTrash** tab stores recoverable removals. **_BookAppOperatio
 
 After changing the code, save and choose **Deploy → Manage deployments → Edit → Version: New version → Deploy**. The bookmarked app URL stays the same. Saving code alone does not update an existing production deployment.
 
+For sale price and discount entry, replace **Index.html** and deploy a new version. The form saves the final amount paid into the existing Price column, so no spreadsheet or **Code.gs** changes are required.
+
+For the shorter existing-title form, replace **Index.html** and deploy a new version. **Add volume** and choosing an existing title both reuse shared series details. No spreadsheet, manifest or **Code.gs** changes are required for this feature.
+
+For the October 9 camera/photo-scanning fix, replace **Index.html** and deploy a new version. No changes to **Code.gs**, the manifest, or your spreadsheet are needed. Live camera startup now requests the rear camera directly and plays video inline. Google or browser permissions can still block live camera access; the native **Take photo** button works independently. Closing the scanner stops camera tracks and cancels pending recognition; opening the iOS camera/photo picker does not discard a photo scan.
+
+For the overlapping-filter save fix, replace **Code.gs** and deploy a new version. When a save or restore expands Table1 or adds a dropdown choice, the app removes any regular sheet filter overlapping the updated table range in the same atomic operation. This removes that filter's criteria and sorting settings. Table-backed filters and regular filters outside the table range are preserved. If saving fails, the filter and book data remain unchanged.
+
+If an older deployment reports **Before converting your data into a table, please remove the filter that overlaps with the conversion area**, open **Sheet1** and choose **Data → Remove filter**, then retry. The conflict is with the regular sheet filter; removing it does not delete any books. For routine filtering of Table1, use its table controls.
+
 ## Verify after installation
 
 Use a **copy of your spreadsheet** for the first live check. Change `spreadsheetId` in Code.gs to that copy's ID, and install the app in the copy's bound project. Ensure the copied table is still named Table1.
@@ -90,6 +104,16 @@ Use a **copy of your spreadsheet** for the first live check. Change `spreadsheet
 
 Local automated checks exercise validation, ISBN equivalence, current-sheet ownership checks, ISBN-only updates, concurrent/stale edits, atomic recoverable removals, request retries, table expansion, and preservation of adjacent summary cells. The local preview uses a copy of the exported collection and a simulated backend; it cannot verify Google authorization, live Sheets API behavior, live formulas, or a physical phone camera.
 
+Photo regression fixtures come from the three reported iPhone photos. All three original files and their bounded test copies were verified in Chromium at a phone-sized viewport:
+
+| Photo | Expected ISBN | Recognition |
+|---|---|---|
+| IMG_2070 | 9786164894686 | ISBN barcode |
+| IMG_2069 | 9786166247275 | ISBN barcode |
+| IMG_2068 | 9786166147353 | Printed ISBN, reviewed before use; shop barcode is 3032504880045 |
+
+The browser checks also exercise denied permission, inline camera playback, track cleanup, late permission results, unreadable images, and page backgrounding during native photo selection. These checks do not verify a physical iPhone camera or Google's deployed iframe permissions.
+
 ## Sources
 
 - [Apps Script web apps and deployment](https://developers.google.com/apps-script/guides/web)
@@ -98,8 +122,15 @@ Local automated checks exercise validation, ISBN equivalence, current-sheet owne
 - [Atomic Sheets batch updates](https://developers.google.com/workspace/sheets/api/reference/rest/v4/spreadsheets/batchUpdate)
 - [Google Books API](https://developers.google.com/books/docs/v1/using)
 - [Open Library ISBN lookup](https://openlibrary.org/dev/docs/api/books)
-- [html5-qrcode camera and photo scanning](https://scanapp.org/html5-qrcode-docs/docs/apis/classes/Html5Qrcode)
+- [ZXing WebAssembly barcode reader](https://github.com/Sec-ant/zxing-wasm)
+- [Tesseract.js local text recognition](https://github.com/naptha/tesseract.js)
 
 ## Local development
 
 No dependencies need installing. Run `node --test tests/*.test.mjs` for the Apps Script logic checks. Run `node preview/server.mjs` for a local preview at `http://localhost:8765`. Preview changes are stored only in the running preview's memory and never sent to your Google Sheet. The preview also includes a **Preview only** label; restart it to reset its data.
+
+For photo and camera browser regression checks, start the preview, make Playwright available, and run `node tests/scan-photos.browser.mjs`. The script reads `tests/fixtures` by default. `BOOKS_SCAN_PHOTO_DIR` can point to the folder containing the original `IMG_2068.JPG`, `IMG_2069.JPG`, and `IMG_2070.JPG` files. Optional `BOOKS_PLAYWRIGHT_MODULE`, `BOOKS_BROWSER_EXECUTABLE`, and `BOOKS_PREVIEW_URL` select an existing browser runtime and preview. The tests need internet access to load the same pinned reader libraries used by the deployed app; no photos leave the device.
+
+Run `node tests/pricing.browser.mjs` against the preview for sale-price checks. It verifies percent/amount discounts, two-decimal rounding, invalid discounts, direct sale-price overrides, blank versus zero prices, edit/save totals, resetting prices while keeping other book defaults, and phone/desktop layout. It accepts the same Playwright, browser and preview environment settings as the scanning checks and saves a phone screenshot to `outputs/pricing-preview.png`.
+
+Run `node tests/series-entry.browser.mjs` against the preview for existing-title entry checks. It verifies the short form, recent-edition defaults, missing shared details, title switching, capitalization, saved inherited values, optional overrides, ISBN and notes handling, repeated volume entry, lookup suggestions, the full edit form and phone/desktop layout. It accepts the same environment settings and saves a phone screenshot to `outputs/series-entry-preview.png`.

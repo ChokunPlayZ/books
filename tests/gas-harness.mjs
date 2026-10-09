@@ -42,7 +42,17 @@ export function createHarness(books = []) {
     try {
       for(const req of body.requests){
         if(req.appendDimension){const q=req.appendDimension;sheetData(q.sheetId).maxRows+=q.length;}
-        else if(req.updateTable){if(req.updateTable.table.tableId!==table.tableId)throw Error('Wrong table');Object.assign(table,structuredClone(req.updateTable.table));}
+        else if(req.clearBasicFilter){delete sheetData(req.clearBasicFilter.sheetId).basicFilter;}
+        else if(req.updateTable){
+          if(req.updateTable.table.tableId!==table.tableId)throw Error('Wrong table');
+          const target=req.updateTable.table.range||table.range,filter=sheetData(target.sheetId).basicFilter;
+          if(filter?.range&&!filter.tableId){
+            const r=filter.range;
+            const overlaps=['Row','Column'].every(axis=>Math.max(target['start'+axis+'Index']??0,r['start'+axis+'Index']??0)<Math.min(target['end'+axis+'Index']??Infinity,r['end'+axis+'Index']??Infinity));
+            if(overlaps)throw Error('Before converting your data into a table, please remove the filter that overlaps with the conversion area.');
+          }
+          Object.assign(table,structuredClone(req.updateTable.table));
+        }
         else if(req.updateCells){const q=req.updateCells,s=sheetData(q.start.sheetId);q.rows.forEach((row,i)=>row.values.forEach((v,j)=>applyCell(s,q.start.rowIndex+i,q.start.columnIndex+j,v)));}
         else if(req.appendCells){const q=req.appendCells,s=sheetData(q.sheetId),start=lastRow(s);q.rows.forEach((row,i)=>row.values.forEach((v,j)=>applyCell(s,start+i,j,v)));}
         else if(req.repeatCell){const q=req.repeatCell,s=sheetData(q.range.sheetId);if(q.fields==='userEnteredValue')for(let r=q.range.startRowIndex;r<q.range.endRowIndex;r++)for(let c=q.range.startColumnIndex;c<q.range.endColumnIndex;c++)applyCell(s,r,c,q.cell);}
@@ -56,7 +66,7 @@ export function createHarness(books = []) {
     SpreadsheetApp:{openById:()=>({getSheetByName:name=>store.has(name)?sheet(store.get(name)):null,insertSheet:name=>{const s={id:store.size,name,maxRows:1000,rows:[]};store.set(name,s);return sheet(s);},getSpreadsheetTimeZone:()=> 'Asia/Bangkok',getUrl:()=> 'https://docs.google.com/spreadsheets/d/1xtA2hqEGZPyvQS0ZC2NI30lJLJAugvFHPh9jQOyGhgg/edit'}),DataValidationCriteria:{VALUE_IN_LIST:'VALUE_IN_LIST'}},
     LockService:{getScriptLock:()=>({tryLock:()=>{if(locked)return false;locked=true;return true;},releaseLock:()=>{locked=false;}})},
     Utilities:{getUuid:randomUUID,DigestAlgorithm:{SHA_256:'sha256'},computeDigest:(_,t)=>[...createHash('sha256').update(t).digest()],base64EncodeWebSafe:b=>Buffer.from(b).toString('base64url'),formatDate:(d,tz)=>new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'}).format(d)},
-    Sheets:{Spreadsheets:{get:()=>({sheets:[{properties:{sheetId:0},tables:[structuredClone(table)]}]}),batchUpdate:batch}},
+    Sheets:{Spreadsheets:{get:(_,options)=>({sheets:[{properties:{sheetId:0},tables:[structuredClone(table)],...(options.fields.includes('basicFilter')?{basicFilter:structuredClone(store.get('Sheet1').basicFilter)}:{})}]}),batchUpdate:batch}},
     CacheService:{getScriptCache:()=>({get:k=>cache.get(k)||null,put:(k,v)=>cache.set(k,v)})},
     UrlFetchApp:{fetch:url=>{fetches.push(url);const entry=sandbox.responses.find(e=>url.includes(e.match));return {getResponseCode:()=>entry?.status??200,getContentText:()=>JSON.stringify(entry?.body??{})};}},
     responses:[]
@@ -65,5 +75,6 @@ export function createHarness(books = []) {
   return {api:sandbox,calls,fetches,setup:()=>sandbox.setupBookApp(),table:()=>structuredClone(table),store:()=>store,
     row:(r)=>structuredClone(store.get('Sheet1').rows[r-1]),
     put:(r,c,value,formula)=>{const x=cellAt(store.get('Sheet1'),r-1,c-1);x.value=value;if(formula)x.formula=formula;else delete x.formula;},
-    failNextBatch:()=>{failBatch=true;},setLocked:value=>{locked=value;},setMaxRows:n=>{store.get('Sheet1').maxRows=n;}};
+    failNextBatch:()=>{failBatch=true;},setLocked:value=>{locked=value;},setMaxRows:n=>{store.get('Sheet1').maxRows=n;},
+    setBasicFilter:filter=>{store.get('Sheet1').basicFilter=structuredClone(filter);},basicFilter:()=>structuredClone(store.get('Sheet1').basicFilter)};
 }

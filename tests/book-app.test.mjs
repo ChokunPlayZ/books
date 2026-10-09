@@ -45,6 +45,70 @@ test('add expands native table and dropdowns; ISBN and formula-looking notes sta
   const update=h.calls[0].requests.find(r=>r.updateTable);assert.match(update.updateTable.fields,/range/);assert.match(update.updateTable.fields,/columnProperties/);
   const date=h.api.getCollection().books.find(b=>b.row===3).date;assert.equal(date,'2026-10-09');
 });
+test('table expansion clears an overlapping regular filter before updating the table',()=>{
+  const h=createHarness([existing]);h.setup();h.put(2,14,120,'SUM(Table1[Price])');const before=h.row(2);
+  // This filter starts in the new row, outside the table's original range.
+  h.setBasicFilter({range:{sheetId:0,startRowIndex:2,endRowIndex:20,startColumnIndex:0,endColumnIndex:10}});
+  h.api.saveBook(save('request_filter_add'));
+  const requests=h.calls[0].requests;
+  assert.ok(requests.findIndex(r=>r.clearBasicFilter)>=0);
+  assert.ok(requests.findIndex(r=>r.clearBasicFilter)<requests.findIndex(r=>r.updateTable));
+  assert.equal(h.basicFilter(),undefined);assert.equal(h.table().range.endRowIndex,3);
+  assert.deepEqual(h.row(2),before);assert.equal(h.row(3)[1].value,input.series);
+});
+test('dropdown-only table updates also clear overlapping regular filters',()=>{
+  const h=createHarness([existing]);h.setup();h.setBasicFilter({range:{sheetId:0,endRowIndex:2,endColumnIndex:10}});
+  const b=h.api.getCollection().books[0];
+  h.api.saveBook(save('request_filter_edit',{...existing,publisher:'Another publisher'},{row:b.row,token:b.token}));
+  const requests=h.calls[0].requests;
+  assert.equal(requests[0].clearBasicFilter.sheetId,0);
+  assert.equal(requests[1].updateTable.fields,'columnProperties');
+  assert.equal(h.basicFilter(),undefined);assert.equal(h.row(2)[3].value,'Another publisher');
+});
+test('unbounded regular filters are cleared, including when the sheet grid grows',()=>{
+  const h=createHarness([existing]);h.setup();h.setMaxRows(2);h.setBasicFilter({range:{}});
+  h.api.saveBook(save('request_filter_grid'));
+  const requests=h.calls[0].requests;
+  assert.ok(requests.some(r=>r.appendDimension));assert.ok(requests.some(r=>r.clearBasicFilter));
+  assert.equal(h.store().get('Sheet1').maxRows,3);assert.equal(h.basicFilter(),undefined);
+});
+test('table updates preserve adjacent regular filters and filters backed by tables',()=>{
+  for(const filter of [
+    {range:{sheetId:0,startColumnIndex:10,endColumnIndex:14}},
+    {range:{sheetId:0,startRowIndex:3,endRowIndex:20,startColumnIndex:0,endColumnIndex:10}},
+    {tableId:'table1-id',range:{sheetId:0,endRowIndex:2,endColumnIndex:10},criteria:{4:{hiddenValues:['Read']}}}
+  ]){
+    const h=createHarness([existing]);h.setup();h.setBasicFilter(filter);
+    h.api.saveBook(save('request_keep_filter'));
+    assert.deepEqual(h.basicFilter(),filter);assert.equal(h.calls[0].requests.some(r=>r.clearBasicFilter),false);
+    assert.equal(h.table().range.endRowIndex,3);
+  }
+});
+test('ordinary cell edits preserve regular filters when no table update is needed',()=>{
+  const h=createHarness([existing]);h.setup();const filter={range:{sheetId:0,endRowIndex:2,endColumnIndex:10}};h.setBasicFilter(filter);
+  const b=h.api.getCollection().books[0];
+  h.api.saveBook(save('request_keep_edit',{...existing,publisher:'Kodansha',source:'Kinokuniya',status:'Read'},{row:b.row,token:b.token}));
+  assert.deepEqual(h.basicFilter(),filter);assert.equal(h.calls[0].requests.some(r=>r.updateTable||r.clearBasicFilter),false);
+});
+test('restoring a book clears a conflicting regular filter during its table update',()=>{
+  const h=createHarness([existing]);h.setup();const b=h.api.getCollection().books[0];
+  const removed=h.api.removeBook({requestId:'request_filter_remove',row:b.row,token:b.token});
+  h.setBasicFilter({range:{sheetId:0,endColumnIndex:10}});
+  h.api.restoreBook({requestId:'request_filter_restore',trashId:removed.trashId});
+  assert.equal(h.basicFilter(),undefined);assert.equal(h.api.getCollection().books.length,1);assert.equal(h.api.getCollection().trash.length,0);
+});
+test('failed saves preserve the overlapping filter, books and retry receipts together',()=>{
+  const h=createHarness([existing]);h.setup();const before=h.row(2),tableBefore=h.table();
+  const filter={range:{sheetId:0,endRowIndex:20,endColumnIndex:10},criteria:{4:{hiddenValues:['Read']}}};h.setBasicFilter(filter);
+  const batch=h.api.Sheets.Spreadsheets.batchUpdate;
+  h.api.Sheets.Spreadsheets.batchUpdate=(body,id)=>batch({requests:[...body.requests,{updateTable:{table:{tableId:'missing-table'},fields:'range'}}]},id);
+  assert.throws(()=>h.api.saveBook(save('request_filter_fail')),/Wrong table/);
+  assert.deepEqual(h.basicFilter(),filter);assert.deepEqual(h.table(),tableBefore);assert.deepEqual(h.row(2),before);
+  assert.equal(h.api.getCollection().books.length,1);assert.equal(h.store().get('_BookAppOperations').rows.length,1);
+  h.api.Sheets.Spreadsheets.batchUpdate=batch;
+  h.api.saveBook(save('request_filter_fail'));h.api.saveBook(save('request_filter_fail'));
+  assert.equal(h.api.getCollection().books.length,2);assert.equal(h.calls.length,2);
+});
 test('request receipts prevent duplicate adds even after a lost response; conflicting reuse rejected',()=>{
   const h=createHarness();h.setup();const request=save('request_retry_01');const first=h.api.saveBook(request);const second=h.api.saveBook(request);
   assert.equal(JSON.stringify(first),JSON.stringify(second));assert.equal(h.api.getCollection().books.length,1);assert.equal(h.calls.length,1);

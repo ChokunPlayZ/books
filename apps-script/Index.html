@@ -5,17 +5,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Book Collection</title>
-  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.5/dist/iife/reader/index.js" defer></script>
   <style>
     :root{--ink:#203c31;--muted:#67776e;--paper:#f7f8f3;--white:#fff;--line:#dce3d9;--green:#315c48;--soft:#e9efe4;--gold:#a97c32;--red:#a73835;--shadow:0 22px 65px #1c342721}
     *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,sans-serif}button,input,select,textarea{font:inherit}button,a,label.file{touch-action:manipulation}button{cursor:pointer}button:disabled{cursor:wait;opacity:.55}a{color:var(--green)}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #b0caa0;outline-offset:3px}svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}[hidden]{display:none!important}
     .top{background:var(--white);border-bottom:1px solid var(--line)}.top-inner{max-width:1220px;margin:auto;padding:22px 36px;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{display:flex;align-items:center;gap:12px}.brand-mark{background:var(--green);color:#f2f4df;padding:10px;border-radius:10px;display:flex}.brand-mark svg{width:24px;height:24px}.brand-name{font-weight:650;font-size:16px}.brand-caption{font-size:11px;color:var(--muted);letter-spacing:.13em;text-transform:uppercase}.top-actions,.buttons{display:flex;gap:10px;align-items:center}.btn{min-height:42px;padding:10px 17px;border:1px solid var(--line);border-radius:8px;background:var(--white);color:var(--ink);display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;font-weight:550}.btn:hover{background:#f0f3eb}.primary{background:var(--green);border-color:var(--green);color:white}.primary:hover{background:#244a38}.text-btn{border:0;background:none;color:var(--muted);padding:10px;text-decoration:none}.danger{color:var(--red);border-color:#e3c8c6}.danger:hover{background:#faf0ef}
-    main{max-width:1220px;margin:auto;padding:40px 36px 60px}.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);font-weight:650;margin:0 0 8px}h1{font:normal 42px/1.15 Georgia,"Times New Roman",serif;margin:0 0 10px;letter-spacing:-1.2px}.intro{margin:0;color:var(--muted);font-size:15px}.heading{display:flex;justify-content:space-between;align-items:flex-end;gap:20px}.edition{font:italic 15px Georgia,serif;color:var(--muted);padding-bottom:4px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:30px 0}.stat{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:21px 22px}.stat-label{font-size:12px;color:var(--muted);display:flex;align-items:center;justify-content:space-between}.stat svg{color:#9bab92;width:18px;height:18px}.stat-value{font:normal 30px/1.2 Georgia,serif;margin-top:10px}.stat-note{font-size:11px;color:var(--muted);margin-top:6px}.tabs{display:flex;gap:24px;border-bottom:1px solid var(--line);margin-top:30px}.tab{background:none;border:0;border-bottom:2px solid transparent;padding:12px 1px;margin-bottom:-1px;color:var(--muted);font-weight:550}.tab.active{color:var(--green);border-bottom-color:var(--green)}.tab-count{padding:2px 7px;border-radius:6px;background:var(--soft);font-size:11px;margin-left:5px}.toolbar{display:flex;align-items:center;gap:10px;margin:22px 0 18px}.search{position:relative;flex:1}.search svg{position:absolute;left:13px;top:13px;color:var(--muted)}.search input{padding-left:42px;width:100%;background:var(--white)}input,select,textarea{border:1px solid var(--line);border-radius:7px;padding:11px 12px;background:var(--white);color:var(--ink);min-width:0}select{max-width:200px;min-height:44px}.filter-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}.refresh{padding:11px}.list-label{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}.collection{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--white)}.book-row{display:grid;grid-template-columns:44px minmax(0,1fr) 120px 116px 90px 42px;gap:17px;align-items:center;padding:20px 22px;border-bottom:1px solid var(--line)}.book-row:last-child{border-bottom:0}.book-spine{height:55px;border-radius:3px 6px 6px 3px;background:var(--soft);border-left:4px solid #aebf9b;display:flex;align-items:center;justify-content:center;color:var(--green);font:normal 21px Georgia,serif}.book-spine.jp{background:#eeeae2;border-color:#baa37e}.book-spine.ln{background:#e6ecee;border-color:#8aa5b2}.book-title{margin:0;font-size:15px;font-weight:600;line-height:1.45;overflow-wrap:anywhere}.book-meta{font-size:12px;color:var(--muted);margin-top:5px;display:flex;gap:10px;flex-wrap:wrap}.book-meta span+span:before{content:'·';margin-right:10px;color:#9ca796}.type{color:var(--muted);font-size:12px}.status{display:inline-flex;align-items:center;gap:6px;background:#f1f3ed;border-radius:20px;padding:5px 10px;font-size:11px;white-space:nowrap}.status:before{content:'';width:5px;height:5px;background:#a5af9d;border-radius:50%}.status.read{background:#e8f0e4;color:#46613c}.status.read:before{background:#6e9561}.status.reading{background:#fbf0da;color:#8e6b2d}.status.reading:before{background:#cba254}.price{text-align:right;font-variant-numeric:tabular-nums;font-size:13px}.row-action{width:38px;height:38px;border:1px solid var(--line);border-radius:7px;display:flex;align-items:center;justify-content:center;background:white;color:var(--muted)}.row-action:hover{color:var(--green);background:var(--paper)}.restore{grid-column:5 / 7}.empty{padding:60px 20px;text-align:center;color:var(--muted)}.empty h2{font:24px Georgia,serif;color:var(--ink);margin:0 0 10px}.pagination{display:flex;align-items:center;justify-content:space-between;margin-top:18px;gap:10px;color:var(--muted);font-size:12px}.pagination .btn{font-size:12px;min-height:36px;padding:6px 13px}.footer{margin-top:32px;display:flex;justify-content:space-between;gap:20px;font-size:11px;color:var(--muted)}.footer a{text-decoration:none}.banner{border:1px solid #e9c5c0;border-radius:8px;padding:13px 16px;background:#fff2ef;color:#8c3930;margin:0 0 20px;white-space:pre-line}.loading{padding:45px;text-align:center;color:var(--muted)}
+    main{max-width:1220px;margin:auto;padding:40px 36px 60px}.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);font-weight:650;margin:0 0 8px}h1{font:normal 42px/1.15 Georgia,"Times New Roman",serif;margin:0 0 10px;letter-spacing:-1.2px}.intro{margin:0;color:var(--muted);font-size:15px}.heading{display:flex;justify-content:space-between;align-items:flex-end;gap:20px}.edition{font:italic 15px Georgia,serif;color:var(--muted);padding-bottom:4px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:30px 0}.stat{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:21px 22px}.stat-label{font-size:12px;color:var(--muted);display:flex;align-items:center;justify-content:space-between}.stat svg{color:#9bab92;width:18px;height:18px}.stat-value{font:normal 30px/1.2 Georgia,serif;margin-top:10px}.stat-note{font-size:11px;color:var(--muted);margin-top:6px}.tabs{display:flex;gap:24px;border-bottom:1px solid var(--line);margin-top:30px}.tab{background:none;border:0;border-bottom:2px solid transparent;padding:12px 1px;margin-bottom:-1px;color:var(--muted);font-weight:550}.tab.active{color:var(--green);border-bottom-color:var(--green)}.tab-count{padding:2px 7px;border-radius:6px;background:var(--soft);font-size:11px;margin-left:5px}.toolbar{display:flex;align-items:center;gap:10px;margin:22px 0 18px}.search{position:relative;flex:1}.search svg{position:absolute;left:13px;top:13px;color:var(--muted)}.search input{padding-left:42px;width:100%;background:var(--white)}input,select,textarea{font-size:16px;border:1px solid var(--line);border-radius:7px;padding:11px 12px;background:var(--white);color:var(--ink);min-width:0}select{max-width:200px;min-height:44px}.filter-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}.refresh{padding:11px}.list-label{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}.collection{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--white)}.book-row{display:grid;grid-template-columns:44px minmax(0,1fr) 120px 116px 90px 42px;gap:17px;align-items:center;padding:20px 22px;border-bottom:1px solid var(--line)}.book-row:last-child{border-bottom:0}.book-spine{height:55px;border-radius:3px 6px 6px 3px;background:var(--soft);border-left:4px solid #aebf9b;display:flex;align-items:center;justify-content:center;color:var(--green);font:normal 21px Georgia,serif}.book-spine.jp{background:#eeeae2;border-color:#baa37e}.book-spine.ln{background:#e6ecee;border-color:#8aa5b2}.book-title{margin:0;font-size:15px;font-weight:600;line-height:1.45;overflow-wrap:anywhere}.book-meta{font-size:12px;color:var(--muted);margin-top:5px;display:flex;gap:10px;flex-wrap:wrap}.book-meta span+span:before{content:'·';margin-right:10px;color:#9ca796}.type{color:var(--muted);font-size:12px}.status{display:inline-flex;align-items:center;gap:6px;background:#f1f3ed;border-radius:20px;padding:5px 10px;font-size:11px;white-space:nowrap}.status:before{content:'';width:5px;height:5px;background:#a5af9d;border-radius:50%}.status.read{background:#e8f0e4;color:#46613c}.status.read:before{background:#6e9561}.status.reading{background:#fbf0da;color:#8e6b2d}.status.reading:before{background:#cba254}.price{text-align:right;font-variant-numeric:tabular-nums;font-size:13px}.row-action{width:38px;height:38px;border:1px solid var(--line);border-radius:7px;display:flex;align-items:center;justify-content:center;background:white;color:var(--muted)}.row-action:hover{color:var(--green);background:var(--paper)}.restore{grid-column:5 / 7}.empty{padding:60px 20px;text-align:center;color:var(--muted)}.empty h2{font:24px Georgia,serif;color:var(--ink);margin:0 0 10px}.pagination{display:flex;align-items:center;justify-content:space-between;margin-top:18px;gap:10px;color:var(--muted);font-size:12px}.pagination .btn{font-size:12px;min-height:36px;padding:6px 13px}.footer{margin-top:32px;display:flex;justify-content:space-between;gap:20px;font-size:11px;color:var(--muted)}.footer a{text-decoration:none}.banner{border:1px solid #e9c5c0;border-radius:8px;padding:13px 16px;background:#fff2ef;color:#8c3930;margin:0 0 20px;white-space:pre-line}.loading{padding:45px;text-align:center;color:var(--muted)}
     dialog{border:1px solid var(--line);border-radius:14px;padding:0;background:white;box-shadow:var(--shadow);color:var(--ink);max-width:650px;width:calc(100% - 28px);max-height:90dvh}dialog::backdrop{background:#12281e66;backdrop-filter:blur(3px)}.dialog-head{padding:24px 26px 17px;display:flex;align-items:flex-start;justify-content:space-between;gap:14px;border-bottom:1px solid var(--line)}.dialog-head h2{font:28px Georgia,serif;margin:0 0 6px}.dialog-head p{font-size:12px;color:var(--muted);margin:0}.close{background:none;border:0;color:var(--muted);padding:5px;display:flex}.dialog-body{padding:22px 26px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:17px}.field{display:flex;flex-direction:column;gap:6px}.field label{font-size:12px;font-weight:550}.field input,.field select,.field textarea{width:100%;max-width:none}.span-2{grid-column:1 / -1}.isbn-line{display:flex;gap:8px}.isbn-line input{flex:1;min-width:0}.isbn-line .btn{padding:10px 12px}.hint{font-size:11px;color:var(--muted);margin:0}.check{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}.check input{width:16px;height:16px;accent-color:var(--green)}textarea{resize:vertical;min-height:74px}.lookup{padding:13px 15px;background:var(--soft);border-radius:8px;font-size:12px;white-space:pre-line}.lookup strong{display:block}.dialog-foot{padding:17px 26px;display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px solid var(--line);background:#fafbf7}.dialog-foot .buttons{margin-left:auto}.form-error{font-size:12px;color:var(--red);padding:0 0 12px;white-space:pre-line}.toast{position:fixed;bottom:25px;left:50%;transform:translateX(-50%);padding:13px 21px;border-radius:9px;background:var(--green);color:white;box-shadow:var(--shadow);z-index:10;max-width:calc(100% - 30px);font-size:13px}.scanner-area{min-height:150px;background:#f1f4ec;border-radius:8px;margin-bottom:16px;overflow:hidden}.scanner-area:empty:before{content:'Point your camera at the 978 or 979 barcode.';display:block;padding:55px 20px;text-align:center;font-size:12px;color:var(--muted)}.scanner-note{font-size:12px;color:var(--muted);margin:12px 0 0}.file{position:relative}.file input{position:absolute;inset:0;opacity:0;width:100%;cursor:pointer;padding:0}.scan-buttons{flex-wrap:wrap}.remove-name{font-size:16px;font-weight:550;overflow-wrap:anywhere;margin:0 0 12px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-    @media(min-width:1500px){main{padding-top:55px}}@media(max-width:850px){.top-inner,main{padding-left:22px;padding-right:22px}.book-row{grid-template-columns:40px minmax(0,1fr) 94px 38px;gap:12px;padding:17px}.type{display:none}.book-status{grid-column:3}.price{display:none}.row-action{grid-column:4}.restore{grid-column:3 / 5}.edition{display:none}.stat{padding:16px}.stat-value{font-size:27px}.stats{gap:10px}}@media(max-width:560px){.top-inner{padding:16px}.brand-caption{font-size:9px}.top-actions .sheet-link{display:none}.top-actions .btn{padding:9px 12px}main{padding:27px 16px 40px}h1{font-size:35px}.intro{font-size:13px}.stats{grid-template-columns:1fr 1fr;margin:23px 0}.stat{padding:15px 16px}.stat-value{font-size:26px}.toolbar{flex-wrap:wrap}.search{flex-basis:100%}.toolbar select{flex:1;max-width:none;min-width:0;font-size:12px}.book-row{grid-template-columns:32px minmax(0,1fr) 32px;padding:16px 13px;gap:11px}.book-spine{height:48px;font-size:17px}.book-title{font-size:14px}.book-meta{font-size:11px;gap:6px}.book-status{grid-column:2;grid-row:auto}.book-row .row-action{grid-column:3;grid-row:1 / 3;width:32px;height:35px}.book-row .book-spine{grid-row:1 / 3}.restore{grid-column:2 / 4;font-size:12px;justify-self:start}.dialog-head,.dialog-body{padding:19px}.dialog-foot{padding:15px 19px}.form-grid{gap:14px}.isbn-line{flex-wrap:wrap}.isbn-line input{flex-basis:100%}.isbn-line .btn{flex:1}.footer{flex-direction:column;gap:8px}.pagination{flex-wrap:wrap}.pagination .buttons{margin-left:auto}.tab{font-size:13px}.tabs{gap:20px}}
+    @media(min-width:1500px){main{padding-top:55px}}@media(max-width:850px){.top-inner,main{padding-left:22px;padding-right:22px}.book-row{grid-template-columns:40px minmax(0,1fr) 94px 38px;gap:12px;padding:17px}.type{display:none}.book-status{grid-column:3}.price{display:none}.row-action{grid-column:4}.restore{grid-column:3 / 5}.edition{display:none}.stat{padding:16px}.stat-value{font-size:27px}.stats{gap:10px}}@media(max-width:560px){.top-inner{padding:16px}.brand-caption{font-size:9px}.top-actions .sheet-link{display:none}.top-actions .btn{padding:9px 12px}main{padding:27px 16px 40px}h1{font-size:35px}.intro{font-size:13px}.stats{grid-template-columns:1fr 1fr;margin:23px 0}.stat{padding:15px 16px}.stat-value{font-size:26px}.toolbar{flex-wrap:wrap}.search{flex-basis:100%}.toolbar select{flex:1;max-width:none;min-width:0}.book-row{grid-template-columns:32px minmax(0,1fr) 32px;padding:16px 13px;gap:11px}.book-spine{height:48px;font-size:17px}.book-title{font-size:14px}.book-meta{font-size:11px;gap:6px}.book-status{grid-column:2;grid-row:auto}.book-row .row-action{grid-column:3;grid-row:1 / 3;width:32px;height:35px}.book-row .book-spine{grid-row:1 / 3}.restore{grid-column:2 / 4;font-size:12px;justify-self:start}.dialog-head,.dialog-body{padding:19px}.dialog-foot{padding:15px 19px}.form-grid{gap:14px}.isbn-line{flex-wrap:wrap}.isbn-line input{flex-basis:100%}.isbn-line .btn{flex:1}.footer{flex-direction:column;gap:8px}.pagination{flex-wrap:wrap}.pagination .buttons{margin-left:auto}.tab{font-size:13px}.tabs{gap:20px}}
     .series-row{width:100%;text-align:left;background:white;color:var(--ink);border:0;border-bottom:1px solid var(--line);padding:24px 22px;display:grid;grid-template-columns:44px minmax(0,1fr) 104px 20px;gap:18px;align-items:center}.series-row:last-child{border-bottom:0}.series-row:hover{background:#f8faf4}.series-row:focus-visible{outline-offset:-4px}.series-icon{height:55px;display:flex;align-items:center;justify-content:center;background:var(--soft);border-radius:5px;color:#5b7850}.series-icon svg{width:24px;height:24px}.series-name{display:block;font-size:16px;font-weight:600;line-height:1.45;overflow-wrap:anywhere}.series-meta{display:block;font-size:12px;color:var(--muted);margin-top:5px}.owned-volumes{display:flex;gap:5px;flex-wrap:wrap;margin-top:12px}.volume-chip{display:inline-flex;align-items:center;justify-content:center;background:#eef2e9;border:1px solid #e1e7db;border-radius:4px;font-size:11px;min-width:25px;padding:3px 6px;color:#5c7052;white-space:nowrap}.volume-more{font-size:11px;padding:3px 6px;color:var(--muted)}.series-total{text-align:right;font:26px Georgia,serif}.series-total small{display:block;font:11px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--muted);margin-top:4px}.series-arrow{font-size:24px;color:#7d9076}.series-header{margin-top:23px}.series-header .text-btn{padding:5px 0 15px;color:var(--green);font-size:12px}.series-header h1{font:30px/1.3 Georgia,Tahoma,serif;margin:0 0 6px;overflow-wrap:anywhere}.series-header p{margin:0;color:var(--muted);font-size:12px}.series-header .eyebrow{color:var(--gold);font-size:10px;margin-bottom:6px}.series-header .btn{margin-bottom:16px}@media(max-width:560px){.series-row{padding:18px 13px;grid-template-columns:32px minmax(0,1fr) 47px;gap:12px}.series-icon{height:43px}.series-name{font-size:14px}.series-meta{font-size:11px}.series-total{font-size:24px}.series-total small{font-size:9px}.series-arrow{display:none}.owned-volumes{gap:4px;margin-top:9px}.volume-chip{font-size:10px;min-width:22px;padding:2px 5px}.series-header h1{font-size:25px}}
     .ownership-status{padding:18px;border:1px solid #c7d9be;background:#edf4e7;border-radius:9px;margin:17px 0}.ownership-status.unknown{background:#fbf5e7;border-color:#e4d3a8}.ownership-status h3{margin:0 0 6px;font:26px Georgia,serif}.ownership-status p{margin:0;font-size:12px;line-height:1.6}.ownership-book{border:1px solid var(--line);border-radius:8px;padding:13px 14px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:12px}.ownership-book h3{font-size:14px;margin:0 0 4px;overflow-wrap:anywhere}.ownership-book p{color:var(--muted);font-size:11px;margin:0}.ownership-book .btn{font-size:11px;padding:8px 11px;min-height:36px;flex:none}.store-search{margin-top:23px;border-top:1px solid var(--line);padding-top:19px}.store-search input{width:100%;margin-top:6px}.store-search label{font-weight:550;font-size:12px}.store-result-note{color:var(--muted);font-size:11px;margin:9px 0 0}.store-foot{justify-content:space-between}.store-stamp{font-size:11px;color:var(--muted);margin-top:13px}.check-hint{margin-top:10px}.isbn-add{margin-top:7px;background:none;border:0;color:var(--green);padding:3px 0;display:flex;gap:5px;align-items:center;font-size:11px;font-weight:550}.isbn-add svg{width:14px;height:14px}.isbn-only-details{background:var(--soft);padding:14px;border-radius:8px;margin-bottom:20px}.isbn-only-details h3{margin:0 0 5px;font-size:16px;overflow-wrap:anywhere}.isbn-only-details p{margin:0;color:var(--muted);font-size:12px}.isbn-only-checks{display:grid;gap:10px;margin-top:18px}.isbn-only-foot{justify-content:flex-end}@media(max-width:560px){.top-inner{flex-wrap:wrap;gap:12px}.top-actions{width:100%}.top-actions .btn{flex:1}.ownership-book{flex-wrap:wrap}.ownership-book .btn{width:100%}.store-foot{flex-wrap:wrap}.store-foot>.btn{flex:1}.ownership-status h3{font-size:24px}}
     #checkDialog[open]{display:flex;flex-direction:column;overflow:hidden}#checkDialog>.dialog-head,#checkDialog>.dialog-foot{flex-shrink:0}#checkDialog>.dialog-body{min-height:0;overflow-y:auto}
+    .purchase-price{margin:0;padding:14px 16px 17px;border:1px solid var(--line);border-radius:9px;background:var(--paper);min-width:0}.purchase-price legend{padding:0 6px;font-size:12px;font-weight:600}.discount-line{display:flex;gap:8px}.discount-line input{flex:1;min-width:0}.discount-line select{width:auto;flex:none;padding-left:9px;padding-right:9px}#priceSummary{color:var(--green);font-weight:550}
+    #bookDialog[open]{display:flex;flex-direction:column;overflow:hidden}#bookDialog>form{display:flex;flex-direction:column;min-height:0}#bookDialog .dialog-head,#bookDialog .dialog-foot{flex-shrink:0}#bookDialog .dialog-body{min-height:0;overflow-y:auto}
+    @media(max-width:560px){.purchase-price .form-grid{grid-template-columns:1fr}.purchase-price{padding:12px}}
+    .series-defaults{padding:12px 14px;background:var(--soft);border-radius:8px;font-size:12px}.series-defaults p{margin:0;overflow-wrap:anywhere}.series-defaults .text-btn{padding:7px 0 0;color:var(--green);font-size:12px}.price-calculator summary{cursor:pointer;font-size:12px;color:var(--green)}.price-calculator[open] summary{margin-bottom:12px}
   </style>
 </head>
 <body>
@@ -62,23 +66,32 @@
     <form id="bookForm"><div class="dialog-body">
       <div id="formError" class="form-error" role="alert" hidden></div>
       <div class="form-grid">
-        <div class="field span-2"><label for="isbn">ISBN <span class="hint">optional</span></label><div class="isbn-line"><input id="isbn" name="isbn" type="text" inputmode="text" placeholder="978… or ISBN-10" maxlength="40" autocomplete="off"><button id="lookupButton" class="btn" type="button">Look up</button><button id="scanButton" class="btn" type="button"><svg aria-hidden="true"><use href="#i-scan"/></svg>Scan</button></div><p class="hint">A USB or Bluetooth scanner can type here. Press Enter to look up.</p></div>
+        <div class="field span-2" data-series-detail><label for="isbn">ISBN <span class="hint">optional</span></label><div class="isbn-line"><input id="isbn" name="isbn" type="text" inputmode="text" placeholder="978… or ISBN-10" maxlength="40" autocomplete="off"><button id="lookupButton" class="btn" type="button">Look up</button><button id="scanButton" class="btn" type="button"><svg aria-hidden="true"><use href="#i-scan"/></svg>Scan</button></div><p class="hint">A USB or Bluetooth scanner can type here. Press Enter to look up.</p></div>
         <div id="lookupResult" class="lookup span-2" role="status" hidden></div>
         <div class="field span-2"><label for="series">Series / book title *</label><input id="series" name="series" list="seriesOptions" required maxlength="500" placeholder="Which story is this?"><datalist id="seriesOptions"></datalist></div>
+        <div id="seriesDefaults" class="series-defaults span-2" hidden><p id="seriesDefaultsText" role="status"></p><button id="toggleBookDetails" class="text-btn" type="button" aria-expanded="false">Edit other details</button></div>
         <div class="field"><label for="volume">Volume</label><input id="volume" name="volume" type="number" min="0" step="any" placeholder="e.g. 1 or 4.5"></div>
-        <div class="field"><label for="type">Type *</label><select id="type" name="type" required></select></div>
-        <div class="field"><label for="publisher">Publisher</label><input id="publisher" name="publisher" list="publisherOptions" maxlength="500" placeholder="Choose or enter a publisher"><datalist id="publisherOptions"></datalist></div>
+        <div class="field" data-series-detail><label for="type">Type *</label><select id="type" name="type" required></select></div>
+        <div class="field" data-series-detail><label for="publisher">Publisher</label><input id="publisher" name="publisher" list="publisherOptions" maxlength="500" placeholder="Choose or enter a publisher"><datalist id="publisherOptions"></datalist></div>
         <div class="field"><label for="status">Reading status *</label><select id="status" name="status" required></select></div>
-        <div class="field"><label for="source">Bought from</label><input id="source" name="source" list="sourceOptions" maxlength="500" placeholder="Shop, book fair, or gift"><datalist id="sourceOptions"></datalist></div>
-        <div class="field"><label for="price">Price</label><input id="price" name="price" type="number" min="0" step="any" placeholder="0.00"><p class="hint">Use the same currency as your sheet.</p></div>
-        <div class="field span-2"><label for="date">Acquired on</label><input id="date" name="date" type="date"></div>
-        <div class="field span-2"><label for="note">Notes</label><textarea id="note" name="note" maxlength="2000" placeholder="Special edition, a gift, a good find…"></textarea></div>
-        <label class="check span-2"><input type="checkbox" id="allowDuplicate">Another copy of an ISBN already on my shelf</label>
+        <div class="field" data-series-detail><label for="source">Bought from</label><input id="source" name="source" list="sourceOptions" maxlength="500" placeholder="Shop, book fair, or gift"><datalist id="sourceOptions"></datalist></div>
+        <div class="field"><label for="date">Date bought</label><input id="date" name="date" type="date"></div>
+        <fieldset class="purchase-price span-2"><legend>Purchase price</legend><div class="form-grid">
+          <div class="field span-2"><label for="price">Sale price / amount paid</label><input id="price" name="price" type="number" inputmode="decimal" min="0" step="any" placeholder="0.00"><p class="hint">Use the same currency as your sheet.</p></div>
+          <details id="priceCalculator" class="price-calculator span-2" open><summary>Calculate a discounted price</summary><div class="form-grid">
+          <div class="field"><label for="regularPrice">Regular price <span class="hint">optional</span></label><input id="regularPrice" type="number" inputmode="decimal" min="0" step="any" placeholder="Before discount"></div>
+          <div class="field"><label for="discount">Discount <span class="hint">optional</span></label><div class="discount-line"><input id="discount" type="number" inputmode="decimal" min="0" max="100" step="any" placeholder="0" aria-describedby="discountHint"><select id="discountType" aria-label="Discount type"><option value="percent">% off</option><option value="amount">Amount off</option></select></div><p id="discountHint" class="hint">Enter a percentage from 0 to 100.</p></div>
+          <p class="hint span-2">Regular price and discount are used only for this calculation.</p>
+          </div></details>
+          <p id="priceSummary" class="hint span-2" role="status" hidden></p>
+        </div></fieldset>
+        <div class="field span-2" data-series-detail><label for="note">Notes</label><textarea id="note" name="note" maxlength="2000" placeholder="Special edition, a gift, a good find…"></textarea></div>
+        <label class="check span-2" data-series-detail><input type="checkbox" id="allowDuplicate">Another copy of an ISBN already on my shelf</label>
         <label class="check span-2" id="keepAddingLabel"><input type="checkbox" id="keepAdding"><span id="keepAddingText">Keep adding books with the same type, publisher and shop</span></label>
       </div>
     </div><div class="dialog-foot"><button id="removeButton" class="btn danger" type="button" hidden>Remove book</button><div class="buttons"><button id="cancelBook" class="btn" type="button">Cancel</button><button id="saveButton" class="btn primary" type="submit">Add book</button></div></div></form>
   </dialog>
-  <dialog id="scanDialog" aria-labelledby="scanTitle"><div class="dialog-head"><div><h2 id="scanTitle">Scan a book</h2><p>Use the ISBN barcode, usually on the back cover.</p></div><button id="closeScan" class="close" aria-label="Close scanner"><svg aria-hidden="true"><use href="#i-close"/></svg></button></div><div class="dialog-body"><div id="scannerArea" class="scanner-area"></div><div class="buttons scan-buttons"><button id="startCamera" class="btn primary" type="button">Start camera</button><button id="stopCamera" class="btn" type="button" hidden>Stop camera</button><label class="btn file">Take / choose a photo<input id="barcodePhoto" type="file" accept="image/*" capture="environment" aria-label="Take or choose a barcode photo"></label></div><p id="scanMessage" class="scanner-note" role="status">Photo scanning also works when live camera access is unavailable. Photos stay on your device.</p></div></dialog>
+  <dialog id="scanDialog" aria-labelledby="scanTitle"><div class="dialog-head"><div><h2 id="scanTitle">Scan a book</h2><p>Include the barcode and any printed ISBN above it.</p></div><button id="closeScan" class="close" aria-label="Close scanner"><svg aria-hidden="true"><use href="#i-close"/></svg></button></div><div class="dialog-body"><div id="scannerArea" class="scanner-area"></div><div class="buttons scan-buttons"><label class="btn primary file">Take photo<input id="barcodePhoto" type="file" accept="image/*" capture="environment" aria-label="Take a barcode photo"></label><label class="btn file">Choose photo<input id="chooseBarcodePhoto" type="file" accept="image/*" aria-label="Choose a barcode photo"></label><button id="startCamera" class="btn" type="button">Live camera</button><button id="stopCamera" class="btn" type="button" hidden>Stop camera</button></div><p id="scanMessage" class="scanner-note" role="status">Take or choose a photo, or use the live camera. Photos stay on your device.</p><div id="scanCandidates" class="buttons scan-buttons" hidden></div></div></dialog>
   <dialog id="removeDialog" aria-labelledby="removeTitle"><div class="dialog-head"><div><h2 id="removeTitle">Remove from your shelf?</h2><p>You can restore this book from Recently removed.</p></div><button id="closeRemove" class="close" aria-label="Cancel removal"><svg aria-hidden="true"><use href="#i-close"/></svg></button></div><div class="dialog-body"><p id="removeName" class="remove-name"></p><p class="hint">Its price will be removed from your collection total.</p><div id="removeError" class="form-error" role="alert" hidden></div></div><div class="dialog-foot"><div class="buttons"><button id="cancelRemove" class="btn">Keep book</button><button id="confirmRemove" class="btn danger">Remove book</button></div></div></dialog>
   <dialog id="checkDialog" aria-labelledby="checkTitle">
     <div class="dialog-head"><div><h2 id="checkTitle">Do I own this book?</h2><p>A quick shelf check while you're in the bookstore.</p></div><button id="closeCheck" class="close" aria-label="Close ownership checker"><svg aria-hidden="true"><use href="#i-close"/></svg></button></div>
@@ -96,7 +109,7 @@
     'use strict';
     const FIELDS = ['isbn','series','type','publisher','status','volume','source','price','date','note'];
     const $ = id => document.getElementById(id);
-    const state = { data:null, view:'collection', selectedSeries:null, page:0, pageSize:20, editing:null, busy:false, lookupGeneration:0, scanGeneration:0, scanPurpose:'add', scanner:null, cameraStart:null, cameraRunning:false, pendingSave:null, pendingRemove:null, restoreRequests:new Map(), checkGeneration:0, checkResult:null, isbnBook:null, pendingIsbn:null };
+    const state = { data:null, view:'collection', selectedSeries:null, page:0, pageSize:20, editing:null, busy:false, lookupGeneration:0, scanGeneration:0, scanPurpose:'add', cameraStart:null, cameraStream:null, cameraTimer:null, cameraRunning:false, photoTask:null, pendingSave:null, pendingRemove:null, restoreRequests:new Map(), checkGeneration:0, checkResult:null, isbnBook:null, pendingIsbn:null };
     let toastTimer;
     function icon(name) { const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('aria-hidden','true');const use=document.createElementNS(svg.namespaceURI,'use');use.setAttribute('href','#i-'+name);svg.append(use);return svg; }
     function node(tag, className, text) { const e=document.createElement(tag);if(className)e.className=className;if(text!==undefined)e.textContent=text;return e; }
@@ -194,10 +207,37 @@
     function openSeries(series) {
       state.selectedSeries=series;state.page=0;$('search').value='';$('typeFilter').value='';$('statusFilter').value='';render();$('backSeries').focus();
     }
-    function seriesDefaults() {
-      if(state.selectedSeries===null)return undefined;
-      const owned=state.data.books.filter(b=>seriesKey(b)===state.selectedSeries),defaults={series:state.selectedSeries};
-      ['type','publisher'].forEach(k=>{const values=[...new Set(owned.map(b=>b[k]).filter(Boolean))];if(values.length===1)defaults[k]=values[0];});return defaults;
+    function seriesDefaults(series=state.selectedSeries) {
+      if(series===null)return undefined;
+      const key=String(series).trim().toLocaleLowerCase();
+      const owned=state.data.books.filter(b=>seriesKey(b).toLocaleLowerCase()===key).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||b.row-a.row);
+      if(!owned.length)return undefined;
+      const defaults={series:seriesKey(owned[0])};let edition=owned;
+      ['type','publisher','source'].forEach(k=>{
+        defaults[k]=edition.find(b=>String(b[k]??'').trim())?.[k]||'';
+        if(defaults[k]&&k!=='source')edition=edition.filter(b=>b[k]===defaults[k]);
+      });
+      return defaults;
+    }
+    function syncSeriesSelection() {
+      if(state.editing){renderBookDetails();return;}
+      const defaults=seriesDefaults($('series').value),series=defaults?.series||null;
+      if(series!==state.formSeries){
+        if(!state.formSeries)state.sharedDraft=Object.fromEntries(['type','publisher','source'].map(k=>[k,$(k).value]));
+        ['type','publisher','source'].forEach(k=>$(k).value=series?(defaults[k]||(k==='type'?'Manga (TH)':'')):state.sharedDraft[k]);
+        state.formSeries=series;state.detailsExpanded=false;$('priceCalculator').open=!series||$('regularPrice').value!==''||$('discount').value!=='';
+      }
+      renderBookDetails();
+    }
+    function renderBookDetails() {
+      const quick=!!state.formSeries&&!state.editing;
+      $('bookForm').querySelectorAll('[data-series-detail]').forEach(e=>e.hidden=quick&&!state.detailsExpanded);
+      $('seriesDefaults').hidden=!quick;
+      $('seriesDefaultsText').textContent='From this series: '+[$('type').value,$('publisher').value,$('source').value?'Bought from '+$('source').value:''].filter(Boolean).join(' · ');
+      $('toggleBookDetails').textContent=state.detailsExpanded?'Hide other details':'Edit other details';$('toggleBookDetails').setAttribute('aria-expanded',String(!!state.detailsExpanded));
+      $('bookDialogSubtitle').textContent=state.editing?'A few details, one well-kept shelf.':quick?'Enter the volume, reading status, price and date bought.':'Scan an ISBN or fill in the details yourself.';
+      $('keepAddingText').textContent=quick?'Keep adding volumes to this series':'Keep adding books with the same type, publisher and shop';
+      $('saveButton').textContent=state.editing?'Save changes':quick?'Add volume':'Add book';
     }
     function bookRow(entry) {
       const b=entry.book,row=node('article','book-row');
@@ -282,17 +322,51 @@
     }
     function openBook(book,defaults) {
       if(state.busy||!state.data)return;
-      state.editing=book||null;state.pendingSave=null;state.pendingRemove=null;
-      $('bookForm').reset();$('formError').hidden=true;clearLookup();
+      state.editing=book||null;state.pendingSave=null;state.pendingRemove=null;state.formSeries=null;state.sharedDraft=null;state.detailsExpanded=false;
+      $('bookForm').reset();resetPricing();$('formError').hidden=true;clearLookup();
       ['type','status'].forEach(k=>fillOptions(k,state.data.options[k]));
       FIELDS.forEach(k=>$(k).value=book?.[k]??defaults?.[k]??'');
       if(!book){$('date').value=defaults?.date??state.data.today;$('type').value=defaults?.type||'Manga (TH)';$('status').value=defaults?.status||'Sealed';}
       $('bookDialogTitle').textContent=book?'Book details':'Add to your shelf';$('bookDialogSubtitle').textContent=book?'A few details, one well-kept shelf.':'Scan an ISBN or fill in the details yourself.';
       $('saveButton').textContent=book?'Save changes':'Add book';$('removeButton').hidden=!book;$('keepAddingLabel').hidden=!!book;
-      $('keepAddingText').textContent=state.selectedSeries!==null?'Keep adding volumes to this series':'Keep adding books with the same type, publisher and shop';
+      $('priceCalculator').open=true;syncSeriesSelection();
       $('saveButton').disabled=!!book?.hasFormula;$('removeButton').disabled=!!book?.hasFormula;
       if(book?.hasFormula)errorAt('formError','This row contains a formula. Edit it directly in the sheet to preserve the formula.');
-      $('bookDialog').showModal();(book?$('series'):$('isbn')).focus();
+      $('bookDialog').showModal();(book?$('series'):state.formSeries?$('volume'):$('isbn')).focus();
+    }
+    function resetPricing() {
+      state.calculatedPrice=null;
+      $('regularPrice').setCustomValidity('');$('discount').setCustomValidity('');
+      $('discount').max='100';$('discountHint').textContent='Enter a percentage from 0 to 100.';
+      $('priceSummary').hidden=true;
+    }
+    function calculateSalePrice() {
+      const regular=$('regularPrice'),discount=$('discount'),percent=$('discountType').value==='percent';
+      regular.setCustomValidity('');discount.setCustomValidity('');
+      discount.max=percent?'100':regular.value;
+      $('discountHint').textContent=percent?'Enter a percentage from 0 to 100.':'Enter the amount taken off the regular price.';
+      $('priceSummary').hidden=true;
+      if(regular.value==='') {
+        if(discount.value!=='')discount.setCustomValidity('Enter the regular price to use a discount.');
+        if(state.calculatedPrice!==null)$('price').value='';
+        state.calculatedPrice=null;return;
+      }
+      if(!regular.validity.valid||discount.validity.badInput||discount.validity.rangeUnderflow)return;
+      const base=Number(regular.value),off=discount.value===''?0:Number(discount.value);
+      if(!Number.isFinite(base)||!Number.isFinite(off))return;
+      if((percent&&off>100)||(!percent&&off>base)) {
+        discount.setCustomValidity(percent?'Discount must be between 0 and 100%.':'Discount cannot exceed the regular price.');return;
+      }
+      const sale=percent?base*(1-off/100):base-off,rounded=Math.round((sale+Number.EPSILON*Math.max(1,base))*100)/100;
+      if(!Number.isFinite(rounded)){regular.setCustomValidity('Enter a smaller regular price.');return;}
+      $('price').value=String(rounded);state.calculatedPrice=$('price').value;
+      $('priceSummary').textContent='You save '+number(Math.max(0,base-rounded))+(percent&&off?' ('+number(off)+'% off).':'.');
+      $('priceSummary').hidden=false;
+    }
+    function enterSalePrice() {
+      state.calculatedPrice=null;
+      $('priceSummary').textContent='Sale price entered directly. Change the regular price or discount to recalculate.';
+      $('priceSummary').hidden=$('regularPrice').value===''&&$('discount').value==='';
     }
     function closeBook() { if(state.busy)return;clearLookup();$('bookDialog').close();state.editing=null; }
     async function lookup() {
@@ -309,6 +383,7 @@
           const d=result.details;message=d.title+(d.authors?'\n'+d.authors:'')+'\nSuggested by '+d.source+'. Review the series name and volume before saving.';
           if(!initial.series&&!$('series').value)$('series').value=d.title;
           if(!initial.publisher&&!$('publisher').value)$('publisher').value=d.publisher;
+          syncSeriesSelection();
         }else message='No book details found. The ISBN is ready. Fill in the series, volume and publisher yourself.';
         if(result.warnings?.length)message+='\n'+result.warnings.join(' ');
         if(duplicates.length)message+='\nAlready on your shelf: '+duplicates.map(b=>b.series+(b.volume!==''?' vol. '+b.volume:'')).join(', ')+'.';
@@ -326,10 +401,11 @@
       event.preventDefault();if(state.busy||!$('bookForm').reportValidity())return;
       clearLookup();$('formError').hidden=true;
       const book=Object.fromEntries(FIELDS.map(k=>[k,$(k).value]));
+      if(!state.editing&&state.formSeries)book.series=state.formSeries;
       const content={book,allowDuplicate:$('allowDuplicate').checked,...(state.editing?{row:state.editing.row,token:state.editing.token}:{})};
       const key=JSON.stringify(content);
       if(state.pendingSave?.key!==key)state.pendingSave={key,request:{...content,requestId:requestId()}};
-      const keep=!state.editing&&$('keepAdding').checked,defaults=keep?{...Object.fromEntries(['type','publisher','source','status','date'].map(k=>[k,$(k).value])),...(state.selectedSeries!==null?{series:state.selectedSeries}:{})}:null;
+      const keep=!state.editing&&$('keepAdding').checked,defaults=keep?{...Object.fromEntries(['type','publisher','source','status','date'].map(k=>[k,$(k).value])),...(state.formSeries?{series:state.formSeries}:{})}:null;
       setBusy(true);$('saveButton').textContent='Saving…';
       try {
         const result=await rpc('saveBook',state.pendingSave.request);
@@ -337,7 +413,7 @@
         notify(result.action==='updated'?'Book details saved.':'Added to your shelf.');
         try{await load();if(keep){openBook(null,defaults);$('keepAdding').checked=true;}}catch(e){errorAt('pageError','Your book was saved, but the list could not refresh. Press Refresh to see it.');}
       }catch(error){errorAt('formError',error);}
-      finally{setBusy(false);$('saveButton').textContent=state.editing?'Save changes':'Add book';}
+      finally{setBusy(false);renderBookDetails();}
     }
     function askRemove() {
       if(state.busy||!state.editing)return;
@@ -363,61 +439,170 @@
       if(/^\d{9}[\dX]$/.test(v)){for(let i=0;i<10;i++)sum+=(v[i]==='X'?10:Number(v[i]))*(10-i);if(sum%11)return '';v='978'+v.slice(0,9);sum=0;for(let i=0;i<12;i++)sum+=Number(v[i])*(i%2?3:1);return v+((10-sum%10)%10);}
       if(!/^97[89]\d{10}$/.test(v))return '';for(let i=0;i<13;i++)sum+=Number(v[i])*(i%2?3:1);return sum%10?'':v;
     }
-    function scannerInstance() {
-      if(typeof Html5Qrcode==='undefined')throw new Error('The scanner could not load. Check your connection or enter the ISBN manually.');
-      if(!state.scanner)state.scanner=new Html5Qrcode('scannerArea',{formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13],verbose:false});
-      return state.scanner;
+    const scannerScripts=new Map();
+    function loadScannerScript(url) {
+      if(!scannerScripts.has(url))scannerScripts.set(url,new Promise((resolve,reject)=>{
+        const script=document.createElement('script');script.src=url;
+        const timer=setTimeout(()=>{script.remove();scannerScripts.delete(url);reject(new Error('The photo reader could not load. Check your connection or type the ISBN.'));},20000);
+        script.onload=()=>{clearTimeout(timer);resolve();};script.onerror=()=>{clearTimeout(timer);script.remove();scannerScripts.delete(url);reject(new Error('The photo reader could not load. Check your connection or type the ISBN.'));};document.head.append(script);
+      }));
+      return scannerScripts.get(url);
     }
-    async function stopScanner() {
-      state.scanGeneration++;
-      if(state.cameraStart){try{await state.cameraStart;}catch(e){/* Permission denial already has a visible message. */}}
-      if(state.cameraRunning){try{await state.scanner.stop();}catch(e){/* Track cleanup below as a second stop. */}state.cameraRunning=false;}
-      const video=$('scannerArea').querySelector('video');video?.srcObject?.getTracks().forEach(track=>track.stop());
+    function scanActive(generation) { return generation===state.scanGeneration&&$('scanDialog').open; }
+    function requireScan(generation) { if(!scanActive(generation))throw new DOMException('Scan cancelled','AbortError'); }
+    function stopScanner() {
+      state.scanGeneration++;clearTimeout(state.cameraTimer);state.cameraTimer=null;
+      state.cameraStream?.getTracks().forEach(track=>track.stop());state.cameraStream=null;
+      const video=$('scannerArea').querySelector('video');if(video){video.pause();video.srcObject=null;video.remove();}
+      state.cameraRunning=false;state.cameraStart=null;
+      const task=state.photoTask;state.photoTask=null;
+      task?.cancel();
+      if(task?.worker){void task.worker.terminate().catch(()=>{});task.worker=null;}
       $('startCamera').disabled=false;$('stopCamera').hidden=true;$('startCamera').hidden=false;
+      $('scanCandidates').hidden=true;$('scanCandidates').replaceChildren();
     }
-    async function closeScanner() { await stopScanner();$('scanDialog').close(); }
+    function closeScanner() { stopScanner();$('scanDialog').close(); }
     function openScanner(purpose) {
+      stopScanner();$('scannerArea').replaceChildren();
       state.scanPurpose=purpose;$('scanTitle').textContent=purpose==='check'?'Check a bookstore book':purpose==='link'?'Scan the ISBN for this volume':'Scan a book';
-      $('scanMessage').textContent='Photo scanning also works when live camera access is unavailable. Photos stay on your device.';$('scanDialog').showModal();
+      $('scanMessage').textContent='Take or choose a photo including the barcode and printed ISBN. Photos stay on your device.';$('scanDialog').showModal();
     }
     async function acceptScan(raw,generation) {
-      if(generation!==state.scanGeneration||!$('scanDialog').open)return;
+      if(!scanActive(generation))return;
       const isbn=canonical(raw);
-      if(!isbn){$('scanMessage').textContent='This is not a valid ISBN. Scan the barcode that starts with 978 or 979.';return;}
+      if(!isbn){$('scanMessage').textContent='This barcode is not an ISBN. Take a photo that also includes the printed ISBN.';return;}
       $('scanMessage').textContent='ISBN found: '+isbn;
-      const purpose=state.scanPurpose;state.scanGeneration++;await closeScanner();
+      const purpose=state.scanPurpose;closeScanner();
       if(purpose==='check'){if(!$('checkDialog').open)return;$('checkIsbn').value=isbn;await checkBook();}
       else if(purpose==='link'){if(!$('isbnDialog').open)return;$('linkIsbn').value=isbn;$('isbnError').hidden=true;$('saveIsbnButton').focus();}
       else{if(!$('bookDialog').open)return;$('isbn').value=isbn;clearLookup();await lookup();}
     }
+    function reviewScan(isbns,generation,printed=false) {
+      requireScan(generation);const choices=$('scanCandidates');choices.replaceChildren();choices.hidden=false;
+      $('scanMessage').textContent=printed?'Printed ISBN found. Check these digits against the cover, then choose Use ISBN.':'Several ISBNs found. Choose the one for this book.';
+      isbns.forEach(isbn=>{const button=node('button','btn primary','Use ISBN '+isbn);button.type='button';button.addEventListener('click',()=>void acceptScan(isbn,generation));choices.append(button);});
+    }
+    function photoCanvas(image,maxSide=2200) {
+      const width=image.naturalWidth||image.videoWidth||image.width,height=image.naturalHeight||image.videoHeight||image.height;
+      const scale=Math.min(1,maxSide/Math.max(width,height)),canvas=document.createElement('canvas');
+      canvas.width=Math.max(1,Math.round(width*scale));canvas.height=Math.max(1,Math.round(height*scale));
+      canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);return canvas;
+    }
+    async function readBarcodes(canvas,generation) {
+      if(typeof ZXingWASM==='undefined')await loadScannerScript('https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.5/dist/iife/reader/index.js');
+      requireScan(generation);
+      return ZXingWASM.readBarcodes(canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height),{formats:['EAN13'],tryHarder:true,tryRotate:true,tryInvert:true,maxNumberOfSymbols:8});
+    }
+    function printedIsbns(text) {
+      const normalized=String(text).replace(/[\u2010-\u2015\u2212]/g,'-'),found=new Set();
+      // Keep separate OCR lines separate and only accept complete, checksum-valid numbers.
+      for(const line of normalized.split(/\r?\n/)){
+        for(const match of line.matchAll(/\b97[89](?:[ \t-]*\d){10}\b/g)){
+          const isbn=canonical(match[0]);if(isbn)found.add(isbn);
+        }
+        for(const match of line.matchAll(/\bISBN(?:-10)?[ \t:]*((?:\d[ \t-]*){9}[\dX])\b/gi)){
+          const isbn=canonical(match[1]);if(isbn)found.add(isbn);
+        }
+      }
+      return [...found];
+    }
+    function photoStep(promise,task) {
+      return Promise.race([promise,task.cancelled.then(()=>{throw new DOMException('Scan cancelled','AbortError');})]);
+    }
+    async function readPrintedIsbns(canvas,generation,task) {
+      $('scanMessage').textContent='Looking for the printed ISBN… The first text scan may take a moment.';
+      if(typeof Tesseract==='undefined')await photoStep(loadScannerScript('https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/tesseract.min.js'),task);
+      requireScan(generation);
+      const worker=await photoStep(Tesseract.createWorker('eng',1,{workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/worker.min.js',corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@6.0.0',langPath:'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int'}).then(worker=>{
+        if(!scanActive(generation)){void worker.terminate().catch(()=>{});throw new DOMException('Scan cancelled','AbortError');}
+        task.worker=worker;return worker;
+      }),task);
+      try{
+        requireScan(generation);await photoStep(worker.setParameters({tessedit_pageseg_mode:Tesseract.PSM.SPARSE_TEXT}),task);
+        // Tesseract consumes the same oriented, bounded canvas as the barcode reader.
+        const result=await photoStep(worker.recognize(canvas),task);requireScan(generation);
+        const found=printedIsbns(result.data.text);if(found.length)return found;
+        // Small text beside decorative barcodes can be missed in a whole-cover layout.
+        // Overlapping, enlarged regions preserve context without exceeding phone canvas limits.
+        for(const [left,top] of [[0,0],[.35,0],[0,.35],[.35,.35]]){
+          requireScan(generation);const region=document.createElement('canvas'),width=canvas.width*.65,height=canvas.height*.65,scale=2200/Math.max(width,height);
+          region.width=Math.round(width*scale);region.height=Math.round(height*scale);
+          const context=region.getContext('2d');context.drawImage(canvas,left*canvas.width,top*canvas.height,width,height,0,0,region.width,region.height);
+          try{
+            const result=await photoStep(worker.recognize(region),task);requireScan(generation);
+            const found=printedIsbns(result.data.text);if(found.length)return found;
+          }finally{region.width=region.height=1;}
+        }
+        return [];
+      }finally{if(task.worker===worker){task.worker=null;await worker.terminate();}}
+    }
     async function startCamera() {
+      if(state.cameraStart||state.cameraRunning)return;stopScanner();$('scannerArea').replaceChildren();
+      const generation=state.scanGeneration;
+      if(!navigator.mediaDevices?.getUserMedia){$('scanMessage').textContent='Live camera access is unavailable here. Use Take photo or Choose photo.';return;}
       $('scanMessage').textContent='Allow camera access, then hold the ISBN barcode steady.';$('startCamera').disabled=true;
-      const generation=++state.scanGeneration;
+      // Request permission directly from the button gesture, before any library loading.
+      let pending,stream;
       try {
-        const scanner=scannerInstance();
-        const pending=scanner.start({facingMode:'environment'},{fps:8,qrbox:(w,h)=>({width:Math.min(320,Math.floor(w*.85)),height:Math.min(150,Math.floor(h*.6))})},raw=>{if(state.cameraRunning)void acceptScan(raw,generation);},()=>{});
-        state.cameraStart=pending;await pending;state.cameraRunning=true;state.cameraStart=null;
-        if(generation!==state.scanGeneration||!$('scanDialog').open){await stopScanner();return;}
-        $('startCamera').hidden=true;$('stopCamera').hidden=false;$('scanMessage').textContent='Scan the long barcode that starts with 978 or 979.';
-      }catch(error){state.cameraStart=null;state.cameraRunning=false;if(generation===state.scanGeneration)$('scanMessage').textContent='Live camera access is unavailable. Use Take / choose a photo, or type the ISBN. Open the app in Safari or Chrome if you are in an in-app browser.';}
-      finally{$('startCamera').disabled=false;}
+        pending=navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});state.cameraStart=pending;
+        stream=await pending;if(!scanActive(generation)){stream.getTracks().forEach(track=>track.stop());return;}
+        state.cameraStream=stream;const video=node('video');video.muted=true;video.autoplay=true;video.playsInline=true;video.setAttribute('playsinline','');video.srcObject=stream;video.style.cssText='display:block;width:100%;max-height:45dvh;object-fit:contain';$('scannerArea').replaceChildren(video);
+        let playTimer;
+        try{await Promise.race([video.play(),new Promise((_,reject)=>{playTimer=setTimeout(()=>reject(new DOMException('Camera video did not start','TimeoutError')),8000);})]);}
+        finally{clearTimeout(playTimer);}
+        requireScan(generation);state.cameraRunning=true;
+        $('startCamera').hidden=true;$('stopCamera').hidden=false;$('scanMessage').textContent='Hold the whole barcode steady. For a shop barcode, use Take photo and include the printed ISBN.';
+        const frame=async()=>{
+          if(!scanActive(generation)||!state.cameraRunning)return;
+          try{
+            if(video.readyState>=2){const canvas=photoCanvas(video,1600);let results;
+              try{results=await readBarcodes(canvas,generation);}finally{canvas.width=canvas.height=1;}
+              if(!scanActive(generation))return;
+              const isbns=[...new Set(results.map(result=>canonical(result.text)).filter(Boolean))];
+              if(isbns.length===1){await acceptScan(isbns[0],generation);return;}
+              if(isbns.length>1){reviewScan(isbns,generation);return;}
+              if(results.length)$('scanMessage').textContent='This barcode is not an ISBN. Use Take photo and include the printed ISBN above it.';
+            }
+          }catch(error){if(scanActive(generation)){stopScanner();$('scanMessage').textContent=error.message||'The camera reader is unavailable. Use Take photo or type the ISBN.';}return;}
+          if(scanActive(generation))state.cameraTimer=setTimeout(frame,250);
+        };void frame();
+      }catch(error){stream?.getTracks().forEach(track=>track.stop());if(scanActive(generation)){stopScanner();$('scanMessage').textContent=error.name==='NotAllowedError'?'Live camera access was blocked by the browser or this embedded page. Use Take photo or Choose photo.':'The live camera could not start. Use Take photo or Choose photo, or open the app in Safari.';}}
+      finally{if(state.cameraStart===pending)state.cameraStart=null;if(scanActive(generation))$('startCamera').disabled=false;}
     }
     async function scanPhoto(event) {
       const file=event.target.files[0];event.target.value='';if(!file)return;
-      await stopScanner();const generation=++state.scanGeneration;$('scanMessage').textContent='Reading the barcode in your photo…';
-      try{const raw=await scannerInstance().scanFile(file,true);await acceptScan(raw,generation);}
-      catch(error){if(generation===state.scanGeneration)$('scanMessage').textContent='No readable ISBN barcode found. Try a sharp close-up with the whole 978/979 barcode visible, or type the ISBN.';}
+      stopScanner();const generation=state.scanGeneration,task={worker:null};task.cancelled=new Promise(resolve=>{task.cancel=resolve;});state.photoTask=task;
+      $('scannerArea').replaceChildren();$('scanMessage').textContent='Reading the barcode in your photo…';
+      const url=URL.createObjectURL(file),image=new Image();let canvas;
+      try{
+        image.src=url;await photoStep(image.decode(),task);requireScan(generation);canvas=photoCanvas(image);
+        image.removeAttribute('src');URL.revokeObjectURL(url);
+        const preview=photoCanvas(canvas,650);preview.style.cssText='display:block;width:100%;max-height:38dvh;object-fit:contain';$('scannerArea').replaceChildren(preview);
+        const results=await readBarcodes(canvas,generation);requireScan(generation);
+        const isbns=[...new Set(results.map(result=>canonical(result.text)).filter(Boolean))];
+        if(isbns.length===1){await acceptScan(isbns[0],generation);return;}
+        if(isbns.length>1){reviewScan(isbns,generation);return;}
+        const printed=await readPrintedIsbns(canvas,generation,task);requireScan(generation);
+        if(printed.length){reviewScan(printed,generation,true);return;}
+        $('scanMessage').textContent=results.length?'The barcode is a shop code, and the printed ISBN could not be read. Retake a closer photo including the ISBN above the barcode, or type it.':'Could not read an ISBN from this photo. Retake a closer, sharp photo including the barcode and printed ISBN, or type it.';
+      }catch(error){if(scanActive(generation))$('scanMessage').textContent=error.name==='EncodingError'?'This photo format could not be opened. Choose a JPEG or PNG photo, or type the ISBN.':error.message||'The photo reader could not finish. Try again or type the ISBN.';}
+      finally{URL.revokeObjectURL(url);image.removeAttribute('src');if(canvas)canvas.width=canvas.height=1;if(state.photoTask===task)state.photoTask=null;}
     }
     $('addButton').addEventListener('click',()=>openBook(null,seriesDefaults()));$('backSeries').addEventListener('click',()=>{state.selectedSeries=null;state.page=0;$('search').value='';$('typeFilter').value='';$('statusFilter').value='';render();});$('closeBook').addEventListener('click',closeBook);$('cancelBook').addEventListener('click',closeBook);
     $('bookDialog').addEventListener('cancel',e=>{e.preventDefault();closeBook();});$('bookForm').addEventListener('submit',save);
+    ['input','change'].forEach(event=>$('series').addEventListener(event,syncSeriesSelection));
+    $('toggleBookDetails').addEventListener('click',()=>{if(state.busy)return;state.detailsExpanded=!state.detailsExpanded;renderBookDetails();});
+    ['type','publisher','source'].forEach(id=>$(id).addEventListener(id==='type'?'change':'input',renderBookDetails));
+    ['regularPrice','discount'].forEach(id=>$(id).addEventListener('input',calculateSalePrice));$('discountType').addEventListener('change',calculateSalePrice);$('price').addEventListener('input',enterSalePrice);
     $('lookupButton').addEventListener('click',lookup);$('isbn').addEventListener('input',clearLookup);$('isbn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();void lookup();}});
     $('scanButton').addEventListener('click',()=>openScanner('add'));
     $('checkBookButton').addEventListener('click',openCheck);$('checkForm').addEventListener('submit',checkBook);$('checkIsbn').addEventListener('input',invalidateCheck);$('checkSearch').addEventListener('input',renderManualCheck);
     ['closeCheck','doneCheck'].forEach(id=>$(id).addEventListener('click',closeCheck));$('checkDialog').addEventListener('cancel',e=>{e.preventDefault();closeCheck();});
     ['checkScanButton','scanNextBook'].forEach(id=>$(id).addEventListener('click',()=>openScanner('check')));
     $('isbnForm').addEventListener('submit',saveIsbn);$('linkScanButton').addEventListener('click',()=>openScanner('link'));['closeIsbn','cancelIsbn'].forEach(id=>$(id).addEventListener('click',closeIsbn));$('isbnDialog').addEventListener('cancel',e=>{e.preventDefault();closeIsbn();});
-    $('startCamera').addEventListener('click',startCamera);$('stopCamera').addEventListener('click',()=>void stopScanner());$('closeScan').addEventListener('click',()=>void closeScanner());$('scanDialog').addEventListener('cancel',e=>{e.preventDefault();void closeScanner();});$('barcodePhoto').addEventListener('change',scanPhoto);
-    document.addEventListener('visibilitychange',()=>{if(document.hidden)void stopScanner();});window.addEventListener('pagehide',()=>{const video=$('scannerArea').querySelector('video');video?.srcObject?.getTracks().forEach(track=>track.stop());});
+    $('startCamera').addEventListener('click',()=>void startCamera());$('stopCamera').addEventListener('click',()=>{stopScanner();$('scanMessage').textContent='Camera stopped. Take or choose a photo, or restart the live camera.';});$('closeScan').addEventListener('click',closeScanner);$('scanDialog').addEventListener('cancel',e=>{e.preventDefault();closeScanner();});['barcodePhoto','chooseBarcodePhoto'].forEach(id=>$(id).addEventListener('change',scanPhoto));
+    // iOS may hide the page while its native camera/photo picker is open. Preserve photo scans.
+    document.addEventListener('visibilitychange',()=>{if(document.hidden&&(state.cameraRunning||state.cameraStart)){stopScanner();$('scanMessage').textContent='Camera paused. Restart it or take a photo to continue.';}});window.addEventListener('pagehide',stopScanner);
     $('removeButton').addEventListener('click',askRemove);$('confirmRemove').addEventListener('click',remove);['closeRemove','cancelRemove'].forEach(id=>$(id).addEventListener('click',()=>{if(!state.busy)$('removeDialog').close();}));$('removeDialog').addEventListener('cancel',e=>{if(state.busy)e.preventDefault();});
     $('collectionTab').addEventListener('click',()=>changeView('collection'));$('trashTab').addEventListener('click',()=>changeView('trash'));
     ['search','typeFilter','statusFilter'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',()=>{state.page=0;render();}));
