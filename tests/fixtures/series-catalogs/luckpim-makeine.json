@@ -1,0 +1,72 @@
+{
+  "status": 200,
+  "message": "success",
+  "data": {
+    "list": [
+      {
+        "title": "[PRE-ORDER] [เซตพิเศษ] รักครั้งนี้มีคนนกเยอะไปมั้ย! @COMIC 05 (ปกพิเศษ+โปสการ์ด)",
+        "slug": "2848",
+        "stock": 40,
+        "price": 225.0,
+        "price_sale": 202.5,
+        "pre_order": "T",
+        "main_category": "มังงะ/การ์ตูน"
+      },
+      {
+        "title": "[PRE-ORDER] รักครั้งนี้มีคนนกเยอะไปมั้ย! @COMIC 05",
+        "slug": "2847",
+        "stock": 40,
+        "price": 145.0,
+        "price_sale": 124.0,
+        "pre_order": "T",
+        "main_category": "มังงะ/การ์ตูน"
+      },
+      {
+        "title": "รักครั้งนี้มีคนนกเยอะไปมั้ย! @comic 04 แถมฟรี โปสการ์ด",
+        "slug": "2693",
+        "stock": 24,
+        "price": 145.0,
+        "price_sale": 124.0,
+        "pre_order": "F",
+        "main_category": "มังงะ/การ์ตูน"
+      },
+      {
+        "title": "[เซตพิเศษ] รักครั้งนี้มีคนนกเยอะไปมั้ย! @comic 03 [ปกพิเศษ+โปสการ์ด 2 ใบ+เชกิ การ์ด]",
+        "slug": "2377",
+        "stock": 13,
+        "price": 225.0,
+        "price_sale": null,
+        "pre_order": "F",
+        "main_category": "มังงะ/การ์ตูน"
+      },
+      {
+        "title": "รักครั้งนี้มีคนนกเยอะไปมั้ย! @comic 03 แถมฟรี โปสการ์ด",
+        "slug": "2376",
+        "stock": 0,
+        "price": 145.0,
+        "price_sale": 130.5,
+        "pre_order": "F",
+        "main_category": "มังงะ/การ์ตูน"
+      },
+      {
+        "title": "รักครั้งนี้มีคนนกเยอะไปมั้ย! @comic  02 แถมฟรี โปสการ์ด",
+        "slug": "2051",
+        "stock": 86,
+        "price": 135.0,
+        "price_sale": 121.5,
+        "pre_order": "F",
+        "main_category": "มังงะ/การ์ตูน"
+      },
+      {
+        "title": "รักครั้งนี้มีคนนกเยอะไปมั้ย! @comic เล่ม 1 แถมฟรี โปสการ์ด",
+        "slug": "736",
+        "stock": 17,
+        "price": 135.0,
+        "price_sale": 121.5,
+        "pre_order": "F",
+        "main_category": "มังงะ/การ์ตูน"
+      }
+    ],
+    "total": 7
+  }
+}

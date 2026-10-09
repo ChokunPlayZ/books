@@ -1,0 +1,15 @@
+services:
+  books:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      BOOKS_PASSWORD: "${BOOKS_PASSWORD:?Set BOOKS_PASSWORD in .env before starting}"
+      BOOKS_TIME_ZONE: "${BOOKS_TIME_ZONE:-Asia/Bangkok}"
+      BOOKS_SECURE_COOKIES: "${BOOKS_SECURE_COOKIES:-true}"
+    volumes:
+      - books-data:/app/data
+
+volumes:
+  books-data:

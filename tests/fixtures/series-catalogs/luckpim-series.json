@@ -1,0 +1,72 @@
+{
+  "status": 200,
+  "message": "success",
+  "data": {
+    "list": [
+      {
+        "title": "เกมสารภาพรักนี้น่ะ เรามาจบมันกันเถอะ 06",
+        "slug": "2580",
+        "stock": 1,
+        "price": 145.0,
+        "price_sale": 124.0,
+        "pre_order": "F",
+        "main_category": "มังงะ/การ์ตูน"
+      },
+      {
+        "title": "[เซตพิเศษ] เกมสารภาพรักนี้น่ะ เรามาจบมันกันเถอะ 5 [ปกพิเศษ+โปสการ์ด]",
+        "slug": "2370",
+        "stock": 0,
+        "price": 185.0,
+        "price_sale": null,
+        "pre_order": "F",
+        "main_category": "มังงะ/การ์ตูน"
+      },
+      {
+        "title": "เกมสารภาพรักนี้น่ะ เรามาจบมันกันเถอะ 05",
+        "slug": "2369",
+        "stock": 11,
+        "price": 145.0,
+        "price_sale": 130.5,
+        "pre_order": "F",
+        "main_category": "มังงะ/การ์ตูน"
+      },
+      {
+        "title": "เกมสารภาพรักนี้น่ะ เรามาจบมันกันเถอะ 04",
+        "slug": "2197",
+        "stock": 6,
+        "price": 145.0,
+        "price_sale": 130.5,
+        "pre_order": "F",
+        "main_category": "มังงะ/การ์ตูน"
+      },
+      {
+        "title": "เกมสารภาพรักนี้น่ะ เรามาจบมันกันเถอะ 03",
+        "slug": "1786",
+        "stock": 38,
+        "price": 135.0,
+        "price_sale": 121.5,
+        "pre_order": "F",
+        "main_category": "มังงะ/การ์ตูน"
+      },
+      {
+        "title": "เกมสารภาพรักนี้น่ะ เรามาจบมันกันเถอะ 02",
+        "slug": "1785",
+        "stock": 39,
+        "price": 135.0,
+        "price_sale": 121.5,
+        "pre_order": "F",
+        "main_category": "มังงะ/การ์ตูน"
+      },
+      {
+        "title": "เกมสารภาพรักนี้น่ะ เรามาจบมันกันเถอะ 01",
+        "slug": "1773",
+        "stock": 11,
+        "price": 135.0,
+        "price_sale": 121.5,
+        "pre_order": "F",
+        "main_category": "มังงะ/การ์ตูน"
+      }
+    ],
+    "total": 7
+  }
+}

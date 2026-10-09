@@ -2,7 +2,7 @@
 const BOOK_APP = Object.freeze({
   spreadsheetId: '1xtA2hqEGZPyvQS0ZC2NI30lJLJAugvFHPh9jQOyGhgg',
   sheetName: 'Sheet1', tableName: 'Table1',
-  trashName: '_BookAppTrash', operationsName: '_BookAppOperations', releasesName: '_BookAppReleases',
+  trashName: '_BookAppTrash', operationsName: '_BookAppOperations', releasesName: '_BookAppReleases', seriesCatalogsName: '_BookAppSeriesCatalogs',
   headers: ['ISBN', 'Series', 'Type', 'Publisher', 'Status', 'Volume', 'Source', 'Price', 'Date', 'Note'],
   fields: ['isbn', 'series', 'type', 'publisher', 'status', 'volume', 'source', 'price', 'date', 'note'],
   statuses: ['Sealed', 'Un Sealed', 'Reading', 'Read'],
@@ -10,6 +10,7 @@ const BOOK_APP = Object.freeze({
 });
 const TRASH_HEADERS = ['Trash ID', 'Removed At', 'State', 'Original Row', 'Book JSON'];
 const RELEASE_HEADERS = ['Release ID', 'State', 'Book JSON', 'Updated At'];
+const SERIES_CATALOG_HEADERS = ['Series', 'Publisher ID', 'Type', 'Catalog URL', 'Catalog Title'];
 const PUBLISHERS = Object.freeze([
   { id: 'phoenix', name: 'Phoenix Next', url: 'https://www.phoenixnext.com/new-release.html', scope: 'Latest 72 catalog listings' },
   { id: 'firstpage', name: 'First Page Pro', url: 'https://www.firstpagepro.com/showroom/new', scope: 'Latest 40 catalog listings' },
@@ -232,6 +233,183 @@ function getPublisherReleases(request) {
   }
 }
 
+/** A series comparison reads its category, independently of the recent-release feed. */
+function getSeriesCatalog(request) {
+  const spec = seriesCatalogRequest_(request), cache = CacheService.getScriptCache();
+  const saved = savedSeriesCatalog_(spec), key = 'series:v1:' + spec.publisherId + ':' + digest_(spec.series + '\n' + spec.type + '\n' + (saved ? saved.url : ''));
+  const previous = cachedJson_(cache, key);
+  if (previous && !spec.refresh && Date.now() - Date.parse(previous.checkedAt) < 3600000) return previous;
+  let category = saved;
+  try {
+    if (!category && spec.publisherId !== 'luckpim') {
+      const directory = getSeriesCategories({ publisherId: spec.publisherId });
+      category = matchSeriesCategory_(spec.series, directory.categories, spec.type);
+      if (!category) return { publisherId: spec.publisherId, series: spec.series, type: spec.type, items: [], checkedAt: '', complete: false, stale: false,
+        needsSelection: true, categories: directory.categories, directoryUrl: directory.url, error: directory.error || '' };
+    }
+    if (!category) category = { title: spec.series, url: 'https://www.luckpim.com/search_result?k=' + encodeURIComponent(spec.series) };
+    const catalog = spec.publisherId === 'luckpim' ? fetchLuckpimSeries_(category.url) : fetchSeriesCategory_(spec.publisherId, category.url);
+    if (catalog.title) category = { title: catalog.title, url: category.url };
+    catalog.items.forEach(function (item) {
+      item.catalogSeries = spec.series;
+      item.catalogVariant = catalogSeriesKey_(item.series) !== catalogSeriesKey_(category.title) && catalogSeriesKey_(item.series) !== catalogSeriesKey_(spec.series);
+    });
+    const result = Object.assign(catalog, { publisherId: spec.publisherId, series: spec.series, type: spec.type, title: category.title, url: category.url,
+      checkedAt: new Date().toISOString(), stale: false, needsSelection: !!catalog.search && !catalog.items.length,
+      error: catalog.search && !catalog.items.length ? 'No books matched this search. Check the publisher’s series title.' : catalog.complete ? '' : 'This category check is incomplete. Open the publisher category to check the remaining books.' });
+    cacheJson_(cache, key, result);
+    return result;
+  } catch (error) {
+    if (previous) return Object.assign({}, previous, { stale: true, error: 'Could not refresh this series catalog. Showing the previous check.' });
+    return { publisherId: spec.publisherId, series: spec.series, type: spec.type, items: [], title: category ? category.title : '', url: category ? category.url : '',
+      checkedAt: '', complete: false, stale: true, needsSelection: false, error: 'Could not check this series catalog. Try Refresh catalog or choose its category.' };
+  }
+}
+
+function seriesCatalogRequest_(request) {
+  request = request || {};
+  const series = String(request.series || '').trim(), publisher = PUBLISHERS.find(function (p) { return p.id === request.publisherId; });
+  if (!series || series.length > 500 || !publisher) throw new Error('Choose a series and a supported publisher.');
+  const type = String(request.type || '').trim();
+  if (type.length > 100) throw new Error('Choose a valid book type.');
+  return { series: series, publisherId: publisher.id, type: type, refresh: request.refresh === true };
+}
+
+function cachedJson_(cache, key) { try { const json = cache.get(key); return json ? JSON.parse(json) : null; } catch (error) { return null; } }
+function cacheJson_(cache, key, value) {
+  const json = JSON.stringify(value);
+  if (json.length * 3 < 95000) cache.put(key, json, 21600);
+}
+
+function safeSeriesCatalogUrl_(raw, id) {
+  const url = decodeHtml_(String(raw || '').trim());
+  if (id === 'phoenix' && /^https:\/\/www\.phoenixnext\.com\/book-series\/[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*\.html$/.test(url)) return url;
+  const first = id === 'firstpage' && /^https:\/\/www\.firstpagepro\.com\/category\/(\d+)(?:\/[^?#]*)?\/?$/.exec(url);
+  if (first) return 'https://www.firstpagepro.com/category/' + first[1];
+  if (id === 'luckpim' && /^https:\/\/www\.luckpim\.com\/search_result\?k=[^&#]+$/.test(url)) {
+    try { const keyword = decodeURIComponent(url.split('?k=')[1]).trim(); return keyword && keyword.length <= 500 ? 'https://www.luckpim.com/search_result?k=' + encodeURIComponent(keyword) : ''; } catch (error) {}
+  }
+  return '';
+}
+
+function savedSeriesCatalog_(spec) {
+  const sheet = context_().ss.getSheetByName(BOOK_APP.seriesCatalogsName);
+  if (!sheet) return null;
+  assertHeaders_(sheet, SERIES_CATALOG_HEADERS);
+  const rows = sheet.getLastRow() < 2 ? [] : sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues();
+  const row = rows.find(function (r) { return catalogSeriesKey_(r[0]) === catalogSeriesKey_(spec.series) && r[1] === spec.publisherId && r[2] === spec.type; });
+  const url = row && safeSeriesCatalogUrl_(row[3], spec.publisherId);
+  return url ? { url: url, title: String(row[4] || spec.series) } : null;
+}
+
+/** Save an explicitly selected category; do not change the collection's book columns. */
+function setSeriesCatalog(request) {
+  const spec = seriesCatalogRequest_(request), url = safeSeriesCatalogUrl_(request.url, spec.publisherId);
+  if (!url) throw new Error('Use this publisher’s series category URL.');
+  return withLock_(function () {
+    const c = context_();
+    let sheet = c.ss.getSheetByName(BOOK_APP.seriesCatalogsName);
+    if (!sheet) { sheet = c.ss.insertSheet(BOOK_APP.seriesCatalogsName); sheet.getRange(1, 1, 1, 5).setValues([SERIES_CATALOG_HEADERS]); sheet.setFrozenRows(1); sheet.hideSheet(); }
+    assertHeaders_(sheet, SERIES_CATALOG_HEADERS);
+    const rows = sheet.getLastRow() < 2 ? [] : sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues();
+    const index = rows.findIndex(function (r) { return catalogSeriesKey_(r[0]) === catalogSeriesKey_(spec.series) && r[1] === spec.publisherId && r[2] === spec.type; });
+    // Explicit string values protect titles beginning with a formula character.
+    const row = index < 0 ? sheet.getLastRow() + 1 : index + 2, title = String(request.title || spec.series).slice(0, 500);
+    Sheets.Spreadsheets.batchUpdate({ requests: [{ updateCells: { start: { sheetId: sheet.getSheetId(), rowIndex: row - 1, columnIndex: 0 },
+      rows: [{ values: [spec.series, spec.publisherId, spec.type, url, title].map(function (value) { return { userEnteredValue: { stringValue: value } }; }) }], fields: 'userEnteredValue' } }] }, BOOK_APP.spreadsheetId);
+    return { series: spec.series, publisherId: spec.publisherId, type: spec.type, url: url, title: title };
+  });
+}
+
+function getSeriesCategories(request) {
+  const id = request && request.publisherId;
+  if (!PUBLISHERS.some(function (p) { return p.id === id; }) || id === 'luckpim') throw new Error('Choose Phoenix Next or First Page Pro for series categories.');
+  const cache = CacheService.getScriptCache(), key = 'series-directory:v1:' + id, previous = cachedJson_(cache, key);
+  if (previous && !request.refresh && Date.now() - Date.parse(previous.checkedAt) < 3600000) return previous;
+  const url = id === 'phoenix' ? 'https://www.phoenixnext.com/book-series.html' : 'https://www.firstpagepro.com/';
+  try {
+    const categories = parseSeriesCategories_(id, fetchText_(url));
+    if (!categories.length) throw new Error('Category directory unavailable');
+    const result = { publisherId: id, url: url, categories: categories, checkedAt: new Date().toISOString(), stale: false, error: '' };
+    cacheJson_(cache, key, result);return result;
+  } catch (error) {
+    if (previous) return Object.assign({}, previous, { stale: true, error: 'Category directory could not refresh. Showing previously found categories.' });
+    throw new Error('Could not load this publisher’s series categories. Paste its series category URL or try again.');
+  }
+}
+
+function catalogSeriesKey_(text) {
+  return String(text || '').normalize('NFKC').toLocaleLowerCase().replace(/^(?:\(LN\)|\(มังงะ\)|\(นิยาย\)|นิยาย|การ์ตูน)\s*/i, '').replace(/@comic/gi, '').replace(/(?:\s*\(\d+\)\s*รายการ|\s*\[\d+\])\s*$/, '').replace(/[^\p{L}\p{N}\p{M}]/gu, '');
+}
+function parseSeriesCategories_(id, html) {
+  const categories = new Map(), anchors = html.match(/<a\b[^>]*>[\s\S]*?<\/a>/gi) || [];
+  anchors.forEach(function (anchor) {
+    const url = safeSeriesCatalogUrl_(attr_(anchor.slice(0, anchor.indexOf('>') + 1), 'href'), id);
+    const title = textHtml_(anchor.slice(anchor.indexOf('>') + 1, anchor.lastIndexOf('</a>'))).replace(/(?:\s*\(\d+\)\s*รายการ|\s*\[\d+\])\s*$/, '').trim();
+    const rawUrl = attr_(anchor.slice(0, anchor.indexOf('>') + 1), 'href');
+    const type = id === 'firstpage' ? /\/light-novel/i.test(rawUrl) ? 'LN (TH)' : /\/manga/i.test(rawUrl) ? 'Manga (TH)' : '' : '';
+    if (url && title && !categories.has(url)) categories.set(url, { title: title, url: url, type: type });
+  });
+  return Array.from(categories.values()).sort(function (a, b) { return a.title.localeCompare(b.title); });
+}
+function matchSeriesCategory_(series, categories, type) {
+  categories = categories.filter(function (category) { return !type || !category.type || category.type.split(' (')[0] === type.split(' (')[0]; });
+  const key = catalogSeriesKey_(series);
+  const exact = categories.filter(function (c) { return catalogSeriesKey_(c.title) === key; });
+  if (exact.length === 1) return exact[0];
+  if (exact.length > 1) return null; // Several formats can share the same title.
+  const slug = categories.filter(function (c) { return catalogSeriesKey_(c.url.split('/').pop().replace(/\.html$/, '')) === key; });
+  return slug.length === 1 ? slug[0] : null;
+}
+
+function catalogTotal_(id, html) {
+  const pattern = id === 'phoenix' ? /<span\b[^>]*class=["'][^"']*\btoolbar-number\b[^"']*["'][^>]*>\s*([\d,]+)\s*<\/span>/i : /<span\b[^>]*class=["'][^"']*\btsk-all\b[^"']*["'][^>]*>\s*([\d,]+)\s*<\/span>/i;
+  const match = pattern.exec(html);return match ? Number(match[1].replace(/,/g, '')) : null;
+}
+function fetchSeriesCategory_(id, url) {
+  const items = new Map();let total = null, complete = false, pages = 0, title = '';
+  for (let page = 1; page <= 20; page++) {
+    const html = fetchText_(url + (page > 1 ? (id === 'phoenix' ? '?p=' : '?tskp=') + page : ''));
+    if (page === 1) { total = catalogTotal_(id, html); const heading = /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(html) || /<title\b[^>]*>([^<]*)<\/title>/i.exec(html);title = heading ? textHtml_(heading[1]) : ''; }
+    const parsed = parseCatalog_(id, html), before = items.size;
+    parsed.forEach(function (item) { items.set(item.id, item); });pages++;
+    if (total !== null && items.size === total) { complete = true;break; }
+    if (!parsed.length) { if (page === 1 && total !== 0) throw new Error('Category markup changed'); break; }
+    if (items.size === before) break; // A repeated page must not masquerade as a complete catalog.
+    const next = (html.match(/<a\b[^>]*>/gi) || []).some(function (anchor) {
+      const href = attr_(anchor, 'href'), param = id === 'phoenix' ? 'p' : 'tskp';
+      return href.indexOf(url) === 0 && new RegExp('[?&]' + param + '=' + (page + 1) + '(?:&|$)').test(href);
+    });
+    if (!next && (total === null || items.size >= total)) break;
+  }
+  return { items: Array.from(items.values()), total: total, pages: pages, complete: complete, title: title };
+}
+
+function fetchLuckpimSeries_(url) {
+  const keyword = decodeURIComponent(url.split('?k=')[1]), session = luckpimSession_('https://www.luckpim.com/');
+  const result = UrlFetchApp.fetch('https://www.luckpim.com/get/search_pin/key?page=1&limit=-1&keyword=' + encodeURIComponent(keyword), { muteHttpExceptions: true, headers: session });
+  if (result.getResponseCode() !== 200) throw new Error('Series search unavailable');
+  const response = JSON.parse(result.getContentText()), data = response.data;
+  if (response.status !== 200 || !data || !Array.isArray(data.list) || !Number.isSafeInteger(data.total) || data.total < 0) throw new Error('Series search changed');
+  const items = data.list.map(luckpimItem_).filter(Boolean);
+  return { items: items, total: data.total, pages: 1, complete: items.length === data.total, search: true };
+}
+
+function luckpimSession_(url) {
+  const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true, headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (response.getResponseCode() !== 200) throw new Error('Catalog unavailable');
+  const tag = /<input\b[^>]*name=["']?__RequestVerificationToken["']?[^>]*>/i.exec(response.getContentText()), token = tag && attr_(tag[0], 'value');
+  if (!token) throw new Error('Catalog token unavailable');
+  const headers = response.getAllHeaders(), cookieHeader = headers['Set-Cookie'] || headers['set-cookie'] || [];
+  return { 'XSRF-TOKEN': token, Cookie: (Array.isArray(cookieHeader) ? cookieHeader : [cookieHeader]).map(function (v) { return String(v).split(';')[0]; }).join('; ') };
+}
+function luckpimItem_(book) {
+  if (!/^\d+$/.test(String(book.slug))) return null;
+  const type = /นิยาย|novel/i.test(book.main_category || '') ? 'LN (TH)' : /มังงะ|การ์ตูน/i.test(book.main_category || '') ? 'Manga (TH)' : '';
+  const item = releaseItem_('luckpim', book.title, 'https://www.luckpim.com/product/detail/' + book.slug, book.price_sale == null ? book.price : book.price_sale, '', type);
+  item.availability = book.pre_order === 'T' ? 'Pre-order' : Number(book.stock) > 0 ? 'In stock' : 'Check availability';return item;
+}
+
 function savedReleases_(c) {
   const sheet = c.ss.getSheetByName(BOOK_APP.releasesName);
   if (!sheet) return []; // Existing installations upgrade without another setup run.
@@ -270,6 +448,8 @@ function cleanRelease_(input) {
   item.volume = input.volume === '' || input.volume === undefined ? item.volume : Number(input.volume);
   if (item.volume !== '' && (!Number.isFinite(item.volume) || item.volume < 0)) throw new Error('Invalid release volume.');
   item.availability = String(input.availability || '').slice(0, 100);
+  if (input.catalogSeries) item.catalogSeries = String(input.catalogSeries).slice(0, 500);
+  if (input.catalogVariant) item.catalogVariant = true;
   return item;
 }
 
@@ -302,8 +482,8 @@ function splitBookTitle_(raw) {
   const type = /\(LN\)|\(นิยาย\)|^นิยาย|light\s*novel|ไลท์โนเวล/i.test(title) ? 'LN (TH)' : /มังงะ|การ์ตูน|@COMIC|\(Mg\)/i.test(title) ? 'Manga (TH)' : '';
   title = title.replace(/^\[PRE-ORDER\]\s*/i, '').replace(/^(?:\(LN\)|\(มังงะ\)|\(นิยาย\)|นิยาย|การ์ตูน)\s*/i, '');
   const explicit = /(?:เล่ม(?:ที่)?|vol(?:ume)?\.?)\s*(\d+(?:\.\d+)?)/i.exec(title);
-  // Some Luckpim books end in a bare volume, optionally followed by (จบ).
-  const suffix = /\s+(\d+(?:\.\d+)?)(?:\s*\([^)]*\))*\s*$/.exec(title);
+  // Luckpim also uses bare volume numbers before ending/format labels or promotions.
+  const suffix = /\s+(\d+(?:\.\d+)?)(?=\s*(?:$|(?:\([^)]*\)\s*)+$|\[|แถม|ฟรี|พร้อม))/i.exec(title);
   const match = explicit || suffix;
   let series = match ? title.slice(0, match.index).trim() : title.replace(/\s*\((?:Mg|LN)\)\s*$/i, '').trim();
   series = series.replace(/\s*[-–:]\s*$/, '').trim();
@@ -351,28 +531,16 @@ function parseCatalog_(id, html) {
 }
 
 function fetchLuckpim_() {
-  // Same public token/cookie handshake as the publisher's browser catalog.
-  const response = UrlFetchApp.fetch('https://www.luckpim.com/product/list/new', { muteHttpExceptions: true, headers: { 'User-Agent': 'Mozilla/5.0' } });
-  if (response.getResponseCode() !== 200) throw new Error('Catalog unavailable');
-  const html = response.getContentText(), tokenTag = /<input\b[^>]*name=["']?__RequestVerificationToken["']?[^>]*>/i.exec(html);
-  const token = tokenTag && attr_(tokenTag[0], 'value');
-  if (!token) throw new Error('Catalog token unavailable');
-  const headers = response.getAllHeaders(), cookieHeader = headers['Set-Cookie'] || headers['set-cookie'] || [];
-  const cookies = (Array.isArray(cookieHeader) ? cookieHeader : [cookieHeader]).map(function (v) { return String(v).split(';')[0]; }).join('; ');
+  const session = luckpimSession_('https://www.luckpim.com/product/list/new');
   let items = [];
   for (let page = 1; page <= 2; page++) {
     const result = UrlFetchApp.fetch('https://www.luckpim.com/_api/getBookList?setting=new&page=' + page + '&limit=100', {
-      muteHttpExceptions: true, headers: { 'XSRF-TOKEN': token, Cookie: cookies }
+      muteHttpExceptions: true, headers: session
     });
     if (result.getResponseCode() !== 200) throw new Error('Catalog unavailable');
     const data = JSON.parse(result.getContentText());
     if (data.sc !== 200 || !data.d || !Array.isArray(data.d.data)) throw new Error('Catalog changed');
-    data.d.data.forEach(function (v) {
-      if (!/^\d+$/.test(String(v.slug))) return;
-      const type = /นิยาย|novel/i.test(v.main_category || '') ? 'LN (TH)' : /มังงะ|การ์ตูน/i.test(v.main_category || '') ? 'Manga (TH)' : '';
-      const item = releaseItem_('luckpim', v.title, 'https://www.luckpim.com/product/detail/' + v.slug, v.price_sale == null ? v.price : v.price_sale, '', type);
-      item.availability = v.pre_order === 'T' ? 'Pre-order' : Number(v.stock) > 0 ? 'In stock' : 'Check availability';items.push(item);
-    });
+    data.d.data.forEach(function (book) { const item = luckpimItem_(book); if (item) items.push(item); });
     if (page * 100 >= Number(data.d.total) || data.d.data.length < 100) break;
   }
   return items;

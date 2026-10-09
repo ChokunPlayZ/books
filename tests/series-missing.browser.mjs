@@ -1,10 +1,11 @@
 // All RPCs use an isolated harness; this check never changes the preview or a live sheet.
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
 import { createHarness } from './gas-harness.mjs';
 const { chromium } = await import(process.env.BOOKS_PLAYWRIGHT_MODULE || 'playwright');
 const browser = await chromium.launch({ headless: true, ...(process.env.BOOKS_BROWSER_EXECUTABLE ? { executablePath: process.env.BOOKS_BROWSER_EXECUTABLE } : {}) });
-const title = 'ดอกรักผลิบานที่กลางใจ', other = 'A different shelf';
+const title = 'ดอกรักผลิบานที่กลางใจ', other = 'A different shelf', alias = 'Chishunki shelf title';
 const base = { series: title, type: 'Manga (TH)', publisher: 'PHOENIX Next', status: 'Read', source: 'Thai shop', date: '2026-09-01' };
 const h = createHarness([
   { ...base, volume: 2, isbn: '0140328726' }, { ...base, volume: 4 }, { ...base, volume: 4 }, { ...base, volume: 4.5 }, { ...base, volume: 0 },
@@ -13,29 +14,33 @@ const h = createHarness([
   { ...base, volume: 1, type: 'LN (TH)' }, { ...base, volume: 3, type: 'LN (TH)' },
   { ...base, series: other, publisher: 'Kodansha', volume: 1 }, { ...base, series: other, publisher: 'Kodansha', volume: 2 },
   { ...base, series: 'Unnumbered story', type: 'Other', publisher: '', volume: '' },
-  { ...base, series: 'Large sequence', type: 'Other', publisher: '', volume: 1000000 }
+  { ...base, series: 'Large sequence', type: 'Other', publisher: '', volume: 1000000 },
+  { ...base, series: alias, publisher: 'First Page Pro', volume: 1 }
 ]);
 h.setup();
+h.api.responses = [{ match: 'category/56', text: readFileSync(new URL('./fixtures/series-catalogs/firstpage-category.html', import.meta.url),'utf8') }, { match: 'firstpagepro.com/', text: readFileSync(new URL('./fixtures/series-catalogs/firstpage-directory.html', import.meta.url),'utf8') }];
 const item = (volume, type = 'Manga (TH)', extra = {}) => ({ ...h.api.releaseItem_('phoenix', title + ' เล่ม ' + volume, 'https://www.phoenixnext.com/missing-' + type.slice(0, 2) + '-' + volume + '.html', 175, '', type), ...extra });
 const next = item(5), preorder = item(6, 'Manga (TH)', { availability: 'Pre-order' }), decimal = item(5.5);
 const possible = item(4), owned = item(2, 'Manga (TH)', { isbn: '9780140328721' }), novel = item(4, 'LN (TH)');
-const special = item(5, 'Manga (TH)', { id: 'phoenix:special-check', title: title + ' Special set', special: true });
-const wrongLanguage = item(8, 'Manga (JP)'), unrelated = { ...item(9), series: other, title: other + ' เล่ม 9' };
-let feeds = { phoenix: [next, preorder, decimal, possible, owned, novel, special, wrongLanguage, unrelated], firstpage: [], luckpim: [] };
+const special = item(5, 'Manga (TH)', { id: 'phoenix:special-check', url:'https://www.phoenixnext.com/missing-special-5.html',title: title + ' Special set', special: true });
+const alternative = item(5, 'Manga (TH)', { id: 'phoenix:alternative-check', url:'https://www.phoenixnext.com/missing-alternative-5.html',title: title + ' เล่ม 5 แถมฟรี โปสการ์ด' });
+const wrongLanguage = item(8, 'Manga (JP)'), unrelated = { ...item(9), series: other, title: other + ' เล่ม 9', catalogVariant: true };
+let feeds = { phoenix: [next, alternative, preorder, decimal, possible, owned, novel, special, wrongLanguage, unrelated], firstpage: [], luckpim: [] };
 let releaseGate;
 const gated = new Promise(resolve => { releaseGate = resolve; });
-let delayFeeds = true, failPhoenix = false, failSave = false, failShelf = false, feedCalls = [];
+let delayFeeds = true, failPhoenix = false, failSave = false, failShelf = false, feedCalls = [], recentCalls = 0;
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } }), errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('https://cdn.jsdelivr.net/**', route => route.abort());
   await page.route('**/rpc', async route => {
     const { name, arg } = route.request().postDataJSON();
-    if (name === 'getPublisherReleases') {
+    if (name === 'getPublisherReleases') { recentCalls++;return route.fulfill({json:{publisherId:arg.publisherId,items:[],checkedAt:'',stale:false,error:''}}); }
+    if (name === 'getSeriesCatalog' && arg.series !== alias) {
       feedCalls.push(arg);
       if (delayFeeds) await gated;
       if (failPhoenix && arg.publisherId === 'phoenix') return route.fulfill({ status: 503, json: { message: 'Test outage' } });
-      return route.fulfill({ json: { publisherId: arg.publisherId, items: feeds[arg.publisherId], checkedAt: '2026-10-09T07:00:00Z', stale: false, error: '' } });
+      return route.fulfill({ json: { publisherId: arg.publisherId, series: arg.series, type: arg.type, title, url:'https://www.phoenixnext.com/book-series/kaoru-hana-wa-rin-to-saku.html', items: feeds[arg.publisherId], checkedAt: '2026-10-09T07:00:00Z', complete:true, stale: false, error: '' } });
     }
     if ((failSave && name === 'setSavedRelease') || (failShelf && name === 'getCollection')) return route.fulfill({ status: 503, json: { message: 'Test save or shelf outage' } });
     try { return await route.fulfill({ json: h.api[name](arg) }); }
@@ -59,22 +64,24 @@ try {
   // Navigate away while requests are outstanding: arriving feeds must follow the current series.
   await page.locator('#backSeries').click(); await page.locator('#search').fill(other); await page.locator('.series-row').click();
   releaseGate(); delayFeeds = false;
-  await page.waitForFunction(() => state.releasesLoaded && !state.releasesLoading);
+  await page.waitForFunction(() => !state.catalogLoading.size);
   assert.equal(await page.locator('#seriesReleaseList .release-card').count(), 0);
   assert.match(await page.locator('#seriesGaps').textContent(), /No gaps through volume 2/);
   assert.match(await page.locator('#seriesReleaseStatus').textContent(), /available for Phoenix/);
   await page.locator('#backSeries').click(); await page.locator('#search').fill(title); await page.locator('.series-row').click();
-  assert.equal(feedCalls.length, 3);
-  assert.equal(await page.locator('#seriesReleaseList .release-card').count(), 5);
-  assert.match(await page.locator('#seriesMissingSummary').textContent(), /4 gaps.*5 recent listings/);
+  assert.equal(feedCalls.length, 2); assert.equal(recentCalls, 0);
+  assert.equal(await page.locator('#seriesReleaseList .release-card').count(), 4);
+  assert.match(await page.locator('#seriesMissingSummary').textContent(), /4 gaps.*4 catalog volumes/);
   assert.equal(await page.locator('#seriesReleaseReview').isVisible(), true);
-  assert.equal(await page.locator('#seriesReleaseReviewList .release-card').count(), 1);
+  assert.equal(await page.locator('#seriesReleaseReviewList .release-card').count(), 4);
   assert.equal(await page.locator('#seriesReleaseReviewList').isVisible(), false);
   await page.locator('#seriesReleaseReview summary').click();
   assert.match(await page.locator('#seriesReleaseReviewList').textContent(), /Check the edition/);
   const card = title => page.locator('#seriesReleaseList .release-card').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
   assert.match(await card(preorder.title).textContent(), /Pre-order/);
-  assert.match(await card(special.title).textContent(), /Special edition/);
+  assert.match(await page.locator('#seriesReleaseReviewList').textContent(), /Special edition/);
+  assert.equal(await card(special.title).count(),0);
+  assert.match(await card(next.title).textContent(), /Other listings for this volume \(1\)/);
   assert.equal(await card(owned.title).count(), 0); assert.equal(await card(wrongLanguage.title).count(), 0); assert.equal(await card(unrelated.title).count(), 0);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await page.locator('#seriesReleaseReview summary').click();
@@ -84,7 +91,13 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await page.screenshot({ path: fileURLToPath(new URL('../outputs/series-missing-desktop.png', import.meta.url)), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
-  console.log('PASS automatic release checks, cached navigation, pending-series changes, exact ownership, edition review, pre-orders and special sets');
+  console.log('PASS series catalogs without recent feeds, cached navigation, pending-series changes, ownership, deduplicated volumes and edition/set review');
+
+  await page.locator('#seriesReleaseReview summary').click();
+  const variant=page.locator('#seriesReleaseReviewList .release-card').filter({has:page.getByRole('heading',{name:unrelated.title,exact:true})});
+  await variant.getByRole('button',{name:'Add to shelf',exact:true}).click();
+  assert.equal(await page.locator('#series').inputValue(),other);assert.equal(await page.locator('#volume').inputValue(),'9');
+  await page.locator('#cancelBook').click();await page.locator('#seriesReleaseReview summary').click();
 
   // The most recent owned edition is Japanese; a Thai gap must retain the Thai edition and shop.
   await edition('Manga (TH)').getByRole('button', { name: /Add missing volume 1/ }).click();
@@ -113,23 +126,23 @@ try {
   await card(next.title).getByRole('button', { name: 'Add to shelf', exact: true }).click();
   assert.equal(await page.locator('#volume').inputValue(), '5'); assert.equal(await page.locator('#type').inputValue(), 'Manga (TH)');
   await page.locator('#saveButton').click();
-  await page.waitForFunction(() => !document.getElementById('bookDialog').open && !state.busy && document.getElementById('seriesMissingSummary').textContent.includes('4 recent listings'));
+  await page.waitForFunction(() => !document.getElementById('bookDialog').open && !state.busy && document.getElementById('seriesMissingSummary').textContent.includes('3 catalog volumes'));
   assert.equal(await card(next.title).count(), 0);
-  assert.equal(await page.locator('#seriesReleaseReviewList .release-card').count(), 2);
+  assert.equal(await page.locator('#seriesReleaseReviewList .release-card').count(), 6);
   console.log('PASS in-series save errors, saved-list actions, reviewed release additions and ownership updates');
 
   failPhoenix = true; failShelf = true;
   await page.locator('#refreshSeriesReleases').click();
-  await page.waitForFunction(() => !state.releasesLoading);
+  await page.waitForFunction(() => !state.catalogLoading.size&&!state.catalogRefreshing);
   assert.match(await page.locator('#seriesReleaseStatus').textContent(), /unavailable/);
-  assert.match(await page.locator('#seriesReleaseSources').textContent(), /Previous check.*Unable to check Phoenix/s);
+  assert.match(await page.locator('#seriesReleaseSources').textContent(), /Previous check.*Unable to check this series catalog/s);
   assert.match(await page.locator('#seriesReleaseError').textContent(), /Unable to refresh your shelf/);
-  assert.equal(await page.locator('#seriesReleaseList .release-card').count(), 4);
-  assert.ok(feedCalls.slice(-3).every(call => call.refresh));
+  assert.equal(await page.locator('#seriesReleaseList .release-card').count(), 3);
+  assert.ok(feedCalls.slice(-2).every(call => call.refresh));
   failPhoenix = false; failShelf = false;
   feeds.phoenix = [owned, possible];
-  await page.locator('#refreshSeriesReleases').click(); await page.waitForFunction(() => !state.releasesLoading);
-  assert.match(await page.locator('#seriesReleaseStatus').textContent(), /No missing volumes found in these recent listings/);
+  await page.locator('#refreshSeriesReleases').click(); await page.waitForFunction(() => !state.catalogLoading.size&&!state.catalogRefreshing);
+  assert.match(await page.locator('#seriesReleaseStatus').textContent(), /No unmatched volumes in the checked series catalogs/);
   await page.setViewportSize({ width: 1280, height: 900 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   console.log('PASS stale feeds and shelf errors remain visible, refresh recovers, phone and desktop fit');
@@ -140,6 +153,27 @@ try {
   }
   assert.equal(await page.locator('.missing-volume').count(), 1);
   assert.match(await page.locator('.missing-volume').textContent(), /1–999999/);
+
+  await page.locator('#backSeries').click();await page.locator('#search').fill(alias);await page.locator('.series-row').click();
+  await page.waitForFunction(()=>!state.catalogLoading.size&&!!document.querySelector('.catalog-editor'));
+  assert.match(await page.locator('#seriesMissingSummary').textContent(),/Choose a series category/);
+  const form=page.locator('.catalog-editor');
+  await form.getByLabel('Or paste the series category URL').fill('https://evil.test/category/56');await form.getByRole('button',{name:'Use this catalog'}).click();
+  await page.waitForFunction(()=>!state.catalogLoading.size);assert.match(await page.locator('#seriesReleaseError').textContent(),/publisher.*category URL/);
+  const beforeLink=h.api.getCollection().books.length;
+  await form.getByLabel('Find the publisher’s series name').fill('ชิชุนกิจัง');await form.locator('select').selectOption('https://www.firstpagepro.com/category/56');
+  await form.getByRole('button',{name:'Use this catalog'}).click();
+  await page.waitForFunction(()=>!state.catalogLoading.size&&!document.querySelector('.catalog-editor'));
+  assert.equal(h.api.getCollection().books.length,beforeLink);assert.equal(await page.locator('#seriesReleaseList .release-card').count(),10);
+  assert.equal(await page.locator('#seriesReleaseSources a').getAttribute('href'),'https://www.firstpagepro.com/category/56');
+  await page.reload();await page.waitForFunction(()=>!!state.data);await page.locator('#search').fill(alias);await page.locator('.series-row').click();
+  await page.waitForFunction(()=>!state.catalogLoading.size&&document.getElementById('seriesReleaseList').children.length===10);
+  assert.equal(await page.locator('.catalog-editor').count(),0);assert.equal(recentCalls,0);
+  console.log('PASS manual category search, unsafe URLs rejected, saved links persist across reloads and older missing volumes appear');
+  await page.locator('#releasesTab').click();await page.waitForFunction(()=>state.releasesLoaded&&!state.releasesLoading);await page.locator('#releaseScope').selectOption('saved');
+  assert.equal(await page.locator('#releaseList .release-card').count(),1);
+  assert.match(await page.locator('#releaseList').textContent(),/Volume on your shelf/);
+  console.log('PASS catalog-saved books remain accessible in Saved for later with current ownership');
   assert.deepEqual(errors, []);
   console.log('PASS unnumbered-only series, bounded rendering for large volume gaps and no browser errors');
 } finally { releaseGate(); await browser.close(); }

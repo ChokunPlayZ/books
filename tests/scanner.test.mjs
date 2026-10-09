@@ -4,8 +4,8 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 
 function scannerHarness(extra={}) {
-  const html=readFileSync(new URL('../apps-script/Index.html',import.meta.url),'utf8');
-  const source=html.slice(html.indexOf('    // Match the server'),html.indexOf("    $('addButton').addEventListener"));
+  const html=readFileSync(new URL('../public/collection.js',import.meta.url),'utf8');
+  const source=html.slice(html.indexOf('// Match the server'),html.indexOf('// Initialize collection controls.'));
   const elements=new Map();
   const element=id=>{if(!elements.has(id))elements.set(id,{open:true,hidden:false,disabled:false,textContent:'',replaceChildren(){},querySelector(){return null;}});return elements.get(id);};
   const state={scanGeneration:0,cameraStart:null,cameraRunning:false,cameraStream:null,cameraTimer:null,photoTask:null};

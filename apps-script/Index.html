@@ -23,6 +23,7 @@
     .tabs{overflow-x:auto;gap:22px}.tab{white-space:nowrap}.release-heading{margin:27px 0 20px}.release-heading h1{font-size:36px}.release-heading .buttons{margin-top:17px}.publisher-details{margin-top:15px;color:var(--muted);font-size:12px}.publisher-details summary{cursor:pointer;padding:4px 0}.publisher-details[open] summary{margin-bottom:12px}.publisher-sources{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.publisher-source{border:1px solid var(--line);border-radius:9px;background:white;padding:15px}.publisher-source>a{font-weight:600;text-decoration:none}.publisher-source .hint{margin-top:5px}.source-error{font-size:11px;color:var(--red);margin:8px 0 0}.release-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.release-grid>.empty{grid-column:1/-1}.release-card{padding:22px;background:white;border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;align-items:flex-start;gap:9px;min-width:0}.release-card p{margin:0}.release-card .eyebrow{font-size:10px}.release-meta{font-size:12px;color:var(--muted)}.release-price{font-size:13px}.release-links{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;margin:4px 0 10px}.release-card .buttons{margin-top:auto;flex-wrap:wrap}.release-card .btn{font-size:12px;min-height:39px;padding:8px 13px}.release-match{background:var(--soft);color:var(--green);padding:5px 9px;border-radius:6px;font-size:11px}.release-match.unbought{background:#e6ecee;color:#3d6272}.release-match.possible{background:#fbf0da;color:#8e6b2d}.btn.saved{background:var(--soft);border-color:#bed0b4}.release-note{font-size:12px;color:var(--muted);margin:18px 0 0}@media(max-width:560px){.publisher-sources{grid-template-columns:1fr}.publisher-source{padding:12px 14px}.release-grid{grid-template-columns:1fr}.release-card{padding:18px}.release-heading h1{font-size:31px}}
     .release-filters{flex-wrap:wrap}.release-filters .search{flex:1 1 240px}.release-filters .btn{min-height:44px;font-size:12px}#hideSpecialReleases[aria-pressed="true"]{background:var(--soft);border-color:#bed0b4}@media(max-width:560px){.release-filters .search{flex-basis:100%}.release-filters select,.release-filters .btn{flex:1 1 calc(50% - 5px)}}
     .series-missing{margin:22px 0 28px;padding:22px;background:#f0f3e9;border:1px solid #d2ddc7;border-radius:10px}.series-missing h2{font:25px/1.3 Georgia,Tahoma,serif;margin:0 0 5px}.series-missing h3{font-size:14px;margin:0 0 6px}.series-missing p{margin:0 0 10px}.missing-editions{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:17px 0}.missing-edition{padding:15px;background:white;border:1px solid var(--line);border-radius:8px;min-width:0;overflow-wrap:anywhere}.missing-volume{background:#fbf0da;border-color:#dfc78f;color:#785b24;min-height:36px;font-size:12px;padding:6px 10px}.missing-volume:hover{background:#f6e4bd}.series-release-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:20px 0 10px}.series-release-head .btn{font-size:12px;padding:8px 12px;flex:none}.series-missing .publisher-sources{margin:12px 0}.series-missing .release-grid{margin-top:12px}.series-review{margin-top:15px}.series-review summary{cursor:pointer;color:#8e6b2d;font-size:12px}.series-missing .release-note{margin:12px 0 0}@media(max-width:560px){.series-missing{padding:17px 14px}.series-missing h2{font-size:23px}.missing-editions{grid-template-columns:1fr}.series-release-head{align-items:flex-start;flex-wrap:wrap}.series-missing .publisher-source{padding:10px 12px}}
+    .catalog-source{min-width:0;overflow-wrap:anywhere}.catalog-source .text-btn{padding:6px 0;font-size:12px;color:var(--green)}.catalog-editor{display:grid;gap:10px;margin-top:10px}.catalog-editor .field>span{font-size:12px;font-weight:550}.catalog-editor select{max-width:none;width:100%}.catalog-editor .btn{font-size:12px;min-height:38px;padding:8px 12px}
   </style>
 </head>
 <body>
@@ -56,12 +57,12 @@
     <section id="seriesMissing" class="series-missing" aria-labelledby="seriesMissingTitle" hidden>
       <h2 id="seriesMissingTitle">What you’re missing</h2><p id="seriesMissingSummary" class="hint" role="status"></p>
       <div id="seriesGaps" class="missing-editions"></div>
-      <div class="series-release-head"><div><h3>Recent releases you haven’t bought</h3><p class="hint">Matching your series, publisher and language.</p></div><button id="refreshSeriesReleases" class="btn">Refresh releases</button></div>
+      <div class="series-release-head"><div><h3>Publisher catalog · volumes you haven’t bought</h3><p class="hint">Checked against this series’ category, including older volumes.</p></div><button id="refreshSeriesReleases" class="btn">Refresh catalog</button></div>
       <div id="seriesReleaseError" class="banner" role="alert" hidden></div>
       <p id="seriesReleaseStatus" class="hint" role="status"></p><div id="seriesReleaseSources" class="publisher-sources"></div>
       <div id="seriesReleaseList" class="release-grid"></div>
       <details id="seriesReleaseReview" class="series-review" hidden><summary id="seriesReleaseReviewSummary"></summary><div id="seriesReleaseReviewList" class="release-grid"></div></details>
-      <p class="hint release-note">Gaps use whole volume numbers up to your highest owned volume in each edition. Publisher feeds cover recent listings; older releases and differently named series may be absent.</p>
+      <p class="hint release-note">Shelf gaps use whole volume numbers up to your highest owned volume. Catalog checks use the publisher’s series category, or Luckpim’s full title search. Removed listings and unrecorded purchases can affect the comparison.</p>
     </section>
     <div id="collectionBrowser">
     <div class="toolbar">
@@ -141,7 +142,7 @@
     'use strict';
     const FIELDS = ['isbn','series','type','publisher','status','volume','source','price','date','note'];
     const $ = id => document.getElementById(id);
-    const state = { data:null, view:'collection', selectedSeries:null, page:0, pageSize:20, editing:null, busy:false, lookupGeneration:0, scanGeneration:0, scanPurpose:'add', cameraStart:null, cameraStream:null, cameraTimer:null, cameraRunning:false, photoTask:null, pendingSave:null, pendingRemove:null, restoreRequests:new Map(), checkGeneration:0, checkResult:null, isbnBook:null, pendingIsbn:null, releaseFeeds:new Map(), releasesLoading:false, releasesLoaded:false, savingReleases:new Set() };
+    const state = { data:null, view:'collection', selectedSeries:null, page:0, pageSize:20, editing:null, busy:false, lookupGeneration:0, scanGeneration:0, scanPurpose:'add', cameraStart:null, cameraStream:null, cameraTimer:null, cameraRunning:false, photoTask:null, pendingSave:null, pendingRemove:null, restoreRequests:new Map(), checkGeneration:0, checkResult:null, isbnBook:null, pendingIsbn:null, releaseFeeds:new Map(), releasesLoading:false, releasesLoaded:false, savingReleases:new Set(), seriesCatalogs:new Map(), catalogLoading:new Set(), catalogEditors:new Map(), catalogRefreshing:false };
     let toastTimer;
     function icon(name) { const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('aria-hidden','true');const use=document.createElementNS(svg.namespaceURI,'use');use.setAttribute('href','#i-'+name);svg.append(use);return svg; }
     function node(tag, className, text) { const e=document.createElement(tag);if(className)e.className=className;if(text!==undefined)e.textContent=text;return e; }
@@ -171,6 +172,7 @@
         $('sheetLink').href=state.data.sheetUrl;$('addButton').disabled=state.busy;$('checkBookButton').disabled=state.busy;
         $('syncNote').textContent=state.data.preview?'Preview only · Changes stay in this session':'Updated '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · Saved in Google Sheets';
         render();
+        if(state.selectedSeries!==null&&!state.catalogRefreshing)void loadSeriesCatalogs();
       } catch(error) {
         errorAt('pageError',error);
         if(!state.data)$('bookList').replaceChildren(node('div','empty','Your shelf could not be loaded. Follow the setup guide, then refresh.'));
@@ -242,11 +244,51 @@
     }
     function openSeries(series) {
       state.selectedSeries=series;state.page=0;$('search').value='';$('typeFilter').value='';$('statusFilter').value='';$('seriesReleaseError').hidden=true;render();$('backSeries').focus();
-      if(!state.releasesLoaded&&seriesPublishers().length)void loadReleases();
+      void loadSeriesCatalogs();
     }
-    function seriesPublishers() {
-      const ids=new Set(state.data.books.filter(b=>seriesKey(b)===state.selectedSeries).map(b=>publisherKey(b.publisher)));
-      return state.data.publishers.filter(p=>ids.has(p.id));
+    function seriesCatalogSpecs(series=state.selectedSeries) {
+      const specs=new Map();
+      state.data.books.filter(b=>seriesKey(b)===series).forEach(b=>{
+        const publisher=state.data.publishers.find(p=>p.id===publisherKey(b.publisher));if(!publisher)return;
+        const spec={series,publisherId:publisher.id,type:b.type||'',publisher};specs.set(seriesCatalogKey(spec),spec);
+      });return [...specs.values()];
+    }
+    function seriesCatalogKey(spec) { return JSON.stringify([spec.series,spec.publisherId,spec.type]); }
+    async function loadSeriesCatalogs(refresh=false,series=state.selectedSeries) {
+      if(series===null||!state.data)return;
+      if(refresh){
+        state.catalogRefreshing=true;$('seriesReleaseError').hidden=true;renderSeriesMissing();
+        try{await load();}catch(error){errorAt('seriesReleaseError','Unable to refresh your shelf. Catalog comparisons use the previously loaded collection.');}
+      }
+      try {
+        await Promise.all(seriesCatalogSpecs(series).map(async spec=>{
+          const key=seriesCatalogKey(spec);
+          if(state.catalogLoading.has(key)||(!refresh&&state.seriesCatalogs.has(key)))return;
+          state.catalogLoading.add(key);renderSeriesMissing();
+          try{state.seriesCatalogs.set(key,await rpc('getSeriesCatalog',{series:spec.series,publisherId:spec.publisherId,type:spec.type,refresh}));}
+          catch(error){const old=state.seriesCatalogs.get(key);state.seriesCatalogs.set(key,{...old,items:old?.items||[],complete:false,stale:true,error:'Unable to check this series catalog. Try Refresh catalog.'});}
+          finally{state.catalogLoading.delete(key);renderSeriesMissing();}
+        }));
+      } finally {if(refresh)state.catalogRefreshing=false;renderSeriesMissing();}
+    }
+    async function chooseSeriesCategory(spec) {
+      const key=seriesCatalogKey(spec),feed=state.seriesCatalogs.get(key),editor=state.catalogEditors.get(key)||{version:0};
+      editor.open=!editor.open;editor.version++;state.catalogEditors.set(key,editor);renderSeriesMissing();
+      if(!editor.open||editor.categories||spec.publisherId==='luckpim')return;
+      editor.loading=true;editor.version++;renderSeriesMissing();
+      try{const directory=feed?.categories?{categories:feed.categories}:await rpc('getSeriesCategories',{publisherId:spec.publisherId});editor.categories=directory.categories;}
+      catch(error){editor.error=error.message||String(error);}
+      finally{editor.loading=false;editor.version++;renderSeriesMissing();}
+    }
+    async function saveSeriesCategory(spec,url,title) {
+      const key=seriesCatalogKey(spec),editor=state.catalogEditors.get(key);if(state.catalogLoading.has(key))return;
+      state.catalogLoading.add(key);$('seriesReleaseError').hidden=true;renderSeriesMissing();
+      try {
+        await rpc('setSeriesCatalog',{series:spec.series,publisherId:spec.publisherId,type:spec.type,url,title});
+        const catalog=await rpc('getSeriesCatalog',{series:spec.series,publisherId:spec.publisherId,type:spec.type,refresh:true});
+        state.seriesCatalogs.set(key,catalog);if(editor){editor.open=false;editor.version++;}notify('Series catalog linked.');
+      }catch(error){errorAt('seriesReleaseError',error);}
+      finally{state.catalogLoading.delete(key);renderSeriesMissing();}
     }
     function seriesGaps(books) {
       const editions=new Map();
@@ -267,12 +309,26 @@
       const visible=state.view==='collection'&&state.selectedSeries!==null;
       $('seriesMissing').hidden=!visible;if(!visible)return;
       const owned=state.data.books.filter(b=>seriesKey(b)===state.selectedSeries),editions=seriesGaps(owned);
-      const gaps=editions.reduce((sum,e)=>sum+e.missing,0),publishers=seriesPublishers();
-      const pending=publishers.some(p=>!state.releaseFeeds.has(p.id)),failed=publishers.some(p=>state.releaseFeeds.get(p.id)?.error);
-      const matches=releaseItems().map(item=>({item,match:releaseMatches(item)})).filter(({match})=>match.series.some(b=>seriesKey(b)===state.selectedSeries));
-      const missing=matches.filter(({match})=>!match.owned.length&&!match.possible.length),review=matches.filter(({match})=>!match.owned.length&&match.possible.length);
-      const recentSummary=missing.length?number(missing.length)+(missing.length===1?' recent listing':' recent listings')+' not bought yet':!publishers.length?'Recent release check unavailable':pending||state.releasesLoading?'Checking recent releases…':failed?'Recent release check incomplete':review.length?number(review.length)+(review.length===1?' edition':' editions')+' to check':'No missing recent listings';
-      $('seriesMissingSummary').textContent=number(gaps)+(gaps===1?' gap':' gaps')+' in your shelf · '+recentSummary;
+      const gaps=editions.reduce((sum,e)=>sum+e.missing,0),specs=seriesCatalogSpecs(),catalogs=specs.map(spec=>state.seriesCatalogs.get(seriesCatalogKey(spec)));
+      const pending=catalogs.some(feed=>!feed)||specs.some(spec=>state.catalogLoading.has(seriesCatalogKey(spec))),choose=catalogs.some(feed=>feed?.needsSelection);
+      const failed=catalogs.some(feed=>feed&&(feed.error||feed.stale||(!feed.complete&&!feed.needsSelection)));
+      const catalogItems=new Map();
+      specs.forEach(spec=>(state.seriesCatalogs.get(seriesCatalogKey(spec))?.items||[]).forEach(item=>{
+        const same=item.type===spec.type,uncertain=!item.type||(!same&&item.type.split(' (')[0]===spec.type.split(' (')[0]);
+        if(!same&&!uncertain)return;
+        const previous=catalogItems.get(item.id);
+        if(!previous||(previous.uncertain&&same))catalogItems.set(item.id,{item:{...item,catalogSeries:spec.series},uncertain:!item.type||!same||item.catalogVariant||item.volume===''||item.volume===null});
+      }));
+      const matches=[...catalogItems.values()].map(entry=>({...entry,match:releaseMatches(entry.item)})).sort((a,b)=>(Number(a.item.volume||Infinity)-Number(b.item.volume||Infinity))||a.item.title.localeCompare(b.item.title));
+      const missingVolumes=new Map();
+      matches.filter(({item,match,uncertain})=>!match.owned.length&&!match.possible.length&&!item.special&&!uncertain).forEach(entry=>{
+        const key=JSON.stringify([entry.item.publisherId,entry.item.type,entry.item.volume]),old=missingVolumes.get(key);
+        if(old)old.alternatives.push(entry.item);else missingVolumes.set(key,{...entry,alternatives:[]});
+      });
+      const missing=[...missingVolumes.values()];
+      const review=matches.filter(({item,match,uncertain})=>!match.owned.length&&(match.possible.length||item.special||uncertain));
+      const catalogSummary=missing.length?number(missing.length)+(missing.length===1?' catalog volume':' catalog volumes')+' not bought yet':!specs.length?'Catalog check unavailable':pending?'Checking series catalog…':choose?'Choose a series category':failed?'Catalog check incomplete':review.length?number(review.length)+(review.length===1?' edition':' editions')+' to check':'No missing catalog volumes';
+      $('seriesMissingSummary').textContent=number(gaps)+(gaps===1?' gap':' gaps')+' in your shelf · '+catalogSummary;
       $('seriesGaps').replaceChildren();
       editions.forEach(edition=>{
         const card=node('div','missing-edition');card.append(node('h3','',[edition.type,edition.publisher].filter(Boolean).join(' · ')||'Edition not recorded'));
@@ -291,16 +347,68 @@
         }else card.append(node('p','hint',edition.highest?'No gaps through volume '+edition.highest:'No numbered sequence to check yet'));
         $('seriesGaps').append(card);
       });
-      $('refreshSeriesReleases').hidden=!publishers.length;$('refreshSeriesReleases').disabled=state.releasesLoading;
-      $('refreshSeriesReleases').textContent=state.releasesLoading?'Checking…':'Refresh releases';
-      $('seriesReleaseSources').replaceChildren();
-      publishers.forEach(p=>$('seriesReleaseSources').append(publisherSource(p)));
-      $('seriesReleaseStatus').textContent=!publishers.length?'Recent release checks are available for Phoenix Next, First Page Pro and Luckpim.':pending?'Checking recent listings for this series…':failed?'Some publisher checks are unavailable. Showing the listings we have.':missing.length?number(missing.length)+(missing.length===1?' recent listing':' recent listings')+' with no match on your shelf.':state.releasesLoading?'Refreshing recent listings…':'No missing volumes found in these recent listings.';
+      $('refreshSeriesReleases').hidden=!specs.length;$('refreshSeriesReleases').disabled=pending||state.catalogRefreshing;
+      $('refreshSeriesReleases').textContent=pending||state.catalogRefreshing?'Checking…':'Refresh catalog';
+      renderSeriesCatalogSources(specs);
+      $('seriesReleaseStatus').textContent=!specs.length?'Catalog checks are available for Phoenix Next, First Page Pro and Luckpim.':pending?'Checking the publisher’s series catalog…':choose?'Choose the publisher’s category to check this series.':failed?'Some category checks are incomplete or unavailable. Showing the listings we have.':missing.length?number(missing.length)+(missing.length===1?' catalog listing':' catalog listings')+' with no match on your shelf.':'No unmatched volumes in the checked series catalogs. Review other editions below.';
       const saved=new Set((state.data.savedReleases||[]).map(item=>item.id));
-      $('seriesReleaseList').replaceChildren();missing.forEach(({item})=>$('seriesReleaseList').append(releaseCard(item,saved.has(item.id))));
+      $('seriesReleaseList').replaceChildren();missing.forEach(({item,alternatives})=>$('seriesReleaseList').append(releaseCard(item,saved.has(item.id),{catalog:true,alternatives})));
       $('seriesReleaseReview').hidden=!review.length;
-      $('seriesReleaseReviewSummary').textContent=number(review.length)+(review.length===1?' listing matches an owned volume':' listings match owned volumes')+' · Check the edition';
-      $('seriesReleaseReviewList').replaceChildren();review.forEach(({item})=>$('seriesReleaseReviewList').append(releaseCard(item,saved.has(item.id))));
+      $('seriesReleaseReviewSummary').textContent=number(review.length)+(review.length===1?' listing':' listings')+' · Owned volumes, other editions & sets · Check the edition';
+      $('seriesReleaseReviewList').replaceChildren();review.forEach(({item})=>$('seriesReleaseReviewList').append(releaseCard(item,saved.has(item.id),{catalog:true,review:true})));
+    }
+    function renderSeriesCatalogSources(specs) {
+      const container=$('seriesReleaseSources');
+      specs.forEach((spec,index)=>{
+        const key=seriesCatalogKey(spec),feed=state.seriesCatalogs.get(key),editor=state.catalogEditors.get(key),loading=state.catalogLoading.has(key)||state.busy,old=container.children[index];
+        if(old?._catalogKey===key&&old._feed===feed&&old._loading===loading&&old._editorVersion===(editor?.version||0))return;
+        const card=seriesCatalogSource(spec);card._catalogKey=key;card._feed=feed;card._loading=loading;card._editorVersion=state.catalogEditors.get(key)?.version||0;
+        if(old)container.replaceChild(card,old);else container.append(card);
+      });
+      while(container.children.length>specs.length)container.lastElementChild.remove();
+    }
+    function seriesCatalogSource(spec) {
+      const key=seriesCatalogKey(spec),feed=state.seriesCatalogs.get(key),card=node('div','publisher-source catalog-source'),busy=state.catalogLoading.has(key)||state.busy;
+      card.append(node('h3','',spec.publisher.name+' · '+spec.type));
+      if(!feed){card.append(node('p','hint','Finding the series catalog…'));return card;}
+      if(feed.url)card.append(releaseLink((feed.title||spec.series)+' ↗',feed.url));
+      const stamp=feed.example?'Preview sample · not a live check':feed.checkedAt?(feed.stale?'Previous check ':'Checked ')+new Date(feed.checkedAt).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'Not checked yet';
+      card.append(node('p','hint',stamp));
+      if(feed.checkedAt)card.append(node('p','hint',number(feed.items.length)+' listings · '+(feed.complete?'All category pages checked':'Category check incomplete')));
+      if(feed.search)card.append(node('p','hint','Full publisher title search'));
+      if(feed.error)card.append(node('p','source-error',feed.error));
+      let editor=state.catalogEditors.get(key);
+      if(!editor){editor={version:0,open:!!feed.needsSelection,categories:feed.categories};state.catalogEditors.set(key,editor);}
+      const toggle=node('button','text-btn',spec.publisherId==='luckpim'?'Change search title':editor.open?'Hide category choices':'Choose series category');
+      toggle.disabled=busy;toggle.setAttribute('aria-expanded',String(!!editor.open));toggle.addEventListener('click',()=>void chooseSeriesCategory(spec));card.append(toggle);
+      if(!editor.open)return card;
+      const form=node('form','catalog-editor');form.setAttribute('aria-label','Link '+spec.publisher.name+' catalog for '+spec.type);
+      let selected,manual,search;
+      const field=(label,input)=>{const wrapper=node('label','field');wrapper.append(node('span','',label),input);form.append(wrapper);};
+      if(spec.publisherId==='luckpim'){
+        manual=node('input');manual.type='text';manual.required=true;manual.maxLength=500;manual.value=editor.url??(feed.url?decodeURIComponent(feed.url.split('?k=')[1]):spec.series);
+        field('Series title on Luckpim',manual);manual.addEventListener('input',()=>editor.url=manual.value);
+      }else{
+        search=node('input');search.type='search';search.placeholder='Find a series category…';search.value=editor.search||'';field('Find the publisher’s series name',search);
+        selected=node('select');field('Series category',selected);
+        const options=()=>{
+          selected.replaceChildren(node('option','','Choose a category…'));selected.firstElementChild.value='';
+          const query=search.value.trim().toLocaleLowerCase();
+          (editor.categories||[]).filter(c=>(!c.type||!spec.type||c.type.split(' (')[0]===spec.type.split(' (')[0])&&(!query||[c.title,c.url].join(' ').toLocaleLowerCase().includes(query))).forEach(c=>{const option=node('option','',c.title+(c.type?' · '+c.type:''));option.value=c.url;selected.append(option);});
+          selected.value=editor.selected||'';
+        };options();search.addEventListener('input',()=>{editor.search=search.value;options();});
+        selected.addEventListener('change',()=>{editor.selected=selected.value;manual.value='';editor.url='';});
+        manual=node('input');manual.type='url';manual.placeholder=spec.publisherId==='phoenix'?'https://www.phoenixnext.com/book-series/…':'https://www.firstpagepro.com/category/…';manual.value=editor.url||'';
+        field('Or paste the series category URL',manual);manual.addEventListener('input',()=>{editor.url=manual.value;editor.selected='';selected.value='';});
+        if(editor.loading)form.append(node('p','hint','Loading categories…'));
+        if(editor.error)form.append(node('p','source-error',editor.error));
+      }
+      const submit=node('button','btn','Use this catalog');submit.type='submit';submit.disabled=busy||editor.loading;form.append(submit);
+      form.addEventListener('submit',event=>{
+        event.preventDefault();const url=spec.publisherId==='luckpim'?'https://www.luckpim.com/search_result?k='+encodeURIComponent(manual.value.trim()):manual.value.trim()||selected.value;
+        if(!url){errorAt('seriesReleaseError','Choose a series category or paste its URL.');return;}
+        void saveSeriesCategory(spec,url,spec.publisherId==='luckpim'?manual.value.trim():editor.categories?.find(c=>c.url===selected.value)?.title||spec.series);
+      });card.append(form);return card;
     }
     function seriesDefaults(series=state.selectedSeries) {
       if(series===null)return undefined;
@@ -359,8 +467,8 @@
     function releaseMatches(item) {
       const books=state.data.books, isbn=canonical(item.isbn);
       const owned=isbn?books.filter(b=>canonical(b.isbn)===isbn):[];
-      const series=books.filter(b=>releaseSeriesKey(b.series)===releaseSeriesKey(item.series)&&publisherKey(b.publisher)===item.publisherId&&(!item.type||b.type===item.type));
-      const possible=item.volume!==''&&!item.special?series.filter(b=>b.volume!==''&&b.volume!==null&&Number(b.volume)===Number(item.volume)):[];
+      const series=books.filter(b=>releaseSeriesKey(b.series)===releaseSeriesKey(item.catalogSeries||item.series)&&publisherKey(b.publisher)===item.publisherId&&(!item.type||b.type===item.type));
+      const possible=item.volume!==''&&!item.special&&!item.catalogVariant?series.filter(b=>b.volume!==''&&b.volume!==null&&Number(b.volume)===Number(item.volume)):[];
       return {owned,series,possible};
     }
     async function loadReleases(refresh=false) {
@@ -421,20 +529,22 @@
       items.forEach(item=>$('releaseList').append(releaseCard(item,saved.has(item.id))));
       renderSeriesMissing();
     }
-    function releaseCard(item,saved) {
+    function releaseCard(item,saved,context={}) {
       const card=node('article','release-card'),match=releaseMatches(item),busy=state.savingReleases.size>0||state.busy;
       card.append(node('p','eyebrow',item.publisher),node('h2','book-title',item.title));
       const meta=[item.type,item.volume!==''?'Volume '+item.volume:'',item.special?'Special edition / set':'',item.availability].filter(Boolean);
       card.append(node('p','release-meta',meta.join(' · ')));
       if(item.price!=='')card.append(node('p','release-price','Listed price ฿'+number(Number(item.price))));
       if(item.isbn)card.append(node('p','hint','ISBN '+item.isbn));
-      if(saved&&state.releasesLoaded&&![...state.releaseFeeds.values()].some(feed=>feed.items.some(release=>release.id===item.id)))card.append(node('p','hint','Saved listing · Not in the latest check'));
+      if(saved&&!context.catalog&&state.releasesLoaded&&![...state.releaseFeeds.values()].some(feed=>feed.items.some(release=>release.id===item.id)))card.append(node('p','hint','Saved listing · Not in the latest check'));
       if(match.owned.length)card.append(node('p','release-match','On your shelf · ISBN match'));
       else if(match.possible.length)card.append(node('p','release-match possible','Volume on your shelf · Check the edition'));
+      else if(context.review)card.append(node('p','release-match possible','Other edition or set · Check the details'));
       else card.append(node('p','release-match unbought','Not bought yet · No shelf match'));
       if(match.series.length&&!match.owned.length)card.append(node('p','hint','A series you collect'));
       const links=node('div','release-links');links.append(releaseLink('Publisher book page ↗',item.url));
       if(item.isbn)links.append(releaseLink('Find at Naiin ↗','https://www.naiin.com/search-result?title='+encodeURIComponent(item.isbn)));card.append(links);
+      if(context.alternatives?.length){const alternatives=node('details','publisher-details');alternatives.append(node('summary','','Other listings for this volume ('+context.alternatives.length+')'));context.alternatives.forEach(other=>alternatives.append(node('p','release-links'),releaseLink(other.title+' ↗',other.url)));card.append(alternatives);}
       const buttons=node('div','buttons'),saveButton=node('button','btn'+(saved?' saved':''),state.savingReleases.has(item.id)?'Saving…':saved?'Saved · Unsave':'Save for later');
       saveButton.disabled=busy;saveButton.setAttribute('aria-pressed',String(saved));saveButton.addEventListener('click',()=>void saveRelease(item,!saved));buttons.append(saveButton);
       const add=node('button','btn',match.owned.length?'View owned series':'Add to shelf');add.disabled=busy;
@@ -448,7 +558,7 @@
       finally{state.savingReleases.delete(item.id);renderReleases();}
     }
     function openRelease(item,match) {
-      const series=match.series[0]?.series||item.series;
+      const series=item.catalogVariant?item.series:match.series[0]?.series||item.catalogSeries||item.series;
       openBook(null,{series,volume:item.volume,isbn:item.isbn,type:item.type||'Other',publisher:item.publisher,source:item.publisher});
       // A publisher listing identifies this edition; do not inherit another language or shop.
       $('type').value=item.type||'Other';state.typeTouched=true;$('publisher').value=item.publisher;$('source').value=item.publisher;
@@ -812,7 +922,7 @@
     $('removeButton').addEventListener('click',askRemove);$('confirmRemove').addEventListener('click',remove);['closeRemove','cancelRemove'].forEach(id=>$(id).addEventListener('click',()=>{if(!state.busy)$('removeDialog').close();}));$('removeDialog').addEventListener('cancel',e=>{if(state.busy)e.preventDefault();});
     $('collectionTab').addEventListener('click',()=>changeView('collection'));$('trashTab').addEventListener('click',()=>changeView('trash'));$('releasesTab').addEventListener('click',()=>changeView('releases'));
     $('refreshReleases').addEventListener('click',()=>void loadReleases(true));
-    $('refreshSeriesReleases').addEventListener('click',()=>void loadReleases(true));
+    $('refreshSeriesReleases').addEventListener('click',()=>void loadSeriesCatalogs(true));
     ['releaseSearch','releasePublisher','releaseScope','releaseType'].forEach(id=>$(id).addEventListener(id==='releaseSearch'?'input':'change',renderReleases));
     $('hideSpecialReleases').addEventListener('click',()=>{$('hideSpecialReleases').setAttribute('aria-pressed',String($('hideSpecialReleases').getAttribute('aria-pressed')!=='true'));renderReleases();});
     ['search','typeFilter','statusFilter'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',()=>{state.page=0;render();}));

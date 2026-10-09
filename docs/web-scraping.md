@@ -1,6 +1,17 @@
-# Web scraping: release feeds and ISBN lookup
+# Web scraping: series catalogs, release feeds and ISBN lookup
 
-The deployed app reads public publisher catalogs to build the **New releases** view and reads Naiin book pages to look up an ISBN. This guide describes the current implementation, its data limits, and how to repair it when a site changes. The public pages and catalog requests were inspected on **October 9, 2026**. The selectors and endpoints below are dependencies of this implementation, rather than a guarantee of a stable API from the publishers.
+## Standalone Next.js runtime
+
+The main app now runs on Next.js and SQLite. The source-specific parsing rules below are retained, with pure parsers in `lib/domain.mjs` and asynchronous fetch/caching in `lib/server/catalogs.mjs`. Native `fetch` replaces `UrlFetchApp`; SQLite replaces Script Cache and the helper tabs. Each response has a 15-second timeout and an 8 MB bound. Catalog links and product URLs still pass the existing publisher allowlists.
+
+`lib/server/store.mjs` stores saved releases and category choices independently from disposable caches. Successful feed results are retained for seven days, with a one-hour freshness window. Series/directory caches use the same policy. On a failed refresh, a retained result stays marked stale with its original check time. Exact ISBN metadata is cached for six hours.
+
+Google Sheets helper tabs are migration inputs only. The workbook importer copies them into the database. The app does not call Sheets or Apps Script at runtime. The remainder of this guide includes the previous Apps Script storage notes for the retained legacy implementation; use the files above when maintaining the standalone app.
+
+Native Node requests were checked on October 9, 2026: Phoenix returned 72 releases, First Page Pro 40, Luckpim 148, and Naiin verified ISBN `9786166247275`.
+
+
+The deployed app reads dedicated publisher series catalogs for **What you're missing**, recent catalogs for **New releases**, and Naiin book pages to look up an ISBN. This guide describes the current implementation, its data limits, and how to repair it when a site changes. The public pages and catalog requests were inspected on **October 9, 2026**. The selectors and endpoints below are dependencies of this implementation, rather than a guarantee of a stable API from the publishers.
 
 ## Where the scraping runs
 
@@ -11,6 +22,26 @@ All live website requests run in Google Apps Script through `UrlFetchApp` in [Co
 On the first visit to **New releases** in a page session, `loadReleases()` sends one `getPublisherReleases({ publisherId, refresh: false })` request per publisher concurrently. Pagination within each publisher request is sequential. Returning to the tab in the same session uses the already loaded results. **Refresh releases** reloads the shelf and then requests all three feeds with `refresh: true`. If the shelf cannot refresh, the app warns that ownership labels use the previously loaded collection.
 
 There is no background schedule, email notification, or automatic crawl of every product page. Release search and filtering happen in the browser against the loaded data.
+
+## Dedicated series catalogs
+
+Opening a series immediately renders gaps from the recorded shelf and calls `getSeriesCatalog({ series, publisherId, type, refresh })` for each supported publisher/type owned in that series. It does not call the recent-release feeds. Returning to a series reuses its loaded result. **Refresh catalog** reloads the shelf first, then bypasses catalog reuse. Each response is stored under the requesting series and edition, so navigation during a fetch cannot show another series' result.
+
+| Publisher | Category discovery | Full-series source | Pagination |
+|---|---|---|---|
+| Phoenix Next | Anchors in [the series directory](https://www.phoenixnext.com/book-series.html) | `/book-series/<slug>.html` | `?p=N`, at most 20 pages |
+| First Page Pro | Category anchors in [the site navigation](https://www.firstpagepro.com/) | `/category/<numeric-id>` | `?tskp=N`, at most 20 pages |
+| Luckpim | Full title search; its categories group formats and genres | `/get/search_pin/key?page=1&limit=-1&keyword=<title>` | The site's full search response, without the suggestions-only `take` parameter |
+
+`parseSeriesCategories_()` extracts category titles and allowed URLs. `matchSeriesCategory_()` requires one exact normalized title or English slug match. First Page Pro's manga/light-novel URL prefixes identify the category format and disambiguate same-name categories. Normalization ignores punctuation, spacing, supported leading format labels and `@COMIC`; type is compared separately. It does not guess translations or choose a fuzzy match.
+
+When no unique category matches, the response has `needsSelection: true`, category choices and `complete: false`. **Choose series category** searches these titles and URLs locally, or accepts a pasted URL. `setSeriesCatalog()` validates the publisher host/path and saves the explicit choice keyed by normalized shelf title, publisher ID and exact book type. Phoenix URLs must be HTTPS series-category paths; First Page Pro URLs are canonicalized to the numeric category root. Luckpim choices accept only its HTTPS `/search_result?k=<title>` URL. Arbitrary fetch URLs are rejected.
+
+`fetchSeriesCategory_()` reuses the product-card parser described below. It reads Phoenix's `span.toolbar-number` or First Page Pro's `span.tsk-all` count, deduplicates product IDs, and requests more pages until the total is accounted for or the bounded traversal stops. `complete` is true only when unique extracted listings equal the reported total. Missing counts, repeated pages, extraction mismatches and the 20-page limit stay incomplete. An empty page without an explicit zero total is a failure. The category heading, falling back to the HTML title, supplies the publisher's series title. Live samples included 32 Phoenix listings for [ดอกรักผลิบานที่กลางใจ](https://www.phoenixnext.com/book-series/kaoru-hana-wa-rin-to-saku.html) and 11 First Page Pro listings for [ชิชุนกิจัง](https://www.firstpagepro.com/category/56), including older volumes.
+
+`fetchLuckpimSeries_()` gets a fresh public token/cookie session from Luckpim's home page, then reads the full search endpoint. It requires HTTP 200, `status === 200`, an array in `data.list`, and a non-negative integer `data.total`. Extracted records must equal that total for a complete result. The shared Luckpim item parser supplies type, listed price and stock/pre-order labels. An empty search asks for the publisher's series title. It never substitutes the monthly new-release feed.
+
+Catalog records retain `catalogSeries`, the local shelf title, so explicitly linked aliases compare and save under that title. A parsed title differing from both the category title and local title is marked `catalogVariant` for review. The browser groups normal unmatched volumes by publisher, exact type and volume, preserving alternate product links within the same card. Special sets, unknown/other editions, missing volume numbers and possible owned copies stay under **Check the edition**. These rules use the currently listed category, not a claim about every volume ever published; removed and out-of-print listings can be absent.
 
 ## Publisher sources and extraction
 
@@ -81,7 +112,7 @@ The scraper does not use the response's rendered `html` or download cover images
 | `special` | Whether title markers identify a special edition or set |
 | `availability` | Publisher-derived availability label, or an empty string |
 
-`splitBookTitle_()` decodes HTML entities and collapses whitespace. It recognizes markers such as `(LN)`, `นิยาย`, `มังงะ`, `การ์ตูน`, and `@COMIC`, removes supported leading format/pre-order labels, and looks for a volume following `เล่ม`, `เล่มที่`, `vol`, or `volume`. It also accepts a trailing number, optionally followed by parenthesized text such as `(จบ)`. Decimal volumes such as `14.5` are preserved. These are title heuristics and can misread unusual names; they do not translate Thai and English series titles.
+`splitBookTitle_()` decodes HTML entities and collapses whitespace. It recognizes markers such as `(LN)`, `นิยาย`, `มังงะ`, `การ์ตูน`, and `@COMIC`, removes supported leading format/pre-order labels, and looks for a volume following `เล่ม`, `เล่มที่`, `vol`, or `volume`. It also accepts a trailing number, optionally followed by parenthesized text such as `(จบ)` or supported promotional suffixes such as `แถมฟรี`. Decimal volumes such as `14.5` are preserved. These are title heuristics and can misread unusual names; they do not translate Thai and English series titles.
 
 Special-edition detection recognizes markers including `Special Set`, `Complete Set`, `Box Set`, `Limited`, `เซต`, `ชุด`, and `ปกพิเศษ`. Such records have their ISBN candidate cleared and do not generate a normal-volume edition match. They still require review before being added to the shelf.
 
@@ -106,21 +137,27 @@ An HTTP error or parsing failure ends that Naiin attempt and adds an availabilit
 | Data | Cache key | Reuse and retention |
 |---|---|---|
 | Publisher feed | `releases:v1:<publisher-id>` | Reuse a successful check younger than one hour unless `refresh: true`; request six-hour cache retention |
+| Series catalog | `series:v1:<publisher-id>:<digest of series, type, chosen URL>` | Reuse a check younger than one hour unless refreshed; request six-hour retention |
+| Category directory | `series-directory:v1:<publisher-id>` | Reuse a check younger than one hour unless refreshed; request six-hour retention |
 | Successful ISBN lookup | `isbn:v2:<canonical-isbn>` | Request six-hour retention; unsuccessful lookups are not cached |
 
-Publisher caching is skipped unless `JSON.stringify(result).length * 3 < 95000`. This is a conservative size check. Cache retention is best effort, so a previous result is not guaranteed to remain available.
+Publisher/catalog caching is skipped unless `JSON.stringify(result).length * 3 < 95000`. This is a conservative size check; large directories can be too large to cache. Cache retention is best effort, so a previous result is not guaranteed to remain available.
 
 Each feed response contains `publisherId`, `items`, `checkedAt`, `stale`, and `error`. An HTTP failure, invalid Luckpim response, or a feed with no usable first-page listings produces an unavailable result. If a previous successful cached feed exists, it is returned with `stale: true`, its original `checkedAt`, and a refresh warning. Otherwise the result has no items or check time and an explanation. A second Phoenix/First Page Pro page with zero parsed listings ends pagination; an HTTP exception on that page fails that publisher's refresh.
 
 The browser handles each publisher independently, so one failed feed does not hide successful feeds. A failed browser-to-Apps-Script request can also retain that publisher's previously loaded items in the current session. The code has bounded page counts and caching, but no additional HTTP retry loop, exponential backoff, custom fetch timeout, or per-host rate limiter.
 
+Series responses also include `series`, `type`, `title`, `url`, `total`, `pages`, `complete` and `needsSelection`. A failed refresh keeps the previous cached catalog and its original check time with `stale: true`; otherwise it reports unavailable rather than an empty successful catalog. A partially counted result has a check time but `complete: false` and a warning. The browser keeps all such source warnings visible even when some missing volumes were found.
+
 The HTML readers use regular expressions tied to the current markup, rather than a general HTML parser. Partial extraction can succeed even if some cards stop matching. A plausible nonzero result therefore does not prove that all expected listings were captured.
 
 ## What is sent and stored
 
-Release fetches send catalog URLs and, for Luckpim, the temporary catalog token/cookies. ISBN lookup sends the requested ISBN in a search/API URL and visits candidate product IDs. The app does not send the user's complete shelf, notes, spending, or scanned photographs to these publishers or metadata providers. Barcode/photo recognition runs in the browser; only the ISBN goes to metadata lookup.
+Catalog fetches send category URLs and, for Luckpim, a series search title and temporary public token/cookies. ISBN lookup sends the requested ISBN in a search/API URL and visits candidate product IDs. The app does not send the user's complete shelf, notes, spending, or scanned photographs to these publishers or metadata providers. Barcode/photo recognition runs in the browser; only the ISBN goes to metadata lookup.
 
 Fetched HTML and catalog tokens are not persisted by the app. The cache contains normalized feed or lookup results. **Save for later** writes a normalized release snapshot to the hidden `_BookAppReleases` sheet with columns `Release ID`, `State`, `Book JSON`, and `Updated At`. Saved snapshots survive feed changes and cache eviction. `saved`/`unsaved` writes are keyed by the stable release ID, so repeating the same state does not create another saved entry. Saving a release does not write an owned book or purchase price.
+
+Explicit category choices are stored in the lazily created hidden `_BookAppSeriesCatalogs` sheet with columns `Series`, `Publisher ID`, `Type`, `Catalog URL`, and `Catalog Title`. Repeated choices update the same matching row, and different formats keep separate choices. Writes use explicit string cells and a script lock; they never change the owned-book columns. Catalog-series aliases and variant flags are also retained when saving a catalog listing for later.
 
 ## How scraped data determines “Not bought yet”
 
@@ -134,10 +171,10 @@ Missing shelf records/ISBNs, unknown types, title translations, unusual volume n
 
 ## Tests and maintenance
 
-The reduced fixtures in [tests/fixtures/publishers](../tests/fixtures/publishers) preserve the markup/JSON needed by the adapters. Luckpim token/cookie test values are synthetic. [publishers.test.mjs](../tests/publishers.test.mjs) exercises extraction, publisher pagination parameters, deduplication, caching and stale feeds, public catalog headers, title parsing, URL validation, persistent saved records, and exact Naiin matching/fallbacks. Run it without network access:
+The reduced fixtures in [tests/fixtures/publishers](../tests/fixtures/publishers) and [tests/fixtures/series-catalogs](../tests/fixtures/series-catalogs) preserve the markup/JSON needed by the adapters. Luckpim token/cookie test values are synthetic. [publishers.test.mjs](../tests/publishers.test.mjs) exercises recent feeds and Naiin; [series-catalogs.test.mjs](../tests/series-catalogs.test.mjs) exercises directories, full categories, older volumes, pagination/count failures, saved choices and full Luckpim search. Run them without network access:
 
 ```sh
-node --test tests/publishers.test.mjs
+node --test tests/publishers.test.mjs tests/series-catalogs.test.mjs
 ```
 
 [publishers.browser.mjs](../tests/publishers.browser.mjs) checks filters and ownership labels, saved records across refresh/reload, add-form review, partial feed failures, Naiin form filling, text rendering, and phone/desktop layout against the local preview. Start the preview separately and use the browser environment settings documented in [README.md](../README.md#local-development):
@@ -147,15 +184,15 @@ node preview/server.mjs
 node tests/publishers.browser.mjs
 ```
 
-The preview serves fixed examples from [preview/releases.json](../preview/releases.json) and a Naiin fixture for ISBN `9786166247275`. It does not scrape the live publishers. The test harness also simulates `UrlFetchApp` and cache storage; it does not test real Apps Script network access, cache expiration/eviction, or Google's deployed authorization. Passing these tests confirms behavior against the fixtures, not that today's live site still has the same markup.
+The preview serves fixed examples from [preview/releases.json](../preview/releases.json), labeled catalog snapshots in [preview/series-catalogs.json](../preview/series-catalogs.json), category-directory fixtures, and a Naiin fixture for ISBN `9786166247275`. It does not scrape the live publishers; categories without snapshots show an unavailable-sample warning. [series-missing.browser.mjs](../tests/series-missing.browser.mjs) checks the series flow, category choices/reload, missing volumes, uncertain editions, failure handling and responsive layouts using an isolated collection. The test harness simulates `UrlFetchApp` and cache storage; it does not test real Apps Script network access, cache expiration/eviction, or Google's deployed authorization. Passing these tests confirms behavior against the fixtures, not that today's live site still has the same markup.
 
 When a feed stops working or seems incomplete:
 
 1. Open the relevant source page and inspect the current response or the browser's catalog request. Check the card markup, next-page parameter, response fields, and token/cookie flow against the adapter above.
 2. Capture small representative fixtures with Thai text, a normal volume, and a special/pre-order example where applicable. Replace any live token/cookies with synthetic test values; keep unrelated page scripts and descriptions out of fixtures.
-3. Update the relevant function in `Code.gs`: `parseCatalog_()`/`fetchCatalog_()` for Phoenix or First Page Pro, `fetchLuckpim_()` for Luckpim, or `lookupNaiin_()`/`structuredBooks_()` for Naiin. Adjust `splitBookTitle_()` only when the title format itself changed.
+3. Update the relevant function in `Code.gs`: `parseCatalog_()`/`fetchCatalog_()` for recent Phoenix or First Page Pro listings; `parseSeriesCategories_()`/`catalogTotal_()`/`fetchSeriesCategory_()` for series categories; `fetchLuckpim_()` or `fetchLuckpimSeries_()` for the corresponding Luckpim flow; or `lookupNaiin_()`/`structuredBooks_()` for Naiin. Adjust `splitBookTitle_()` only when the title format itself changed.
 4. Run the fixture tests, then inspect a fresh live result, including page 2 and sample product links. For Naiin, verify that an exact ISBN is accepted and a mismatched edition is rejected. Preserve the bounds and exact-ISBN checks when repairing a parser.
 5. If the response schema changes, update the browser and saved-record handling as needed and bump the relevant cache-key version to avoid reusing incompatible cached data. If scope changes, update `PUBLISHERS.scope` and this guide.
-6. Update the bound Apps Script files and deploy a new version following [README.md](../README.md#update-the-deployed-app). Use **Refresh releases** to bypass the ordinary one-hour feed reuse window; the current ISBN form has no cache-bypass option.
+6. Update the bound Apps Script files and deploy a new version following [README.md](../README.md#update-the-deployed-app). Use **Refresh releases** or **Refresh catalog** to bypass the ordinary one-hour result reuse window; the current ISBN form has no cache-bypass option.
 
 For HTTP 403/429, missing catalog tokens, or access changes, surface the feed error and verify the site's current public flow before changing the adapter. Increasing page counts or adding repeated retries is not a repair for changed markup or an unavailable source.
