@@ -56,6 +56,8 @@ The feed covers Phoenix Next's latest 72 catalog listings, First Page Pro's late
 
 Replace both **Code.gs** and **Index.html**, then deploy a new version. The existing sheet columns and manifest stay the same. The app creates a hidden **_BookAppReleases** tab on your first saved release, so an existing installation does not need another setup run. Keep that tab to preserve your saved list.
 
+The [web scraping implementation and maintenance guide](docs/web-scraping.md) documents each source, pagination and extraction rules, Luckpim's catalog token/cookies, Naiin's exact ISBN verification, caching, error handling, saved data, and how to update the scrapers when a site changes.
+
 ## Check a book in the store
 
 Choose **Check a book → Scan barcode**. Use a live camera, a barcode photo, or a typed ISBN. **Already on your shelf** shows the matching series, volume, language/type and publisher, with a link to the series. The check reads your current sheet and compares equivalent ISBN-10 and ISBN-13 values. It does not add a book or call a metadata provider.
