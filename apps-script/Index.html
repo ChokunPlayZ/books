@@ -21,6 +21,8 @@
     @media(max-width:560px){.purchase-price .form-grid{grid-template-columns:1fr}.purchase-price{padding:12px}}
     .series-defaults{padding:12px 14px;background:var(--soft);border-radius:8px;font-size:12px}.series-defaults p{margin:0;overflow-wrap:anywhere}.series-defaults .text-btn{padding:7px 0 0;color:var(--green);font-size:12px}.price-calculator summary{cursor:pointer;font-size:12px;color:var(--green)}.price-calculator[open] summary{margin-bottom:12px}
     .tabs{overflow-x:auto;gap:22px}.tab{white-space:nowrap}.release-heading{margin:27px 0 20px}.release-heading h1{font-size:36px}.release-heading .buttons{margin-top:17px}.publisher-details{margin-top:15px;color:var(--muted);font-size:12px}.publisher-details summary{cursor:pointer;padding:4px 0}.publisher-details[open] summary{margin-bottom:12px}.publisher-sources{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.publisher-source{border:1px solid var(--line);border-radius:9px;background:white;padding:15px}.publisher-source>a{font-weight:600;text-decoration:none}.publisher-source .hint{margin-top:5px}.source-error{font-size:11px;color:var(--red);margin:8px 0 0}.release-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.release-grid>.empty{grid-column:1/-1}.release-card{padding:22px;background:white;border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;align-items:flex-start;gap:9px;min-width:0}.release-card p{margin:0}.release-card .eyebrow{font-size:10px}.release-meta{font-size:12px;color:var(--muted)}.release-price{font-size:13px}.release-links{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;margin:4px 0 10px}.release-card .buttons{margin-top:auto;flex-wrap:wrap}.release-card .btn{font-size:12px;min-height:39px;padding:8px 13px}.release-match{background:var(--soft);color:var(--green);padding:5px 9px;border-radius:6px;font-size:11px}.release-match.unbought{background:#e6ecee;color:#3d6272}.release-match.possible{background:#fbf0da;color:#8e6b2d}.btn.saved{background:var(--soft);border-color:#bed0b4}.release-note{font-size:12px;color:var(--muted);margin:18px 0 0}@media(max-width:560px){.publisher-sources{grid-template-columns:1fr}.publisher-source{padding:12px 14px}.release-grid{grid-template-columns:1fr}.release-card{padding:18px}.release-heading h1{font-size:31px}}
+    .release-filters{flex-wrap:wrap}.release-filters .search{flex:1 1 240px}.release-filters .btn{min-height:44px;font-size:12px}#hideSpecialReleases[aria-pressed="true"]{background:var(--soft);border-color:#bed0b4}@media(max-width:560px){.release-filters .search{flex-basis:100%}.release-filters select,.release-filters .btn{flex:1 1 calc(50% - 5px)}}
+    .series-missing{margin:22px 0 28px;padding:22px;background:#f0f3e9;border:1px solid #d2ddc7;border-radius:10px}.series-missing h2{font:25px/1.3 Georgia,Tahoma,serif;margin:0 0 5px}.series-missing h3{font-size:14px;margin:0 0 6px}.series-missing p{margin:0 0 10px}.missing-editions{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:17px 0}.missing-edition{padding:15px;background:white;border:1px solid var(--line);border-radius:8px;min-width:0;overflow-wrap:anywhere}.missing-volume{background:#fbf0da;border-color:#dfc78f;color:#785b24;min-height:36px;font-size:12px;padding:6px 10px}.missing-volume:hover{background:#f6e4bd}.series-release-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:20px 0 10px}.series-release-head .btn{font-size:12px;padding:8px 12px;flex:none}.series-missing .publisher-sources{margin:12px 0}.series-missing .release-grid{margin-top:12px}.series-review{margin-top:15px}.series-review summary{cursor:pointer;color:#8e6b2d;font-size:12px}.series-missing .release-note{margin:12px 0 0}@media(max-width:560px){.series-missing{padding:17px 14px}.series-missing h2{font-size:23px}.missing-editions{grid-template-columns:1fr}.series-release-head{align-items:flex-start;flex-wrap:wrap}.series-missing .publisher-source{padding:10px 12px}}
   </style>
 </head>
 <body>
@@ -51,6 +53,16 @@
     </section>
     <div class="tabs" aria-label="Collection views"><button id="collectionTab" class="tab active" aria-pressed="true">Collection <span id="activeCount" class="tab-count">—</span></button><button id="releasesTab" class="tab" aria-pressed="false">New releases <span id="releaseCount" class="tab-count">—</span></button><button id="trashTab" class="tab" aria-pressed="false">Recently removed <span id="trashCount" class="tab-count">0</span></button></div>
     <div id="seriesHeader" class="series-header" hidden><button id="backSeries" class="text-btn">← All series</button><p class="eyebrow">On your shelf</p><h1 id="seriesTitle"></h1><p id="seriesSummary"></p></div>
+    <section id="seriesMissing" class="series-missing" aria-labelledby="seriesMissingTitle" hidden>
+      <h2 id="seriesMissingTitle">What you’re missing</h2><p id="seriesMissingSummary" class="hint" role="status"></p>
+      <div id="seriesGaps" class="missing-editions"></div>
+      <div class="series-release-head"><div><h3>Recent releases you haven’t bought</h3><p class="hint">Matching your series, publisher and language.</p></div><button id="refreshSeriesReleases" class="btn">Refresh releases</button></div>
+      <div id="seriesReleaseError" class="banner" role="alert" hidden></div>
+      <p id="seriesReleaseStatus" class="hint" role="status"></p><div id="seriesReleaseSources" class="publisher-sources"></div>
+      <div id="seriesReleaseList" class="release-grid"></div>
+      <details id="seriesReleaseReview" class="series-review" hidden><summary id="seriesReleaseReviewSummary"></summary><div id="seriesReleaseReviewList" class="release-grid"></div></details>
+      <p class="hint release-note">Gaps use whole volume numbers up to your highest owned volume in each edition. Publisher feeds cover recent listings; older releases and differently named series may be absent.</p>
+    </section>
     <div id="collectionBrowser">
     <div class="toolbar">
       <div class="search"><svg aria-hidden="true"><use href="#i-search"/></svg><label for="search" class="sr-only">Search your collection</label><input id="search" type="search" placeholder="Search series, ISBN, publisher or notes…" autocomplete="off"></div>
@@ -68,10 +80,12 @@
       <p class="release-note">Catalog listings can include pre-orders and special sets. Dates and availability may change. “Not bought yet” means no match in your recorded collection. Missing ISBNs or different series names can hide an owned copy. “Check edition” keeps possible matches separate; review those before buying.</p></details>
       <p class="hint release-note">Based on your recorded shelf. Use Check edition for possible owned volumes.</p>
       <div id="releaseError" class="banner" role="alert" hidden></div>
-      <div class="toolbar">
+      <div class="toolbar release-filters">
         <div class="search"><svg aria-hidden="true"><use href="#i-search"/></svg><label for="releaseSearch" class="sr-only">Search releases</label><input id="releaseSearch" type="search" placeholder="Search releases or ISBN…"></div>
         <label for="releasePublisher" class="sr-only">Publisher</label><select id="releasePublisher"><option value="">All publishers</option><option value="phoenix">Phoenix Next</option><option value="firstpage">First Page Pro</option><option value="luckpim">Luckpim</option></select>
         <label for="releaseScope" class="sr-only">Release list</label><select id="releaseScope"><option value="unbought">Not bought yet</option><option value="all">All releases</option><option value="series">For my series</option><option value="review">Check edition</option><option value="owned">On my shelf</option><option value="saved">Saved for later</option></select>
+        <label for="releaseType" class="sr-only">Release type</label><select id="releaseType"><option value="">All types</option><option value="LN">Light novels (LN)</option><option value="Manga">Manga</option></select>
+        <button id="hideSpecialReleases" class="btn" type="button" aria-pressed="false" aria-controls="releaseList">Hide special editions</button>
       </div>
       <p id="releaseOwnershipSummary" class="release-note" role="status"></p>
       <div class="list-label"><span id="releaseResultCount" role="status">Checking publishers…</span></div>
@@ -200,6 +214,7 @@
       $('seriesTitle').textContent=state.selectedSeries||'';
       const numbered=owned.filter(b=>b.volume!==''&&b.volume!==null).length;
       $('seriesSummary').textContent=number(owned.length)+' owned '+(owned.length===1?'volume':'volumes')+' · '+[...new Set(owned.map(b=>b.type).filter(Boolean))].join(', ')+(numbered<owned.length?' · '+(owned.length-numbered)+' unnumbered':'');
+      renderSeriesMissing();
       $('addButton').replaceChildren(icon('plus'),document.createTextNode(state.selectedSeries!==null?'Add volume':'Add book'));
       $('search').placeholder=grouped?'Search series, ISBN, publisher or notes…':'Search volumes, ISBN, publisher or notes…';
       $('bookList').replaceChildren();
@@ -226,7 +241,66 @@
       button.addEventListener('click',()=>openSeries(group.series));return button;
     }
     function openSeries(series) {
-      state.selectedSeries=series;state.page=0;$('search').value='';$('typeFilter').value='';$('statusFilter').value='';render();$('backSeries').focus();
+      state.selectedSeries=series;state.page=0;$('search').value='';$('typeFilter').value='';$('statusFilter').value='';$('seriesReleaseError').hidden=true;render();$('backSeries').focus();
+      if(!state.releasesLoaded&&seriesPublishers().length)void loadReleases();
+    }
+    function seriesPublishers() {
+      const ids=new Set(state.data.books.filter(b=>seriesKey(b)===state.selectedSeries).map(b=>publisherKey(b.publisher)));
+      return state.data.publishers.filter(p=>ids.has(p.id));
+    }
+    function seriesGaps(books) {
+      const editions=new Map();
+      books.forEach(b=>{
+        const key=JSON.stringify([b.type||'',publisherKey(b.publisher)]);
+        if(!editions.has(key))editions.set(key,{type:b.type,publisher:b.publisher,books:[]});
+        editions.get(key).books.push(b);
+      });
+      return [...editions.values()].map(edition=>{
+        const volumes=[...new Set(edition.books.filter(b=>b.volume!==''&&b.volume!==null).map(b=>Number(b.volume)).filter(v=>Number.isFinite(v)&&v>=1&&v<=Number.MAX_SAFE_INTEGER))].sort((a,b)=>a-b);
+        const highest=volumes.length?Math.floor(volumes[volumes.length-1]):0,ranges=[];let next=1;
+        volumes.filter(Number.isInteger).forEach(v=>{if(v>next)ranges.push([next,v-1]);next=v+1;});
+        if(next<=highest)ranges.push([next,highest]);
+        return {...edition,highest,ranges,missing:ranges.reduce((sum,[from,to])=>sum+to-from+1,0)};
+      });
+    }
+    function renderSeriesMissing() {
+      const visible=state.view==='collection'&&state.selectedSeries!==null;
+      $('seriesMissing').hidden=!visible;if(!visible)return;
+      const owned=state.data.books.filter(b=>seriesKey(b)===state.selectedSeries),editions=seriesGaps(owned);
+      const gaps=editions.reduce((sum,e)=>sum+e.missing,0),publishers=seriesPublishers();
+      const pending=publishers.some(p=>!state.releaseFeeds.has(p.id)),failed=publishers.some(p=>state.releaseFeeds.get(p.id)?.error);
+      const matches=releaseItems().map(item=>({item,match:releaseMatches(item)})).filter(({match})=>match.series.some(b=>seriesKey(b)===state.selectedSeries));
+      const missing=matches.filter(({match})=>!match.owned.length&&!match.possible.length),review=matches.filter(({match})=>!match.owned.length&&match.possible.length);
+      const recentSummary=missing.length?number(missing.length)+(missing.length===1?' recent listing':' recent listings')+' not bought yet':!publishers.length?'Recent release check unavailable':pending||state.releasesLoading?'Checking recent releases…':failed?'Recent release check incomplete':review.length?number(review.length)+(review.length===1?' edition':' editions')+' to check':'No missing recent listings';
+      $('seriesMissingSummary').textContent=number(gaps)+(gaps===1?' gap':' gaps')+' in your shelf · '+recentSummary;
+      $('seriesGaps').replaceChildren();
+      editions.forEach(edition=>{
+        const card=node('div','missing-edition');card.append(node('h3','',[edition.type,edition.publisher].filter(Boolean).join(' · ')||'Edition not recorded'));
+        if(edition.missing){
+          card.append(node('p','hint','Missing '+number(edition.missing)+(edition.missing===1?' volume':' volumes')+' through volume '+edition.highest));
+          const chips=node('div','owned-volumes');
+          edition.ranges.forEach(([from,to])=>{
+            const add=node('button','btn missing-volume','Vol. '+from+(to>from?'–'+to:'')+' +');add.disabled=state.busy;
+            add.setAttribute('aria-label','Add missing volume '+from+' of '+state.selectedSeries+', '+[edition.type,edition.publisher].filter(Boolean).join(', '));
+            add.addEventListener('click',()=>{
+              const source=[...edition.books].sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||b.row-a.row).find(b=>b.source)?.source||'';
+              openBook(null,{series:state.selectedSeries,volume:from});
+              $('type').value=edition.type||'Other';$('publisher').value=edition.publisher||'';$('source').value=source;renderBookDetails();
+            });chips.append(add);
+          });card.append(chips);
+        }else card.append(node('p','hint',edition.highest?'No gaps through volume '+edition.highest:'No numbered sequence to check yet'));
+        $('seriesGaps').append(card);
+      });
+      $('refreshSeriesReleases').hidden=!publishers.length;$('refreshSeriesReleases').disabled=state.releasesLoading;
+      $('refreshSeriesReleases').textContent=state.releasesLoading?'Checking…':'Refresh releases';
+      $('seriesReleaseSources').replaceChildren();
+      publishers.forEach(p=>$('seriesReleaseSources').append(publisherSource(p)));
+      $('seriesReleaseStatus').textContent=!publishers.length?'Recent release checks are available for Phoenix Next, First Page Pro and Luckpim.':pending?'Checking recent listings for this series…':failed?'Some publisher checks are unavailable. Showing the listings we have.':missing.length?number(missing.length)+(missing.length===1?' recent listing':' recent listings')+' with no match on your shelf.':state.releasesLoading?'Refreshing recent listings…':'No missing volumes found in these recent listings.';
+      const saved=new Set((state.data.savedReleases||[]).map(item=>item.id));
+      $('seriesReleaseList').replaceChildren();missing.forEach(({item})=>$('seriesReleaseList').append(releaseCard(item,saved.has(item.id))));
+      $('seriesReleaseReview').hidden=!review.length;
+      $('seriesReleaseReviewSummary').textContent=number(review.length)+(review.length===1?' listing matches an owned volume':' listings match owned volumes')+' · Check the edition';
+      $('seriesReleaseReviewList').replaceChildren();review.forEach(({item})=>$('seriesReleaseReviewList').append(releaseCard(item,saved.has(item.id))));
     }
     function seriesDefaults(series=state.selectedSeries) {
       if(series===null)return undefined;
@@ -291,9 +365,9 @@
     }
     async function loadReleases(refresh=false) {
       if(!state.data||state.releasesLoading)return;
-      state.releasesLoading=true;$('releaseError').hidden=true;renderReleases();
+      state.releasesLoading=true;$('releaseError').hidden=true;$('seriesReleaseError').hidden=true;renderReleases();
       try {
-        if(refresh){try{await load();}catch(error){errorAt('releaseError','Unable to refresh your shelf. Ownership labels use the previously loaded collection.');}}
+        if(refresh){try{await load();}catch(error){const message='Unable to refresh your shelf. Ownership labels use the previously loaded collection.';errorAt('releaseError',message);errorAt('seriesReleaseError',message);}}
         await Promise.all(state.data.publishers.map(async publisher=>{
           try { state.releaseFeeds.set(publisher.id,await rpc('getPublisherReleases',{publisherId:publisher.id,refresh})); }
           catch(error){const old=state.releaseFeeds.get(publisher.id);state.releaseFeeds.set(publisher.id,{publisherId:publisher.id,items:old?.items||[],checkedAt:old?.checkedAt||'',stale:true,error:'Unable to check '+publisher.name+'. Try Refresh releases.'});}
@@ -308,26 +382,28 @@
       return [...items.values()];
     }
     function releaseLink(label,url) { const a=node('a','',label);a.href=url;a.target='_blank';a.rel='noopener noreferrer';return a; }
+    function publisherSource(p) {
+      const feed=state.releaseFeeds.get(p.id),card=node('div','publisher-source');
+      card.append(releaseLink(p.name+' ↗',p.url));
+      const stamp=feed?.example?'Preview sample · not a live check':feed?.checkedAt?(feed.stale?'Previous check ':'Checked ')+new Date(feed.checkedAt).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):state.releasesLoading?'Checking…':'Not checked yet';
+      card.append(node('p','hint',stamp),node('p','hint',p.scope));
+      if(feed?.error)card.append(node('p','source-error',feed.error));return card;
+    }
     function renderReleases() {
       if(!state.data)return;
       $('refreshReleases').disabled=state.releasesLoading;$('refreshReleases').textContent=state.releasesLoading?'Checking publishers…':'Refresh releases';
       const sources=$('publisherSources');sources.replaceChildren();
-      state.data.publishers.forEach(p=>{
-        const feed=state.releaseFeeds.get(p.id),card=node('div','publisher-source');
-        card.append(releaseLink(p.name+' ↗',p.url));
-        const stamp=feed?.example?'Preview sample · not a live check':feed?.checkedAt?'Checked '+new Date(feed.checkedAt).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):state.releasesLoading?'Checking…':'Not checked yet';
-        card.append(node('p','hint',stamp),node('p','hint',p.scope));
-        if(feed?.error)card.append(node('p','source-error',feed.error));sources.append(card);
-      });
+      state.data.publishers.forEach(p=>sources.append(publisherSource(p)));
       const failures=[...state.releaseFeeds.values()].filter(feed=>feed.error).length;
       $('publisherCheckSummary').textContent='Publisher sources & check times'+(failures?' · '+failures+' unavailable':state.releasesLoading?' · Checking…':'');
-      const saved=new Set((state.data.savedReleases||[]).map(item=>item.id)),query=$('releaseSearch').value.trim().toLocaleLowerCase(),publisher=$('releasePublisher').value,scope=$('releaseScope').value;
+      const saved=new Set((state.data.savedReleases||[]).map(item=>item.id)),query=$('releaseSearch').value.trim().toLocaleLowerCase(),publisher=$('releasePublisher').value,scope=$('releaseScope').value,type=$('releaseType').value,hideSpecial=$('hideSpecialReleases').getAttribute('aria-pressed')==='true';
       const allItems=releaseItems(),totals={unbought:0,review:0,owned:0};
       allItems.forEach(item=>{const match=releaseMatches(item);totals[match.owned.length?'owned':match.possible.length?'review':'unbought']++;});
       $('releaseOwnershipSummary').textContent=number(totals.unbought)+' not bought yet · '+number(totals.owned)+' on your shelf · '+number(totals.review)+' to check by edition';
       const items=allItems.filter(item=>{
         const match=releaseMatches(item);
         return (!publisher||item.publisherId===publisher)&&(!query||[item.title,item.publisher,item.isbn].join(' ').toLocaleLowerCase().includes(query))&&
+          (!type||String(item.type||'').startsWith(type))&&(!hideSpecial||!item.special)&&
           (scope!=='saved'||saved.has(item.id))&&(scope!=='series'||match.series.length>0)&&
           (scope!=='unbought'||(!match.owned.length&&!match.possible.length))&&(scope!=='review'||(!match.owned.length&&match.possible.length>0))&&(scope!=='owned'||match.owned.length>0);
       });
@@ -337,11 +413,13 @@
       if(!items.length){
         const empty=node('div','empty');
         const failed=[...state.releaseFeeds.values()].some(f=>f.error);
-        empty.append(node('h2','',state.releasesLoading?'Checking your publishers…':scope==='saved'?'Your next reads start here':scope==='series'?'No matching series in these listings':scope==='unbought'&&!failed?'No unmatched releases':failed?'Publisher listings unavailable':'No releases found'),
-          node('p','',scope==='saved'?'Save a release to keep it here, even after it leaves the latest listings.':scope==='series'?'Try All releases. Series names, publisher and language/type must match your shelf.':scope==='unbought'&&!failed?'Use Check edition for possible owned volumes, or All releases to see everything.':failed?'Use the publisher links above, or refresh to try again.':'Try another search or publisher.'));
+        const filtered=(type||hideSpecial)&&!failed&&!state.releasesLoading;
+        empty.append(node('h2','',state.releasesLoading?'Checking your publishers…':filtered?'No releases match these filters':scope==='saved'?'Your next reads start here':scope==='series'?'No matching series in these listings':scope==='unbought'&&!failed?'No unmatched releases':failed?'Publisher listings unavailable':'No releases found'),
+          node('p','',filtered?'Try All types, show special editions, or adjust the other filters.':scope==='saved'?'Save a release to keep it here, even after it leaves the latest listings.':scope==='series'?'Try All releases. Series names, publisher and language/type must match your shelf.':scope==='unbought'&&!failed?'Use Check edition for possible owned volumes, or All releases to see everything.':failed?'Use the publisher links above, or refresh to try again.':'Try another search or publisher.'));
         $('releaseList').append(empty);
       }
       items.forEach(item=>$('releaseList').append(releaseCard(item,saved.has(item.id))));
+      renderSeriesMissing();
     }
     function releaseCard(item,saved) {
       const card=node('article','release-card'),match=releaseMatches(item),busy=state.savingReleases.size>0||state.busy;
@@ -364,9 +442,9 @@
     }
     async function saveRelease(item,saved) {
       if(state.savingReleases.size>0)return;
-      state.savingReleases.add(item.id);$('releaseError').hidden=true;renderReleases();
+      state.savingReleases.add(item.id);$('releaseError').hidden=true;$('seriesReleaseError').hidden=true;renderReleases();
       try {const result=await rpc('setSavedRelease',{release:item,saved});state.data.savedReleases=result.savedReleases;notify(saved?'Saved for later.':'Removed from your saved releases.');}
-      catch(error){errorAt('releaseError',error);}
+      catch(error){errorAt('releaseError',error);errorAt('seriesReleaseError',error);}
       finally{state.savingReleases.delete(item.id);renderReleases();}
     }
     function openRelease(item,match) {
@@ -734,7 +812,9 @@
     $('removeButton').addEventListener('click',askRemove);$('confirmRemove').addEventListener('click',remove);['closeRemove','cancelRemove'].forEach(id=>$(id).addEventListener('click',()=>{if(!state.busy)$('removeDialog').close();}));$('removeDialog').addEventListener('cancel',e=>{if(state.busy)e.preventDefault();});
     $('collectionTab').addEventListener('click',()=>changeView('collection'));$('trashTab').addEventListener('click',()=>changeView('trash'));$('releasesTab').addEventListener('click',()=>changeView('releases'));
     $('refreshReleases').addEventListener('click',()=>void loadReleases(true));
-    ['releaseSearch','releasePublisher','releaseScope'].forEach(id=>$(id).addEventListener(id==='releaseSearch'?'input':'change',renderReleases));
+    $('refreshSeriesReleases').addEventListener('click',()=>void loadReleases(true));
+    ['releaseSearch','releasePublisher','releaseScope','releaseType'].forEach(id=>$(id).addEventListener(id==='releaseSearch'?'input':'change',renderReleases));
+    $('hideSpecialReleases').addEventListener('click',()=>{$('hideSpecialReleases').setAttribute('aria-pressed',String($('hideSpecialReleases').getAttribute('aria-pressed')!=='true'));renderReleases();});
     ['search','typeFilter','statusFilter'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',()=>{state.page=0;render();}));
     $('previousPage').addEventListener('click',()=>{state.page--;render();});$('nextPage').addEventListener('click',()=>{state.page++;render();});$('refreshButton').addEventListener('click',()=>void load().catch(()=>{}));
     void load().catch(()=>{});

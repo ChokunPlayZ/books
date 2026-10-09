@@ -2,7 +2,7 @@
 
 A Google Apps Script app connected to [your existing collection](https://docs.google.com/spreadsheets/d/1xtA2hqEGZPyvQS0ZC2NI30lJLJAugvFHPh9jQOyGhgg/edit).
 
-Browse your collection grouped by series. Click a series to see **all your owned volumes**, sorted by volume number, and choose **Add volume** to add to that series. Add and edit books, search your shelf, update reading status, and scan ISBN barcodes. Removed books stay in **Recently removed**, where you can restore them. The app uses your existing columns and dropdown choices, including decimal volume numbers such as `14.5` and prices of `0` for gifts.
+Browse your collection grouped by series. Click a series to see **what you're missing** above **all your owned volumes**, sorted by volume number, and choose **Add volume** to add to that series. Add and edit books, search your shelf, update reading status, and scan ISBN barcodes. Removed books stay in **Recently removed**, where you can restore them. The app uses your existing columns and dropdown choices, including decimal volume numbers such as `14.5` and prices of `0` for gifts.
 
 ## Install in your Google Sheet
 
@@ -21,6 +21,15 @@ The manifest grants spreadsheet access because the Sheets API is needed to prese
 ## Browse by series
 
 The collection starts with one entry per series, showing its owned-volume count, book types and a preview of volume numbers. Multiple copies are shown with a count such as `1 ×2`. Search and type/status filters find series with a matching book. Clicking one clears those filters and opens **every owned volume** in that series, with no volume pagination. Decimal volumes sort correctly; unnumbered books appear last.
+
+**What you're missing** appears at the top as soon as you open a series:
+
+- **Shelf gaps** list missing whole-number volumes from 1 through the highest owned volume, separately for each type/language and publisher. Owning a Japanese volume, a light novel, or a color edition does not fill a gap in another edition. Duplicate copies do not change the gaps. Decimal and unnumbered books are retained on your shelf, but extra fractional volumes are never invented. Long missing runs are shown as ranges.
+- Tap a gap to open **Add volume** with that edition's type, publisher and shop; a range opens its first missing volume. Saving refreshes the summary.
+- **Recent releases you haven't bought** automatically checks the existing publisher feeds and shows matching unowned listings in this series. You can open the book page, save it for later, or review it in **Add to shelf**. Saved listings stay available after leaving the feed. ISBN-confirmed owned books are omitted; possible owned volumes appear under **Check the edition**.
+- **Refresh releases** in the series reloads your shelf and publisher listings. Check times, preview samples and failures are shown here, including when an older successful feed is used after an outage. Opening another series uses the loaded feeds, and late results follow the series currently open.
+
+Gap detection uses your recorded shelf, and release checks cover recent listings from Phoenix Next, First Page Pro and Luckpim. This is not a complete publication catalog: older releases, unsupported publishers, differently named series and unrecorded purchases can affect the results. **No gaps through volume N** describes only the owned-volume range; it does not claim the whole series is complete.
 
 Choose **Add volume** inside a series, or select an existing title in **Add book**, to enter just the volume, reading status, price and date bought. The app reuses the type, publisher and shop from the most recently bought volume, filling missing shared details from older volumes of the same type and publisher. The inherited details appear above the short form; choose **Edit other details** to change them or add an ISBN or notes. ISBNs and notes start blank for each new volume. Choosing a different existing title updates the defaults; entering a new title brings back the full form and your previous manually entered defaults. Title matching ignores capitalization and surrounding spaces and saves the collection's existing spelling.
 
@@ -42,7 +51,7 @@ Choose **All series** to return to the main view. The summary cards in the main 
 
 Choose **New releases** to check [Phoenix Next](https://www.phoenixnext.com/new-release.html), [First Page Pro](https://www.firstpagepro.com/showroom/new) and [Luckpim](https://www.luckpim.com/product/list/new). **Not bought yet** is the default: it shows listings with no match in your recorded shelf. Each card shows the publisher, title, available volume/type/ISBN, listed price and a link to the publisher's book page. Books with an ISBN also offer **Find at Naiin**. Listed prices are in Thai baht; they are not recorded as purchase prices.
 
-Use **All releases**, **For my series**, **On my shelf**, **Check edition** or **Saved for later**, and narrow by publisher or search. The overview counts separate unmatched listings, ISBN-confirmed owned books and volumes that need an edition check:
+Use **All releases**, **For my series**, **On my shelf**, **Check edition** or **Saved for later**, and narrow by publisher or search. **All types**, **Light novels (LN)** and **Manga** filter formats across languages and color editions. **Hide special editions** hides marked special editions and sets; click it again to show them. These filters also apply to saved releases and stay selected when refreshing or switching tabs during the same visit. Listings with an unknown type appear under **All types**. The overview counts separate unmatched listings, ISBN-confirmed owned books and volumes that need an edition check:
 
 - **On your shelf · ISBN match** compares equivalent ISBN-10/ISBN-13 values.
 - **Volume on your shelf · Check the edition** means the normalized series name, volume, publisher and language/type match. It is kept out of **Not bought yet**, but still needs review. Different languages/types and special sets are not treated as the same edition.
@@ -104,6 +113,10 @@ For sale price and discount entry, replace **Index.html** and deploy a new versi
 
 For the shorter existing-title form, replace **Index.html** and deploy a new version. **Add volume** and choosing an existing title both reuse shared series details. No spreadsheet, manifest or **Code.gs** changes are required for this feature.
 
+For the **What you're missing** series overview, replace **Index.html** and deploy a new version. It uses the existing collection and publisher-release backend; no spreadsheet, manifest or **Code.gs** changes are needed if publisher releases are already installed.
+
+For the LN/manga and **Hide special editions** release filters, replace **Index.html** and deploy a new version.
+
 For the October 9 camera/photo-scanning fix, replace **Index.html** and deploy a new version. No changes to **Code.gs**, the manifest, or your spreadsheet are needed. Live camera startup now requests the rear camera directly and plays video inline. Google or browser permissions can still block live camera access; the native **Take photo** button works independently. Closing the scanner stops camera tracks and cancels pending recognition; opening the iOS camera/photo picker does not discard a photo scan.
 
 For the overlapping-filter save fix, replace **Code.gs** and deploy a new version. When a save or restore expands Table1 or adds a dropdown choice, the app removes any regular sheet filter overlapping the updated table range in the same atomic operation. This removes that filter's criteria and sorting settings. Table-backed filters and regular filters outside the table range are preserved. If saving fails, the filter and book data remain unchanged.
@@ -159,4 +172,8 @@ Run `node tests/pricing.browser.mjs` against the preview for sale-price checks. 
 
 Run `node tests/series-entry.browser.mjs` against the preview for existing-title entry checks. It verifies the short form, recent-edition defaults, missing shared details, title switching, capitalization, saved inherited values, optional overrides, ISBN and notes handling, repeated volume entry, lookup suggestions, the full edit form and phone/desktop layout. It accepts the same environment settings and saves a phone screenshot to `outputs/series-entry-preview.png`.
 
+Run `node tests/series-missing.browser.mjs` against the preview to verify immediate edition-specific gaps, duplicate/zero/decimal volumes, unnumbered books and large ranges, automatic releases, ownership and edition checks, navigation while feeds load, gap and release additions, saved-list actions, refresh failures and recovery, and phone/desktop layout. All RPCs use an isolated test collection, so this script never changes the running preview's data. It accepts the same browser environment settings and saves screenshots to `outputs/series-missing-phone.png` and `outputs/series-missing-desktop.png`.
+
 Run `node tests/publishers.browser.mjs` against the preview to verify publisher/series filters, the default unbought list, ISBN-confirmed ownership versus edition checks, language/type matching, saved-list persistence across catalog changes and reloads, reviewed add forms, partial feed failures, Naiin metadata and phone/desktop layout. It accepts the same browser environment settings. The preview uses example feed data and a verified Naiin sample for ISBN `9786166247275`; it does not contact the live publishers. `tests/publishers.test.mjs` verifies publisher parsing, pagination, caching/outages, saved-list writes and exact ISBN lookup. Public live pages were inspected on October 9, 2026; their layouts and endpoints may change.
+
+Run `node tests/release-filters.browser.mjs` to check LN/manga filtering across languages and color editions, unknown types, special-edition hiding, combined search/publisher/ownership filters, saved listings outside the current feed, filter retention during refresh/tab navigation, and narrow phone through desktop layouts. It uses an isolated test collection and accepts the same browser environment settings.
