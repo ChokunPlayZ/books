@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Book Collection</title>
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
+  <style>
+    :root{--ink:#203c31;--muted:#67776e;--paper:#f7f8f3;--white:#fff;--line:#dce3d9;--green:#315c48;--soft:#e9efe4;--gold:#a97c32;--red:#a73835;--shadow:0 22px 65px #1c342721}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,sans-serif}button,input,select,textarea{font:inherit}button,a,label.file{touch-action:manipulation}button{cursor:pointer}button:disabled{cursor:wait;opacity:.55}a{color:var(--green)}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #b0caa0;outline-offset:3px}svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}[hidden]{display:none!important}
+    .top{background:var(--white);border-bottom:1px solid var(--line)}.top-inner{max-width:1220px;margin:auto;padding:22px 36px;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{display:flex;align-items:center;gap:12px}.brand-mark{background:var(--green);color:#f2f4df;padding:10px;border-radius:10px;display:flex}.brand-mark svg{width:24px;height:24px}.brand-name{font-weight:650;font-size:16px}.brand-caption{font-size:11px;color:var(--muted);letter-spacing:.13em;text-transform:uppercase}.top-actions,.buttons{display:flex;gap:10px;align-items:center}.btn{min-height:42px;padding:10px 17px;border:1px solid var(--line);border-radius:8px;background:var(--white);color:var(--ink);display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;font-weight:550}.btn:hover{background:#f0f3eb}.primary{background:var(--green);border-color:var(--green);color:white}.primary:hover{background:#244a38}.text-btn{border:0;background:none;color:var(--muted);padding:10px;text-decoration:none}.danger{color:var(--red);border-color:#e3c8c6}.danger:hover{background:#faf0ef}
+    main{max-width:1220px;margin:auto;padding:40px 36px 60px}.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);font-weight:650;margin:0 0 8px}h1{font:normal 42px/1.15 Georgia,"Times New Roman",serif;margin:0 0 10px;letter-spacing:-1.2px}.intro{margin:0;color:var(--muted);font-size:15px}.heading{display:flex;justify-content:space-between;align-items:flex-end;gap:20px}.edition{font:italic 15px Georgia,serif;color:var(--muted);padding-bottom:4px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:30px 0}.stat{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:21px 22px}.stat-label{font-size:12px;color:var(--muted);display:flex;align-items:center;justify-content:space-between}.stat svg{color:#9bab92;width:18px;height:18px}.stat-value{font:normal 30px/1.2 Georgia,serif;margin-top:10px}.stat-note{font-size:11px;color:var(--muted);margin-top:6px}.tabs{display:flex;gap:24px;border-bottom:1px solid var(--line);margin-top:30px}.tab{background:none;border:0;border-bottom:2px solid transparent;padding:12px 1px;margin-bottom:-1px;color:var(--muted);font-weight:550}.tab.active{color:var(--green);border-bottom-color:var(--green)}.tab-count{padding:2px 7px;border-radius:6px;background:var(--soft);font-size:11px;margin-left:5px}.toolbar{display:flex;align-items:center;gap:10px;margin:22px 0 18px}.search{position:relative;flex:1}.search svg{position:absolute;left:13px;top:13px;color:var(--muted)}.search input{padding-left:42px;width:100%;background:var(--white)}input,select,textarea{border:1px solid var(--line);border-radius:7px;padding:11px 12px;background:var(--white);color:var(--ink);min-width:0}select{max-width:200px;min-height:44px}.filter-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}.refresh{padding:11px}.list-label{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}.collection{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--white)}.book-row{display:grid;grid-template-columns:44px minmax(0,1fr) 120px 116px 90px 42px;gap:17px;align-items:center;padding:20px 22px;border-bottom:1px solid var(--line)}.book-row:last-child{border-bottom:0}.book-spine{height:55px;border-radius:3px 6px 6px 3px;background:var(--soft);border-left:4px solid #aebf9b;display:flex;align-items:center;justify-content:center;color:var(--green);font:normal 21px Georgia,serif}.book-spine.jp{background:#eeeae2;border-color:#baa37e}.book-spine.ln{background:#e6ecee;border-color:#8aa5b2}.book-title{margin:0;font-size:15px;font-weight:600;line-height:1.45;overflow-wrap:anywhere}.book-meta{font-size:12px;color:var(--muted);margin-top:5px;display:flex;gap:10px;flex-wrap:wrap}.book-meta span+span:before{content:'·';margin-right:10px;color:#9ca796}.type{color:var(--muted);font-size:12px}.status{display:inline-flex;align-items:center;gap:6px;background:#f1f3ed;border-radius:20px;padding:5px 10px;font-size:11px;white-space:nowrap}.status:before{content:'';width:5px;height:5px;background:#a5af9d;border-radius:50%}.status.read{background:#e8f0e4;color:#46613c}.status.read:before{background:#6e9561}.status.reading{background:#fbf0da;color:#8e6b2d}.status.reading:before{background:#cba254}.price{text-align:right;font-variant-numeric:tabular-nums;font-size:13px}.row-action{width:38px;height:38px;border:1px solid var(--line);border-radius:7px;display:flex;align-items:center;justify-content:center;background:white;color:var(--muted)}.row-action:hover{color:var(--green);background:var(--paper)}.restore{grid-column:5 / 7}.empty{padding:60px 20px;text-align:center;color:var(--muted)}.empty h2{font:24px Georgia,serif;color:var(--ink);margin:0 0 10px}.pagination{display:flex;align-items:center;justify-content:space-between;margin-top:18px;gap:10px;color:var(--muted);font-size:12px}.pagination .btn{font-size:12px;min-height:36px;padding:6px 13px}.footer{margin-top:32px;display:flex;justify-content:space-between;gap:20px;font-size:11px;color:var(--muted)}.footer a{text-decoration:none}.banner{border:1px solid #e9c5c0;border-radius:8px;padding:13px 16px;background:#fff2ef;color:#8c3930;margin:0 0 20px;white-space:pre-line}.loading{padding:45px;text-align:center;color:var(--muted)}
+    dialog{border:1px solid var(--line);border-radius:14px;padding:0;background:white;box-shadow:var(--shadow);color:var(--ink);max-width:650px;width:calc(100% - 28px);max-height:90dvh}dialog::backdrop{background:#12281e66;backdrop-filter:blur(3px)}.dialog-head{padding:24px 26px 17px;display:flex;align-items:flex-start;justify-content:space-between;gap:14px;border-bottom:1px solid var(--line)}.dialog-head h2{font:28px Georgia,serif;margin:0 0 6px}.dialog-head p{font-size:12px;color:var(--muted);margin:0}.close{background:none;border:0;color:var(--muted);padding:5px;display:flex}.dialog-body{padding:22px 26px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:17px}.field{display:flex;flex-direction:column;gap:6px}.field label{font-size:12px;font-weight:550}.field input,.field select,.field textarea{width:100%;max-width:none}.span-2{grid-column:1 / -1}.isbn-line{display:flex;gap:8px}.isbn-line input{flex:1;min-width:0}.isbn-line .btn{padding:10px 12px}.hint{font-size:11px;color:var(--muted);margin:0}.check{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}.check input{width:16px;height:16px;accent-color:var(--green)}textarea{resize:vertical;min-height:74px}.lookup{padding:13px 15px;background:var(--soft);border-radius:8px;font-size:12px;white-space:pre-line}.lookup strong{display:block}.dialog-foot{padding:17px 26px;display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px solid var(--line);background:#fafbf7}.dialog-foot .buttons{margin-left:auto}.form-error{font-size:12px;color:var(--red);padding:0 0 12px;white-space:pre-line}.toast{position:fixed;bottom:25px;left:50%;transform:translateX(-50%);padding:13px 21px;border-radius:9px;background:var(--green);color:white;box-shadow:var(--shadow);z-index:10;max-width:calc(100% - 30px);font-size:13px}.scanner-area{min-height:150px;background:#f1f4ec;border-radius:8px;margin-bottom:16px;overflow:hidden}.scanner-area:empty:before{content:'Point your camera at the 978 or 979 barcode.';display:block;padding:55px 20px;text-align:center;font-size:12px;color:var(--muted)}.scanner-note{font-size:12px;color:var(--muted);margin:12px 0 0}.file{position:relative}.file input{position:absolute;inset:0;opacity:0;width:100%;cursor:pointer;padding:0}.scan-buttons{flex-wrap:wrap}.remove-name{font-size:16px;font-weight:550;overflow-wrap:anywhere;margin:0 0 12px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    @media(min-width:1500px){main{padding-top:55px}}@media(max-width:850px){.top-inner,main{padding-left:22px;padding-right:22px}.book-row{grid-template-columns:40px minmax(0,1fr) 94px 38px;gap:12px;padding:17px}.type{display:none}.book-status{grid-column:3}.price{display:none}.row-action{grid-column:4}.restore{grid-column:3 / 5}.edition{display:none}.stat{padding:16px}.stat-value{font-size:27px}.stats{gap:10px}}@media(max-width:560px){.top-inner{padding:16px}.brand-caption{font-size:9px}.top-actions .sheet-link{display:none}.top-actions .btn{padding:9px 12px}main{padding:27px 16px 40px}h1{font-size:35px}.intro{font-size:13px}.stats{grid-template-columns:1fr 1fr;margin:23px 0}.stat{padding:15px 16px}.stat-value{font-size:26px}.toolbar{flex-wrap:wrap}.search{flex-basis:100%}.toolbar select{flex:1;max-width:none;min-width:0;font-size:12px}.book-row{grid-template-columns:32px minmax(0,1fr) 32px;padding:16px 13px;gap:11px}.book-spine{height:48px;font-size:17px}.book-title{font-size:14px}.book-meta{font-size:11px;gap:6px}.book-status{grid-column:2;grid-row:auto}.book-row .row-action{grid-column:3;grid-row:1 / 3;width:32px;height:35px}.book-row .book-spine{grid-row:1 / 3}.restore{grid-column:2 / 4;font-size:12px;justify-self:start}.dialog-head,.dialog-body{padding:19px}.dialog-foot{padding:15px 19px}.form-grid{gap:14px}.isbn-line{flex-wrap:wrap}.isbn-line input{flex-basis:100%}.isbn-line .btn{flex:1}.footer{flex-direction:column;gap:8px}.pagination{flex-wrap:wrap}.pagination .buttons{margin-left:auto}.tab{font-size:13px}.tabs{gap:20px}}
+    .series-row{width:100%;text-align:left;background:white;color:var(--ink);border:0;border-bottom:1px solid var(--line);padding:24px 22px;display:grid;grid-template-columns:44px minmax(0,1fr) 104px 20px;gap:18px;align-items:center}.series-row:last-child{border-bottom:0}.series-row:hover{background:#f8faf4}.series-row:focus-visible{outline-offset:-4px}.series-icon{height:55px;display:flex;align-items:center;justify-content:center;background:var(--soft);border-radius:5px;color:#5b7850}.series-icon svg{width:24px;height:24px}.series-name{display:block;font-size:16px;font-weight:600;line-height:1.45;overflow-wrap:anywhere}.series-meta{display:block;font-size:12px;color:var(--muted);margin-top:5px}.owned-volumes{display:flex;gap:5px;flex-wrap:wrap;margin-top:12px}.volume-chip{display:inline-flex;align-items:center;justify-content:center;background:#eef2e9;border:1px solid #e1e7db;border-radius:4px;font-size:11px;min-width:25px;padding:3px 6px;color:#5c7052;white-space:nowrap}.volume-more{font-size:11px;padding:3px 6px;color:var(--muted)}.series-total{text-align:right;font:26px Georgia,serif}.series-total small{display:block;font:11px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--muted);margin-top:4px}.series-arrow{font-size:24px;color:#7d9076}.series-header{margin-top:23px}.series-header .text-btn{padding:5px 0 15px;color:var(--green);font-size:12px}.series-header h1{font:30px/1.3 Georgia,Tahoma,serif;margin:0 0 6px;overflow-wrap:anywhere}.series-header p{margin:0;color:var(--muted);font-size:12px}.series-header .eyebrow{color:var(--gold);font-size:10px;margin-bottom:6px}.series-header .btn{margin-bottom:16px}@media(max-width:560px){.series-row{padding:18px 13px;grid-template-columns:32px minmax(0,1fr) 47px;gap:12px}.series-icon{height:43px}.series-name{font-size:14px}.series-meta{font-size:11px}.series-total{font-size:24px}.series-total small{font-size:9px}.series-arrow{display:none}.owned-volumes{gap:4px;margin-top:9px}.volume-chip{font-size:10px;min-width:22px;padding:2px 5px}.series-header h1{font-size:25px}}
+    .ownership-status{padding:18px;border:1px solid #c7d9be;background:#edf4e7;border-radius:9px;margin:17px 0}.ownership-status.unknown{background:#fbf5e7;border-color:#e4d3a8}.ownership-status h3{margin:0 0 6px;font:26px Georgia,serif}.ownership-status p{margin:0;font-size:12px;line-height:1.6}.ownership-book{border:1px solid var(--line);border-radius:8px;padding:13px 14px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:12px}.ownership-book h3{font-size:14px;margin:0 0 4px;overflow-wrap:anywhere}.ownership-book p{color:var(--muted);font-size:11px;margin:0}.ownership-book .btn{font-size:11px;padding:8px 11px;min-height:36px;flex:none}.store-search{margin-top:23px;border-top:1px solid var(--line);padding-top:19px}.store-search input{width:100%;margin-top:6px}.store-search label{font-weight:550;font-size:12px}.store-result-note{color:var(--muted);font-size:11px;margin:9px 0 0}.store-foot{justify-content:space-between}.store-stamp{font-size:11px;color:var(--muted);margin-top:13px}.check-hint{margin-top:10px}.isbn-add{margin-top:7px;background:none;border:0;color:var(--green);padding:3px 0;display:flex;gap:5px;align-items:center;font-size:11px;font-weight:550}.isbn-add svg{width:14px;height:14px}.isbn-only-details{background:var(--soft);padding:14px;border-radius:8px;margin-bottom:20px}.isbn-only-details h3{margin:0 0 5px;font-size:16px;overflow-wrap:anywhere}.isbn-only-details p{margin:0;color:var(--muted);font-size:12px}.isbn-only-checks{display:grid;gap:10px;margin-top:18px}.isbn-only-foot{justify-content:flex-end}@media(max-width:560px){.top-inner{flex-wrap:wrap;gap:12px}.top-actions{width:100%}.top-actions .btn{flex:1}.ownership-book{flex-wrap:wrap}.ownership-book .btn{width:100%}.store-foot{flex-wrap:wrap}.store-foot>.btn{flex:1}.ownership-status h3{font-size:24px}}
+    #checkDialog[open]{display:flex;flex-direction:column;overflow:hidden}#checkDialog>.dialog-head,#checkDialog>.dialog-foot{flex-shrink:0}#checkDialog>.dialog-body{min-height:0;overflow-y:auto}
+  </style>
+</head>
+<body>
+  <svg class="sr-only" aria-hidden="true"><defs>
+    <symbol id="i-books" viewBox="0 0 24 24"><path d="M4 4h4v16H4zM10 6h4v14h-4zM16 4l4-1 4 16-4 1zM4 8h4M10 10h4"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-scan" viewBox="0 0 24 24"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M7 8v8M10 8v8M14 8v8M17 8v8"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="m15 4 5 5M4 20l4-1L21 6l-3-3L5 16z"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M5.5 7a7.5 7.5 0 0 1 13-1L20 9M4 15l1.5 3a7.5 7.5 0 0 0 13-1"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M20 7H4V4h14v3M4 7v13h16V7M20 11h-6v5h6"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></symbol>
+  </defs></svg>
+  <header class="top"><div class="top-inner">
+    <div class="brand"><div class="brand-mark"><svg aria-hidden="true"><use href="#i-books"/></svg></div><div><div class="brand-name">Book Collection</div><div class="brand-caption">Your personal library</div></div></div>
+    <div class="top-actions"><a id="sheetLink" class="text-btn sheet-link" href="https://docs.google.com/spreadsheets/d/1xtA2hqEGZPyvQS0ZC2NI30lJLJAugvFHPh9jQOyGhgg/edit" target="_blank" rel="noopener">Open sheet ↗</a><button id="checkBookButton" class="btn" disabled><svg aria-hidden="true"><use href="#i-scan"/></svg>Check a book</button><button id="addButton" class="btn primary" disabled><svg aria-hidden="true"><use href="#i-plus"/></svg>Add book</button></div>
+  </div></header>
+  <main>
+    <div id="pageError" class="banner" role="alert" hidden></div>
+    <div id="collectionHeading" class="heading"><div><p class="eyebrow">A shelf of your own</p><h1>The collection</h1><p class="intro">Every volume, in one place. A little less admin, a little more reading.</p></div><div class="edition">Manga, light novels & everything in between</div></div>
+    <section id="collectionStats" class="stats" aria-label="Collection overview">
+      <div class="stat"><div class="stat-label">Books on your shelf<svg aria-hidden="true"><use href="#i-books"/></svg></div><div id="bookCount" class="stat-value">—</div><div class="stat-note">Every individual volume</div></div>
+      <div class="stat"><div class="stat-label">Series collected<svg aria-hidden="true"><use href="#i-grid"/></svg></div><div id="seriesCount" class="stat-value">—</div><div class="stat-note">Stories worth keeping</div></div>
+      <div class="stat"><div class="stat-label">Finished reading<svg aria-hidden="true"><use href="#i-check"/></svg></div><div id="readCount" class="stat-value">—</div><div id="readNote" class="stat-note">Marked as Read</div></div>
+      <div class="stat"><div class="stat-label">Collection spend<svg aria-hidden="true"><use href="#i-wallet"/></svg></div><div id="spent" class="stat-value">—</div><div id="priceNote" class="stat-note">From the prices in your sheet</div></div>
+    </section>
+    <div class="tabs" aria-label="Collection views"><button id="collectionTab" class="tab active" aria-pressed="true">Collection <span id="activeCount" class="tab-count">—</span></button><button id="trashTab" class="tab" aria-pressed="false">Recently removed <span id="trashCount" class="tab-count">0</span></button></div>
+    <div id="seriesHeader" class="series-header" hidden><button id="backSeries" class="text-btn">← All series</button><p class="eyebrow">On your shelf</p><h1 id="seriesTitle"></h1><p id="seriesSummary"></p></div>
+    <div class="toolbar">
+      <div class="search"><svg aria-hidden="true"><use href="#i-search"/></svg><label for="search" class="sr-only">Search your collection</label><input id="search" type="search" placeholder="Search series, ISBN, publisher or notes…" autocomplete="off"></div>
+      <label for="typeFilter" class="filter-label">Filter by type</label><select id="typeFilter"><option value="">All types</option></select>
+      <label for="statusFilter" class="filter-label">Filter by status</label><select id="statusFilter"><option value="">All statuses</option></select>
+      <button id="refreshButton" class="btn refresh" aria-label="Refresh collection"><svg aria-hidden="true"><use href="#i-refresh"/></svg></button>
+    </div>
+    <div class="list-label"><span id="resultCount">Loading your collection</span><span id="listRight">Your volumes</span></div>
+    <section id="bookList" class="collection" aria-label="Books"><div class="loading">Opening your shelf…</div></section>
+    <div id="pagination" class="pagination" hidden><span id="pageInfo"></span><div class="buttons"><button id="previousPage" class="btn">Previous</button><button id="nextPage" class="btn">Next</button></div></div>
+    <footer class="footer"><span id="syncNote">Connected to your Google Sheet</span><span>Scan an ISBN. Review the details. Make room on the shelf.</span></footer>
+  </main>
+  <dialog id="bookDialog" aria-labelledby="bookDialogTitle">
+    <div class="dialog-head"><div><h2 id="bookDialogTitle">Add to your shelf</h2><p id="bookDialogSubtitle">Scan an ISBN or fill in the details yourself.</p></div><button class="close" id="closeBook" aria-label="Close book form"><svg aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <form id="bookForm"><div class="dialog-body">
+      <div id="formError" class="form-error" role="alert" hidden></div>
+      <div class="form-grid">
+        <div class="field span-2"><label for="isbn">ISBN <span class="hint">optional</span></label><div class="isbn-line"><input id="isbn" name="isbn" type="text" inputmode="text" placeholder="978… or ISBN-10" maxlength="40" autocomplete="off"><button id="lookupButton" class="btn" type="button">Look up</button><button id="scanButton" class="btn" type="button"><svg aria-hidden="true"><use href="#i-scan"/></svg>Scan</button></div><p class="hint">A USB or Bluetooth scanner can type here. Press Enter to look up.</p></div>
+        <div id="lookupResult" class="lookup span-2" role="status" hidden></div>
+        <div class="field span-2"><label for="series">Series / book title *</label><input id="series" name="series" list="seriesOptions" required maxlength="500" placeholder="Which story is this?"><datalist id="seriesOptions"></datalist></div>
+        <div class="field"><label for="volume">Volume</label><input id="volume" name="volume" type="number" min="0" step="any" placeholder="e.g. 1 or 4.5"></div>
+        <div class="field"><label for="type">Type *</label><select id="type" name="type" required></select></div>
+        <div class="field"><label for="publisher">Publisher</label><input id="publisher" name="publisher" list="publisherOptions" maxlength="500" placeholder="Choose or enter a publisher"><datalist id="publisherOptions"></datalist></div>
+        <div class="field"><label for="status">Reading status *</label><select id="status" name="status" required></select></div>
+        <div class="field"><label for="source">Bought from</label><input id="source" name="source" list="sourceOptions" maxlength="500" placeholder="Shop, book fair, or gift"><datalist id="sourceOptions"></datalist></div>
+        <div class="field"><label for="price">Price</label><input id="price" name="price" type="number" min="0" step="any" placeholder="0.00"><p class="hint">Use the same currency as your sheet.</p></div>
+        <div class="field span-2"><label for="date">Acquired on</label><input id="date" name="date" type="date"></div>
+        <div class="field span-2"><label for="note">Notes</label><textarea id="note" name="note" maxlength="2000" placeholder="Special edition, a gift, a good find…"></textarea></div>
+        <label class="check span-2"><input type="checkbox" id="allowDuplicate">Another copy of an ISBN already on my shelf</label>
+        <label class="check span-2" id="keepAddingLabel"><input type="checkbox" id="keepAdding"><span id="keepAddingText">Keep adding books with the same type, publisher and shop</span></label>
+      </div>
+    </div><div class="dialog-foot"><button id="removeButton" class="btn danger" type="button" hidden>Remove book</button><div class="buttons"><button id="cancelBook" class="btn" type="button">Cancel</button><button id="saveButton" class="btn primary" type="submit">Add book</button></div></div></form>
+  </dialog>
+  <dialog id="scanDialog" aria-labelledby="scanTitle"><div class="dialog-head"><div><h2 id="scanTitle">Scan a book</h2><p>Use the ISBN barcode, usually on the back cover.</p></div><button id="closeScan" class="close" aria-label="Close scanner"><svg aria-hidden="true"><use href="#i-close"/></svg></button></div><div class="dialog-body"><div id="scannerArea" class="scanner-area"></div><div class="buttons scan-buttons"><button id="startCamera" class="btn primary" type="button">Start camera</button><button id="stopCamera" class="btn" type="button" hidden>Stop camera</button><label class="btn file">Take / choose a photo<input id="barcodePhoto" type="file" accept="image/*" capture="environment" aria-label="Take or choose a barcode photo"></label></div><p id="scanMessage" class="scanner-note" role="status">Photo scanning also works when live camera access is unavailable. Photos stay on your device.</p></div></dialog>
+  <dialog id="removeDialog" aria-labelledby="removeTitle"><div class="dialog-head"><div><h2 id="removeTitle">Remove from your shelf?</h2><p>You can restore this book from Recently removed.</p></div><button id="closeRemove" class="close" aria-label="Cancel removal"><svg aria-hidden="true"><use href="#i-close"/></svg></button></div><div class="dialog-body"><p id="removeName" class="remove-name"></p><p class="hint">Its price will be removed from your collection total.</p><div id="removeError" class="form-error" role="alert" hidden></div></div><div class="dialog-foot"><div class="buttons"><button id="cancelRemove" class="btn">Keep book</button><button id="confirmRemove" class="btn danger">Remove book</button></div></div></dialog>
+  <dialog id="checkDialog" aria-labelledby="checkTitle">
+    <div class="dialog-head"><div><h2 id="checkTitle">Do I own this book?</h2><p>A quick shelf check while you're in the bookstore.</p></div><button id="closeCheck" class="close" aria-label="Close ownership checker"><svg aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <div class="dialog-body"><form id="checkForm"><div class="field"><label for="checkIsbn">Bookstore ISBN</label><div class="isbn-line"><input id="checkIsbn" type="text" placeholder="978… or ISBN-10" maxlength="40" autocomplete="off"><button id="checkIsbnButton" class="btn" type="submit">Check</button><button id="checkScanButton" class="btn primary" type="button"><svg aria-hidden="true"><use href="#i-scan"/></svg>Scan barcode</button></div></div></form><p class="hint check-hint">Scan with your camera, choose a barcode photo, or type an ISBN.</p>
+      <div id="checkError" class="form-error" role="alert" hidden></div><div id="ownershipResult" role="status" hidden></div>
+      <div class="store-search"><label for="checkSearch">Search owned series or volumes</label><input id="checkSearch" type="search" placeholder="Series name, volume, or publisher…" autocomplete="off"><p id="checkSearchHint" class="store-result-note">Useful for books you haven't added an ISBN to yet.</p><div id="checkSearchResults"></div></div>
+    </div><div class="dialog-foot store-foot"><button id="scanNextBook" class="btn primary"><svg aria-hidden="true"><use href="#i-scan"/></svg>Scan next book</button><button id="doneCheck" class="btn">Done</button></div>
+  </dialog>
+  <dialog id="isbnDialog" aria-labelledby="isbnDialogTitle">
+    <div class="dialog-head"><div><h2 id="isbnDialogTitle">Add ISBN</h2><p>Add a barcode to a book already on your shelf.</p></div><button id="closeIsbn" class="close" aria-label="Close ISBN form"><svg aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <form id="isbnForm"><div class="dialog-body"><div class="isbn-only-details"><h3 id="isbnBookName"></h3><p id="isbnBookDetails"></p></div><div id="isbnError" class="form-error" role="alert" hidden></div><div class="field"><label for="linkIsbn">ISBN for this volume</label><div class="isbn-line"><input id="linkIsbn" type="text" placeholder="978… or ISBN-10" maxlength="40" required autocomplete="off"><button id="linkScanButton" class="btn" type="button"><svg aria-hidden="true"><use href="#i-scan"/></svg>Scan barcode</button></div></div><p class="hint check-hint">Check the volume, language and edition before saving.</p><div class="isbn-only-checks"><label class="check"><input id="linkAllowDuplicate" type="checkbox">Another copy of an ISBN already on my shelf</label><label class="check"><input id="linkNext" type="checkbox">Continue with the next volume in this series missing an ISBN</label></div></div><div class="dialog-foot isbn-only-foot"><button id="cancelIsbn" class="btn" type="button">Cancel</button><button id="saveIsbnButton" class="btn primary" type="submit">Save ISBN</button></div></form>
+  </dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script>
+    'use strict';
+    const FIELDS = ['isbn','series','type','publisher','status','volume','source','price','date','note'];
+    const $ = id => document.getElementById(id);
+    const state = { data:null, view:'collection', selectedSeries:null, page:0, pageSize:20, editing:null, busy:false, lookupGeneration:0, scanGeneration:0, scanPurpose:'add', scanner:null, cameraStart:null, cameraRunning:false, pendingSave:null, pendingRemove:null, restoreRequests:new Map(), checkGeneration:0, checkResult:null, isbnBook:null, pendingIsbn:null };
+    let toastTimer;
+    function icon(name) { const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('aria-hidden','true');const use=document.createElementNS(svg.namespaceURI,'use');use.setAttribute('href','#i-'+name);svg.append(use);return svg; }
+    function node(tag, className, text) { const e=document.createElement(tag);if(className)e.className=className;if(text!==undefined)e.textContent=text;return e; }
+    function errorAt(id,error) { const e=$(id);e.textContent=error?.message || String(error);e.hidden=false; }
+    function notify(text) { $('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4200); }
+    function rpc(name,arg) {
+      return new Promise((resolve,reject)=>{
+        if (!window.google?.script?.run) { reject(new Error('Open the deployed Google Apps Script app to connect to your sheet.'));return; }
+        const runner=google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
+        if(arg===undefined)runner[name]();else runner[name](arg);
+      });
+    }
+    function requestId() { return window.crypto?.randomUUID ? crypto.randomUUID() : 'book_'+Date.now()+'_'+Math.random().toString(36).slice(2); }
+    function number(value) { return new Intl.NumberFormat(undefined,{maximumFractionDigits:2}).format(value); }
+    function fillOptions(id, values, placeholder) {
+      const e=$(id), previous=e.value;e.replaceChildren();
+      if(placeholder!==undefined){const o=node('option','',placeholder);o.value='';e.append(o);}
+      values.forEach(v=>{const o=node('option','',v);o.value=v;e.append(o);});
+      if([...e.options].some(o=>o.value===previous))e.value=previous;
+    }
+    async function load() {
+      $('refreshButton').disabled=true;$('pageError').hidden=true;
+      try {
+        state.data=await rpc('getCollection');
+        ['series','publisher','source'].forEach(k=>fillOptions(k+'Options',state.data.options[k]));
+        ['type','status'].forEach(k=>{fillOptions(k+'Filter',state.data.options[k],'All '+(k==='type'?'types':'statuses'));if(!$('bookDialog').open)fillOptions(k,state.data.options[k]);});
+        $('sheetLink').href=state.data.sheetUrl;$('addButton').disabled=state.busy;$('checkBookButton').disabled=state.busy;
+        $('syncNote').textContent=state.data.preview?'Preview only · Changes stay in this session':'Updated '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · Saved in Google Sheets';
+        render();
+      } catch(error) {
+        errorAt('pageError',error);
+        if(!state.data)$('bookList').replaceChildren(node('div','empty','Your shelf could not be loaded. Follow the setup guide, then refresh.'));
+        throw error;
+      } finally { $('refreshButton').disabled=false; }
+    }
+    function render() {
+      if(!state.data)return;
+      const {books,trash}=state.data;
+      $('bookCount').textContent=number(books.length);$('activeCount').textContent=number(books.length);$('trashCount').textContent=number(trash.length);
+      $('seriesCount').textContent=number(new Set(books.map(b=>String(b.series).trim()).filter(Boolean)).size);
+      const read=books.filter(b=>b.status==='Read').length;$('readCount').textContent=number(read);$('readNote').textContent=books.length?Math.round(read/books.length*100)+'% of your collection':'Marked as Read';
+      const prices=books.filter(b=>b.price!=='' && b.price!==null && Number.isFinite(Number(b.price)));
+      $('spent').textContent=number(prices.reduce((sum,b)=>sum+Number(b.price),0));
+      const missingPrices=books.length-prices.length;
+      $('priceNote').textContent=missingPrices?number(missingPrices)+(missingPrices===1?' book has':' books have')+' no price':'From the prices in your sheet';
+      const q=$('search').value.trim().toLocaleLowerCase();
+      const matches=b=>(!q||FIELDS.some(k=>String(b[k]??'').toLocaleLowerCase().includes(q)))&&(!$('typeFilter').value||b.type===$('typeFilter').value)&&(!$('statusFilter').value||b.status===$('statusFilter').value);
+      const grouped=state.view==='collection'&&state.selectedSeries===null;
+      const owned=state.selectedSeries!==null?books.filter(b=>seriesKey(b)===state.selectedSeries):[];
+      let entries;
+      if(grouped){
+        const groups=new Map();books.forEach(b=>{const key=seriesKey(b);if(!groups.has(key))groups.set(key,{series:key,books:[]});groups.get(key).books.push(b);});
+        entries=[...groups.values()].filter(g=>g.books.some(matches)).sort((a,b)=>a.series.localeCompare(b.series));
+      }else{
+        entries=(state.view==='trash'?trash:owned.map(book=>({book}))).filter(({book})=>matches(book));
+        if(state.view==='collection')entries.sort((a,b)=>byVolume(a.book,b.book));
+      }
+      // A series opens its entire owned-volume list, without paging it into separate screens.
+      const pageSize=state.selectedSeries!==null?Math.max(1,entries.length):state.pageSize;
+      const pages=Math.ceil(entries.length/pageSize);state.page=Math.max(0,Math.min(state.page,pages-1));
+      const start=state.page*pageSize, slice=entries.slice(start,start+pageSize);
+      const filtered=q||$('typeFilter').value||$('statusFilter').value;
+      $('resultCount').textContent=number(entries.length)+(grouped?' series':state.selectedSeries!==null?(entries.length===1?' owned volume':' owned volumes'):(entries.length===1?' removed book':' removed books'))+(filtered?' found':'');
+      $('listRight').textContent=grouped?'Click a series to explore':state.view==='collection'?'Ordered by volume':'Ready to restore';
+      $('bookList').setAttribute('aria-label',grouped?'Series':state.selectedSeries!==null?'Owned volumes in '+state.selectedSeries:'Removed books');
+      $('seriesHeader').hidden=state.selectedSeries===null;
+      $('collectionHeading').hidden=state.selectedSeries!==null;$('collectionStats').hidden=state.selectedSeries!==null;
+      $('seriesTitle').textContent=state.selectedSeries||'';
+      const numbered=owned.filter(b=>b.volume!==''&&b.volume!==null).length;
+      $('seriesSummary').textContent=number(owned.length)+' owned '+(owned.length===1?'volume':'volumes')+' · '+[...new Set(owned.map(b=>b.type).filter(Boolean))].join(', ')+(numbered<owned.length?' · '+(owned.length-numbered)+' unnumbered':'');
+      $('addButton').replaceChildren(icon('plus'),document.createTextNode(state.selectedSeries!==null?'Add volume':'Add book'));
+      $('search').placeholder=grouped?'Search series, ISBN, publisher or notes…':'Search volumes, ISBN, publisher or notes…';
+      $('bookList').replaceChildren();
+      if(!entries.length){const empty=node('div','empty');empty.append(node('h2','',state.view==='trash'?'Nothing removed':grouped?'No series found':'No volumes found'),node('p','',state.view==='trash'?'Removed books will be kept here until you restore them.':'Try a different search or add a book to your shelf.'));$('bookList').append(empty);}
+      slice.forEach(entry=>$('bookList').append(grouped?seriesRow(entry):bookRow(entry)));
+      $('pagination').hidden=pages<=1;$('pageInfo').textContent=(start+1)+'–'+Math.min(start+pageSize,entries.length)+' of '+entries.length;
+      $('previousPage').disabled=state.page===0;$('nextPage').disabled=state.page>=pages-1;
+    }
+    function seriesKey(book) { return String(book.series||'').trim()||'Untitled series'; }
+    function byVolume(a,b) { const av=a.volume===''||a.volume===null?Infinity:Number(a.volume),bv=b.volume===''||b.volume===null?Infinity:Number(b.volume);return (av-bv)||a.row-b.row; }
+    function seriesRow(group) {
+      const button=node('button','series-row');button.disabled=state.busy;button.setAttribute('aria-label','Open '+group.series+', '+group.books.length+' owned '+(group.books.length===1?'volume':'volumes'));
+      const mark=node('span','series-icon');mark.append(icon('books'));button.append(mark);
+      const info=node('span');info.append(node('span','series-name',group.series));
+      info.append(node('span','series-meta',[...new Set(group.books.map(b=>b.type).filter(Boolean))].join(' · ')));
+      const chips=node('span','owned-volumes'),volumes=new Map();
+      [...group.books].sort(byVolume).forEach(b=>{if(b.volume!==''&&b.volume!==null){const key=String(b.volume);volumes.set(key,(volumes.get(key)||0)+1);}});
+      [...volumes].slice(0,10).forEach(([volume,copies])=>chips.append(node('span','volume-chip',volume+(copies>1?' ×'+copies:''))));
+      if(volumes.size>10)chips.append(node('span','volume-more','+'+(volumes.size-10)+' more'));
+      if(!volumes.size)chips.append(node('span','volume-more','Unnumbered books'));
+      info.append(chips);button.append(info);
+      const count=node('span','series-total',String(group.books.length));count.append(node('small','',group.books.length===1?'owned volume':'owned volumes'));button.append(count,node('span','series-arrow','›'));
+      button.addEventListener('click',()=>openSeries(group.series));return button;
+    }
+    function openSeries(series) {
+      state.selectedSeries=series;state.page=0;$('search').value='';$('typeFilter').value='';$('statusFilter').value='';render();$('backSeries').focus();
+    }
+    function seriesDefaults() {
+      if(state.selectedSeries===null)return undefined;
+      const owned=state.data.books.filter(b=>seriesKey(b)===state.selectedSeries),defaults={series:state.selectedSeries};
+      ['type','publisher'].forEach(k=>{const values=[...new Set(owned.map(b=>b[k]).filter(Boolean))];if(values.length===1)defaults[k]=values[0];});return defaults;
+    }
+    function bookRow(entry) {
+      const b=entry.book,row=node('article','book-row');
+      const spine=node('div','book-spine'+(String(b.type).includes('(JP)')?' jp':String(b.type).startsWith('LN')?' ln':''),b.volume!==''?String(b.volume):'—');spine.setAttribute('aria-label',b.volume!==''?'Volume '+b.volume:'No volume number');row.append(spine);
+      const info=node('div');info.append(node('h2','book-title',state.selectedSeries!==null?(b.volume!==''&&b.volume!==null?'Volume '+b.volume:'Unnumbered book'):(b.series||'Untitled book')));const meta=node('div','book-meta');
+      [b.publisher,b.isbn?'ISBN '+b.isbn:b.source].filter(Boolean).forEach(t=>meta.append(node('span','',t)));info.append(meta);
+      if(state.view==='collection'&&!canonical(b.isbn)&&!b.isbnHasFormula){const addIsbn=node('button','isbn-add','Add ISBN');addIsbn.prepend(icon('scan'));addIsbn.setAttribute('aria-label','Add ISBN to '+b.series+(b.volume!==''?', volume '+b.volume:''));addIsbn.disabled=state.busy;addIsbn.addEventListener('click',()=>openIsbn(b));info.append(addIsbn);}
+      row.append(info);
+      row.append(node('div','type',b.type));const statusWrap=node('div','book-status');statusWrap.append(node('span','status'+(b.status==='Read'?' read':b.status==='Reading'?' reading':''),b.status||'No status'));row.append(statusWrap);
+      if(state.view==='trash'){
+        const restore=node('button','btn restore','Restore book');restore.disabled=state.busy;restore.addEventListener('click',()=>restoreEntry(entry,restore));row.append(restore);
+      }else{
+        row.append(node('div','price',b.price!==''&&b.price!==null?number(Number(b.price)):'—'));const edit=node('button','row-action');edit.setAttribute('aria-label','Edit '+b.series+(b.volume!==''?', volume '+b.volume:''));edit.append(icon('edit'));edit.disabled=state.busy;edit.addEventListener('click',()=>openBook(b));row.append(edit);
+      }return row;
+    }
+    function changeView(view) { state.view=view;state.selectedSeries=null;state.page=0;['collection','trash'].forEach(k=>{$(k+'Tab').classList.toggle('active',k===view);$(k+'Tab').setAttribute('aria-pressed',String(k===view));});render(); }
+    function clearLookup() { state.lookupGeneration++;$('lookupResult').hidden=true;$('lookupButton').disabled=false;$('lookupButton').textContent='Look up'; }
+    function invalidateCheck() {
+      state.checkGeneration++;state.checkResult=null;$('ownershipResult').hidden=true;$('ownershipResult').replaceChildren();$('checkError').hidden=true;
+      $('checkIsbnButton').disabled=false;$('checkIsbnButton').textContent='Check';renderManualCheck();
+    }
+    function openCheck() {
+      if(state.busy||!state.data)return;
+      $('checkForm').reset();$('checkSearch').value='';invalidateCheck();$('checkDialog').showModal();$('checkIsbn').focus();
+    }
+    function closeCheck() { state.checkGeneration++;$('checkDialog').close(); }
+    async function checkBook(event) {
+      event?.preventDefault();if(state.busy)return;
+      const raw=$('checkIsbn').value.trim(),generation=++state.checkGeneration;
+      state.checkResult=null;$('ownershipResult').hidden=true;$('checkError').hidden=true;renderManualCheck();
+      if(!canonical(raw)){errorAt('checkError',raw?'Enter a valid ISBN-10 or ISBN-13.':'Enter or scan an ISBN first.');return;}
+      $('checkIsbnButton').disabled=true;$('checkIsbnButton').textContent='Checking…';
+      try {
+        const result=await rpc('checkOwnership',raw);
+        if(generation!==state.checkGeneration||!$('checkDialog').open||$('checkIsbn').value.trim()!==raw)return;
+        state.checkResult=result;$('checkIsbn').value=result.isbn;
+        // Keep the browsing and manual-check lists in step with this fresh sheet read.
+        state.data.books=result.books;render();
+        const panel=node('div','ownership-status'+(result.matches.length?'':' unknown'));
+        panel.append(node('h3','',result.matches.length?'Already on your shelf':'No ISBN match'));
+        panel.append(node('p','',result.matches.length?(result.matches.length===1?'You own this edition.':'You own '+result.matches.length+' copies of this edition.'):
+          result.unindexedCount?number(result.unindexedCount)+' of '+number(result.totalCount)+' books have no usable ISBN yet. Search the series below to check whether you already own this volume.':'This ISBN is not listed on your current shelf. Search the series below if you want to compare other editions.'));
+        const container=$('ownershipResult');container.replaceChildren(panel);
+        result.matches.forEach(b=>container.append(ownershipBook(b,false)));
+        container.append(node('p','store-stamp','ISBN '+result.isbn+' · Checked '+new Date(result.checkedAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})));
+        container.hidden=false;renderManualCheck();
+      }catch(error){if(generation===state.checkGeneration)errorAt('checkError','Unable to check your current shelf. '+(error.message||String(error)));}
+      finally{if(generation===state.checkGeneration){$('checkIsbnButton').disabled=false;$('checkIsbnButton').textContent='Check';}}
+    }
+    function ownershipBook(book,canLink) {
+      const card=node('div','ownership-book'),info=node('div');
+      info.append(node('h3','',book.series+(book.volume!==''&&book.volume!==null?' · Volume '+book.volume:'')),node('p','',[book.type,book.publisher,book.isbn?'ISBN '+book.isbn:'ISBN not added'].filter(Boolean).join(' · ')));card.append(info);
+      const button=node('button','btn',canLink?'Link this ISBN':'View series');
+      button.addEventListener('click',()=>{if(canLink){openIsbn(book,state.checkResult.isbn);}else{closeCheck();changeView('collection');openSeries(seriesKey(book));}});card.append(button);return card;
+    }
+    function renderManualCheck() {
+      const container=$('checkSearchResults');container.replaceChildren();
+      const query=$('checkSearch').value.trim().toLocaleLowerCase();
+      if(!query){$('checkSearchHint').textContent='Useful for books you haven\'t added an ISBN to yet.';return;}
+      const terms=query.split(/\s+/),books=state.checkResult?.books||state.data?.books||[];
+      const matches=books.filter(b=>{const haystack=FIELDS.map(k=>String(b[k]??'')).join(' ').toLocaleLowerCase();return terms.every(t=>haystack.includes(t));}).sort((a,b)=>seriesKey(a).localeCompare(seriesKey(b))||byVolume(a,b));
+      $('checkSearchHint').textContent=matches.length?(matches.length>8?'Showing 8 of '+matches.length+' matches. Keep typing to narrow the list.':matches.length+(matches.length===1?' owned volume found.':' owned volumes found.')):'No matching owned volumes in the loaded collection.';
+      matches.slice(0,8).forEach(b=>container.append(ownershipBook(b,!!state.checkResult?.isbn&&!canonical(b.isbn)&&!b.isbnHasFormula)));
+    }
+    function openIsbn(book,isbn='') {
+      if(state.busy)return;
+      if($('checkDialog').open)closeCheck();
+      state.isbnBook=book;state.pendingIsbn=null;$('isbnForm').reset();$('isbnError').hidden=true;$('linkIsbn').value=isbn||String(book.isbn||'');
+      $('isbnBookName').textContent=book.series;$('isbnBookDetails').textContent=[book.volume!==''&&book.volume!==null?'Volume '+book.volume:'Unnumbered book',book.type,book.publisher].filter(Boolean).join(' · ');
+      $('isbnDialog').showModal();$('linkIsbn').focus();
+    }
+    function closeIsbn() { if(state.busy)return;$('isbnDialog').close();state.isbnBook=null; }
+    async function saveIsbn(event) {
+      event.preventDefault();if(state.busy||!state.isbnBook||!$('isbnForm').reportValidity())return;
+      const book=state.isbnBook,content={row:book.row,token:book.token,isbn:$('linkIsbn').value,allowDuplicate:$('linkAllowDuplicate').checked},key=JSON.stringify(content),keep=$('linkNext').checked;
+      if(state.pendingIsbn?.key!==key)state.pendingIsbn={key,request:{...content,requestId:requestId()}};
+      $('isbnError').hidden=true;setBusy(true);$('saveIsbnButton').textContent='Saving…';
+      try{
+        await rpc('setBookIsbn',state.pendingIsbn.request);$('isbnDialog').close();state.isbnBook=null;state.pendingIsbn=null;setBusy(false);notify('ISBN saved. Future scans will find this volume.');
+        try{await load();if(keep){const next=state.data.books.filter(b=>seriesKey(b)===seriesKey(book)&&!canonical(b.isbn)&&!b.isbnHasFormula).sort(byVolume)[0];if(next){openIsbn(next);$('linkNext').checked=true;}else notify('All volumes in this series now have an ISBN.');}}catch(error){errorAt('pageError','The ISBN was saved, but the list could not refresh. Press Refresh.');}
+      }catch(error){errorAt('isbnError',error);}finally{setBusy(false);$('saveIsbnButton').textContent='Save ISBN';render();}
+    }
+    function openBook(book,defaults) {
+      if(state.busy||!state.data)return;
+      state.editing=book||null;state.pendingSave=null;state.pendingRemove=null;
+      $('bookForm').reset();$('formError').hidden=true;clearLookup();
+      ['type','status'].forEach(k=>fillOptions(k,state.data.options[k]));
+      FIELDS.forEach(k=>$(k).value=book?.[k]??defaults?.[k]??'');
+      if(!book){$('date').value=defaults?.date??state.data.today;$('type').value=defaults?.type||'Manga (TH)';$('status').value=defaults?.status||'Sealed';}
+      $('bookDialogTitle').textContent=book?'Book details':'Add to your shelf';$('bookDialogSubtitle').textContent=book?'A few details, one well-kept shelf.':'Scan an ISBN or fill in the details yourself.';
+      $('saveButton').textContent=book?'Save changes':'Add book';$('removeButton').hidden=!book;$('keepAddingLabel').hidden=!!book;
+      $('keepAddingText').textContent=state.selectedSeries!==null?'Keep adding volumes to this series':'Keep adding books with the same type, publisher and shop';
+      $('saveButton').disabled=!!book?.hasFormula;$('removeButton').disabled=!!book?.hasFormula;
+      if(book?.hasFormula)errorAt('formError','This row contains a formula. Edit it directly in the sheet to preserve the formula.');
+      $('bookDialog').showModal();(book?$('series'):$('isbn')).focus();
+    }
+    function closeBook() { if(state.busy)return;clearLookup();$('bookDialog').close();state.editing=null; }
+    async function lookup() {
+      if(state.busy)return;
+      const generation=++state.lookupGeneration, raw=$('isbn').value.trim(), initial={series:$('series').value,publisher:$('publisher').value};
+      $('lookupButton').disabled=true;$('lookupButton').textContent='Looking…';$('lookupResult').hidden=false;$('lookupResult').textContent='Looking up this edition…';
+      try {
+        const result=await rpc('lookupIsbn',raw);
+        if(generation!==state.lookupGeneration||!$('bookDialog').open||$('isbn').value.trim()!==raw)return;
+        $('isbn').value=result.isbn;
+        const duplicates=state.data.books.filter(b=>b.row!==state.editing?.row&&canonical(b.isbn)===canonical(result.isbn));
+        let message='';
+        if(result.found){
+          const d=result.details;message=d.title+(d.authors?'\n'+d.authors:'')+'\nSuggested by '+d.source+'. Review the series name and volume before saving.';
+          if(!initial.series&&!$('series').value)$('series').value=d.title;
+          if(!initial.publisher&&!$('publisher').value)$('publisher').value=d.publisher;
+        }else message='No book details found. The ISBN is ready. Fill in the series, volume and publisher yourself.';
+        if(result.warnings?.length)message+='\n'+result.warnings.join(' ');
+        if(duplicates.length)message+='\nAlready on your shelf: '+duplicates.map(b=>b.series+(b.volume!==''?' vol. '+b.volume:'')).join(', ')+'.';
+        $('lookupResult').textContent=message;
+      }catch(error){if(generation===state.lookupGeneration)$('lookupResult').textContent=error.message||String(error);}
+      finally{if(generation===state.lookupGeneration){$('lookupButton').disabled=false;$('lookupButton').textContent='Look up';}}
+    }
+    function setBusy(busy) {
+      state.busy=busy;
+      ['addButton','checkBookButton','saveButton','removeButton','confirmRemove','lookupButton','scanButton','closeBook','cancelBook','closeRemove','cancelRemove','saveIsbnButton','linkScanButton','closeIsbn','cancelIsbn'].forEach(id=>$(id).disabled=busy);
+      $('bookForm').querySelectorAll('input,select,textarea').forEach(e=>e.disabled=busy);
+      $('isbnForm').querySelectorAll('input').forEach(e=>e.disabled=busy);
+    }
+    async function save(event) {
+      event.preventDefault();if(state.busy||!$('bookForm').reportValidity())return;
+      clearLookup();$('formError').hidden=true;
+      const book=Object.fromEntries(FIELDS.map(k=>[k,$(k).value]));
+      const content={book,allowDuplicate:$('allowDuplicate').checked,...(state.editing?{row:state.editing.row,token:state.editing.token}:{})};
+      const key=JSON.stringify(content);
+      if(state.pendingSave?.key!==key)state.pendingSave={key,request:{...content,requestId:requestId()}};
+      const keep=!state.editing&&$('keepAdding').checked,defaults=keep?{...Object.fromEntries(['type','publisher','source','status','date'].map(k=>[k,$(k).value])),...(state.selectedSeries!==null?{series:state.selectedSeries}:{})}:null;
+      setBusy(true);$('saveButton').textContent='Saving…';
+      try {
+        const result=await rpc('saveBook',state.pendingSave.request);
+        $('bookDialog').close();state.editing=null;state.pendingSave=null;setBusy(false);
+        notify(result.action==='updated'?'Book details saved.':'Added to your shelf.');
+        try{await load();if(keep){openBook(null,defaults);$('keepAdding').checked=true;}}catch(e){errorAt('pageError','Your book was saved, but the list could not refresh. Press Refresh to see it.');}
+      }catch(error){errorAt('formError',error);}
+      finally{setBusy(false);$('saveButton').textContent=state.editing?'Save changes':'Add book';}
+    }
+    function askRemove() {
+      if(state.busy||!state.editing)return;
+      $('removeName').textContent=state.editing.series+(state.editing.volume!==''?' · Volume '+state.editing.volume:'');$('removeError').hidden=true;$('removeDialog').showModal();
+    }
+    async function remove() {
+      if(state.busy||!state.editing)return;
+      if(!state.pendingRemove)state.pendingRemove={requestId:requestId(),row:state.editing.row,token:state.editing.token};
+      setBusy(true);$('removeError').hidden=true;
+      try{await rpc('removeBook',state.pendingRemove);$('removeDialog').close();$('bookDialog').close();state.editing=null;state.pendingRemove=null;notify('Book removed. You can restore it from Recently removed.');try{await load();}catch(e){errorAt('pageError','Your book was removed, but the list could not refresh. Press Refresh.');}}
+      catch(error){errorAt('removeError',error);}finally{setBusy(false);render();}
+    }
+    async function restoreEntry(entry,button) {
+      if(state.busy)return;
+      if(!state.restoreRequests.has(entry.id))state.restoreRequests.set(entry.id,{requestId:requestId(),trashId:entry.id});
+      setBusy(true);button.disabled=true;button.textContent='Restoring…';
+      try{await rpc('restoreBook',state.restoreRequests.get(entry.id));state.restoreRequests.delete(entry.id);notify('Book restored to your shelf.');try{await load();}catch(e){errorAt('pageError','Your book was restored, but the list could not refresh. Press Refresh.');}}
+      catch(error){errorAt('pageError',error);}finally{setBusy(false);button.disabled=false;button.textContent='Restore book';render();}
+    }
+    // Match the server's ISBN rules before accepting a camera result.
+    function canonical(raw) {
+      let v=String(raw??'').trim().replace(/^ISBN(?:-1[03])?\s*:?\s*/i,'').replace(/[\s-]/g,'').toUpperCase(),sum=0;
+      if(/^\d{9}[\dX]$/.test(v)){for(let i=0;i<10;i++)sum+=(v[i]==='X'?10:Number(v[i]))*(10-i);if(sum%11)return '';v='978'+v.slice(0,9);sum=0;for(let i=0;i<12;i++)sum+=Number(v[i])*(i%2?3:1);return v+((10-sum%10)%10);}
+      if(!/^97[89]\d{10}$/.test(v))return '';for(let i=0;i<13;i++)sum+=Number(v[i])*(i%2?3:1);return sum%10?'':v;
+    }
+    function scannerInstance() {
+      if(typeof Html5Qrcode==='undefined')throw new Error('The scanner could not load. Check your connection or enter the ISBN manually.');
+      if(!state.scanner)state.scanner=new Html5Qrcode('scannerArea',{formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13],verbose:false});
+      return state.scanner;
+    }
+    async function stopScanner() {
+      state.scanGeneration++;
+      if(state.cameraStart){try{await state.cameraStart;}catch(e){/* Permission denial already has a visible message. */}}
+      if(state.cameraRunning){try{await state.scanner.stop();}catch(e){/* Track cleanup below as a second stop. */}state.cameraRunning=false;}
+      const video=$('scannerArea').querySelector('video');video?.srcObject?.getTracks().forEach(track=>track.stop());
+      $('startCamera').disabled=false;$('stopCamera').hidden=true;$('startCamera').hidden=false;
+    }
+    async function closeScanner() { await stopScanner();$('scanDialog').close(); }
+    function openScanner(purpose) {
+      state.scanPurpose=purpose;$('scanTitle').textContent=purpose==='check'?'Check a bookstore book':purpose==='link'?'Scan the ISBN for this volume':'Scan a book';
+      $('scanMessage').textContent='Photo scanning also works when live camera access is unavailable. Photos stay on your device.';$('scanDialog').showModal();
+    }
+    async function acceptScan(raw,generation) {
+      if(generation!==state.scanGeneration||!$('scanDialog').open)return;
+      const isbn=canonical(raw);
+      if(!isbn){$('scanMessage').textContent='This is not a valid ISBN. Scan the barcode that starts with 978 or 979.';return;}
+      $('scanMessage').textContent='ISBN found: '+isbn;
+      const purpose=state.scanPurpose;state.scanGeneration++;await closeScanner();
+      if(purpose==='check'){if(!$('checkDialog').open)return;$('checkIsbn').value=isbn;await checkBook();}
+      else if(purpose==='link'){if(!$('isbnDialog').open)return;$('linkIsbn').value=isbn;$('isbnError').hidden=true;$('saveIsbnButton').focus();}
+      else{if(!$('bookDialog').open)return;$('isbn').value=isbn;clearLookup();await lookup();}
+    }
+    async function startCamera() {
+      $('scanMessage').textContent='Allow camera access, then hold the ISBN barcode steady.';$('startCamera').disabled=true;
+      const generation=++state.scanGeneration;
+      try {
+        const scanner=scannerInstance();
+        const pending=scanner.start({facingMode:'environment'},{fps:8,qrbox:(w,h)=>({width:Math.min(320,Math.floor(w*.85)),height:Math.min(150,Math.floor(h*.6))})},raw=>{if(state.cameraRunning)void acceptScan(raw,generation);},()=>{});
+        state.cameraStart=pending;await pending;state.cameraRunning=true;state.cameraStart=null;
+        if(generation!==state.scanGeneration||!$('scanDialog').open){await stopScanner();return;}
+        $('startCamera').hidden=true;$('stopCamera').hidden=false;$('scanMessage').textContent='Scan the long barcode that starts with 978 or 979.';
+      }catch(error){state.cameraStart=null;state.cameraRunning=false;if(generation===state.scanGeneration)$('scanMessage').textContent='Live camera access is unavailable. Use Take / choose a photo, or type the ISBN. Open the app in Safari or Chrome if you are in an in-app browser.';}
+      finally{$('startCamera').disabled=false;}
+    }
+    async function scanPhoto(event) {
+      const file=event.target.files[0];event.target.value='';if(!file)return;
+      await stopScanner();const generation=++state.scanGeneration;$('scanMessage').textContent='Reading the barcode in your photo…';
+      try{const raw=await scannerInstance().scanFile(file,true);await acceptScan(raw,generation);}
+      catch(error){if(generation===state.scanGeneration)$('scanMessage').textContent='No readable ISBN barcode found. Try a sharp close-up with the whole 978/979 barcode visible, or type the ISBN.';}
+    }
+    $('addButton').addEventListener('click',()=>openBook(null,seriesDefaults()));$('backSeries').addEventListener('click',()=>{state.selectedSeries=null;state.page=0;$('search').value='';$('typeFilter').value='';$('statusFilter').value='';render();});$('closeBook').addEventListener('click',closeBook);$('cancelBook').addEventListener('click',closeBook);
+    $('bookDialog').addEventListener('cancel',e=>{e.preventDefault();closeBook();});$('bookForm').addEventListener('submit',save);
+    $('lookupButton').addEventListener('click',lookup);$('isbn').addEventListener('input',clearLookup);$('isbn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();void lookup();}});
+    $('scanButton').addEventListener('click',()=>openScanner('add'));
+    $('checkBookButton').addEventListener('click',openCheck);$('checkForm').addEventListener('submit',checkBook);$('checkIsbn').addEventListener('input',invalidateCheck);$('checkSearch').addEventListener('input',renderManualCheck);
+    ['closeCheck','doneCheck'].forEach(id=>$(id).addEventListener('click',closeCheck));$('checkDialog').addEventListener('cancel',e=>{e.preventDefault();closeCheck();});
+    ['checkScanButton','scanNextBook'].forEach(id=>$(id).addEventListener('click',()=>openScanner('check')));
+    $('isbnForm').addEventListener('submit',saveIsbn);$('linkScanButton').addEventListener('click',()=>openScanner('link'));['closeIsbn','cancelIsbn'].forEach(id=>$(id).addEventListener('click',closeIsbn));$('isbnDialog').addEventListener('cancel',e=>{e.preventDefault();closeIsbn();});
+    $('startCamera').addEventListener('click',startCamera);$('stopCamera').addEventListener('click',()=>void stopScanner());$('closeScan').addEventListener('click',()=>void closeScanner());$('scanDialog').addEventListener('cancel',e=>{e.preventDefault();void closeScanner();});$('barcodePhoto').addEventListener('change',scanPhoto);
+    document.addEventListener('visibilitychange',()=>{if(document.hidden)void stopScanner();});window.addEventListener('pagehide',()=>{const video=$('scannerArea').querySelector('video');video?.srcObject?.getTracks().forEach(track=>track.stop());});
+    $('removeButton').addEventListener('click',askRemove);$('confirmRemove').addEventListener('click',remove);['closeRemove','cancelRemove'].forEach(id=>$(id).addEventListener('click',()=>{if(!state.busy)$('removeDialog').close();}));$('removeDialog').addEventListener('cancel',e=>{if(state.busy)e.preventDefault();});
+    $('collectionTab').addEventListener('click',()=>changeView('collection'));$('trashTab').addEventListener('click',()=>changeView('trash'));
+    ['search','typeFilter','statusFilter'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',()=>{state.page=0;render();}));
+    $('previousPage').addEventListener('click',()=>{state.page--;render();});$('nextPage').addEventListener('click',()=>{state.page++;render();});$('refreshButton').addEventListener('click',()=>void load().catch(()=>{}));
+    void load().catch(()=>{});
+  </script>
+</body>
+</html>
