@@ -5,6 +5,9 @@ const fixture=JSON.parse(readFileSync(new URL('./books.json',import.meta.url)));
 // Exported numeric ISBNs can be scientific notation; SpreadsheetApp returns them as numbers.
 fixture.forEach(book=>{if(typeof book.isbn==='string'&&/^\d+(?:\.\d+)?e\+?\d+$/i.test(book.isbn)&&Number.isSafeInteger(Number(book.isbn)))book.isbn=Number(book.isbn);});
 const h=createHarness(fixture);h.setup();
+const releaseExamples=JSON.parse(readFileSync(new URL('./releases.json',import.meta.url)));
+const naiinSearch=readFileSync(new URL('../tests/fixtures/publishers/naiin-search.html',import.meta.url),'utf8');
+const naiinDetail=readFileSync(new URL('../tests/fixtures/publishers/naiin-detail.html',import.meta.url),'utf8');
 const shim=`<script>
 function previewRunner(success=()=>{},failure=()=>{}) { return new Proxy({}, {get(_,name){
   if(name==='withSuccessHandler')return fn=>previewRunner(fn,failure);
@@ -18,7 +21,9 @@ const server=http.createServer(async(req,res)=>{
   const send=(code,data,type='application/json')=>{res.writeHead(code,{'Content-Type':type,'Cache-Control':'no-store'});res.end(type==='application/json'?JSON.stringify(data):data);};
   if(req.url==='/'&&req.method==='GET')return send(200,readFileSync(new URL('../apps-script/Index.html',import.meta.url),'utf8').replace('<script src=',shim+'\n<script src='),'text/html; charset=utf-8');
   if(req.url==='/rpc'&&req.method==='POST'){
-    try{let body='';for await(const chunk of req){body+=chunk;if(body.length>20000)throw Error('Request too large');}const {name,arg}=JSON.parse(body);if(!['getCollection','saveBook','removeBook','restoreBook','lookupIsbn','checkOwnership','setBookIsbn'].includes(name))return send(404,{message:'Unknown preview action'});
+    try{let body='';for await(const chunk of req){body+=chunk;if(body.length>20000)throw Error('Request too large');}const {name,arg}=JSON.parse(body);if(!['getCollection','saveBook','removeBook','restoreBook','lookupIsbn','checkOwnership','setBookIsbn','getPublisherReleases','setSavedRelease'].includes(name))return send(404,{message:'Unknown preview action'});
+      if(name==='getPublisherReleases'){if(!releaseExamples[arg?.publisherId])throw Error('Choose a supported publisher.');return send(200,{publisherId:arg.publisherId,items:releaseExamples[arg.publisherId],checkedAt:'',stale:false,error:'',example:true});}
+      if(name==='lookupIsbn'&&h.api.canonicalIsbn_(arg)==='9786166247275'){h.api.responses=[{match:'search-result',text:naiinSearch},{match:'product/detail/716295',text:naiinDetail}];return send(200,h.api.lookupIsbn(arg));}
       if(name==='lookupIsbn'){const isbn=h.api.normalizeIsbn_(arg);return send(200,{isbn,found:!!isbn,details:isbn?{title:'Matilda (preview example)',publisher:'Puffin',authors:'Roald Dahl',source:'Preview example'}:null,warnings:[]});}
       const result=h.api[name](arg);if(name==='getCollection')result.preview=true;return send(200,result);
     }catch(error){return send(400,{message:error.message});}

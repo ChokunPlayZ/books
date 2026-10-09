@@ -10,11 +10,11 @@ Browse your collection grouped by series. Click a series to see **all your owned
 2. Replace the contents of **Code.gs** with [apps-script/Code.gs](apps-script/Code.gs).
 3. Click **+ → HTML**, name the file **Index**, and paste [apps-script/Index.html](apps-script/Index.html).
 4. Open **Project Settings** and enable **Show appsscript.json manifest file in editor**. Replace its contents with [apps-script/appsscript.json](apps-script/appsscript.json). This includes the Google Sheets API service. Alternatively, add **Google Sheets API** using **Services → +**. If the project uses a custom Google Cloud project, enable the Google Sheets API in that Cloud project too.
-5. Save. Select **setupBookApp** in the function dropdown and click **Run**. Authorize the spreadsheet and external lookup permissions Google requests. This creates two hidden helper tabs for removed books and saved requests. It does not rewrite your existing books or summaries.
+5. Save. Select **setupBookApp** in the function dropdown and click **Run**. Authorize the spreadsheet and external lookup permissions Google requests. This creates three hidden helper tabs for removed books and saved requests. It does not rewrite your existing books or summaries.
 6. Choose **Deploy → New deployment → Web app**. Set **Execute as: Me** and **Who has access: Only myself**. Click **Deploy** and open the resulting `/exec` URL.
 7. Bookmark that URL on your phone. Open it in Safari or Chrome, signed in to the same Google account. You can also reload your sheet and choose **Book Collection → Open collection** to use the desktop dialog.
 
-The collection and sheet ID are already configured. You do not need an API key for the included lookup providers. Google Books can impose quotas; Open Library is used as a fallback. Missing metadata can always be entered manually.
+The collection and sheet ID are already configured. You do not need an API key for the included lookup providers. Naiin is checked first and verifies the ISBN on the product page. Google Books and Open Library are fallbacks; Google Books can impose quotas. Missing metadata can always be entered manually.
 
 The manifest grants spreadsheet access because the Sheets API is needed to preserve your native table and its formulas. Apps Script's Sheets scope is not limited to this one file, although this app's code targets only the configured spreadsheet. Keep the deployment set to **Only myself**: publishing an app that runs as you to everyone would let visitors use your spreadsheet permissions.
 
@@ -32,11 +32,29 @@ Choose **All series** to return to the main view. The summary cards in the main 
 - If live camera access is blocked by the browser or Google's embedded page, use **Take photo** or **Choose photo**. Include the whole barcode and any printed ISBN above it. Photo decoding happens on your device; images are not uploaded to a lookup provider or stored in your sheet. The app bounds photo resolution before decoding to reduce phone memory use and honors the photo's orientation.
 - Some Thai editions have a shop barcode instead of an ISBN barcode. If no ISBN barcode is readable, the app tries reading the printed ISBN using local text recognition. Its first use downloads the text reader and English recognition data and can take a moment. Check the recognized digits against the cover, then choose **Use ISBN**. Only checksum-valid ISBNs are offered; the app does not substitute a shop code for an ISBN.
 - A USB or Bluetooth barcode scanner also works: focus the **ISBN** field and scan. Scanners that send Enter will trigger the lookup. You can also type an ISBN-10 or ISBN-13 and click **Look up**.
-- Lookup sends only the ISBN to Google Books and, if needed, Open Library. Their suggested title and publisher fill empty fields. Existing typed fields are retained. Review the edition, series name, language/type and volume before saving, especially for Thai/Japanese manga and light novels.
+- Lookup sends the ISBN to Naiin, then Google Books and Open Library if needed. Naiin results must match the ISBN on the book page; a search result alone is never accepted. Suggested series, volume and publisher fill empty fields. A Naiin search link is also available when no metadata is found. Existing typed fields are retained. Review the edition, series name, language/type and volume before saving, especially for Thai/Japanese manga and light novels.
 - For a new title, choose the type and reading status, then enter any shop, sale price, date bought and notes. For an existing title, shared details are filled automatically and the form shows only volume, reading status, price and date bought. Enter **Sale price / amount paid** directly, or open **Calculate a discounted price** and fill in **Regular price** and **Discount**. Discounts can be **% off** or **Amount off**; calculated sale prices round to two decimal places. A sale price of `0` records a gift or a fully discounted book; leaving it blank records an unknown price. Click **Add book** or **Add volume** to write it to your sheet.
 - Only the final sale price is stored in the existing **Price** column and used in spending totals. Regular price and discount are optional calculation inputs and start blank when you reopen a book. You can override the calculated sale price directly; changing the regular price or discount calculates it again. Discounts must be non-negative, percentages cannot exceed 100%, and an amount discount cannot exceed the regular price.
 - Enable **Keep adding books** to retain type, publisher, shop, status and date bought for the next book. ISBN, volume, regular price, discount, sale price and notes start fresh. When an existing title is selected, **Keep adding volumes to this series** also retains that series name and its short form.
 - If you own another copy with the same ISBN, select **Another copy**. Otherwise the app prevents an accidental duplicate, including equivalent ISBN-10 and ISBN-13 values.
+
+## Track publisher releases and books you have not bought
+
+Choose **New releases** to check [Phoenix Next](https://www.phoenixnext.com/new-release.html), [First Page Pro](https://www.firstpagepro.com/showroom/new) and [Luckpim](https://www.luckpim.com/product/list/new). **Not bought yet** is the default: it shows listings with no match in your recorded shelf. Each card shows the publisher, title, available volume/type/ISBN, listed price and a link to the publisher's book page. Books with an ISBN also offer **Find at Naiin**. Listed prices are in Thai baht; they are not recorded as purchase prices.
+
+Use **All releases**, **For my series**, **On my shelf**, **Check edition** or **Saved for later**, and narrow by publisher or search. The overview counts separate unmatched listings, ISBN-confirmed owned books and volumes that need an edition check:
+
+- **On your shelf · ISBN match** compares equivalent ISBN-10/ISBN-13 values.
+- **Volume on your shelf · Check the edition** means the normalized series name, volume, publisher and language/type match. It is kept out of **Not bought yet**, but still needs review. Different languages/types and special sets are not treated as the same edition.
+- **Not bought yet · No shelf match** means the app did not find a match in the collection you recorded. Books you have not entered, missing ISBNs or different Thai/English series names can hide an owned copy. Use the collection or store checker to confirm uncertain books. **For my series** requires matching series names, publisher and type; it does not guess translations.
+
+Choose **Save for later** to keep a release in your saved list even when it leaves the newest catalog pages. **Unsave** removes it from that list. Saving a release does not add an owned book or change spending totals. **Add to shelf** opens a review form with the series, volume and edition details; enter the actual amount paid and save after buying it. Special sets require checking the series/volume yourself. ISBN-confirmed owned releases offer **View owned series**.
+
+Checks happen when you open this view and when you choose **Refresh releases**. Refresh also reloads your shelf for the purchase comparison. Successful feeds can be reused for one hour; the refresh button requests a fresh check. Each publisher shows its check time, and one unavailable publisher does not hide the others. A failed refresh uses the previous successful cached feed when available, marks it stale and keeps its original check time. Open the publisher link when a feed cannot be read.
+
+The feed covers Phoenix Next's latest 72 catalog listings, First Page Pro's latest 40, and up to 200 listings from Luckpim's monthly new-release section. These are recent catalog listings, including pre-orders and special editions, rather than a complete publication archive. Dates/stock can change. No release date is invented from a listing or check time. This feature does not run scheduled checks or send notifications.
+
+Replace both **Code.gs** and **Index.html**, then deploy a new version. The existing sheet columns and manifest stay the same. The app creates a hidden **_BookAppReleases** tab on your first saved release, so an existing installation does not need another setup run. Keep that tab to preserve your saved list.
 
 ## Check a book in the store
 
@@ -74,7 +92,7 @@ New entries expand **Table1**, so formulas such as `SUM(Table1[Price])` and your
 
 **Collection spend** sums the prices in the sheet without assuming a currency. **Books on your shelf** counts book records; it can differ from your sheet's `COUNT(Table1[Price])` when a book has no price. Zero and blank prices are treated differently.
 
-The hidden **_BookAppTrash** tab stores recoverable removals. **_BookAppOperations** stores successful request receipts so a retry after a connection failure does not add, remove or restore twice. Keep both tabs; the app never automatically purges them.
+The hidden **_BookAppTrash** tab stores recoverable removals. **_BookAppOperations** stores successful request receipts so a retry after a connection failure does not add, remove or restore twice. The hidden **_BookAppReleases** tab keeps saved publisher listings. Keep these helper tabs; the app never automatically purges them.
 
 ## Update the deployed app
 
@@ -102,7 +120,7 @@ Use a **copy of your spreadsheet** for the first live check. Change `spreadsheet
 6. Open a series and use **Add ISBN** on an existing disposable volume. Confirm only column A changes. Enable the next-volume option and confirm the next missing ISBN opens for review.
 7. Use **Check a book** to scan that saved ISBN. Confirm it says **Already on your shelf** without adding a record. Try an unknown ISBN and confirm the warning about books still missing ISBNs, then search for an owned volume by series and number.
 
-Local automated checks exercise validation, ISBN equivalence, current-sheet ownership checks, ISBN-only updates, concurrent/stale edits, atomic recoverable removals, request retries, table expansion, and preservation of adjacent summary cells. The local preview uses a copy of the exported collection and a simulated backend; it cannot verify Google authorization, live Sheets API behavior, live formulas, or a physical phone camera.
+Local automated checks exercise validation, ISBN equivalence, current-sheet ownership checks, ISBN-only updates, concurrent/stale edits, atomic recoverable removals, request retries, table expansion, and preservation of adjacent summary cells. The local preview uses a copy of the exported collection, labeled sample publisher listings and a simulated backend; it cannot verify Google authorization, live Sheets API behavior, live formulas, or a physical phone camera.
 
 Photo regression fixtures come from the three reported iPhone photos. All three original files and their bounded test copies were verified in Chromium at a phone-sized viewport:
 
@@ -122,6 +140,10 @@ The browser checks also exercise denied permission, inline camera playback, trac
 - [Atomic Sheets batch updates](https://developers.google.com/workspace/sheets/api/reference/rest/v4/spreadsheets/batchUpdate)
 - [Google Books API](https://developers.google.com/books/docs/v1/using)
 - [Open Library ISBN lookup](https://openlibrary.org/dev/docs/api/books)
+- [Naiin ISBN search](https://www.naiin.com/search-result?title=9786166247275)
+- [Phoenix Next new releases](https://www.phoenixnext.com/new-release.html)
+- [First Page Pro new arrivals](https://www.firstpagepro.com/showroom/new)
+- [Luckpim monthly new releases](https://www.luckpim.com/product/list/new)
 - [ZXing WebAssembly barcode reader](https://github.com/Sec-ant/zxing-wasm)
 - [Tesseract.js local text recognition](https://github.com/naptha/tesseract.js)
 
@@ -134,3 +156,5 @@ For photo and camera browser regression checks, start the preview, make Playwrig
 Run `node tests/pricing.browser.mjs` against the preview for sale-price checks. It verifies percent/amount discounts, two-decimal rounding, invalid discounts, direct sale-price overrides, blank versus zero prices, edit/save totals, resetting prices while keeping other book defaults, and phone/desktop layout. It accepts the same Playwright, browser and preview environment settings as the scanning checks and saves a phone screenshot to `outputs/pricing-preview.png`.
 
 Run `node tests/series-entry.browser.mjs` against the preview for existing-title entry checks. It verifies the short form, recent-edition defaults, missing shared details, title switching, capitalization, saved inherited values, optional overrides, ISBN and notes handling, repeated volume entry, lookup suggestions, the full edit form and phone/desktop layout. It accepts the same environment settings and saves a phone screenshot to `outputs/series-entry-preview.png`.
+
+Run `node tests/publishers.browser.mjs` against the preview to verify publisher/series filters, the default unbought list, ISBN-confirmed ownership versus edition checks, language/type matching, saved-list persistence across catalog changes and reloads, reviewed add forms, partial feed failures, Naiin metadata and phone/desktop layout. It accepts the same browser environment settings. The preview uses example feed data and a verified Naiin sample for ISBN `9786166247275`; it does not contact the live publishers. `tests/publishers.test.mjs` verifies publisher parsing, pagination, caching/outages, saved-list writes and exact ISBN lookup. Public live pages were inspected on October 9, 2026; their layouts and endpoints may change.

@@ -68,7 +68,7 @@ export function createHarness(books = []) {
     Utilities:{getUuid:randomUUID,DigestAlgorithm:{SHA_256:'sha256'},computeDigest:(_,t)=>[...createHash('sha256').update(t).digest()],base64EncodeWebSafe:b=>Buffer.from(b).toString('base64url'),formatDate:(d,tz)=>new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'}).format(d)},
     Sheets:{Spreadsheets:{get:(_,options)=>({sheets:[{properties:{sheetId:0},tables:[structuredClone(table)],...(options.fields.includes('basicFilter')?{basicFilter:structuredClone(store.get('Sheet1').basicFilter)}:{})}]}),batchUpdate:batch}},
     CacheService:{getScriptCache:()=>({get:k=>cache.get(k)||null,put:(k,v)=>cache.set(k,v)})},
-    UrlFetchApp:{fetch:url=>{fetches.push(url);const entry=sandbox.responses.find(e=>url.includes(e.match));return {getResponseCode:()=>entry?.status??200,getContentText:()=>JSON.stringify(entry?.body??{})};}},
+    UrlFetchApp:{fetch:(url,options)=>{fetches.push(url);const entry=sandbox.responses.find(e=>url.includes(e.match));return {getResponseCode:()=>entry?.status??200,getContentText:()=>entry?.text??JSON.stringify(entry?.body??{}),getAllHeaders:()=>entry?.headers??{}};}},
     responses:[]
   };
   vm.createContext(sandbox);vm.runInContext(source,sandbox,{filename:'Code.gs'});

@@ -2,13 +2,19 @@
 const BOOK_APP = Object.freeze({
   spreadsheetId: '1xtA2hqEGZPyvQS0ZC2NI30lJLJAugvFHPh9jQOyGhgg',
   sheetName: 'Sheet1', tableName: 'Table1',
-  trashName: '_BookAppTrash', operationsName: '_BookAppOperations',
+  trashName: '_BookAppTrash', operationsName: '_BookAppOperations', releasesName: '_BookAppReleases',
   headers: ['ISBN', 'Series', 'Type', 'Publisher', 'Status', 'Volume', 'Source', 'Price', 'Date', 'Note'],
   fields: ['isbn', 'series', 'type', 'publisher', 'status', 'volume', 'source', 'price', 'date', 'note'],
   statuses: ['Sealed', 'Un Sealed', 'Reading', 'Read'],
   types: ['LN (EN)', 'Manga (JP) (Color)', 'Manga (TH)', 'LN (TH)', 'Manga (JP)', 'Manga (TH) (Color)', 'Other']
 });
 const TRASH_HEADERS = ['Trash ID', 'Removed At', 'State', 'Original Row', 'Book JSON'];
+const RELEASE_HEADERS = ['Release ID', 'State', 'Book JSON', 'Updated At'];
+const PUBLISHERS = Object.freeze([
+  { id: 'phoenix', name: 'Phoenix Next', url: 'https://www.phoenixnext.com/new-release.html', scope: 'Latest 72 catalog listings' },
+  { id: 'firstpage', name: 'First Page Pro', url: 'https://www.firstpagepro.com/showroom/new', scope: 'Latest 40 catalog listings' },
+  { id: 'luckpim', name: 'Luckpim', url: 'https://www.luckpim.com/product/list/new', scope: 'Monthly new releases, up to 200 listings' }
+]);
 const OP_HEADERS = ['Request ID', 'Kind', 'Request Hash', 'Result JSON', 'Created At'];
 
 function doGet() {
@@ -26,12 +32,12 @@ function openBookApp() {
     doGet().setWidth(1120).setHeight(780), 'Book Collection');
 }
 
-/** Run once from the editor. Creates two helper tabs; never rewrites collection data. */
+/** Run once from the editor. Creates three helper tabs; never rewrites collection data. */
 function setupBookApp() {
   return withLock_(function () {
     const context = context_();
     tableState_(context); // Also checks that the Sheets advanced service is enabled.
-    [[BOOK_APP.trashName, TRASH_HEADERS], [BOOK_APP.operationsName, OP_HEADERS]].forEach(function (spec) {
+    [[BOOK_APP.trashName, TRASH_HEADERS], [BOOK_APP.operationsName, OP_HEADERS], [BOOK_APP.releasesName, RELEASE_HEADERS]].forEach(function (spec) {
       let sheet = context.ss.getSheetByName(spec[0]);
       if (!sheet) {
         sheet = context.ss.insertSheet(spec[0]);
@@ -70,7 +76,7 @@ function getCollection() {
   return {
     books: books, trash: trash, options: options,
     today: Utilities.formatDate(new Date(), c.timeZone, 'yyyy-MM-dd'),
-    sheetUrl: c.ss.getUrl(), timeZone: c.timeZone
+    sheetUrl: c.ss.getUrl(), timeZone: c.timeZone, publishers: PUBLISHERS, savedReleases: savedReleases_(c)
   };
 }
 
@@ -170,11 +176,13 @@ function lookupIsbn(raw) {
   if (!isbn) throw new Error('Enter or scan an ISBN first.');
   const canonical = canonicalIsbn_(isbn);
   const cache = CacheService.getScriptCache();
-  const cached = cache.get('isbn:' + canonical);
+  const cached = cache.get('isbn:v2:' + canonical);
   if (cached) return JSON.parse(cached);
   const warnings = [];
   let details = null;
-  try {
+  try { details = lookupNaiin_(canonical); }
+  catch (e) { warnings.push('Naiin is unavailable right now. You can still search it using the link below.'); }
+  if (!details) try {
     const data = fetchJson_('https://www.googleapis.com/books/v1/volumes?q=isbn:' + encodeURIComponent(canonical) + '&maxResults=5');
     const found = (data.items || []).find(function (item) {
       return ((item.volumeInfo || {}).industryIdentifiers || []).some(function (id) {
@@ -197,10 +205,221 @@ function lookupIsbn(raw) {
       };
     } catch (e) { warnings.push('Open Library is unavailable right now.'); }
   }
-  const result = { isbn: isbn, found: !!details, details: details, warnings: warnings };
-  if (details) cache.put('isbn:' + canonical, JSON.stringify(result), 21600);
+  const result = { isbn: isbn, found: !!details, details: details, warnings: warnings, searchUrl: 'https://www.naiin.com/search-result?title=' + encodeURIComponent(canonical) };
+  if (details) cache.put('isbn:v2:' + canonical, JSON.stringify(result), 21600);
   return result;
 }
+
+/** Read-only catalog requests. A failed refresh keeps the last successful cached feed. */
+function getPublisherReleases(request) {
+  request = request || {};
+  const publisher = PUBLISHERS.find(function (p) { return p.id === request.publisherId; });
+  if (!publisher) throw new Error('Choose a supported publisher.');
+  const cache = CacheService.getScriptCache(), key = 'releases:v1:' + publisher.id;
+  const cached = cache.get(key), previous = cached ? JSON.parse(cached) : null;
+  if (previous && !request.refresh && Date.now() - Date.parse(previous.checkedAt) < 3600000) return previous;
+  try {
+    const items = publisher.id === 'luckpim' ? fetchLuckpim_() : fetchCatalog_(publisher);
+    if (!items.length) throw new Error('No book listings could be read.');
+    const result = { publisherId: publisher.id, items: items, checkedAt: new Date().toISOString(), stale: false, error: '' };
+    const json = JSON.stringify(result);
+    // Script Cache limits each value to 100 KB. Cache is optional, never a source of saved-list data.
+    if (json.length * 3 < 95000) cache.put(key, json, 21600);
+    return result;
+  } catch (e) {
+    if (previous) return Object.assign({}, previous, { stale: true, error: 'Could not refresh ' + publisher.name + '. Showing the previous check.' });
+    return { publisherId: publisher.id, items: [], checkedAt: '', stale: true, error: 'Could not read ' + publisher.name + ' right now. Open the publisher website or try Refresh releases.' };
+  }
+}
+
+function savedReleases_(c) {
+  const sheet = c.ss.getSheetByName(BOOK_APP.releasesName);
+  if (!sheet) return []; // Existing installations upgrade without another setup run.
+  assertHeaders_(sheet, RELEASE_HEADERS);
+  return sheet.getLastRow() < 2 ? [] : sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues()
+    .filter(function (r) { return r[1] === 'saved'; }).map(function (r) { return JSON.parse(r[2]); });
+}
+
+/** Absolute saved/unsaved state makes retries safe without adding a book to the shelf. */
+function setSavedRelease(request) {
+  if (!request || typeof request.saved !== 'boolean') throw new Error('Choose Save for later or Unsave.');
+  const item = cleanRelease_(request.release);
+  return withLock_(function () {
+    const c = context_();
+    let sheet = c.ss.getSheetByName(BOOK_APP.releasesName);
+    if (!sheet) {
+      sheet = c.ss.insertSheet(BOOK_APP.releasesName);
+      sheet.getRange(1, 1, 1, 4).setValues([RELEASE_HEADERS]);sheet.setFrozenRows(1);sheet.hideSheet();
+    }
+    assertHeaders_(sheet, RELEASE_HEADERS);
+    const rows = sheet.getLastRow() < 2 ? [] : sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues();
+    const index = rows.findIndex(function (r) { return r[0] === item.id; });
+    sheet.getRange(index < 0 ? sheet.getLastRow() + 1 : index + 2, 1, 1, 4)
+      .setValues([[item.id, request.saved ? 'saved' : 'unsaved', JSON.stringify(item), new Date().toISOString()]]);
+    return { savedReleases: savedReleases_(c) };
+  });
+}
+
+function cleanRelease_(input) {
+  input = input || {};
+  const p = PUBLISHERS.find(function (p) { return p.id === input.publisherId; });
+  const url = safeProductUrl_(input.url, p && p.id);
+  if (!p || !url || !String(input.title || '').trim()) throw new Error('This release is missing its publisher or book page. Refresh releases.');
+  const item = releaseItem_(p.id, String(input.title).slice(0, 500), url, input.price, input.isbn, input.type);
+  item.series = String(input.series || item.series).slice(0, 500);
+  item.volume = input.volume === '' || input.volume === undefined ? item.volume : Number(input.volume);
+  if (item.volume !== '' && (!Number.isFinite(item.volume) || item.volume < 0)) throw new Error('Invalid release volume.');
+  item.availability = String(input.availability || '').slice(0, 100);
+  return item;
+}
+
+function safeProductUrl_(raw, id) {
+  const url = decodeHtml_(String(raw || ''));
+  const patterns = {
+    phoenix: /^https:\/\/www\.phoenixnext\.com\/[a-zA-Z0-9_-]+\.html$/,
+    firstpage: /^https:\/\/www\.firstpagepro\.com\/product\/(\d+)(?:\/[^?#]*)?$/,
+    luckpim: /^https:\/\/www\.luckpim\.com\/product\/detail\/\d+\/?$/
+  };
+  if (!patterns[id] || !patterns[id].test(url)) return '';
+  if (id === 'firstpage') return 'https://www.firstpagepro.com/product/' + url.match(patterns[id])[1];
+  return url.replace(/\/$/, '');
+}
+
+function releaseItem_(id, title, url, price, isbn, type) {
+  const parsed = splitBookTitle_(title);
+  const special = /special\s*set|complete\s*set|box\s*set|limited|เซต|ชุด|ปกพิเศษ/i.test(title);
+  const p = PUBLISHERS.find(function (p) { return p.id === id; });
+  return {
+    id: id + ':' + digest_(url), publisherId: id, publisher: p.name, title: decodeHtml_(title),
+    series: parsed.series, volume: parsed.volume, type: type || parsed.type, url: url,
+    isbn: special ? '' : canonicalIsbn_(isbn) || '', price: price !== '' && price !== null && price !== undefined && Number.isFinite(Number(price)) && Number(price) >= 0 ? Number(price) : '',
+    special: special, availability: ''
+  };
+}
+
+function splitBookTitle_(raw) {
+  let title = decodeHtml_(String(raw || '')).replace(/\s+/g, ' ').trim();
+  const type = /\(LN\)|\(นิยาย\)|^นิยาย|light\s*novel|ไลท์โนเวล/i.test(title) ? 'LN (TH)' : /มังงะ|การ์ตูน|@COMIC|\(Mg\)/i.test(title) ? 'Manga (TH)' : '';
+  title = title.replace(/^\[PRE-ORDER\]\s*/i, '').replace(/^(?:\(LN\)|\(มังงะ\)|\(นิยาย\)|นิยาย|การ์ตูน)\s*/i, '');
+  const explicit = /(?:เล่ม(?:ที่)?|vol(?:ume)?\.?)\s*(\d+(?:\.\d+)?)/i.exec(title);
+  // Some Luckpim books end in a bare volume, optionally followed by (จบ).
+  const suffix = /\s+(\d+(?:\.\d+)?)(?:\s*\([^)]*\))*\s*$/.exec(title);
+  const match = explicit || suffix;
+  let series = match ? title.slice(0, match.index).trim() : title.replace(/\s*\((?:Mg|LN)\)\s*$/i, '').trim();
+  series = series.replace(/\s*[-–:]\s*$/, '').trim();
+  return { series: series, volume: match ? Number(match[1]) : '', type: type };
+}
+
+function fetchCatalog_(p) {
+  let items = [];
+  for (let page = 1; page <= 2; page++) {
+    const url = p.url + (page > 1 ? '?tskp=' + page : '');
+    // Phoenix uses p, First Page Pro uses tskp.
+    const html = fetchText_(p.id === 'phoenix' && page > 1 ? p.url + '?p=' + page : url);
+    const parsed = parseCatalog_(p.id, html);
+    if (!parsed.length) { if (page === 1) throw new Error('Catalog unavailable'); break; }
+    items = items.concat(parsed);
+  }
+  const seen = {};
+  return items.filter(function (item) { if (seen[item.id]) return false; seen[item.id] = true; return true; }).slice(0, p.id === 'phoenix' ? 72 : 40);
+}
+
+/** Parse only product cards, excluding navigation and recommendations. No remote HTML reaches the UI. */
+function parseCatalog_(id, html) {
+  const items = [];
+  const cards = id === 'firstpage' ? html.split(/<div\b[^>]*class=["'][^"']*\bproductArea\b[^"']*\bproductItem\b[^"']*["'][^>]*>/i).slice(1)
+    : html.split(/<a\b(?=[^>]*\bclass=["'][^"']*\bproduct-item-link\b)[^>]*>/i).slice(1);
+  const anchors = id === 'phoenix' ? html.match(/<a\b(?=[^>]*\bclass=["'][^"']*\bproduct-item-link\b)[^>]*>/gi) || [] : [];
+  cards.forEach(function (card, index) {
+    let title, url, price = '', isbn = '';
+    if (id === 'firstpage') {
+      const anchor = /<a\b[^>]*class=["'][^"']*gadgetThumbnail[^"']*["'][^>]*>/i.exec(card);
+      if (!anchor) return;
+      title = attr_(anchor[0], 'title');url = attr_(anchor[0], 'href');
+      const ga = attr_(anchor[0], 'GAEEPD');
+      try { price = JSON.parse(ga).price; } catch (e) {}
+    } else {
+      title = textHtml_(card.slice(0, card.indexOf('</a>')));
+      url = attr_(anchors[index] || '', 'href');
+      const amount = /data-price-amount=["']([\d.]+)["']/i.exec(card);price = amount ? amount[1] : '';
+      const code = /isbnet=(\d{13})/.exec(card);isbn = code ? code[1] : '';
+    }
+    url = safeProductUrl_(url, id);
+    if (url && title) items.push(releaseItem_(id, title, url, price, isbn));
+  });
+  return items;
+}
+
+function fetchLuckpim_() {
+  // Same public token/cookie handshake as the publisher's browser catalog.
+  const response = UrlFetchApp.fetch('https://www.luckpim.com/product/list/new', { muteHttpExceptions: true, headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (response.getResponseCode() !== 200) throw new Error('Catalog unavailable');
+  const html = response.getContentText(), tokenTag = /<input\b[^>]*name=["']?__RequestVerificationToken["']?[^>]*>/i.exec(html);
+  const token = tokenTag && attr_(tokenTag[0], 'value');
+  if (!token) throw new Error('Catalog token unavailable');
+  const headers = response.getAllHeaders(), cookieHeader = headers['Set-Cookie'] || headers['set-cookie'] || [];
+  const cookies = (Array.isArray(cookieHeader) ? cookieHeader : [cookieHeader]).map(function (v) { return String(v).split(';')[0]; }).join('; ');
+  let items = [];
+  for (let page = 1; page <= 2; page++) {
+    const result = UrlFetchApp.fetch('https://www.luckpim.com/_api/getBookList?setting=new&page=' + page + '&limit=100', {
+      muteHttpExceptions: true, headers: { 'XSRF-TOKEN': token, Cookie: cookies }
+    });
+    if (result.getResponseCode() !== 200) throw new Error('Catalog unavailable');
+    const data = JSON.parse(result.getContentText());
+    if (data.sc !== 200 || !data.d || !Array.isArray(data.d.data)) throw new Error('Catalog changed');
+    data.d.data.forEach(function (v) {
+      if (!/^\d+$/.test(String(v.slug))) return;
+      const type = /นิยาย|novel/i.test(v.main_category || '') ? 'LN (TH)' : /มังงะ|การ์ตูน/i.test(v.main_category || '') ? 'Manga (TH)' : '';
+      const item = releaseItem_('luckpim', v.title, 'https://www.luckpim.com/product/detail/' + v.slug, v.price_sale == null ? v.price : v.price_sale, '', type);
+      item.availability = v.pre_order === 'T' ? 'Pre-order' : Number(v.stock) > 0 ? 'In stock' : 'Check availability';items.push(item);
+    });
+    if (page * 100 >= Number(data.d.total) || data.d.data.length < 100) break;
+  }
+  return items;
+}
+
+function lookupNaiin_(canonical) {
+  const html = fetchText_('https://www.naiin.com/search-result?title=' + encodeURIComponent(canonical));
+  const component = /<product-list\b[^>]*>/i.exec(html);
+  if (!component) throw new Error('Search markup unavailable');
+  let candidates;
+  try { candidates = JSON.parse(attr_(component[0], ':items')); } catch (e) { throw new Error('Search markup changed'); }
+  if (!Array.isArray(candidates)) throw new Error('Search markup changed');
+  candidates = candidates.filter(function (v) { return Number(v.ProductTypeId) === 1 && /^\d+$/.test(String(v.ProductID)); }).slice(0, 4);
+  for (let i = 0; i < candidates.length; i++) {
+    const candidate = candidates[i], url = 'https://www.naiin.com/product/detail/' + candidate.ProductID;
+    const page = fetchText_(url), data = structuredBooks_(page);
+    const exact = data.find(function (b) { return [b.isbn, b.gtin13, b.sku].some(function (code) { return canonicalIsbn_(code) === canonical; }); });
+    const metaIsbn = meta_(page, 'book:isbn');
+    if (!exact && canonicalIsbn_(metaIsbn) !== canonical) continue;
+    const book = exact || {}, title = book.name || candidate.ProductName || '';
+    if (!title) continue;
+    const parsed = splitBookTitle_(title);
+    return { title: title, series: parsed.series, volume: parsed.volume, type: parsed.type,
+      publisher: names_(book.publisher) || candidate.PublisherName || '', authors: names_(book.author) || candidate.AuthorName || '',
+      source: 'Naiin', url: url, releaseDate: meta_(page, 'book:release_date') };
+  }
+  return null;
+}
+
+function names_(v) { return (Array.isArray(v) ? v : v ? [v] : []).map(function (x) { return typeof x === 'string' ? x : x.name || ''; }).filter(Boolean).join(', '); }
+function structuredBooks_(html) {
+  const out = [], re = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  function visit(v) { if (!v || typeof v !== 'object') return;if (Array.isArray(v)) return v.forEach(visit);if (v.isbn || v.gtin13 || v.sku) out.push(v);if (v['@graph']) visit(v['@graph']); }
+  let match;while ((match = re.exec(html))) { try { visit(JSON.parse(match[1])); } catch (e) {} }return out;
+}
+function meta_(html, property) { const tags = html.match(/<meta\b[^>]*>/gi) || [];const tag = tags.find(function (t) { return attr_(t, 'property') === property; });return tag ? attr_(tag, 'content') : ''; }
+function attr_(tag, name) {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = new RegExp('(?:^|\\s)' + escaped + '\\s*=\\s*(?:"([^"]*)"|\'([^\']*)\'|([^\\s>]+))', 'i').exec(tag);
+  return match ? decodeHtml_(match[1] === undefined ? match[2] === undefined ? match[3] : match[2] : match[1]) : '';
+}
+function decodeHtml_(s) {
+  return String(s).replace(/&#(x[\da-f]+|\d+);/gi, function (_, n) { const code = n[0].toLowerCase() === 'x' ? parseInt(n.slice(1), 16) : Number(n);return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : ''; })
+    .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
+}
+function textHtml_(s) { return decodeHtml_(String(s).replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim(); }
+function fetchText_(url) { const r = UrlFetchApp.fetch(url, { muteHttpExceptions: true, headers: { 'User-Agent': 'Mozilla/5.0' } });if (r.getResponseCode() !== 200) throw new Error('Website unavailable');return r.getContentText(); }
 
 function context_() {
   const ss = SpreadsheetApp.openById(BOOK_APP.spreadsheetId);

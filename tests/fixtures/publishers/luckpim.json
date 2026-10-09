@@ -1,0 +1,112 @@
+{
+  "sc": 200,
+  "d": {
+    "data": [
+      {
+        "product_id": 1791534252892194,
+        "title": "[PRE-ORDER] [เซตพิเศษ] รักครั้งนี้มีคนนกเยอะไปมั้ย! @COMIC 05 (ปกพิเศษ+โปสการ์ด)",
+        "writer": "Takibi Amamori",
+        "slug": "2848",
+        "price": 225.0,
+        "price_sale": 202.5,
+        "pre_order": "T",
+        "pre_order_start_date": "2026-10-09T00:30:00",
+        "pre_order_end_date": "2026-11-02T06:59:00",
+        "pre_order_limit_qty": null,
+        "thumbnail": "841687353_2108379150044590_8417975240250707726_n.jpg",
+        "thumbnail_gen": "47xvfr1gskp",
+        "thumbnail_alt": "841687353_2108379150044590_8417975240250707726_n",
+        "view": 3,
+        "stock": 40,
+        "obj_content_id": 1791534252892194,
+        "main_category_id": 1692349432231393,
+        "main_category": "มังงะ/การ์ตูน",
+        "top_seller": null,
+        "sub_category": ""
+      },
+      {
+        "product_id": 1791533995651541,
+        "title": "[PRE-ORDER] รักครั้งนี้มีคนนกเยอะไปมั้ย! @COMIC 05",
+        "writer": "Takibi Amamori",
+        "slug": "2847",
+        "price": 145.0,
+        "price_sale": 124.0,
+        "pre_order": "T",
+        "pre_order_start_date": "2026-10-09T00:30:00",
+        "pre_order_end_date": "2026-11-02T06:59:00",
+        "pre_order_limit_qty": null,
+        "thumbnail": "MAKE-HEROINE-GA-OOSUGIRU!-@COMIC-05-TH-COVER_1_mockup_2000_0.jpg",
+        "thumbnail_gen": "lrsjutokmc9",
+        "thumbnail_alt": "MAKE-HEROINE-GA-OOSUGIRU!-@COMIC-05-TH-COVER_1_mockup_2000_0",
+        "view": 3,
+        "stock": 40,
+        "obj_content_id": 1791533995651541,
+        "main_category_id": 1692349432231393,
+        "main_category": "มังงะ/การ์ตูน",
+        "top_seller": null,
+        "sub_category": [
+          {
+            "sub_category_id": 169460128017873,
+            "sub_category": "Love Comedy"
+          }
+        ]
+      },
+      {
+        "product_id": 1791532853287410,
+        "title": "[PRE-ORDER] [Limited Edition Box Set] ห้วงเหวลึกของเด็กหนุ่ม 18 (จบ)",
+        "writer": "Ryo Minenami",
+        "slug": "2846",
+        "price": 685.0,
+        "price_sale": null,
+        "pre_order": "T",
+        "pre_order_start_date": "2026-10-09T00:30:00",
+        "pre_order_end_date": "2026-11-02T06:59:00",
+        "pre_order_limit_qty": null,
+        "thumbnail": "Artboard_1Artboard_1ห้วงเหวลึกของเด็กหนุ่ม_18_จบ_เซตพิเศษ_BOX.jpg",
+        "thumbnail_gen": "wnt8euxnm7q",
+        "thumbnail_alt": "Artboard_1Artboard_1ห้วงเหวลึกของเด็กหนุ่ม_18_(จบ)_เซตพิเศษ_BOX",
+        "view": 8,
+        "stock": 18,
+        "obj_content_id": 1791532853287410,
+        "main_category_id": 1692349432231393,
+        "main_category": "มังงะ/การ์ตูน",
+        "top_seller": null,
+        "sub_category": [
+          {
+            "sub_category_id": 1694601460879157,
+            "sub_category": "Drama"
+          }
+        ]
+      },
+      {
+        "product_id": 1791531437112574,
+        "title": "[PRE-ORDER] ห้วงเหวลึกของเด็กหนุ่ม 18 (จบ)",
+        "writer": "Ryo Minenami",
+        "slug": "2845",
+        "price": 135.0,
+        "price_sale": 115.0,
+        "pre_order": "T",
+        "pre_order_start_date": "2026-10-09T00:30:00",
+        "pre_order_end_date": "2026-11-02T06:59:00",
+        "pre_order_limit_qty": null,
+        "thumbnail": "SHONEN_NO_ABYSS_18_TH_COVER-01_mockup_2000_0.jpg",
+        "thumbnail_gen": "opgtk683j7w",
+        "thumbnail_alt": "SHONEN NO ABYSS 18 TH COVER-01_mockup_2000_0",
+        "view": 2,
+        "stock": 20,
+        "obj_content_id": 1791531437112574,
+        "main_category_id": 1692349432231393,
+        "main_category": "มังงะ/การ์ตูน",
+        "top_seller": null,
+        "sub_category": [
+          {
+            "sub_category_id": 1694601460879157,
+            "sub_category": "Drama"
+          }
+        ]
+      }
+    ],
+    "total": 4
+  },
+  "m": "Success"
+}

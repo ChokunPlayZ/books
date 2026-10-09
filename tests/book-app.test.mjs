@@ -34,7 +34,7 @@ test('numeric/date validation preserves zero and fractional volumes',()=>{
 });
 test('setup keeps existing books and adjacent summaries, creates helpers only',()=>{
   const h=createHarness([existing]);h.put(2,14,120,'SUM(Table1[Price])');const before=h.row(2);h.setup();h.setup();
-  assert.deepEqual(h.row(2),before);assert.equal(h.store().size,4);assert.ok(h.store().get('_BookAppTrash').hidden);
+  assert.deepEqual(h.row(2),before);assert.equal(h.store().size,5);assert.ok(h.store().get('_BookAppTrash').hidden);
 });
 test('add expands native table and dropdowns; ISBN and formula-looking notes stay text',()=>{
   const h=createHarness([existing]);h.setup();h.put(2,14,120,'SUM(Table1[Price])');const summary=h.row(2)[13];
@@ -152,8 +152,8 @@ test('header mismatch and held lock fail without mutation',()=>{
 });
 test('lookup requires exact ISBN match, falls back on outages, caches success',()=>{
   const h=createHarness();h.api.responses=[{match:'googleapis',body:{items:[{volumeInfo:{title:'Wrong edition',industryIdentifiers:[{identifier:'9780804429573'}]}}]}},{match:'openlibrary',body:{'ISBN:9780140328721':{title:'Matilda',publishers:[{name:'Puffin'}],authors:[{name:'Roald Dahl'}]}}}];
-  let r=h.api.lookupIsbn('0140328726');assert.equal(r.details.title,'Matilda');assert.equal(r.details.source,'Open Library');assert.equal(h.fetches.length,2);r=h.api.lookupIsbn('9780140328721');assert.equal(h.fetches.length,2);
-  const outage=createHarness();outage.api.responses=[{match:'googleapis',status:429},{match:'openlibrary',status:503}];r=outage.api.lookupIsbn('9780140328721');assert.equal(r.found,false);assert.equal(r.warnings.length,2);
+  let r=h.api.lookupIsbn('0140328726');assert.equal(r.details.title,'Matilda');assert.equal(r.details.source,'Open Library');assert.equal(h.fetches.length,3);r=h.api.lookupIsbn('9780140328721');assert.equal(h.fetches.length,3);
+  const outage=createHarness();outage.api.responses=[{match:'googleapis',status:429},{match:'openlibrary',status:503}];r=outage.api.lookupIsbn('9780140328721');assert.equal(r.found,false);assert.equal(r.warnings.length,3);
 });
 test('store check reads current ISBN matches, handles ISBN-10 equivalence and never writes',()=>{
   const h=createHarness([existing,{...input,series:'Unindexed volume'}]);h.setup();

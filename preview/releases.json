@@ -1,0 +1,134 @@
+{
+  "phoenix": [
+    {
+      "id": "phoenix:jadMtEIksM6fOpUjBnQ1-hT6inrcD19bNMm8Jl86FZg",
+      "publisherId": "phoenix",
+      "publisher": "Phoenix Next",
+      "title": "(LN) เส้นทางจาริกอาถรรพ์",
+      "series": "เส้นทางจาริกอาถรรพ์",
+      "volume": "",
+      "type": "LN (TH)",
+      "url": "https://www.phoenixnext.com/ln0838-01.html",
+      "isbn": "9786166247404",
+      "price": 370,
+      "special": false,
+      "availability": ""
+    },
+    {
+      "id": "phoenix:2Uo2Tcew5HurTpm0QJ1fZN6qk9w-Xjed7bs8d4ZlhhE",
+      "publisherId": "phoenix",
+      "publisher": "Phoenix Next",
+      "title": "(LN) สืบคดีปริศนา หมอยาตำรับโคมแดง เล่ม 16",
+      "series": "สืบคดีปริศนา หมอยาตำรับโคมแดง",
+      "volume": 16,
+      "type": "LN (TH)",
+      "url": "https://www.phoenixnext.com/ln0837-01.html",
+      "isbn": "9786166247183",
+      "price": 305,
+      "special": false,
+      "availability": ""
+    },
+    {
+      "id": "phoenix:qJMoTu0w1oDHT5uNY3MVXm9zVDRWVWtTEbm7NlBFSaE",
+      "publisherId": "phoenix",
+      "publisher": "Phoenix Next",
+      "title": "(LN) ขอต้อนรับสู่ห้องเรียนนิยม (เฉพาะ) ยอดคน ปี 3 เล่ม 2",
+      "series": "ขอต้อนรับสู่ห้องเรียนนิยม (เฉพาะ) ยอดคน ปี 3",
+      "volume": 2,
+      "type": "LN (TH)",
+      "url": "https://www.phoenixnext.com/ln0836-01.html",
+      "isbn": "9786166247367",
+      "price": 350,
+      "special": false,
+      "availability": ""
+    }
+  ],
+  "firstpage": [
+    {
+      "id": "firstpage:HypM1TgBVnyjiEHlMFHbRu-0K14T-kbKOkG6s97DFKk",
+      "publisherId": "firstpage",
+      "publisher": "First Page Pro",
+      "title": "การ์ตูน จอมเวทยันเดเระผู้รักได้เพียงรูปปั้นหญิงสาว ละลายใจแม่มดด้วยจุมพิตร้อนจากศิษย์รัก เล่ม 01",
+      "series": "จอมเวทยันเดเระผู้รักได้เพียงรูปปั้นหญิงสาว ละลายใจแม่มดด้วยจุมพิตร้อนจากศิษย์รัก",
+      "volume": 1,
+      "type": "Manga (TH)",
+      "url": "https://www.firstpagepro.com/product/1152",
+      "isbn": "",
+      "price": 200,
+      "special": false,
+      "availability": ""
+    },
+    {
+      "id": "firstpage:TzWYMRZFrJeMBcfFovm9dzgfUKJvfNuQq0PLqwNI7Mg",
+      "publisherId": "firstpage",
+      "publisher": "First Page Pro",
+      "title": "การ์ตูน สตรีศักดิ์สิทธิ์ไร้พลังกับเจ้าหญิงไร้ความสามารถ -บันทึกการกอบกู้ดินแดนต่างโลกของสตรีศักดิ์สิทธิ์ ผู้ถูกอัญเชิญมาแบบไร้พลังเวท- เล่ม 01",
+      "series": "สตรีศักดิ์สิทธิ์ไร้พลังกับเจ้าหญิงไร้ความสามารถ -บันทึกการกอบกู้ดินแดนต่างโลกของสตรีศักดิ์สิทธิ์ ผู้ถูกอัญเชิญมาแบบไร้พลังเวท",
+      "volume": 1,
+      "type": "Manga (TH)",
+      "url": "https://www.firstpagepro.com/product/1151",
+      "isbn": "",
+      "price": 175,
+      "special": false,
+      "availability": ""
+    }
+  ],
+  "luckpim": [
+    {
+      "id": "luckpim:uuK1XwBHINRUpBEMfRe_hEiSeI7kuBWlRB3jOIH5RJU",
+      "publisherId": "luckpim",
+      "publisher": "Luckpim",
+      "title": "[PRE-ORDER] [เซตพิเศษ] รักครั้งนี้มีคนนกเยอะไปมั้ย! @COMIC 05 (ปกพิเศษ+โปสการ์ด)",
+      "series": "[เซตพิเศษ] รักครั้งนี้มีคนนกเยอะไปมั้ย! @COMIC",
+      "volume": 5,
+      "type": "Manga (TH)",
+      "url": "https://www.luckpim.com/product/detail/2848",
+      "isbn": "",
+      "price": 202.5,
+      "special": true,
+      "availability": "Pre-order"
+    },
+    {
+      "id": "luckpim:glJRovOLZupTa3DKpJvhGKCF3FDJCgwC0uKOzGy70ZQ",
+      "publisherId": "luckpim",
+      "publisher": "Luckpim",
+      "title": "[PRE-ORDER] รักครั้งนี้มีคนนกเยอะไปมั้ย! @COMIC 05",
+      "series": "รักครั้งนี้มีคนนกเยอะไปมั้ย! @COMIC",
+      "volume": 5,
+      "type": "Manga (TH)",
+      "url": "https://www.luckpim.com/product/detail/2847",
+      "isbn": "",
+      "price": 124,
+      "special": false,
+      "availability": "Pre-order"
+    },
+    {
+      "id": "luckpim:jyqtcvXGPAjTTHkRbwfmAoWb5VIBTxmS_rQb8eEK52g",
+      "publisherId": "luckpim",
+      "publisher": "Luckpim",
+      "title": "[PRE-ORDER] [Limited Edition Box Set] ห้วงเหวลึกของเด็กหนุ่ม 18 (จบ)",
+      "series": "[Limited Edition Box Set] ห้วงเหวลึกของเด็กหนุ่ม",
+      "volume": 18,
+      "type": "Manga (TH)",
+      "url": "https://www.luckpim.com/product/detail/2846",
+      "isbn": "",
+      "price": 685,
+      "special": true,
+      "availability": "Pre-order"
+    },
+    {
+      "id": "luckpim:7a9YKZdLLSetdGq4a5yxHKEaX5uHskEJ3T_DODknf1s",
+      "publisherId": "luckpim",
+      "publisher": "Luckpim",
+      "title": "[PRE-ORDER] ห้วงเหวลึกของเด็กหนุ่ม 18 (จบ)",
+      "series": "ห้วงเหวลึกของเด็กหนุ่ม",
+      "volume": 18,
+      "type": "Manga (TH)",
+      "url": "https://www.luckpim.com/product/detail/2845",
+      "isbn": "",
+      "price": 115,
+      "special": false,
+      "availability": "Pre-order"
+    }
+  ]
+}
