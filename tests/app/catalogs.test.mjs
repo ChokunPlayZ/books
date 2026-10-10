@@ -9,6 +9,7 @@ import {
   parseCatalog_,
   parseSeriesCategories_,
   matchSeriesCategory_,
+  digest_,
 } from "../../lib/domain.mjs";
 const fixture = (name) =>
   readFileSync(new URL("../fixtures/" + name, import.meta.url), "utf8");
@@ -90,6 +91,11 @@ test("full series catalogs work independently of recent releases and explicit li
     assert.equal(result.complete, true);
     assert.equal(result.items.length, 32);
     assert.equal(result.total, 32);
+    assert.ok(
+      result.items
+        .filter((item) => item.special && !item.bundle)
+        .every((item) => !item.catalogVariant && item.series === series),
+    );
     assert.ok(calls.every((call) => !call.url.includes("new-release")));
     const spec = {
       series: "My English title",
@@ -116,6 +122,75 @@ test("full series catalogs work independently of recent releases and explicit li
         () => store.api.setSeriesCatalog({ ...spec, url }),
         /category URL/,
       );
+  } finally {
+    store.close();
+  }
+});
+
+test("parser fixes apply to durable catalogs from before the update, including outage fallbacks", async () => {
+  const store = openStore(":memory:");
+  const items = parseCatalog_(
+    "phoenix",
+    fixture("series-catalogs/phoenix-category.html"),
+  );
+  const previous = {
+    publisherId: "phoenix",
+    series,
+    type: "Manga (TH)",
+    title: series,
+    url: category,
+    items: items.map((item) => {
+      const old = { ...item };
+      delete old.bundle;
+      if (old.special) {
+        old.series = "Special Set " + series;
+        old.catalogVariant = true;
+      }
+      return old;
+    }),
+    checkedAt: new Date().toISOString(),
+    complete: true,
+    stale: false,
+    error: "",
+  };
+  const key = "series:v1:phoenix:" + digest_(series + "\nManga (TH)\n");
+  store.cache.put(key, JSON.stringify(previous), 604800);
+  store.cache.put("releases:v1:phoenix", JSON.stringify(previous), 604800);
+  const service = createCatalogService(
+    store,
+    remote([{ match: "phoenixnext", status: 503 }]),
+  );
+  try {
+    const fresh = await service.getSeriesCatalog({
+      series,
+      publisherId: "phoenix",
+      type: "Manga (TH)",
+    });
+    const special = fresh.items.find(
+      (item) => item.title.includes("Special Set") && item.volume === 22,
+    );
+    assert.equal(special.series, series);
+    assert.equal(special.catalogVariant, false);
+    const stale = await service.getSeriesCatalog({
+      series,
+      publisherId: "phoenix",
+      type: "Manga (TH)",
+      refresh: true,
+    });
+    assert.equal(stale.stale, true);
+    assert.equal(stale.checkedAt, previous.checkedAt);
+    assert.ok(stale.items.find((item) => item.title.includes("19-20")).bundle);
+    const releases = await service.getPublisherReleases({
+      publisherId: "phoenix",
+      refresh: true,
+    });
+    assert.equal(releases.stale, true);
+    assert.equal(
+      releases.items.find(
+        (item) => item.title.includes("Special Set") && item.volume === 22,
+      ).series,
+      series,
+    );
   } finally {
     store.close();
   }

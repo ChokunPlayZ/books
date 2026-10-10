@@ -163,7 +163,7 @@ try {
   assert.equal(await page.locator("#bookCount").textContent(), "150");
   await page.locator("#search").fill("Bocchi");
   await page.locator(".series-row").click();
-  assert.equal(await page.locator("#seriesMissing").isVisible(), true);
+  assert.equal(await page.locator(".book-row").count(), 1);
   await page.locator("#backSeries").click();
   await page.locator("#addButton").click();
   await page.locator("#series").fill("Next.js browser check");
@@ -212,6 +212,7 @@ try {
     "pricing.browser.mjs",
     "series-entry.browser.mjs",
     "series-missing.browser.mjs",
+    "volume-editions.browser.mjs",
     "publishers.browser.mjs",
     "release-filters.browser.mjs",
   ])

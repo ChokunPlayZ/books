@@ -83,7 +83,8 @@ Importing never writes to or changes the Google Sheet. Once the latest workbook 
 - Remove and restore books through **Recently removed**.
 - Scan ISBNs from photos or a live camera, recognize printed ISBNs, and use a USB/Bluetooth barcode scanner.
 - Check ownership by equivalent ISBN-10/ISBN-13 and link ISBNs to existing volumes.
-- Show edition-specific whole-volume shelf gaps without inventing fractional extras.
+- Show whole-volume shelf gaps by publisher and language, combining colored and regular manga without inventing fractional extras.
+- Count regular and single-volume special editions toward the same volume; group alternate listings for missing volumes and review multi-volume sets separately.
 - Check full series catalogs, choose publisher categories, and review uncertain editions or special sets.
 - Browse Phoenix Next, First Page Pro and Luckpim releases; filter manga/light novels and special editions; save releases for later.
 - Look up exact ISBN metadata using Naiin, then Google Books and Open Library.

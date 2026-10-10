@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { createHarness } from './gas-harness.mjs';
 const { chromium } = await import(process.env.BOOKS_PLAYWRIGHT_MODULE || 'playwright');
 const browser = await chromium.launch({ headless: true, ...(process.env.BOOKS_BROWSER_EXECUTABLE ? { executablePath: process.env.BOOKS_BROWSER_EXECUTABLE } : {}) });
-const title = 'ดอกรักผลิบานที่กลางใจ', other = 'A different shelf', alias = 'Chishunki shelf title';
+const title = 'ดอกรักผลิบานที่กลางใจ', other = 'A different shelf', alias = 'Chishunki shelf title', completeTitle = 'Complete catalog shelf';
 const base = { series: title, type: 'Manga (TH)', publisher: 'PHOENIX Next', status: 'Read', source: 'Thai shop', date: '2026-09-01' };
 const h = createHarness([
   { ...base, volume: 2, isbn: '0140328726' }, { ...base, volume: 4 }, { ...base, volume: 4 }, { ...base, volume: 4.5 }, { ...base, volume: 0 },
@@ -15,9 +15,13 @@ const h = createHarness([
   { ...base, series: other, publisher: 'Kodansha', volume: 1 }, { ...base, series: other, publisher: 'Kodansha', volume: 2 },
   { ...base, series: 'Unnumbered story', type: 'Other', publisher: '', volume: '' },
   { ...base, series: 'Large sequence', type: 'Other', publisher: '', volume: 1000000 },
-  { ...base, series: alias, publisher: 'First Page Pro', volume: 1 }
+  { ...base, series: alias, publisher: 'First Page Pro', volume: 1 },
+  { ...base, series: completeTitle, volume: 1, isbn: '9780306406157' },
+  { ...base, series: completeTitle, volume: 2 }
 ]);
 h.setup();
+const completeItem = volume => h.api.releaseItem_('phoenix', completeTitle + ' เล่ม ' + volume, 'https://www.phoenixnext.com/complete-' + volume + '.html', 175, volume === 1 ? '9780306406157' : '', 'Manga (TH)');
+let completeFeed = [completeItem(1), completeItem(2)];
 h.api.responses = [{ match: 'category/56', text: readFileSync(new URL('./fixtures/series-catalogs/firstpage-category.html', import.meta.url),'utf8') }, { match: 'firstpagepro.com/', text: readFileSync(new URL('./fixtures/series-catalogs/firstpage-directory.html', import.meta.url),'utf8') }];
 const item = (volume, type = 'Manga (TH)', extra = {}) => ({ ...h.api.releaseItem_('phoenix', title + ' เล่ม ' + volume, 'https://www.phoenixnext.com/missing-' + type.slice(0, 2) + '-' + volume + '.html', 175, '', type), ...extra });
 const next = item(5), preorder = item(6, 'Manga (TH)', { availability: 'Pre-order' }), decimal = item(5.5);
@@ -40,7 +44,7 @@ try {
       feedCalls.push(arg);
       if (delayFeeds) await gated;
       if (failPhoenix && arg.publisherId === 'phoenix') return route.fulfill({ status: 503, json: { message: 'Test outage' } });
-      return route.fulfill({ json: { publisherId: arg.publisherId, series: arg.series, type: arg.type, title, url:'https://www.phoenixnext.com/book-series/kaoru-hana-wa-rin-to-saku.html', items: feeds[arg.publisherId], checkedAt: '2026-10-09T07:00:00Z', complete:true, stale: false, error: '' } });
+      return route.fulfill({ json: { publisherId: arg.publisherId, series: arg.series, type: arg.type, title, url:'https://www.phoenixnext.com/book-series/kaoru-hana-wa-rin-to-saku.html', items: arg.series === completeTitle ? completeFeed : feeds[arg.publisherId], checkedAt: '2026-10-09T07:00:00Z', complete:true, stale: false, error: '' } });
     }
     if ((failSave && name === 'setSavedRelease') || (failShelf && name === 'getCollection')) return route.fulfill({ status: 503, json: { message: 'Test save or shelf outage' } });
     try { return await route.fulfill({ json: h.api[name](arg) }); }
@@ -68,6 +72,8 @@ try {
   assert.equal(await page.locator('#seriesReleaseList .release-card').count(), 0);
   assert.match(await page.locator('#seriesGaps').textContent(), /No gaps through volume 2/);
   assert.match(await page.locator('#seriesReleaseStatus').textContent(), /available for Phoenix/);
+  assert.equal(await page.locator('#seriesMissing').isVisible(), false);
+  assert.equal(await page.locator('#seriesCatalogToggle').isVisible(), false);
   await page.locator('#backSeries').click(); await page.locator('#search').fill(title); await page.locator('.series-row').click();
   assert.equal(feedCalls.length, 2); assert.equal(recentCalls, 0);
   assert.equal(await page.locator('#seriesReleaseList .release-card').count(), 4);
@@ -174,6 +180,39 @@ try {
   assert.equal(await page.locator('#releaseList .release-card').count(),1);
   assert.match(await page.locator('#releaseList').textContent(),/Volume on your shelf/);
   console.log('PASS catalog-saved books remain accessible in Saved for later with current ownership');
+
+  await page.locator('#collectionTab').click();
+  await page.locator('#search').fill(completeTitle); await page.locator('.series-row').click();
+  await page.waitForFunction(() => !state.catalogLoading.size);
+  assert.equal(await page.locator('#seriesMissing').isVisible(), false);
+  assert.equal(await page.locator('#seriesCatalogToggle').isVisible(), true);
+  assert.equal(await page.locator('#seriesReleaseReviewList .release-card').count(), 1);
+  await page.locator('#seriesCatalogToggle').click();
+  assert.equal(await page.locator('#seriesMissing').isVisible(), true);
+  assert.equal(await page.locator('#seriesCatalogDetails').getAttribute('open'), '');
+  await page.locator('#seriesCatalogToggle').click();
+  assert.equal(await page.locator('#seriesMissing').isVisible(), false);
+  completeFeed.push(completeItem(3));
+  await page.locator('#seriesCatalogToggle').click();
+  await page.locator('#refreshSeriesReleases').click();
+  await page.waitForFunction(() => !state.catalogLoading.size && !state.catalogRefreshing);
+  assert.equal(await page.locator('#seriesMissing').isVisible(), true);
+  assert.equal(await page.locator('#seriesCatalogToggle').isVisible(), false);
+  assert.equal(await page.locator('#seriesReleaseList .release-card').count(), 1);
+  await page.locator('#seriesReleaseList').getByRole('button', { name: 'Add to shelf', exact: true }).click();
+  await page.locator('#saveButton').click();
+  await page.waitForFunction(() => !document.getElementById('bookDialog').open && !state.busy);
+  assert.equal(await page.locator('#seriesMissing').isVisible(), false);
+  failPhoenix = true;
+  await page.locator('#seriesCatalogToggle').click(); await page.locator('#refreshSeriesReleases').click();
+  await page.waitForFunction(() => !state.catalogLoading.size && !state.catalogRefreshing);
+  assert.equal(await page.locator('#seriesMissing').isVisible(), true);
+  assert.equal(await page.locator('#seriesCatalogDetails').getAttribute('open'), '');
+  failPhoenix = false;
+  await page.locator('#refreshSeriesReleases').click();
+  await page.waitForFunction(() => !state.catalogLoading.size && !state.catalogRefreshing);
+  assert.equal(await page.locator('#seriesMissing').isVisible(), false);
+  console.log('PASS complete shelves hide the missing section, optional catalog details stay accessible, new volumes appear, last purchases clear it, and failed checks remain visible');
   assert.deepEqual(errors, []);
   console.log('PASS unnumbered-only series, bounded rendering for large volume gaps and no browser errors');
 } finally { releaseGate(); await browser.close(); }

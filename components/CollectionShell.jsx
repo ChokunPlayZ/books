@@ -56,7 +56,6 @@ export default function CollectionShell() {
             </div>
             <div>
               <div className={"brand-name"}>{"Book Collection"}</div>
-              <div className={"brand-caption"}>{"Your personal library"}</div>
             </div>
           </div>
           <div className={"top-actions"}>
@@ -80,19 +79,8 @@ export default function CollectionShell() {
       </header>
       <main>
         <div id={"pageError"} className={"banner"} role={"alert"} hidden></div>
-        <div id={"collectionHeading"} className={"heading"}>
-          <div>
-            <p className={"eyebrow"}>{"A shelf of your own"}</p>
-            <h1>{"The collection"}</h1>
-            <p className={"intro"}>
-              {
-                "Every volume, in one place. A little less admin, a little more reading."
-              }
-            </p>
-          </div>
-          <div className={"edition"}>
-            {"Manga, light novels & everything in between"}
-          </div>
+        <div id={"collectionHeading"} className={"sr-only"}>
+          <h1>{"Your collection"}</h1>
         </div>
         <section
           id={"collectionStats"}
@@ -100,36 +88,19 @@ export default function CollectionShell() {
           aria-label={"Collection overview"}
         >
           <div className={"stat"}>
-            <div className={"stat-label"}>
-              {"Books on your shelf"}
-              <svg aria-hidden={"true"}>
-                <use href={"#i-books"} />
-              </svg>
-            </div>
+            <div className={"stat-label"}>{"Books"}</div>
             <div id={"bookCount"} className={"stat-value"}>
               {"—"}
             </div>
-            <div className={"stat-note"}>{"Every individual volume"}</div>
           </div>
           <div className={"stat"}>
-            <div className={"stat-label"}>
-              {"Series collected"}
-              <svg aria-hidden={"true"}>
-                <use href={"#i-grid"} />
-              </svg>
-            </div>
+            <div className={"stat-label"}>{"Series"}</div>
             <div id={"seriesCount"} className={"stat-value"}>
               {"—"}
             </div>
-            <div className={"stat-note"}>{"Stories worth keeping"}</div>
           </div>
           <div className={"stat"}>
-            <div className={"stat-label"}>
-              {"Finished reading"}
-              <svg aria-hidden={"true"}>
-                <use href={"#i-check"} />
-              </svg>
-            </div>
+            <div className={"stat-label"}>{"Read"}</div>
             <div id={"readCount"} className={"stat-value"}>
               {"—"}
             </div>
@@ -138,12 +109,7 @@ export default function CollectionShell() {
             </div>
           </div>
           <div className={"stat"}>
-            <div className={"stat-label"}>
-              {"Collection spend"}
-              <svg aria-hidden={"true"}>
-                <use href={"#i-wallet"} />
-              </svg>
-            </div>
+            <div className={"stat-label"}>{"Spent (฿)"}</div>
             <div id={"spent"} className={"stat-value"}>
               {"—"}
             </div>
@@ -159,19 +125,24 @@ export default function CollectionShell() {
             aria-pressed={"true"}
           >
             {"Collection "}
-            <span id={"activeCount"} className={"tab-count"}>
+            <span id={"activeCount"} className={"sr-only"}>
               {"—"}
             </span>
           </button>
           <button id={"releasesTab"} className={"tab"} aria-pressed={"false"}>
             {"New releases "}
-            <span id={"releaseCount"} className={"tab-count"}>
+            <span id={"releaseCount"} className={"tab-count"} hidden>
               {"—"}
             </span>
           </button>
-          <button id={"trashTab"} className={"tab"} aria-pressed={"false"}>
-            {"Recently removed "}
-            <span id={"trashCount"} className={"tab-count"}>
+          <button
+            id={"trashTab"}
+            className={"tab"}
+            aria-pressed={"false"}
+            aria-label={"Recently removed"}
+          >
+            {"Removed "}
+            <span id={"trashCount"} className={"tab-count"} hidden>
               {"0"}
             </span>
           </button>
@@ -180,9 +151,19 @@ export default function CollectionShell() {
           <button id={"backSeries"} className={"text-btn"}>
             {"← All series"}
           </button>
-          <p className={"eyebrow"}>{"On your shelf"}</p>
           <h1 id={"seriesTitle"}></h1>
-          <p id={"seriesSummary"}></p>
+          <div className={"series-summary-line"}>
+            <p id={"seriesSummary"}></p>
+            <button
+              id={"seriesCatalogToggle"}
+              className={"text-btn"}
+              aria-controls={"seriesMissing"}
+              aria-expanded={"false"}
+              hidden
+            >
+              {"Catalog details"}
+            </button>
+          </div>
         </div>
         <section
           id={"seriesMissing"}
@@ -193,14 +174,9 @@ export default function CollectionShell() {
           <h2 id={"seriesMissingTitle"}>{"What you’re missing"}</h2>
           <p id={"seriesMissingSummary"} className={"hint"} role={"status"}></p>
           <div id={"seriesGaps"} className={"missing-editions"}></div>
-          <div className={"series-release-head"}>
+          <div id={"seriesCatalogHeading"} className={"series-release-head"}>
             <div>
-              <h3>{"Publisher catalog · volumes you haven’t bought"}</h3>
-              <p className={"hint"}>
-                {
-                  "Checked against this series’ category, including older volumes."
-                }
-              </p>
+              <h3>{"Publisher catalog"}</h3>
             </div>
             <button id={"refreshSeriesReleases"} className={"btn"}>
               {"Refresh catalog"}
@@ -213,10 +189,18 @@ export default function CollectionShell() {
             hidden
           ></div>
           <p id={"seriesReleaseStatus"} className={"hint"} role={"status"}></p>
-          <div
-            id={"seriesReleaseSources"}
-            className={"publisher-sources"}
-          ></div>
+          <details id={"seriesCatalogDetails"} className={"publisher-details"}>
+            <summary>{"Sources & catalog settings"}</summary>
+            <div
+              id={"seriesReleaseSources"}
+              className={"publisher-sources"}
+            ></div>
+            <p className={"hint release-note"}>
+              {
+                "Shelf gaps use whole volume numbers up to your highest owned volume. Catalog checks include older listings in the publisher’s series category, or Luckpim’s full title search. Removed listings and unrecorded purchases can affect the comparison."
+              }
+            </p>
+          </details>
           <div id={"seriesReleaseList"} className={"release-grid"}></div>
           <details
             id={"seriesReleaseReview"}
@@ -229,11 +213,6 @@ export default function CollectionShell() {
               className={"release-grid"}
             ></div>
           </details>
-          <p className={"hint release-note"}>
-            {
-              "Shelf gaps use whole volume numbers up to your highest owned volume. Catalog checks use the publisher’s series category, or Luckpim’s full title search. Removed listings and unrecorded purchases can affect the comparison."
-            }
-          </p>
         </section>
         <div id={"collectionBrowser"}>
           <div className={"toolbar"}>
@@ -298,11 +277,7 @@ export default function CollectionShell() {
         </div>
         <section id={"releasesPanel"} aria-label={"Publisher releases"} hidden>
           <div className={"release-heading"}>
-            <p className={"eyebrow"}>{"Your next reads"}</p>
-            <h1>{"New from your publishers"}</h1>
-            <p className={"intro"}>
-              {"Browse recent listings and keep a list for your next book run."}
-            </p>
+            <h1>{"New releases"}</h1>
             <div className={"buttons"}>
               <button id={"refreshReleases"} className={"btn"}>
                 {"Refresh releases"}
@@ -316,15 +291,10 @@ export default function CollectionShell() {
             <div id={"publisherSources"} className={"publisher-sources"}></div>
             <p className={"release-note"}>
               {
-                "Catalog listings can include pre-orders and special sets. Dates and availability may change. “Not bought yet” means no match in your recorded collection. Missing ISBNs or different series names can hide an owned copy. “Check edition” keeps possible matches separate; review those before buying."
+                "Catalog listings can include pre-orders and special sets. Dates and availability may change. Owning a regular or special edition counts toward the same volume. Colored manga matches regular manga in the same language. “Check edition” shows matching volumes with a different or missing ISBN, and sets that need review."
               }
             </p>
           </details>
-          <p className={"hint release-note"}>
-            {
-              "Based on your recorded shelf. Use Check edition for possible owned volumes."
-            }
-          </p>
           <div
             id={"releaseError"}
             className={"banner"}
@@ -397,9 +367,6 @@ export default function CollectionShell() {
         </section>
         <footer className={"footer"}>
           <span id={"syncNote"}>{"Opening your library"}</span>
-          <span>
-            {"Scan an ISBN. Review the details. Make room on the shelf."}
-          </span>
         </footer>
       </main>
       <dialog id={"bookDialog"} aria-labelledby={"bookDialogTitle"}>
