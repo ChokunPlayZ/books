@@ -69,6 +69,9 @@ try {
   assert.notEqual(compose(["exec", "-T", "books", "id", "-u"], true), "0");
   assert.deepEqual(await json("/api/health"), { status: "ok" });
   assert.equal((await request("/api/backup")).status, 401);
+  const protectedDataPage = await request("/data", { redirect: "manual" });
+  assert.equal(protectedDataPage.status, 307);
+  assert.equal(protectedDataPage.headers.get("location"), "/login");
   const login = await request("/api/login", {
     method: "POST",
     headers: { "Content-Type": "application/json", Origin: url },
@@ -86,6 +89,9 @@ try {
   assert.ok(asset, "The page must reference a built static asset");
   assert.equal((await request(asset[1])).status, 200);
   assert.equal((await request("/collection.js")).status, 200);
+  const dataPage = await request("/data");
+  assert.equal(dataPage.status, 200);
+  assert.match(await dataPage.text(), /Download library backup/);
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(
@@ -147,7 +153,7 @@ try {
   assert.equal(collection.books[0].series, "Docker persistence check");
   assert.equal((await json("/api/backup")).books.length, 1);
   console.log(
-    "PASS Docker health, non-root user, sign-in, static assets, Excel import, and persistence after container recreation",
+    "PASS Docker health, non-root user, sign-in, static assets, Data & backups page, Excel import, and persistence after container recreation",
   );
 } finally {
   try {
