@@ -1,15 +1,21 @@
 services:
   books:
     build: .
+    init: true
     restart: unless-stopped
+    stop_grace_period: 30s
     ports:
-      - "127.0.0.1:3000:3000"
+      - "${BOOKS_BIND_ADDRESS:-127.0.0.1}:${BOOKS_PORT:-3000}:3000"
     environment:
       BOOKS_PASSWORD: "${BOOKS_PASSWORD:?Set BOOKS_PASSWORD in .env before starting}"
       BOOKS_TIME_ZONE: "${BOOKS_TIME_ZONE:-Asia/Bangkok}"
-      BOOKS_SECURE_COOKIES: "${BOOKS_SECURE_COOKIES:-true}"
+      BOOKS_SECURE_COOKIES: "${BOOKS_SECURE_COOKIES:-false}"
     volumes:
       - books-data:/app/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
 volumes:
   books-data:

@@ -33,17 +33,35 @@ The build prepares a complete standalone Next.js bundle, including its static as
 
 ## Self-host with Docker
 
-Copy `.env.example` to `.env`, set `BOOKS_PASSWORD` to a long private password, then run:
+Install Docker with the Compose plugin. Copy `.env.example` to `.env` and set `BOOKS_PASSWORD` to a long private password, then start the app:
 
 ```sh
 cp .env.example .env
 # Edit .env and set BOOKS_PASSWORD.
-docker compose up -d --build
+docker compose up -d --build --wait
 ```
 
-The app listens on port 3000 and stores its database in the persistent `books-data` volume. Compose publishes the port on `127.0.0.1`; put your existing reverse proxy in front of it for remote access. Use HTTPS and leave `BOOKS_SECURE_COOKIES=true` for a hosted installation. If you are testing only over local HTTP, set `BOOKS_SECURE_COOKIES=false`.
+Open <http://localhost:3000> and sign in with that password. The default cookie setting supports local HTTP. Set `BOOKS_PORT` in `.env` to use a different host port.
 
-Use one app instance with its local SQLite volume. Update with `docker compose up -d --build`; the database is retained. `/api/health` checks the database connection without returning library data. The image runs as an unprivileged user.
+The database lives in the persistent `books-data` volume. A fresh deployment starts empty; import your workbook or backup from **Data & backups**. Use one app instance with its local SQLite volume. Update with `docker compose up -d --build --wait`; the database is retained. Stop with `docker compose down`. **Do not add `--volumes` when stopping your installation:** that deletes the library.
+
+Compose publishes on `127.0.0.1` by default. For remote access, put your HTTPS reverse proxy in front of the app and set `BOOKS_SECURE_COOKIES=true`. Change `BOOKS_BIND_ADDRESS` only if your proxy needs another host interface, and preserve the original `Host` header when forwarding requests.
+
+The image uses Node.js 24, a multi-stage build and the standalone Next.js bundle, runs as an unprivileged user, and excludes local databases, environment files and backups from the build context. `/api/health` checks the database connection without returning library data. Compose waits for the health check and allows 30 seconds for graceful shutdown. View status with `docker compose ps` and logs with `docker compose logs -f books`.
+
+To build an image without Compose:
+
+```sh
+docker build -t book-collection .
+docker run -d --name book-collection --init \
+  -p 127.0.0.1:3000:3000 \
+  --env-file .env \
+  -e BOOKS_DATABASE_PATH=/app/data/books.sqlite \
+  -v books-data:/app/data \
+  book-collection
+```
+
+Compose uses a project-prefixed volume name; the standalone command uses a separate volume named `books-data`.
 
 Live camera access requires HTTPS or localhost. Taking or choosing barcode photos still uses the same local browser decoder and text recognition.
 
@@ -111,6 +129,7 @@ For a raw database backup, stop the container before copying its volume, or use 
 npm test
 npm run build
 npm run test:e2e
+npm run test:docker
 ```
 
 `npm test` covers the new SQLite storage, transactional retries, stale edits, migration/restore, authentication and Node scrapers, plus the original regression checks. Scanner unit tests now use the standalone production browser code.
@@ -125,7 +144,7 @@ npm run test:e2e -- --scan-photos
 
 Photo tests require internet access for the same pinned decoder/OCR libraries used by the app. Test screenshots have `outputs/next-` filenames so the earlier Apps Script previews remain intact.
 
-The native production build and automated checks have been verified. The Docker build could not be exercised on this machine because its Docker daemon was stopped.
+`npm run test:docker` requires a running Docker engine. It builds the image in a disposable Compose project, checks health, sign-in, static assets and Excel import, then recreates the container to verify that books and sessions survive. It removes only its own test containers, image and volume when finished; your normal Compose installation is separate.
 
 ## Source layout
 

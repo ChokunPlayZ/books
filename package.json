@@ -15,6 +15,7 @@
     "test:app": "node --test tests/app/*.test.mjs",
     "test:browser": "node tests/app/browser.mjs",
     "test:e2e": "node tests/app/browser.mjs",
+    "test:docker": "node scripts/test-docker.mjs",
     "import": "node scripts/import.mjs",
     "backup": "node scripts/backup.mjs"
   },

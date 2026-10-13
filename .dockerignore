@@ -1,10 +1,22 @@
-node_modules
-.next
-.git
-.env*
-data
-backups
-outputs
-apps-script
-preview
-tests
+# Include only build inputs. Local databases, secrets, backups and tests stay out.
+**
+!package.json
+!package-lock.json
+!next.config.mjs
+!app/
+!app/**
+!components/
+!components/**
+!lib/
+!lib/**
+!public/
+!public/**
+!scripts/
+!scripts/prepare-standalone.mjs
+# Keep private files out even if they appear inside an included source directory.
+**/.env*
+**/*.sqlite
+**/*.sqlite-*
+**/*.db
+**/*.db-*
+**/.DS_Store
