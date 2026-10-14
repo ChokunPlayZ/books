@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { releaseItem_ } from "../lib/domain.mjs";
 const url = process.env.BOOKS_PREVIEW_URL;
+const coverUrl = (source) => "/api/covers?url=" + encodeURIComponent(source);
 if (!url)
   throw new Error("Use npm run test:e2e to start the isolated test app.");
 const browser = await chromium.launch({
@@ -54,10 +55,18 @@ let fail = false,
 const titleCalls = [];
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } }),
-    errors = [];
+    errors = [],
+    externalImages = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  page.on("request", (request) => {
+    if (
+      request.resourceType() === "image" &&
+      request.url().startsWith("https://")
+    )
+      externalImages.push(request.url());
+  });
   await page.route("https://cdn.jsdelivr.net/**", (route) => route.abort());
-  await page.route("https://www.phoenixnext.com/media/**", (route) =>
+  await page.route("**/api/covers?**", (route) =>
     route.fulfill({
       contentType: "image/png",
       body: Buffer.from(
@@ -167,18 +176,16 @@ try {
     0,
   );
   const fresh = () =>
-    page
-      .locator(".discovery-card")
-      .filter({
-        has: page.getByRole("heading", {
-          name: "Discovery fresh",
-          exact: true,
-        }),
-      });
+    page.locator(".discovery-card").filter({
+      has: page.getByRole("heading", {
+        name: "Discovery fresh",
+        exact: true,
+      }),
+    });
   await fresh().locator("img").waitFor();
   assert.equal(
     await fresh().locator("img").getAttribute("src"),
-    items[3].coverUrl,
+    coverUrl(items[3].coverUrl),
   );
   assert.match(
     await fresh().locator(".release-meta").textContent(),
@@ -278,9 +285,10 @@ try {
   await page.locator("#releaseScope").selectOption("all");
   assert.equal(
     await page.locator(".release-cover img").first().getAttribute("src"),
-    items[3].coverUrl,
+    coverUrl(items[3].coverUrl),
   );
   assert.deepEqual(errors, []);
+  assert.deepEqual(externalImages, []);
   console.log(
     "PASS discovery deduplication, ownership, first-volume covers, filters, cached outage, save/add, image fallback and phone/desktop layout",
   );

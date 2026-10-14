@@ -103,7 +103,7 @@ try {
     }
   });
   await page.goto(process.env.BOOKS_PREVIEW_URL || "http://localhost:3000");
-  await page.waitForFunction(() => !!state.data);
+  await page.waitForFunction(() => typeof state !== "undefined" && !!state.data);
   const openSeries = async (series) => {
     await page.locator("#search").fill(series);
     await page.locator(".series-row").click();
@@ -115,7 +115,7 @@ try {
   assert.match(await missing.textContent(), /Volume 22/);
   assert.match(
     await missing.textContent(),
-    /Other listings for this volume \(4\)/,
+    /Other listings for this volume \(3\)/,
   );
   assert.match(
     await page.locator("#seriesMissingSummary").textContent(),
@@ -126,14 +126,7 @@ try {
       .locator("#seriesReleaseReviewList .release-card")
       .filter({ hasText: "Special Set B" })
       .count(),
-    1,
-  );
-  assert.match(
-    await page
-      .locator("#seriesReleaseReviewList .release-card")
-      .filter({ hasText: "Special Set B" })
-      .textContent(),
-    /Volume on your shelf/,
+    0,
   );
   const special22 = (
     await service.getSeriesCatalog({
@@ -182,10 +175,10 @@ try {
     /0 gaps.*2 catalog volumes/,
   );
   assert.equal(await missing.count(), 2);
-  assert.ok(
-    (await missing.allTextContents()).every((text) =>
-      /Other listings for this volume \(1\)/.test(text),
-    ),
+  assert.equal(await missing.filter({ hasText: "Special Set" }).count(), 0);
+  assert.match(
+    await missing.filter({ hasText: "Volume 7" }).textContent(),
+    /Other listings for this volume \(1\)/,
   );
   assert.equal(await missing.filter({ hasText: "Volume 8" }).count(), 0);
   const volume6 = missing.filter({

@@ -143,7 +143,7 @@ test("publisher category pagination reads the total, pairs covers with their own
     const stale = await restarted.getPublisherCatalog({ url, refresh: true });
     assert.equal(stale.stale, true);
     assert.equal(stale.checkedAt, feed.checkedAt);
-    assert.equal(stale.items.length, 4);
+    assert.equal(stale.items.length, 3);
   } finally {
     store.close();
   }
@@ -169,7 +169,7 @@ test("a repeated or failed later page stays incomplete, and incomplete refreshes
       url: "https://www.phoenixnext.com/bl.html",
     });
     assert.equal(partial.complete, false);
-    assert.equal(partial.items.length, 2);
+    assert.equal(partial.items.length, 1);
     assert.match(partial.error, /missing titles/);
     const repeated = await createCatalogService(
       store,

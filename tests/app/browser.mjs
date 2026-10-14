@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { createCoverCache } from "../../lib/server/covers.mjs";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const directory = mkdtempSync(join(tmpdir(), "book-collection-e2e-"));
@@ -18,6 +19,13 @@ const executable =
     .find((arg) => arg.startsWith("--browser-executable="))
     ?.slice("--browser-executable=".length);
 const password = "book-collection-test-password";
+const coverSource =
+  "https://www.phoenixnext.com/media/catalog/product/cached-test.png";
+const coverPath = "/api/covers?url=" + encodeURIComponent(coverSource);
+const coverBytes = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
+  "base64",
+);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function port() {
   const socket = createServer();
@@ -109,6 +117,10 @@ async function runLegacy(name, url) {
 
 let browser;
 try {
+  await createCoverCache({
+    directory: join(directory, "covers"),
+    fetchImpl: async () => new Response(coverBytes),
+  }).get(coverSource);
   const url = await start("protected", { BOOKS_PASSWORD: password });
   browser = await chromium.launch({
     headless: true,
@@ -121,6 +133,7 @@ try {
   const post = (body) => page.request.post(url + "/api/rpc", { data: body });
   assert.equal((await post({ name: "getCollection" })).status(), 401);
   assert.equal((await page.request.get(url + "/api/backup")).status(), 401);
+  assert.equal((await page.request.get(url + coverPath)).status(), 401);
   assert.equal((await page.request.post(url + "/api/import")).status(), 401);
   await page.goto(url);
   await page.waitForURL("**/login");
@@ -134,6 +147,25 @@ try {
     () => !document.getElementById("addButton").disabled,
   );
   assert.equal((await post({ name: "getCollection" })).status(), 200);
+  const cover = await page.request.get(url + coverPath);
+  assert.equal(cover.status(), 200);
+  assert.deepEqual(await cover.body(), coverBytes);
+  assert.equal(cover.headers()["content-type"], "image/png");
+  assert.match(cover.headers()["cache-control"], /^private, max-age=86400$/);
+  assert.equal(
+    (
+      await page.request.get(url + coverPath, {
+        headers: { "If-None-Match": cover.headers().etag },
+      })
+    ).status(),
+    304,
+  );
+  assert.equal(
+    (
+      await page.request.get(url + "/api/covers?url=https://127.0.0.1/private")
+    ).status(),
+    400,
+  );
   assert.equal(
     (
       await page.request.post(url + "/api/rpc", {
@@ -168,6 +200,7 @@ try {
   await page.locator("#addButton").click();
   await page.locator("#series").fill("Next.js browser check");
   await page.locator("#type").selectOption("LN (TH)");
+  await page.locator("#publisher").fill("PHOENIX Next");
   await page.locator("#status").selectOption("Read");
   await page.locator("#volume").fill("14.5");
   await page.locator("#price").fill("0");
@@ -184,9 +217,114 @@ try {
     () => !document.getElementById("addButton").disabled,
   );
   assert.equal(await page.locator("#bookCount").textContent(), "151");
+  const publisherPage = "https://www.phoenixnext.com/browser-volume.html";
+  const alternateCover =
+    "https://www.phoenixnext.com/media/catalog/product/alternate-test.png";
+  await page.route(
+    "**/api/covers?url=" + encodeURIComponent(alternateCover),
+    (route) => route.fulfill({ body: coverBytes, contentType: "image/png" }),
+  );
+  await page.route("**/api/rpc", (route) => {
+    const { name } = route.request().postDataJSON();
+    if (name === "getBookCoverOptions")
+      return route.fulfill({
+        json: {
+          covers: [alternateCover, coverSource].map((coverUrl) => ({
+            coverUrl,
+            publisherUrl: publisherPage,
+            title: "Next.js browser check",
+          })),
+          warnings: [],
+          publisherUrl: publisherPage,
+        },
+      });
+    return route.continue();
+  });
+  await page.locator("#search").fill("Next.js browser check");
+  await page.locator(".series-row").click();
+  const options = page.getByRole("button", {
+    name: "Volume options for Next.js browser check, volume 14.5",
+    exact: true,
+  });
+  await options.click();
+  await page.getByRole("button", { name: "Change cover", exact: true }).click();
+  await page.locator("#pullPublisherCovers").click();
+  await page.locator(".cover-choice").nth(1).waitFor();
+  await page.locator(".cover-choice").first().click();
+  assert.equal(await page.locator("#coverUrl").inputValue(), alternateCover);
+  assert.equal(
+    await page.locator("#metadataPublisherLink").getAttribute("href"),
+    publisherPage,
+  );
+  assert.equal(
+    await page
+      .locator("#bookDialog")
+      .evaluate((dialog) => dialog.scrollWidth <= dialog.clientWidth),
+    true,
+  );
+  await page.screenshot({
+    path: join(root, "outputs", "next-metadata-phone.png"),
+  });
+  await page.locator("#cancelBook").click();
+  assert.equal(
+    (await (await post({ name: "getCollection" })).json()).books.find(
+      (book) => book.row === added.row,
+    ).coverUrl,
+    "",
+  );
+  await options.click();
+  await page
+    .getByRole("button", {
+      name: "Edit Next.js browser check, volume 14.5",
+      exact: true,
+    })
+    .click();
+  await page.locator("#pullPublisherCovers").click();
+  await page.locator(".cover-choice").nth(1).click();
+  await page.locator("#note").fill("Selected publisher cover");
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.locator("#metadataManager").scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: join(root, "outputs", "next-metadata-desktop.png"),
+  });
+  await page.locator("#saveButton").click();
+  await page.waitForFunction(() => !document.getElementById("bookDialog").open);
+  await page.reload();
+  await page.waitForFunction(() => !!state.data);
+  const metadataBook = (
+    await (await post({ name: "getCollection" })).json()
+  ).books.find((book) => book.row === added.row);
+  assert.equal(metadataBook.coverUrl, coverSource);
+  assert.equal(metadataBook.publisherUrl, publisherPage);
+  assert.equal(metadataBook.note, "Selected publisher cover");
+  await page.locator("#search").fill("Next.js browser check");
+  await page.locator(".series-row").click();
+  await page.locator(".book-row img").waitFor();
+  assert.equal(
+    await page.locator(".book-row img").getAttribute("src"),
+    coverPath,
+  );
+  await options.click();
+  assert.equal(
+    await page
+      .getByRole("link", { name: "Publisher site ↗", exact: true })
+      .getAttribute("href"),
+    publisherPage,
+  );
+  await page.keyboard.press("Escape");
+  await page.locator("#backSeries").click();
+  await page.locator("#search").fill("");
+  await page.setViewportSize({ width: 390, height: 844 });
+  console.log(
+    "PASS volume metadata menu, publisher cover picker, cancellation, saved cover priority, publisher link and reload persistence",
+  );
   const backup = await (await page.request.get(url + "/api/backup")).json();
   assert.equal(backup.books.length, 151);
   assert.equal(backup.format, "book-collection");
+  assert.equal(
+    backup.books.find((book) => book.row === added.row).coverUrl,
+    coverSource,
+  );
   await page.screenshot({
     path: join(root, "outputs", "next-collection-phone.png"),
   });
@@ -199,6 +337,7 @@ try {
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await page.waitForURL("**/login");
   assert.equal((await post({ name: "getCollection" })).status(), 401);
+  assert.equal((await page.request.get(url + coverPath)).status(), 401);
   console.log(
     "PASS file import review, 150 migrated records, shelf gaps, save/reload persistence, JSON backup and logout",
   );
@@ -208,11 +347,19 @@ try {
   const fixturesUrl = await start("ui-regressions", {
     BOOKS_ALLOW_UNAUTHENTICATED: "true",
   });
+  assert.deepEqual(
+    Buffer.from(await (await fetch(fixturesUrl + coverPath)).arrayBuffer()),
+    coverBytes,
+  );
+  console.log(
+    "PASS protected cover endpoint, private caching, ETags and image persistence across server processes",
+  );
   for (const name of [
     "pricing.browser.mjs",
     "series-entry.browser.mjs",
     "series-missing.browser.mjs",
     "volume-editions.browser.mjs",
+    "firstpage-series.browser.mjs",
     "publishers.browser.mjs",
     "release-filters.browser.mjs",
   ])

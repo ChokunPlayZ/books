@@ -294,7 +294,7 @@ export default function CollectionShell() {
             <div id={"publisherSources"} className={"publisher-sources"}></div>
             <p className={"release-note"}>
               {
-                "Catalog listings can include pre-orders and special sets. Dates and availability may change. Owning a regular or special edition counts toward the same volume. Colored manga matches regular manga in the same language. “Check edition” shows matching volumes with a different or missing ISBN, and sets that need review."
+                "Catalog listings can include pre-orders. Special sets are skipped automatically. Dates and availability may change. Owning a regular or special edition counts toward the same volume. Colored manga matches regular manga in the same language. “Check edition” shows matching volumes with a different or missing ISBN, and other sets that need review."
               }
             </p>
           </details>
@@ -573,6 +573,63 @@ export default function CollectionShell() {
                 <label htmlFor={"status"}>{"Reading status *"}</label>
                 <select id={"status"} name={"status"} required></select>
               </div>
+              <fieldset
+                id="metadataManager"
+                className="metadata-manager span-2"
+                data-series-detail
+              >
+                <legend>Cover &amp; publisher</legend>
+                <div className="field">
+                  <label htmlFor="publisherUrl">Publisher page</label>
+                  <input
+                    id="publisherUrl"
+                    type="url"
+                    maxLength="2000"
+                    placeholder="https://…"
+                  />
+                  <a
+                    id="metadataPublisherLink"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    hidden
+                  >
+                    Open publisher site ↗
+                  </a>
+                </div>
+                <div className="cover-editor">
+                  <div id="metadataCoverPreview" />
+                  <div className="field">
+                    <label htmlFor="coverUrl">Cover image URL</label>
+                    <input
+                      id="coverUrl"
+                      type="url"
+                      maxLength="2000"
+                      placeholder="Use automatic cover, or enter an image URL"
+                    />
+                    <p className="hint">
+                      Leave blank to use the automatic cover.
+                    </p>
+                    <button
+                      id="pullPublisherCovers"
+                      className="btn"
+                      type="button"
+                    >
+                      Pull publisher covers
+                    </button>
+                    <p
+                      id="publisherCoversStatus"
+                      className="hint"
+                      role="status"
+                    />
+                  </div>
+                </div>
+                <div
+                  id="publisherCoverChoices"
+                  className="cover-choices"
+                  aria-label="Publisher cover choices"
+                />
+                <p className="hint">Choose a cover, then save your changes.</p>
+              </fieldset>
               <div className={"field"} data-series-detail>
                 <label htmlFor={"source"}>{"Bought from"}</label>
                 <input

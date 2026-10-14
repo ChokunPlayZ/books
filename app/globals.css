@@ -327,6 +327,106 @@ select {
 .book-row:last-child {
   border-bottom: 0;
 }
+.collection:has(.volume-actions[open]) {
+  overflow: visible;
+}
+.volume-actions {
+  position: relative;
+}
+.volume-actions > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 25px;
+  cursor: pointer;
+}
+.volume-actions > summary::-webkit-details-marker {
+  display: none;
+}
+.volume-menu {
+  position: absolute;
+  z-index: 10;
+  right: 0;
+  top: 100%;
+  min-width: 175px;
+  padding: 6px;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px #0002;
+}
+.volume-menu-item {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 5px;
+  padding: 10px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+}
+.volume-menu-item:hover,
+.volume-menu-item:focus-visible {
+  background: var(--soft);
+}
+.metadata-manager {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 14px;
+}
+.metadata-manager legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+.cover-editor {
+  display: flex;
+  gap: 14px;
+  margin-top: 14px;
+}
+.cover-editor > .field {
+  flex: 1;
+  min-width: 0;
+}
+.metadata-cover {
+  width: 90px;
+  height: 126px;
+}
+.cover-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.cover-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--ink);
+  cursor: pointer;
+}
+.cover-choice[aria-pressed="true"] {
+  border-color: var(--green);
+  background: var(--soft);
+}
+@media (max-width: 560px) {
+  .volume-actions {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+  .cover-editor {
+    flex-direction: column;
+  }
+}
 .book-spine {
   height: 55px;
   border-radius: 3px 6px 6px 3px;

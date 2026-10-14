@@ -57,6 +57,7 @@ const state = {
   titleRequests: 0,
   discoveryRefresh: false,
   titleGeneration: 0,
+  coverPickerGeneration: 0,
 };
 let toastTimer;
 function icon(name) {
@@ -1222,15 +1223,54 @@ function bookRow(entry, sharedDetails = {}) {
         b.price !== "" && b.price !== null ? number(Number(b.price)) : "—",
       ),
     );
-    const edit = node("button", "row-action");
+    const menu = node("details", "volume-actions");
+    const trigger = node("summary", "row-action", "⋯");
+    trigger.setAttribute(
+      "aria-label",
+      "Volume options for " +
+        b.series +
+        (b.volume !== "" ? ", volume " + b.volume : ""),
+    );
+    trigger.setAttribute("role", "button");
+    const actions = node("div", "volume-menu");
+    const edit = node("button", "volume-menu-item", "Edit metadata");
+    edit.type = "button";
     edit.setAttribute(
       "aria-label",
       "Edit " + b.series + (b.volume !== "" ? ", volume " + b.volume : ""),
     );
-    edit.append(icon("edit"));
     edit.disabled = state.busy;
-    edit.addEventListener("click", () => openBook(b));
-    row.append(edit);
+    edit.addEventListener("click", () => {
+      menu.open = false;
+      openBook(b);
+    });
+    const cover = node("button", "volume-menu-item", "Change cover");
+    cover.type = "button";
+    cover.disabled = state.busy;
+    cover.addEventListener("click", () => {
+      menu.open = false;
+      openBook(b);
+      $("metadataManager").scrollIntoView({ block: "nearest" });
+      $("pullPublisherCovers").focus();
+    });
+    actions.append(edit, cover);
+    const publisherUrl = bookPublisherUrl(b);
+    if (publisherUrl) {
+      const link = releaseLink("Publisher site ↗", publisherUrl);
+      link.className = "volume-menu-item";
+      actions.append(link);
+    }
+    menu.append(trigger, actions);
+    menu.addEventListener("toggle", () => {
+      if (menu.open) {
+        const publisherLink = actions.querySelector("a");
+        if (publisherLink) publisherLink.href = bookPublisherUrl(b);
+        document.querySelectorAll(".volume-actions[open]").forEach((other) => {
+          if (other !== menu) other.open = false;
+        });
+      }
+    });
+    row.append(menu);
   }
   return row;
 }
@@ -1411,11 +1451,13 @@ function setCoverImage(frame, url, title) {
     img.remove();
     placeholder.hidden = false;
   });
-  img.src = url;
+  img.src = "/api/covers?url=" + encodeURIComponent(url);
   frame.append(img);
 }
 function bookCoverKey(book) {
   return JSON.stringify([
+    book.row,
+    book.token,
     canonical(book.isbn),
     book.series,
     book.publisher,
@@ -1424,6 +1466,7 @@ function bookCoverKey(book) {
   ]);
 }
 function knownBookCover(book) {
+  if (book.coverUrl) return book.coverUrl;
   const feeds = [
     ...state.seriesCatalogs.values(),
     ...state.releaseFeeds.values(),
@@ -1451,6 +1494,146 @@ function knownBookCover(book) {
         releaseSeriesKey(book.series),
   );
   return item?.coverUrl || state.bookCovers.get(bookCoverKey(book)) || "";
+}
+
+function bookPublisherUrl(book) {
+  if (book.publisherUrl) return book.publisherUrl;
+  const id = publisherKey(book.publisher);
+  const items = [
+    ...state.seriesCatalogs.values(),
+    ...state.releaseFeeds.values(),
+  ].flatMap((feed) => feed.items || []);
+  const match = items.find(
+    (item) =>
+      !item.bundle &&
+      !item.special &&
+      item.publisherId === id &&
+      ((canonical(book.isbn) &&
+        canonical(item.isbn) === canonical(book.isbn)) ||
+        (book.volume !== "" &&
+          item.volume !== "" &&
+          Number(item.volume) === Number(book.volume) &&
+          matchingBookType(item.type) === matchingBookType(book.type) &&
+          releaseSeriesKey(item.catalogSeries || item.series) ===
+            releaseSeriesKey(book.series))),
+  );
+  return (
+    match?.url || state.data.publishers.find((p) => p.id === id)?.url || ""
+  );
+}
+
+function renderMetadataCover() {
+  $("metadataCoverPreview").replaceChildren(
+    coverImage(
+      $("coverUrl").value.trim() ||
+        (state.editing
+          ? knownBookCover({ ...state.editing, coverUrl: "" })
+          : ""),
+      $("series").value,
+      "metadata-cover",
+    ),
+  );
+  const link = $("metadataPublisherLink");
+  const url =
+    $("publisherUrl").value.trim() ||
+    (state.editing
+      ? bookPublisherUrl({ ...state.editing, publisherUrl: "" })
+      : "");
+  const hosts = {
+    phoenix: "www.phoenixnext.com",
+    firstpage: "www.firstpagepro.com",
+    luckpim: "www.luckpim.com",
+  };
+  let safe = false;
+  try {
+    const parsed = new URL(url);
+    safe =
+      parsed.protocol === "https:" &&
+      (!hosts[publisherKey($("publisher").value)] ||
+        parsed.hostname === hosts[publisherKey($("publisher").value)]) &&
+      !parsed.username &&
+      !parsed.password &&
+      !parsed.port;
+  } catch {}
+  link.hidden = !safe;
+  if (safe) link.href = url;
+  else link.removeAttribute("href");
+  document.querySelectorAll(".cover-choice").forEach((choice) => {
+    choice.setAttribute(
+      "aria-pressed",
+      String(choice.dataset.coverUrl === $("coverUrl").value),
+    );
+  });
+}
+
+async function pullPublisherCovers() {
+  if (!state.editing || state.busy) return;
+  const generation = ++state.coverPickerGeneration;
+  const book = state.editing;
+  const draft = JSON.stringify([
+    $("series").value,
+    $("volume").value,
+    $("type").value,
+    $("publisher").value,
+  ]);
+  if (
+    draft !==
+    JSON.stringify([
+      book.series,
+      String(book.volume),
+      book.type,
+      book.publisher,
+    ])
+  ) {
+    $("publisherCoversStatus").textContent =
+      "Save your metadata changes before pulling covers for this volume.";
+    return;
+  }
+  $("pullPublisherCovers").disabled = true;
+  $("publisherCoversStatus").textContent =
+    "Looking for covers on the publisher’s website…";
+  $("publisherCoverChoices").replaceChildren();
+  try {
+    const result = await rpc("getBookCoverOptions", {
+      row: book.row,
+      publisherUrl: $("publisherUrl").value.trim(),
+    });
+    if (generation !== state.coverPickerGeneration || !$("bookDialog").open)
+      return;
+    result.covers.forEach((item, index) => {
+      const choice = node("button", "cover-choice");
+      choice.type = "button";
+      choice.dataset.coverUrl = item.coverUrl;
+      choice.setAttribute(
+        "aria-label",
+        "Choose cover " + (index + 1) + ": " + item.title,
+      );
+      choice.append(
+        coverImage(item.coverUrl, item.title, "metadata-cover"),
+        node("span", "", "Cover " + (index + 1)),
+      );
+      choice.addEventListener("click", () => {
+        if (state.busy) return;
+        $("coverUrl").value = item.coverUrl;
+        $("publisherUrl").value = item.publisherUrl;
+        renderMetadataCover();
+      });
+      $("publisherCoverChoices").append(choice);
+    });
+    $("publisherCoversStatus").textContent =
+      (result.covers.length
+        ? result.covers.length + " covers available."
+        : "No covers found. Add this volume’s publisher page above and try again.") +
+      " " +
+      result.warnings.join(" ");
+    renderMetadataCover();
+  } catch (error) {
+    if (generation === state.coverPickerGeneration)
+      $("publisherCoversStatus").textContent = error.message;
+  } finally {
+    if (generation === state.coverPickerGeneration)
+      $("pullPublisherCovers").disabled = state.busy;
+  }
 }
 const coverObserver = new IntersectionObserver(
   (entries) => {
@@ -2413,6 +2596,15 @@ function openBook(book, defaults) {
   clearLookup();
   ["type", "status"].forEach((k) => fillOptions(k, state.data.options[k]));
   FIELDS.forEach((k) => ($(k).value = book?.[k] ?? defaults?.[k] ?? ""));
+  state.coverPickerGeneration++;
+  $("coverUrl").value = book?.coverUrl || "";
+  $("publisherUrl").value = book?.publisherUrl || "";
+  $("publisherCoverChoices").replaceChildren();
+  $("publisherCoversStatus").textContent = book
+    ? "Pull all available covers for this volume and choose one."
+    : "Save this book to look for publisher covers.";
+  $("pullPublisherCovers").disabled = !book;
+  renderMetadataCover();
   if (!book) {
     $("date").value = defaults?.date ?? state.data.today;
     $("type").value = defaults?.type || "Manga (TH)";
@@ -2611,6 +2803,14 @@ async function save(event) {
   clearLookup();
   $("formError").hidden = true;
   const book = Object.fromEntries(FIELDS.map((k) => [k, $(k).value]));
+  if (
+    state.editing ||
+    $("coverUrl").value.trim() ||
+    $("publisherUrl").value.trim()
+  ) {
+    book.coverUrl = $("coverUrl").value.trim();
+    book.publisherUrl = $("publisherUrl").value.trim();
+  }
   if (!state.editing && state.formSeries) book.series = state.formSeries;
   const content = {
     book,
@@ -3306,6 +3506,35 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("pagehide", stopScanner);
 $("removeButton").addEventListener("click", askRemove);
+$("pullPublisherCovers").addEventListener(
+  "click",
+  () => void pullPublisherCovers(),
+);
+["coverUrl", "publisherUrl", "publisher"].forEach((id) =>
+  $(id).addEventListener("input", renderMetadataCover),
+);
+["series", "volume", "type", "publisher", "publisherUrl"].forEach((id) =>
+  $(id).addEventListener(id === "type" ? "change" : "input", () => {
+    state.coverPickerGeneration++;
+    $("publisherCoverChoices").replaceChildren();
+    $("pullPublisherCovers").disabled = !state.editing || state.busy;
+    $("publisherCoversStatus").textContent = state.editing
+      ? "Pull covers again after changing the publisher page. Save volume or series changes first."
+      : "Save this book to look for publisher covers.";
+  }),
+);
+document.addEventListener("click", (event) => {
+  document.querySelectorAll(".volume-actions[open]").forEach((menu) => {
+    if (!menu.contains(event.target)) menu.open = false;
+  });
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape")
+    document.querySelectorAll(".volume-actions[open]").forEach((menu) => {
+      menu.open = false;
+      menu.querySelector("summary").focus();
+    });
+});
 $("confirmRemove").addEventListener("click", remove);
 ["closeRemove", "cancelRemove"].forEach((id) =>
   $(id).addEventListener("click", () => {

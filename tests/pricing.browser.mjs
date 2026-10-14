@@ -67,6 +67,7 @@ try {
   const saved = (await collection()).books.find(book => book.series === marker + ' calculated');
   await page.locator('#search').fill(saved.series);
   await page.locator('.series-row').click();
+  await page.getByRole('button', { name: 'Volume options for ' + saved.series, exact: true }).click();
   await page.getByRole('button', { name: 'Edit ' + saved.series, exact: true }).click();
   assert.equal(await sale.inputValue(), '170'); assert.equal(await base.inputValue(), ''); assert.equal(await discount.inputValue(), '');
   await base.fill('199'); await type.selectOption('amount'); await discount.fill('49');

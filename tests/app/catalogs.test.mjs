@@ -89,7 +89,7 @@ test("full series catalogs work independently of recent releases and explicit li
       type: "Manga (TH)",
     });
     assert.equal(result.complete, true);
-    assert.equal(result.items.length, 32);
+    assert.equal(result.items.length, 28);
     assert.equal(result.total, 32);
     assert.ok(
       result.items
@@ -166,11 +166,7 @@ test("parser fixes apply to durable catalogs from before the update, including o
       publisherId: "phoenix",
       type: "Manga (TH)",
     });
-    const special = fresh.items.find(
-      (item) => item.title.includes("Special Set") && item.volume === 22,
-    );
-    assert.equal(special.series, series);
-    assert.equal(special.catalogVariant, false);
+    assert.ok(fresh.items.every((item) => !item.title.includes("Special Set")));
     const stale = await service.getSeriesCatalog({
       series,
       publisherId: "phoenix",
@@ -179,17 +175,14 @@ test("parser fixes apply to durable catalogs from before the update, including o
     });
     assert.equal(stale.stale, true);
     assert.equal(stale.checkedAt, previous.checkedAt);
-    assert.ok(stale.items.find((item) => item.title.includes("19-20")).bundle);
+    assert.ok(stale.items.every((item) => !item.title.includes("Special Set")));
     const releases = await service.getPublisherReleases({
       publisherId: "phoenix",
       refresh: true,
     });
     assert.equal(releases.stale, true);
-    assert.equal(
-      releases.items.find(
-        (item) => item.title.includes("Special Set") && item.volume === 22,
-      ).series,
-      series,
+    assert.ok(
+      releases.items.every((item) => !item.title.includes("Special Set")),
     );
   } finally {
     store.close();
@@ -217,7 +210,7 @@ test("Luckpim Node requests carry cookies and tokens, retain stock, preorder lab
   const service = createCatalogService(store, remote(entries, calls));
   try {
     const feed = await service.getPublisherReleases({ publisherId: "luckpim" });
-    assert.equal(feed.items.length, 4);
+    assert.equal(feed.items.length, 3);
     assert.equal(feed.items[1].availability, "Pre-order");
     assert.equal(calls[1].options.headers.Cookie, "catalog-session=test");
     assert.equal(calls[1].options.headers["XSRF-TOKEN"], "public-token");
@@ -227,7 +220,7 @@ test("Luckpim Node requests carry cookies and tokens, retain stock, preorder lab
       type: "Manga (TH)",
     });
     assert.equal(result.complete, true);
-    assert.equal(result.items.length, 7);
+    assert.equal(result.items.length, 6);
     assert.ok(calls.some((call) => call.url.includes("limit=-1")));
   } finally {
     store.close();
@@ -292,4 +285,112 @@ test("publisher categories distinguish light novels from manga without guessing 
     ),
     [],
   );
+});
+
+test("First Page categories named after volume 1 match the shelf series without guessing titles", async () => {
+  const store = openStore(":memory:");
+  const categories = parseSeriesCategories_(
+    "firstpage",
+    fixture("series-catalogs/firstpage-directory.html"),
+  );
+  const numbered = categories.find((entry) => entry.url.endsWith("/135"));
+  const series = numbered.title.replace(/ เล่ม 01$/, "");
+  const spec = { publisherId: "firstpage", type: "Manga (TH)", series };
+  const service = createCatalogService(
+    store,
+    remote([
+      {
+        match: "category/135",
+        text: fixture("series-catalogs/firstpage-numbered-category.html"),
+      },
+      {
+        match: "firstpagepro.com/",
+        text: fixture("series-catalogs/firstpage-directory.html"),
+      },
+    ]),
+  );
+  try {
+    assert.equal(
+      matchSeriesCategory_(series, categories, spec.type).url,
+      numbered.url,
+    );
+    assert.equal(
+      matchSeriesCategory_(
+        series,
+        [numbered, { ...numbered, url: numbered.url + "0" }],
+        spec.type,
+      ),
+      null,
+    );
+    assert.equal(
+      matchSeriesCategory_(
+        "เรื่อง 86",
+        [{ title: "เรื่อง 86 เล่ม 01", type: spec.type }],
+        spec.type,
+      )?.title,
+      "เรื่อง 86 เล่ม 01",
+    );
+    const result = await service.getSeriesCatalog(spec);
+    assert.equal(result.complete, true);
+    assert.equal(result.items.length, 1);
+    assert.equal(result.items[0].volume, 1);
+    assert.equal(result.items[0].catalogVariant, false);
+
+    // A manually linked shelf alias must also compare against the category's series name.
+    const alias = { ...spec, series: "My shelf alias" };
+    store.api.setSeriesCatalog({
+      ...alias,
+      url: numbered.url,
+      title: numbered.title,
+    });
+    const linked = await service.getSeriesCatalog(alias);
+    assert.equal(linked.items[0].catalogSeries, alias.series);
+    assert.equal(linked.items[0].catalogVariant, false);
+    const cached = await service.getSeriesCatalog(alias);
+    assert.equal(cached.items[0].catalogVariant, false);
+  } finally {
+    store.close();
+  }
+});
+
+test("Refresh catalog rechecks First Page's directory after a category could not be matched", async () => {
+  const store = openStore(":memory:");
+  const directory = fixture("series-catalogs/firstpage-directory.html");
+  const entries = [
+    {
+      match: "category/56",
+      text: fixture("series-catalogs/firstpage-category.html"),
+    },
+    {
+      match: "firstpagepro.com/",
+      text: directory.replaceAll(
+        "ชิชุนกิจัง สาวใสวัยลองรัก",
+        "Old category title",
+      ),
+    },
+  ];
+  const calls = [];
+  const service = createCatalogService(store, remote(entries, calls));
+  const spec = {
+    publisherId: "firstpage",
+    series: "ชิชุนกิจัง สาวใสวัยลองรัก",
+    type: "Manga (TH)",
+  };
+  try {
+    const unmatched = await service.getSeriesCatalog(spec);
+    assert.equal(unmatched.needsSelection, true);
+    entries[1].text = directory;
+    const refreshed = await service.getSeriesCatalog({
+      ...spec,
+      refresh: true,
+    });
+    assert.equal(refreshed.complete, true);
+    assert.equal(refreshed.items.length, 11);
+    assert.equal(
+      calls.filter(({ url }) => url === "https://www.firstpagepro.com/").length,
+      2,
+    );
+  } finally {
+    store.close();
+  }
 });
