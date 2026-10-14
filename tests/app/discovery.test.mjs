@@ -296,9 +296,9 @@ test("owned covers use matching catalog volumes before ISBN lookup, and ISBN cov
     ]);
     assert.equal(covers[0].coverUrl, "https://books.google.com/cover.jpg");
     assert.equal(covers[1].coverUrl, covers[0].coverUrl);
-    assert.equal(calls, 2);
+    assert.equal(calls, 3);
     await lookup.getBookCover({ row: isbnRow });
-    assert.equal(calls, 2);
+    assert.equal(calls, 3);
     await assert.rejects(lookup.getBookCover({ row: 999 }), /no longer/);
   } finally {
     store.close();

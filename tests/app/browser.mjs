@@ -7,7 +7,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { createCoverCache } from "../../lib/server/covers.mjs";
+import { createCoverService, coverDigest } from "../../lib/server/covers.mjs";
+import { openStore } from "../../lib/server/store.mjs";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const directory = mkdtempSync(join(tmpdir(), "book-collection-e2e-"));
@@ -21,7 +22,14 @@ const executable =
 const password = "book-collection-test-password";
 const coverSource =
   "https://www.phoenixnext.com/media/catalog/product/cached-test.png";
-const coverPath = "/api/covers?url=" + encodeURIComponent(coverSource);
+const coverPath =
+  "/api/covers/" +
+  coverDigest(
+    Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  );
 const coverBytes = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
   "base64",
@@ -35,6 +43,15 @@ async function port() {
   return value;
 }
 async function start(name, extra = {}) {
+  const seeded = openStore(join(directory, `${name}.sqlite`));
+  const seedCovers = createCoverService(seeded, {
+    fetchImpl: async () => new Response(coverBytes),
+  });
+  await seedCovers.ensure(coverSource);
+  await seedCovers.ensure(
+    "https://www.phoenixnext.com/media/catalog/product/alternate-test.png",
+  );
+  seeded.close();
   const selectedPort = await port(),
     url = `http://127.0.0.1:${selectedPort}`;
   const child = spawn(process.execPath, [".next/standalone/server.js"], {
@@ -117,10 +134,6 @@ async function runLegacy(name, url) {
 
 let browser;
 try {
-  await createCoverCache({
-    directory: join(directory, "covers"),
-    fetchImpl: async () => new Response(coverBytes),
-  }).get(coverSource);
   const url = await start("protected", { BOOKS_PASSWORD: password });
   browser = await chromium.launch({
     headless: true,
@@ -151,7 +164,10 @@ try {
   assert.equal(cover.status(), 200);
   assert.deepEqual(await cover.body(), coverBytes);
   assert.equal(cover.headers()["content-type"], "image/png");
-  assert.match(cover.headers()["cache-control"], /^private, max-age=86400$/);
+  assert.match(
+    cover.headers()["cache-control"],
+    /^private, max-age=31536000, immutable$/,
+  );
   assert.equal(
     (
       await page.request.get(url + coverPath, {
@@ -220,9 +236,8 @@ try {
   const publisherPage = "https://www.phoenixnext.com/browser-volume.html";
   const alternateCover =
     "https://www.phoenixnext.com/media/catalog/product/alternate-test.png";
-  await page.route(
-    "**/api/covers?url=" + encodeURIComponent(alternateCover),
-    (route) => route.fulfill({ body: coverBytes, contentType: "image/png" }),
+  await page.route("**/api/covers/" + coverDigest(coverBytes), (route) =>
+    route.fulfill({ body: coverBytes, contentType: "image/png" }),
   );
   await page.route("**/api/rpc", (route) => {
     const { name } = route.request().postDataJSON();
@@ -231,6 +246,8 @@ try {
         json: {
           covers: [alternateCover, coverSource].map((coverUrl) => ({
             coverUrl,
+            coverId: coverDigest(coverBytes),
+            source: "Publisher",
             publisherUrl: publisherPage,
             title: "Next.js browser check",
           })),
@@ -364,6 +381,7 @@ try {
     "firstpage-series.browser.mjs",
     "publishers.browser.mjs",
     "release-filters.browser.mjs",
+    "yaakz.browser.mjs",
   ])
     await runLegacy(name, fixturesUrl);
   if (

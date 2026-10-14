@@ -2,9 +2,11 @@
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { createHash } from "node:crypto";
 import { releaseItem_ } from "../lib/domain.mjs";
 const url = process.env.BOOKS_PREVIEW_URL;
-const coverUrl = (source) => "/api/covers?url=" + encodeURIComponent(source);
+const coverId = (source) => createHash("sha256").update(source).digest("hex");
+const coverUrl = (source) => "/api/covers/" + coverId(source);
 if (!url)
   throw new Error("Use npm run test:e2e to start the isolated test app.");
 const browser = await chromium.launch({
@@ -23,6 +25,9 @@ const make = (slug, title, type = "Manga (TH)") => ({
     type,
   ),
   coverUrl: `https://www.phoenixnext.com/media/catalog/product/${slug}.jpg`,
+  coverId: coverId(
+    `https://www.phoenixnext.com/media/catalog/product/${slug}.jpg`,
+  ),
 });
 const items = [
   make("owned-1", "(มังงะ) Discovery owned เล่ม 1"),
@@ -40,6 +45,7 @@ const titles = [items[0], items[3], items[4], items[5], items[6]].map(
     title: item.series,
     directory: true,
     coverUrl: "",
+    coverId: "",
     volume: "",
     isbn: "",
     categories: [
@@ -66,7 +72,7 @@ try {
       externalImages.push(request.url());
   });
   await page.route("https://cdn.jsdelivr.net/**", (route) => route.abort());
-  await page.route("**/api/covers?**", (route) =>
+  await page.route("**/api/covers/**", (route) =>
     route.fulfill({
       contentType: "image/png",
       body: Buffer.from(
@@ -79,7 +85,7 @@ try {
     const request = route.request().postDataJSON();
     if (request.name === "getBookCover")
       return route.fulfill({
-        json: { row: request.arg.row, coverUrl: items[0].coverUrl },
+        json: { row: request.arg.row, coverId: items[0].coverId },
       });
     if (request.name === "getSeriesCatalog")
       return route.fulfill({

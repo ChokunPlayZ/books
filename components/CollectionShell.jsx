@@ -461,6 +461,7 @@ export default function CollectionShell() {
               <option value={"phoenix"}>{"Phoenix Next"}</option>
               <option value={"firstpage"}>{"First Page Pro"}</option>
               <option value={"luckpim"}>{"Luckpim"}</option>
+              <option value={"yaakz"}>{"Siam Inter Comics (Yaakz)"}</option>
             </select>
             <label htmlFor={"releaseScope"} className={"sr-only"}>
               {"Release list"}
@@ -545,6 +546,9 @@ export default function CollectionShell() {
                 <option value="https://www.firstpagepro.com/">
                   First Page Pro · All titles
                 </option>
+                <option value="https://www.yaakz.com/">
+                  Yaakz · New arrivals
+                </option>
                 <option value="">Another category URL</option>
               </select>
             </label>
@@ -555,7 +559,7 @@ export default function CollectionShell() {
                 type="url"
                 required
                 defaultValue="https://www.phoenixnext.com/gl.html"
-                placeholder="Phoenix Next or First Page Pro category URL"
+                placeholder="Phoenix Next, First Page Pro or Yaakz category URL"
               />
             </label>
             <button id="loadDiscovery" className="btn primary" type="submit">
@@ -797,14 +801,15 @@ export default function CollectionShell() {
                       placeholder="Use automatic cover, or enter an image URL"
                     />
                     <p className="hint">
-                      Leave blank to use the automatic cover.
+                      Leave blank to use the automatic cover. New image URLs are
+                      downloaded when you save.
                     </p>
                     <button
                       id="pullPublisherCovers"
                       className="btn"
                       type="button"
                     >
-                      Pull publisher covers
+                      Pull covers
                     </button>
                     <p
                       id="publisherCoversStatus"
@@ -816,7 +821,7 @@ export default function CollectionShell() {
                 <div
                   id="publisherCoverChoices"
                   className="cover-choices"
-                  aria-label="Publisher cover choices"
+                  aria-label="Publisher and bookstore cover choices"
                 />
                 <p className="hint">Choose a cover, then save your changes.</p>
               </fieldset>

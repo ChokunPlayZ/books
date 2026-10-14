@@ -16,7 +16,7 @@ try{
   await page.route('**/rpc',async route=>{
     const request=route.request().postDataJSON();if(request?.name!=='getPublisherReleases')return route.continue();
     if(failLuck&&request.arg.publisherId==='luckpim')return route.fulfill({status:503,json:{message:'Test outage'}});
-    return route.fulfill({json:{publisherId:request.arg.publisherId,items:feeds[request.arg.publisherId],checkedAt:'2026-10-09T07:00:00Z',stale:false,error:''}});
+    return route.fulfill({json:{publisherId:request.arg.publisherId,items:feeds[request.arg.publisherId]||[],checkedAt:'2026-10-09T07:00:00Z',stale:false,error:''}});
   });
   await page.goto(url);await page.waitForFunction(()=>!!state.data);
   const before=await page.evaluate(()=>state.data.books.length);

@@ -62,9 +62,7 @@ const state = {
   discoveryFeeds: new Map(),
   discoveryUrl: "https://www.phoenixnext.com/gl.html",
   discoveryLoading: false,
-  bookCovers: new Map(),
-  coverQueue: [],
-  coverRequests: 0,
+  selectedCoverId: "",
   discoveryTitleResults: new Map(),
   titleQueue: [],
   titleRequests: 0,
@@ -111,6 +109,13 @@ async function rpc(name, arg) {
   const value = await response.json();
   if (!response.ok)
     throw new Error(value.message || "The request could not finish.");
+  if (value.bookCoverIds && state.data) {
+    for (const book of state.data.books) {
+      if (Object.hasOwn(value.bookCoverIds, book.row))
+        book.coverId = value.bookCoverIds[book.row];
+    }
+    refreshVisibleCovers();
+  }
   return value;
 }
 function requestId() {
@@ -727,7 +732,11 @@ async function chooseSeriesCategory(spec) {
   editor.version++;
   state.catalogEditors.set(key, editor);
   renderSeriesMissing();
-  if (!editor.open || editor.categories || spec.publisherId === "luckpim")
+  if (
+    !editor.open ||
+    editor.categories ||
+    ["luckpim", "yaakz"].includes(spec.publisherId)
+  )
     return;
   editor.loading = true;
   editor.version++;
@@ -1141,10 +1150,11 @@ function seriesCatalogSource(spec) {
     };
     state.catalogEditors.set(key, editor);
   }
+  const searchBased = ["luckpim", "yaakz"].includes(spec.publisherId);
   const toggle = node(
     "button",
     "text-btn",
-    spec.publisherId === "luckpim"
+    searchBased
       ? "Change search title"
       : editor.open
         ? "Hide category choices"
@@ -1166,15 +1176,22 @@ function seriesCatalogSource(spec) {
     wrapper.append(node("span", "", label), input);
     form.append(wrapper);
   };
-  if (spec.publisherId === "luckpim") {
+  if (searchBased) {
     manual = node("input");
     manual.type = "text";
     manual.required = true;
     manual.maxLength = 500;
     manual.value =
       editor.url ??
-      (feed.url ? decodeURIComponent(feed.url.split("?k=")[1]) : spec.series);
-    field("Series title on Luckpim", manual);
+      (feed.url
+        ? new URL(feed.url).searchParams.get(
+            spec.publisherId === "yaakz" ? "q" : "k",
+          )
+        : spec.series);
+    field(
+      "Series title on " + (spec.publisherId === "yaakz" ? "Yaakz" : "Luckpim"),
+      manual,
+    );
     manual.addEventListener("input", () => (editor.url = manual.value));
   } else {
     search = node("input");
@@ -1240,11 +1257,12 @@ function seriesCatalogSource(spec) {
   form.append(submit);
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    const url =
-      spec.publisherId === "luckpim"
-        ? "https://www.luckpim.com/search_result?k=" +
-          encodeURIComponent(manual.value.trim())
-        : manual.value.trim() || selected.value;
+    const url = searchBased
+      ? (spec.publisherId === "yaakz"
+          ? "https://www.yaakz.com/search?q="
+          : "https://www.luckpim.com/search_result?k=") +
+        encodeURIComponent(manual.value.trim())
+      : manual.value.trim() || selected.value;
     if (!url) {
       errorAt(
         "seriesReleaseError",
@@ -1255,7 +1273,7 @@ function seriesCatalogSource(spec) {
     void saveSeriesCategory(
       spec,
       url,
-      spec.publisherId === "luckpim"
+      searchBased
         ? manual.value.trim()
         : editor.categories?.find((c) => c.url === selected.value)?.title ||
             spec.series,
@@ -1403,7 +1421,6 @@ async function saveTitle(event) {
     state.selectedSeries = result.series;
     state.seriesCatalogs.clear();
     state.catalogEditors.clear();
-    state.bookCovers.clear();
     resetCollectionFilters();
     notify("Title details saved for " + result.volumes + " owned volumes.");
     try {
@@ -1687,10 +1704,11 @@ function releaseSingleVolume(item) {
 function publisherKey(name) {
   const key = String(name || "")
     .toLocaleLowerCase()
-    .replace(/[^\p{L}\p{N}]/gu, "");
+    .replace(/[^\p{L}\p{N}\p{M}]/gu, "");
   if (/phoenix|ฟีนิกซ์/.test(key)) return "phoenix";
   if (/firstpage|เฟิร์สเพจ/.test(key)) return "firstpage";
   if (/luckpim|รักพิมพ์/.test(key)) return "luckpim";
+  if (/yaakz|siaminter|สยามอินเตอร์|^sic$/.test(key)) return "yaakz";
   return key;
 }
 function releaseMatches(item) {
@@ -1780,19 +1798,19 @@ function releaseLink(label, url) {
   return a;
 }
 
-function coverImage(url, title, className) {
+function coverImage(id, title, className) {
   const frame = node("span", "cover-frame " + className);
-  setCoverImage(frame, url, title);
+  setCoverImage(frame, id, title);
   return frame;
 }
-function setCoverImage(frame, url, title) {
-  if (frame._coverUrl === (url || "")) return;
-  frame._coverUrl = url || "";
+function setCoverImage(frame, id, title) {
+  if (frame._coverId === (id || "")) return;
+  frame._coverId = id || "";
   frame.replaceChildren();
   const placeholder = node("span", "cover-placeholder", "No cover");
   placeholder.prepend(icon("books"));
   frame.append(placeholder);
-  if (!url || !/^https:\/\//i.test(url)) return;
+  if (!/^[a-f0-9]{64}$/.test(id || "")) return;
   const img = node("img");
   img.alt = title + " cover";
   img.width = 264;
@@ -1809,51 +1827,9 @@ function setCoverImage(frame, url, title) {
     img.remove();
     placeholder.hidden = false;
   });
-  img.src = "/api/covers?url=" + encodeURIComponent(url);
+  img.src = "/api/covers/" + id;
   frame.append(img);
 }
-function bookCoverKey(book) {
-  return JSON.stringify([
-    book.row,
-    book.token,
-    canonical(book.isbn),
-    book.series,
-    book.publisher,
-    book.type,
-    book.volume,
-  ]);
-}
-function knownBookCover(book) {
-  if (book.coverUrl) return book.coverUrl;
-  const feeds = [
-    ...state.seriesCatalogs.values(),
-    ...state.releaseFeeds.values(),
-    ...state.discoveryFeeds.values(),
-  ];
-  const items = feeds.flatMap((feed) => feed.items || []);
-  const isbn = canonical(book.isbn);
-  const exact =
-    isbn &&
-    items.find((item) => canonical(item.isbn) === isbn && item.coverUrl);
-  if (exact) return exact.coverUrl;
-  const item = items.find(
-    (item) =>
-      item.coverUrl &&
-      !item.special &&
-      !item.bundle &&
-      item.volume !== "" &&
-      item.volume != null &&
-      book.volume !== "" &&
-      book.volume != null &&
-      Number(item.volume) === Number(book.volume) &&
-      item.publisherId === publisherKey(book.publisher) &&
-      matchingBookType(item.type) === matchingBookType(book.type) &&
-      releaseSeriesKey(item.catalogSeries || item.series) ===
-        releaseSeriesKey(book.series),
-  );
-  return item?.coverUrl || state.bookCovers.get(bookCoverKey(book)) || "";
-}
-
 function bookPublisherUrl(book) {
   if (book.publisherUrl) return book.publisherUrl;
   const id = publisherKey(book.publisher);
@@ -1882,14 +1858,7 @@ function bookPublisherUrl(book) {
 
 function renderMetadataCover() {
   $("metadataCoverPreview").replaceChildren(
-    coverImage(
-      $("coverUrl").value.trim() ||
-        (state.editing
-          ? knownBookCover({ ...state.editing, coverUrl: "" })
-          : ""),
-      $("series").value,
-      "metadata-cover",
-    ),
+    coverImage(state.selectedCoverId, $("series").value, "metadata-cover"),
   );
   const link = $("metadataPublisherLink");
   const url =
@@ -1901,6 +1870,7 @@ function renderMetadataCover() {
     phoenix: "www.phoenixnext.com",
     firstpage: "www.firstpagepro.com",
     luckpim: "www.luckpim.com",
+    yaakz: "www.yaakz.com",
   };
   let safe = false;
   try {
@@ -1919,7 +1889,7 @@ function renderMetadataCover() {
   document.querySelectorAll(".cover-choice").forEach((choice) => {
     choice.setAttribute(
       "aria-pressed",
-      String(choice.dataset.coverUrl === $("coverUrl").value),
+      String(choice.dataset.coverId === state.selectedCoverId),
     );
   });
 }
@@ -1949,7 +1919,7 @@ async function pullPublisherCovers() {
   }
   $("pullPublisherCovers").disabled = true;
   $("publisherCoversStatus").textContent =
-    "Looking for covers on the publisher’s website…";
+    "Looking for covers from publishers and bookstores…";
   $("publisherCoverChoices").replaceChildren();
   try {
     const result = await rpc("getBookCoverOptions", {
@@ -1961,19 +1931,20 @@ async function pullPublisherCovers() {
     result.covers.forEach((item, index) => {
       const choice = node("button", "cover-choice");
       choice.type = "button";
-      choice.dataset.coverUrl = item.coverUrl;
+      choice.dataset.coverId = item.coverId;
       choice.setAttribute(
         "aria-label",
         "Choose cover " + (index + 1) + ": " + item.title,
       );
       choice.append(
-        coverImage(item.coverUrl, item.title, "metadata-cover"),
-        node("span", "", "Cover " + (index + 1)),
+        coverImage(item.coverId, item.title, "metadata-cover"),
+        node("span", "", (item.source || "Cover") + " · " + (index + 1)),
       );
       choice.addEventListener("click", () => {
         if (state.busy) return;
+        state.selectedCoverId = item.coverId;
         $("coverUrl").value = item.coverUrl;
-        $("publisherUrl").value = item.publisherUrl;
+        if (item.publisherUrl) $("publisherUrl").value = item.publisherUrl;
         renderMetadataCover();
       });
       $("publisherCoverChoices").append(choice);
@@ -1981,7 +1952,7 @@ async function pullPublisherCovers() {
     $("publisherCoversStatus").textContent =
       (result.covers.length
         ? result.covers.length + " covers available."
-        : "No covers found. Add this volume’s publisher page above and try again.") +
+        : "No covers found. Add an ISBN or this volume’s publisher page and try again.") +
       " " +
       result.warnings.join(" ");
     renderMetadataCover();
@@ -1998,39 +1969,25 @@ const coverObserver = new IntersectionObserver(
     for (const entry of entries) {
       if (!entry.isIntersecting) continue;
       coverObserver.unobserve(entry.target);
-      const book = entry.target._book,
-        key = bookCoverKey(book);
-      if (knownBookCover(book) || state.bookCovers.has(key)) continue;
-      state.bookCovers.set(key, "");
-      state.coverQueue.push({ book, key });
+      const book = entry.target._book;
+      if (book.coverId) continue;
+      void rpc("getBookCover", { row: book.row })
+        .then((result) => {
+          book.coverId = result.coverId || "";
+          refreshVisibleCovers();
+        })
+        .catch(() => {});
     }
-    void fetchQueuedCovers();
   },
   { rootMargin: "100px" },
 );
 function bookCover(book, className) {
   const title =
     book.series + (book.volume !== "" ? ", volume " + book.volume : "");
-  const frame = coverImage(knownBookCover(book), title, className);
+  const frame = coverImage(book.coverId, title, className);
   frame._book = book;
-  coverObserver.observe(frame);
+  if (!book.coverId) coverObserver.observe(frame);
   return frame;
-}
-async function fetchQueuedCovers() {
-  while (state.coverRequests < 3 && state.coverQueue.length) {
-    const { book, key } = state.coverQueue.shift();
-    state.coverRequests++;
-    void rpc("getBookCover", { row: book.row })
-      .then((result) => {
-        state.bookCovers.set(key, result.coverUrl || "");
-        refreshVisibleCovers();
-      })
-      .catch(() => {})
-      .finally(() => {
-        state.coverRequests--;
-        void fetchQueuedCovers();
-      });
-  }
 }
 function refreshVisibleCovers() {
   document.querySelectorAll(".shelf-cover").forEach((frame) => {
@@ -2038,7 +1995,7 @@ function refreshVisibleCovers() {
     if (book)
       setCoverImage(
         frame,
-        knownBookCover(book),
+        book.coverId,
         book.series + (book.volume !== "" ? ", volume " + book.volume : ""),
       );
   });
@@ -2123,10 +2080,10 @@ function discoveryTitles(items) {
       const first = list[0];
       return {
         ...first,
-        coverUrl:
-          first.coverUrl ||
-          list.find((item) => item.volume === first.volume && item.coverUrl)
-            ?.coverUrl ||
+        coverId:
+          first.coverId ||
+          list.find((item) => item.volume === first.volume && item.coverId)
+            ?.coverId ||
           "",
       };
     })
@@ -2208,14 +2165,28 @@ function renderDiscovery() {
           (feed.stale ? "Previous check " : "Checked ") +
             new Date(feed.checkedAt).toLocaleString() +
             " · " +
-            number(feed.titles?.length || 0) +
+            number(
+              feed.titles?.length ??
+                new Set(
+                  (feed.items || []).map((item) =>
+                    releaseSeriesKey(item.series),
+                  ),
+                ).size,
+            ) +
             " titles from publisher navigation",
         ),
       );
     if (feed.error) source.append(node("p", "source-error", feed.error));
   }
   const all = discoveryTitles(
-    (feed?.titles || []).map((entry) => {
+    (
+      feed?.titles ||
+      (feed?.items || []).map((item) => ({
+        ...item,
+        resolved: true,
+        categories: [{ url: feed.url, type: item.type }],
+      }))
+    ).map((entry) => {
       const result = state.discoveryTitleResults.get(discoveryTitleKey(entry));
       return result?.item
         ? {
@@ -2281,7 +2252,7 @@ function renderDiscovery() {
       "aria-label",
       "Open " + item.series + " on the publisher website",
     );
-    coverLink.append(coverImage(item.coverUrl, item.title, "discovery-cover"));
+    coverLink.append(coverImage(item.coverId, item.title, "discovery-cover"));
     card.append(
       coverLink,
       node("p", "eyebrow", item.publisher),
@@ -2493,7 +2464,7 @@ function releaseCard(item, saved, context = {}) {
   const card = node("article", "release-card"),
     match = releaseMatches(item),
     busy = state.savingReleases.size > 0 || state.busy;
-  card.append(coverImage(item.coverUrl, item.title, "release-cover"));
+  card.append(coverImage(item.coverId, item.title, "release-cover"));
   card.append(
     node("p", "eyebrow", item.publisher),
     node("h2", "book-title", item.title),
@@ -2958,12 +2929,13 @@ function openBook(book, defaults) {
   ["type", "status"].forEach((k) => fillOptions(k, state.data.options[k]));
   FIELDS.forEach((k) => ($(k).value = book?.[k] ?? defaults?.[k] ?? ""));
   state.coverPickerGeneration++;
+  state.selectedCoverId = book?.coverId || "";
   $("coverUrl").value = book?.coverUrl || "";
   $("publisherUrl").value = book?.publisherUrl || "";
   $("publisherCoverChoices").replaceChildren();
   $("publisherCoversStatus").textContent = book
     ? "Pull all available covers for this volume and choose one."
-    : "Save this book to look for publisher covers.";
+    : "Save this book to look for publisher and bookstore covers.";
   $("pullPublisherCovers").disabled = !book;
   renderMetadataCover();
   if (!book) {
@@ -3186,6 +3158,7 @@ async function save(event) {
     $("coverUrl").value.trim() ||
     $("publisherUrl").value.trim()
   ) {
+    book.coverId = state.selectedCoverId;
     book.coverUrl = $("coverUrl").value.trim();
     book.publisherUrl = $("publisherUrl").value.trim();
   }
@@ -3908,6 +3881,9 @@ $("pullPublisherCovers").addEventListener(
   "click",
   () => void pullPublisherCovers(),
 );
+$("coverUrl").addEventListener("input", () => {
+  state.selectedCoverId = "";
+});
 ["coverUrl", "publisherUrl", "publisher"].forEach((id) =>
   $(id).addEventListener("input", renderMetadataCover),
 );
@@ -3918,7 +3894,7 @@ $("pullPublisherCovers").addEventListener(
     $("pullPublisherCovers").disabled = !state.editing || state.busy;
     $("publisherCoversStatus").textContent = state.editing
       ? "Pull covers again after changing the publisher page. Save volume or series changes first."
-      : "Save this book to look for publisher covers.";
+      : "Save this book to look for publisher and bookstore covers.";
   }),
 );
 document.addEventListener("click", (event) => {

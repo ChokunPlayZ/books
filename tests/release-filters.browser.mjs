@@ -28,7 +28,7 @@ try {
   await page.route('https://cdn.jsdelivr.net/**', route => route.abort());
   await page.route('**/rpc', async route => {
     const { name, arg } = route.request().postDataJSON();
-    if (name === 'getPublisherReleases') return route.fulfill({ json: { publisherId: arg.publisherId, items: feeds[arg.publisherId], checkedAt: '2026-10-09T07:00:00Z', stale: false, error: '' } });
+    if (name === 'getPublisherReleases') return route.fulfill({ json: { publisherId: arg.publisherId, items: feeds[arg.publisherId] || [], checkedAt: '2026-10-09T07:00:00Z', stale: false, error: '' } });
     try { return await route.fulfill({ json: h.api[name](arg) }); }
     catch (error) { return route.fulfill({ status: 400, json: { message: error.message } }); }
   });

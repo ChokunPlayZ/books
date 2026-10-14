@@ -5,11 +5,14 @@ import { errorResponse } from "../../../lib/server/http.mjs";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(request) {
+export async function GET(request, context) {
   try {
     const { store, covers } = getApp();
     authorize(store, request);
-    const image = covers.get(new URL(request.url).searchParams.get("id"));
+    const params = await context?.params;
+    const image = covers.get(
+      params?.id || new URL(request.url).searchParams.get("id"),
+    );
     const headers = {
       "Content-Type": image.contentType,
       "Cache-Control": "private, max-age=31536000, immutable",

@@ -14,7 +14,7 @@ export async function POST(request) {
     const { store } = getApp();
     authorize(store, request);
     sameOrigin(request);
-    const buffer = await readBody(request, 11 * 1024 * 1024);
+    const buffer = await readBody(request, 129 * 1024 * 1024);
     const form = await new Response(buffer, {
       headers: { "Content-Type": request.headers.get("content-type") || "" },
     }).formData();

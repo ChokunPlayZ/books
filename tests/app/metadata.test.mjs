@@ -104,12 +104,12 @@ test("version 1 databases migrate without losing books and invalid metadata roll
   let store = openStore(path);
   save(store, book);
   store.db.exec(
-    "ALTER TABLE books DROP COLUMN cover_url; ALTER TABLE books DROP COLUMN publisher_url; PRAGMA user_version=1;",
+    "ALTER TABLE books DROP COLUMN cover_id; DROP TABLE cover_sources; DROP TABLE covers; ALTER TABLE books DROP COLUMN cover_url; ALTER TABLE books DROP COLUMN publisher_url; PRAGMA user_version=1;",
   );
   store.close();
   store = openStore(path);
   try {
-    assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 2);
+    assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 3);
     const volume = store.api.getCollection().books[0];
     assert.equal(volume.series, book.series);
     assert.equal(volume.coverUrl, "");

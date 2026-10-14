@@ -130,6 +130,13 @@ try {
   await page.waitForFunction(
     () => !document.getElementById("bookDialog").open && !state.busy,
   );
+  await page.waitForFunction(
+    (name) =>
+      state.data.books.some(
+        (book) => book.series === name && book.volume === 3,
+      ),
+    renamed,
+  );
   books = await page.evaluate(
     (name) => state.data.books.filter((book) => book.series === name),
     renamed,
