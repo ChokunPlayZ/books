@@ -34,13 +34,13 @@ try {
   await page.locator('#volume').fill('14.5'); await page.locator('#status').selectOption('Reading');
   await page.locator('#price').fill('0'); await page.locator('#date').fill('2026-10-02');
   await page.locator('#series').fill('  ' + title.toUpperCase() + '  ');
-  for (const id of ['series', 'volume', 'status', 'price', 'date']) assert.equal(await page.locator('#' + id).isVisible(), true);
-  for (const id of ['isbn', 'type', 'publisher', 'source', 'note', 'allowDuplicate', 'regularPrice', 'discount']) assert.equal(await page.locator('#' + id).isVisible(), false);
+  for (const id of ['series', 'volume', 'source', 'status', 'price', 'date']) assert.equal(await page.locator('#' + id).isVisible(), true);
+  for (const id of ['isbn', 'type', 'publisher', 'note', 'allowDuplicate', 'regularPrice', 'discount']) assert.equal(await page.locator('#' + id).isVisible(), false);
   assert.equal(await value('type'), 'Manga (JP)'); assert.equal(await value('publisher'), 'Japanese press'); assert.equal(await value('source'), 'Latest shop');
   assert.equal(await value('isbn'), ''); assert.equal(await value('note'), '');
   assert.equal(await value('volume'), '14.5'); assert.equal(await value('status'), 'Reading');
   assert.equal(await value('price'), '0'); assert.equal(await value('date'), '2026-10-02');
-  assert.match(await page.locator('#seriesDefaultsText').textContent(), /Japanese press.*Latest shop/);
+  assert.match(await page.locator('#seriesDefaultsText').textContent(), /Japanese press/);
   console.log('PASS short form, recent edition defaults, blank-field fallback and volume-specific values');
 
   await page.locator('#series').fill(other);
@@ -71,11 +71,13 @@ try {
   await page.screenshot({ path: fileURLToPath(new URL('../outputs/series-entry-preview.png', import.meta.url)) });
   await page.locator('#toggleBookDetails').click();
   assert.equal(await page.locator('#toggleBookDetails').getAttribute('aria-expanded'), 'true');
-  for (const id of ['isbn', 'type', 'publisher', 'source', 'note']) assert.equal(await page.locator('#' + id).isVisible(), true);
+  for (const id of ['isbn', 'source', 'note']) assert.equal(await page.locator('#' + id).isVisible(), true);
+  for (const id of ['type', 'publisher']) assert.equal(await page.locator('#' + id).isVisible(), false);
   await page.locator('#isbn').fill('9780804429573'); await page.locator('#note').fill('This new volume');
   await page.locator('#source').fill('Changed shop'); await page.locator('#allowDuplicate').check();
   await page.locator('#toggleBookDetails').click();
-  assert.match(await page.locator('#seriesDefaultsText').textContent(), /Changed shop/);
+  assert.equal(await page.locator('#source').isVisible(), true);
+  assert.equal(await value('source'), 'Changed shop');
   await page.locator('#keepAdding').uncheck(); await page.locator('#saveButton').click(); await closed();
   const overridden = (await savedBooks()).find(book => book.series === title && book.volume === 4);
   assert.equal(overridden.source, 'Changed shop'); assert.equal(overridden.isbn, '9780804429573'); assert.equal(overridden.note, 'This new volume');
@@ -88,10 +90,10 @@ try {
   await page.locator('#cancelBook').click();
   await page.getByRole('button', { name: 'Volume options for ' + title + ', volume 4', exact: true }).click();
   await page.getByRole('button', { name: 'Edit ' + title + ', volume 4', exact: true }).click();
-  assert.equal(await page.locator('#seriesDefaults').isVisible(), false);
-  assert.equal(await page.locator('#isbn').isVisible(), true); assert.equal(await page.locator('#type').isVisible(), true);
+  assert.equal(await page.locator('#seriesDefaults').isVisible(), true);
+  assert.equal(await page.locator('#isbn').isVisible(), true);
+  for (const id of ['series', 'type', 'publisher']) assert.equal(await page.locator('#' + id).isVisible(), false);
   assert.equal(await value('source'), 'Changed shop'); assert.equal(await value('note'), 'This new volume');
-  await page.locator('#series').fill(other); assert.equal(await value('source'), 'Changed shop');
   await page.locator('#cancelBook').click();
   await page.locator('#addButton').click(); await page.setViewportSize({ width: 1280, height: 900 });
   assert.equal(await page.locator('#bookDialog').evaluate(e => e.scrollWidth <= e.clientWidth), true);

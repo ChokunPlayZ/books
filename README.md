@@ -97,6 +97,7 @@ Importing never writes to or changes the Google Sheet. Once the latest workbook 
 
 - Browse by series, search, filter, and see all owned volumes in an edition.
 - Add books or use the short **Add volume** form with recent series defaults.
+- Edit series name, type and publisher from **Edit title details** on the title page. Changes apply to every owned volume in the matching edition; separate editions keep their own type and publisher. Volume forms inherit these details and let you select an existing edition or add another one.
 - Edit reading status and purchase details; calculate percent/amount discounts.
 - Remove and restore books through **Recently removed**.
 - Scan ISBNs from photos or a live camera, recognize printed ISBNs, and use a USB/Bluetooth barcode scanner.
@@ -129,6 +130,10 @@ To restore, import that backup into an empty database through the UI or CLI. Rec
 For a raw database backup, stop the container before copying its volume, or use SQLite's backup facility. Do not copy only `books.sqlite` while the app is writing: committed changes can still be in its WAL file. Keep the Docker volume when updating; deleting the volume deletes the library.
 
 ## Development and verification
+
+The collection browser supports type, reading status, publisher, store, ISBN and price availability, amount-paid ranges, and inclusive purchase-date ranges. Open **More filters & sorting** to sort series by total spending, book count, or most recent purchase. Filters match the same individual book, and series counts and spending reflect only matching books. Opening a series clears filters to show all owned volumes; its volumes can then be filtered or sorted separately.
+
+**Collection spending** shows the most expensive series by total amount paid, the store with the most spending, and the top five of each. These summaries use the whole current collection regardless of browser filters. Removed books and missing prices are excluded; zero prices are included, and purchases without a store are reported separately from store rankings. **Bought from** stays visible and editable when adding volumes to an existing series.
 
 ```sh
 npm test

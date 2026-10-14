@@ -118,6 +118,46 @@ export default function CollectionShell() {
             </div>
           </div>
         </section>
+        <section
+          id="collectionSpending"
+          className="collection-spending"
+          aria-labelledby="spendingTitle"
+          hidden
+        >
+          <h2 id="spendingTitle">Collection spending</h2>
+          <p className="hint">
+            Total amount paid across your current collection, regardless of
+            filters.
+          </p>
+          <div className="spending-highlights">
+            <article className="spending-card">
+              <h3>Most expensive series</h3>
+              <p id="topSeriesName" className="spending-name" />
+              <p id="topSeriesAmount" className="spending-amount" />
+              <p id="topSeriesNote" className="hint" />
+            </article>
+            <article className="spending-card">
+              <h3>Store with the most spending</h3>
+              <p id="topStoreName" className="spending-name" />
+              <p id="topStoreAmount" className="spending-amount" />
+              <p id="topStoreNote" className="hint" />
+            </article>
+          </div>
+          <details className="spending-details">
+            <summary>See spending breakdown</summary>
+            <p id="spendingCoverage" className="hint" />
+            <div className="spending-rankings">
+              <div>
+                <h3>Top 5 series by spending</h3>
+                <ol id="seriesSpendingList" className="spending-list" />
+              </div>
+              <div>
+                <h3>Top 5 stores by spending</h3>
+                <ol id="storeSpendingList" className="spending-list" />
+              </div>
+            </div>
+          </details>
+        </section>
         <div className={"tabs"} aria-label={"Collection views"}>
           <button
             id={"collectionTab"}
@@ -154,7 +194,12 @@ export default function CollectionShell() {
           <button id={"backSeries"} className={"text-btn"}>
             {"← All series"}
           </button>
-          <h1 id={"seriesTitle"}></h1>
+          <div className="series-title-line">
+            <h1 id={"seriesTitle"}></h1>
+            <button id="editTitleButton" className="btn" type="button">
+              Edit title details
+            </button>
+          </div>
           <div className={"series-summary-line"}>
             <p id={"seriesSummary"}></p>
             <button
@@ -255,8 +300,98 @@ export default function CollectionShell() {
               </svg>
             </button>
           </div>
+          <details id="collectionFilters" className="collection-filters">
+            <summary id="collectionFiltersSummary">
+              More filters &amp; sorting
+            </summary>
+            <div className="collection-filter-grid">
+              <div className="field">
+                <label htmlFor="publisherFilter">Publisher</label>
+                <select id="publisherFilter">
+                  <option value="">All publishers</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="sourceFilter">Bought from</label>
+                <select id="sourceFilter">
+                  <option value="">All stores</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="isbnFilter">ISBN</label>
+                <select id="isbnFilter">
+                  <option value="">Any ISBN</option>
+                  <option value="present">With ISBN</option>
+                  <option value="missing">Missing ISBN</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="priceFilter">Recorded price</label>
+                <select id="priceFilter">
+                  <option value="">Any price</option>
+                  <option value="present">With price</option>
+                  <option value="missing">Missing price</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="minPriceFilter">Minimum paid (฿)</label>
+                <input
+                  id="minPriceFilter"
+                  type="number"
+                  min="0"
+                  step="any"
+                  inputMode="decimal"
+                  placeholder="No minimum"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="maxPriceFilter">Maximum paid (฿)</label>
+                <input
+                  id="maxPriceFilter"
+                  type="number"
+                  min="0"
+                  step="any"
+                  inputMode="decimal"
+                  placeholder="No maximum"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="dateFromFilter">Bought on or after</label>
+                <input id="dateFromFilter" type="date" />
+              </div>
+              <div className="field">
+                <label htmlFor="dateToFilter">Bought on or before</label>
+                <input id="dateToFilter" type="date" />
+              </div>
+              <div className="field">
+                <label htmlFor="collectionSort">Sort by</label>
+                <select id="collectionSort">
+                  <option value="default">Series A–Z</option>
+                  <option value="spent">Most spent</option>
+                  <option value="books">Most books</option>
+                  <option value="recent">Recently bought</option>
+                </select>
+              </div>
+            </div>
+            <p id="collectionFilterHint" className="hint">
+              Filters match individual books. Series show only matching books;
+              opening a series shows all owned volumes.
+            </p>
+          </details>
           <div className={"list-label"}>
-            <span id={"resultCount"}>{"Loading your collection"}</span>
+            <div className="collection-results">
+              <span id={"resultCount"} role="status">
+                {"Loading your collection"}
+              </span>
+              <button
+                id="clearCollectionFilters"
+                className="text-btn"
+                type="button"
+                hidden
+              >
+                Clear filters
+              </button>
+            </div>
             <span id={"listRight"}>{"Your volumes"}</span>
           </div>
           <section
@@ -452,6 +587,51 @@ export default function CollectionShell() {
           <span id={"syncNote"}>{"Opening your library"}</span>
         </footer>
       </main>
+      <dialog id="titleDialog" aria-labelledby="titleDialogTitle">
+        <div className="dialog-head">
+          <div>
+            <h2 id="titleDialogTitle">Title details</h2>
+            <p>
+              Shared by all volumes. Each edition keeps its own type and
+              publisher.
+            </p>
+          </div>
+          <button
+            id="closeTitle"
+            className="close"
+            aria-label="Close title details"
+          >
+            <svg aria-hidden="true">
+              <use href="#i-close" />
+            </svg>
+          </button>
+        </div>
+        <form id="titleForm">
+          <div className="dialog-body">
+            <div id="titleError" className="form-error" role="alert" hidden />
+            <div className="field">
+              <label htmlFor="titleSeries">Series name *</label>
+              <input id="titleSeries" required maxLength="500" />
+            </div>
+            <div id="titleEditions" className="title-editions" />
+            <p id="titleSaveHint" className="hint" />
+          </div>
+          <div className="dialog-foot">
+            <div className="buttons">
+              <button id="cancelTitle" className="btn" type="button">
+                Cancel
+              </button>
+              <button
+                id="saveTitleButton"
+                className="btn primary"
+                type="submit"
+              >
+                Save title details
+              </button>
+            </div>
+          </div>
+        </form>
+      </dialog>
       <dialog id={"bookDialog"} aria-labelledby={"bookDialogTitle"}>
         <div className={"dialog-head"}>
           <div>
@@ -479,6 +659,58 @@ export default function CollectionShell() {
               hidden
             ></div>
             <div className={"form-grid"}>
+              <fieldset id="titleEntry" className="title-entry span-2">
+                <legend>Title details</legend>
+                <div className="form-grid">
+                  <div id="titleNameField" className="field span-2">
+                    <label htmlFor="series">Series name *</label>
+                    <input
+                      id="series"
+                      name="series"
+                      list="seriesOptions"
+                      required
+                      maxLength="500"
+                      placeholder="Choose a title or enter a new one"
+                    />
+                    <datalist id="seriesOptions" />
+                  </div>
+                  <div className="field" data-title-field>
+                    <label htmlFor="type">Type *</label>
+                    <select id="type" name="type" required />
+                  </div>
+                  <div className="field" data-title-field>
+                    <label htmlFor="publisher">Publisher</label>
+                    <input
+                      id="publisher"
+                      name="publisher"
+                      list="publisherOptions"
+                      maxLength="500"
+                      placeholder="Choose or enter a publisher"
+                    />
+                    <datalist id="publisherOptions" />
+                  </div>
+                </div>
+              </fieldset>
+              <div
+                id="seriesDefaults"
+                className="series-defaults span-2"
+                hidden
+              >
+                <p id="seriesDefaultsText" role="status" />
+                <div id="editionField" className="field">
+                  <label htmlFor="bookEdition">Edition</label>
+                  <select id="bookEdition" />
+                </div>
+                <p className="hint">Edit shared details from the title page.</p>
+                <button
+                  id="toggleBookDetails"
+                  className="text-btn"
+                  type="button"
+                  aria-expanded="false"
+                >
+                  Edit other volume details
+                </button>
+              </div>
               <div className={"field span-2"} data-series-detail>
                 <label htmlFor={"isbn"}>
                   {"ISBN "}
@@ -516,33 +748,6 @@ export default function CollectionShell() {
                 role={"status"}
                 hidden
               ></div>
-              <div className={"field span-2"}>
-                <label htmlFor={"series"}>{"Series / book title *"}</label>
-                <input
-                  id={"series"}
-                  name={"series"}
-                  list={"seriesOptions"}
-                  required
-                  maxLength={"500"}
-                  placeholder={"Which story is this?"}
-                />
-                <datalist id={"seriesOptions"}></datalist>
-              </div>
-              <div
-                id={"seriesDefaults"}
-                className={"series-defaults span-2"}
-                hidden
-              >
-                <p id={"seriesDefaultsText"} role={"status"}></p>
-                <button
-                  id={"toggleBookDetails"}
-                  className={"text-btn"}
-                  type={"button"}
-                  aria-expanded={"false"}
-                >
-                  {"Edit other details"}
-                </button>
-              </div>
               <div className={"field"}>
                 <label htmlFor={"volume"}>{"Volume"}</label>
                 <input
@@ -553,21 +758,6 @@ export default function CollectionShell() {
                   step={"any"}
                   placeholder={"e.g. 1 or 4.5"}
                 />
-              </div>
-              <div className={"field"} data-series-detail>
-                <label htmlFor={"type"}>{"Type *"}</label>
-                <select id={"type"} name={"type"} required></select>
-              </div>
-              <div className={"field"} data-series-detail>
-                <label htmlFor={"publisher"}>{"Publisher"}</label>
-                <input
-                  id={"publisher"}
-                  name={"publisher"}
-                  list={"publisherOptions"}
-                  maxLength={"500"}
-                  placeholder={"Choose or enter a publisher"}
-                />
-                <datalist id={"publisherOptions"}></datalist>
               </div>
               <div className={"field"}>
                 <label htmlFor={"status"}>{"Reading status *"}</label>
@@ -630,7 +820,7 @@ export default function CollectionShell() {
                 />
                 <p className="hint">Choose a cover, then save your changes.</p>
               </fieldset>
-              <div className={"field"} data-series-detail>
+              <div className={"field"}>
                 <label htmlFor={"source"}>{"Bought from"}</label>
                 <input
                   id={"source"}
@@ -638,8 +828,12 @@ export default function CollectionShell() {
                   list={"sourceOptions"}
                   maxLength={"500"}
                   placeholder={"Shop, book fair, or gift"}
+                  aria-describedby="sourceHint"
                 />
                 <datalist id={"sourceOptions"}></datalist>
+                <p id="sourceHint" className="hint">
+                  Choose the store for this volume.
+                </p>
               </div>
               <div className={"field"}>
                 <label htmlFor={"date"}>{"Date bought"}</label>

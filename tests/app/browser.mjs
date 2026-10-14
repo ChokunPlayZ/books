@@ -355,8 +355,10 @@ try {
     "PASS protected cover endpoint, private caching, ETags and image persistence across server processes",
   );
   for (const name of [
+    "collection-filters.browser.mjs",
     "pricing.browser.mjs",
     "series-entry.browser.mjs",
+    "title-details.browser.mjs",
     "series-missing.browser.mjs",
     "volume-editions.browser.mjs",
     "firstpage-series.browser.mjs",

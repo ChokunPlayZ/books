@@ -14,6 +14,19 @@ const FIELDS = [
   "note",
 ];
 const $ = (id) => document.getElementById(id);
+const COLLECTION_FILTERS = [
+  "search",
+  "typeFilter",
+  "statusFilter",
+  "publisherFilter",
+  "sourceFilter",
+  "isbnFilter",
+  "priceFilter",
+  "minPriceFilter",
+  "maxPriceFilter",
+  "dateFromFilter",
+  "dateToFilter",
+];
 const state = {
   data: null,
   view: "collection",
@@ -142,6 +155,12 @@ async function load() {
       );
       if (!$("bookDialog").open) fillOptions(k, state.data.options[k]);
     });
+    fillOptions(
+      "publisherFilter",
+      state.data.options.publisher,
+      "All publishers",
+    );
+    fillOptions("sourceFilter", state.data.options.source, "All stores");
     $("addButton").disabled = state.busy;
     $("checkBookButton").disabled = state.busy;
     $("syncNote").textContent =
@@ -165,6 +184,164 @@ async function load() {
     $("refreshButton").disabled = false;
   }
 }
+function recordedPrice(book) {
+  if (
+    book.price === null ||
+    book.price === undefined ||
+    String(book.price).trim() === ""
+  )
+    return null;
+  const price = Number(book.price);
+  return Number.isFinite(price) && price >= 0 ? price : null;
+}
+function spendingTotal(books) {
+  return books.reduce((sum, book) => sum + (recordedPrice(book) ?? 0), 0);
+}
+function spendingGroups(books, key) {
+  const groups = new Map();
+  books.forEach((book) => {
+    const name = key(book);
+    if (!name) return;
+    if (!groups.has(name))
+      groups.set(name, { name, total: 0, count: 0, priced: 0 });
+    const group = groups.get(name),
+      price = recordedPrice(book);
+    group.count++;
+    if (price !== null) {
+      group.total += price;
+      group.priced++;
+    }
+  });
+  return [...groups.values()]
+    .filter((group) => group.priced)
+    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+}
+function renderCollectionSpending(books) {
+  const series = spendingGroups(books, seriesKey),
+    stores = spendingGroups(books, (book) => String(book.source || "").trim()),
+    priced = books.filter((book) => recordedPrice(book) !== null),
+    missing = books.length - priced.length,
+    unknownStores = priced.filter((book) => !String(book.source || "").trim());
+  const note = (group) =>
+    number(group.count) +
+    (group.count === 1 ? " book" : " books") +
+    " · " +
+    number(group.priced) +
+    " with prices";
+  [
+    ["Series", series],
+    ["Store", stores],
+  ].forEach(([kind, groups]) => {
+    const top = groups[0];
+    $("top" + kind + "Name").textContent =
+      top?.name ||
+      (kind === "Series"
+        ? "No prices recorded yet"
+        : "No store spending recorded yet");
+    $("top" + kind + "Amount").textContent = top
+      ? "฿" + number(top.total)
+      : "—";
+    $("top" + kind + "Note").textContent = top
+      ? note(top) +
+        (groups[1]?.total === top.total ? " · Tied for most spent" : "")
+      : "Add purchase details to see your spending here.";
+    const list = $(kind.toLowerCase() + "SpendingList");
+    list.replaceChildren();
+    if (!groups.length)
+      list.append(node("li", "hint", "No recorded spending yet."));
+    groups.slice(0, 5).forEach((group) => {
+      const item = node("li", "spending-item"),
+        copy = node("div");
+      copy.append(
+        node("span", "spending-name", group.name),
+        node("span", "hint", note(group)),
+      );
+      item.append(copy, node("strong", "", "฿" + number(group.total)));
+      list.append(item);
+    });
+  });
+  $("spendingCoverage").textContent =
+    number(priced.length) +
+    " of " +
+    number(books.length) +
+    " books have prices." +
+    (priced.length
+      ? " Average paid: ฿" + number(spendingTotal(priced) / priced.length) + "."
+      : "") +
+    (missing
+      ? " " +
+        number(missing) +
+        " without prices are excluded from spending totals."
+      : "") +
+    (unknownStores.length
+      ? " Purchases without a store: ฿" +
+        number(spendingTotal(unknownStores)) +
+        " across " +
+        number(unknownStores.length) +
+        (unknownStores.length === 1 ? " book" : " books") +
+        "; excluded from store rankings."
+      : "");
+}
+function collectionFilters() {
+  return Object.fromEntries(
+    COLLECTION_FILTERS.map((id) => [id, $(id).value.trim()]),
+  );
+}
+function resetCollectionFilters() {
+  COLLECTION_FILTERS.forEach((id) => ($(id).value = ""));
+  $("collectionSort").value = "default";
+  state.page = 0;
+}
+function matchesCollectionBook(book, filters) {
+  const q = filters.search.toLocaleLowerCase(),
+    price = recordedPrice(book);
+  return (
+    (!q ||
+      FIELDS.some((key) =>
+        String(book[key] ?? "")
+          .toLocaleLowerCase()
+          .includes(q),
+      )) &&
+    ["type", "status", "publisher", "source"].every(
+      (key) =>
+        !filters[key + "Filter"] || book[key] === filters[key + "Filter"],
+    ) &&
+    (!filters.isbnFilter ||
+      !!String(book.isbn || "").trim() ===
+        (filters.isbnFilter === "present")) &&
+    (!filters.priceFilter ||
+      (price !== null) === (filters.priceFilter === "present")) &&
+    (!filters.minPriceFilter ||
+      (price !== null && price >= Number(filters.minPriceFilter))) &&
+    (!filters.maxPriceFilter ||
+      (price !== null && price <= Number(filters.maxPriceFilter))) &&
+    (!filters.dateFromFilter ||
+      (!!book.date && book.date >= filters.dateFromFilter)) &&
+    (!filters.dateToFilter ||
+      (!!book.date && book.date <= filters.dateToFilter))
+  );
+}
+function compareCollectionEntries(a, b, sort, grouped) {
+  const aBooks = grouped ? a.books : [a.book],
+    bBooks = grouped ? b.books : [b.book];
+  if (sort === "spent") {
+    const aPriced = aBooks.some((book) => recordedPrice(book) !== null),
+      bPriced = bBooks.some((book) => recordedPrice(book) !== null),
+      difference =
+        Number(bPriced) - Number(aPriced) ||
+        spendingTotal(bBooks) - spendingTotal(aBooks);
+    if (difference) return difference;
+  }
+  if (sort === "books" && aBooks.length !== bBooks.length)
+    return bBooks.length - aBooks.length;
+  if (sort === "recent") {
+    const latest = (books) =>
+        books.reduce((date, book) => (book.date > date ? book.date : date), ""),
+      difference = latest(bBooks).localeCompare(latest(aBooks));
+    if (difference) return difference;
+  }
+  return grouped ? a.series.localeCompare(b.series) : byVolume(a.book, b.book);
+}
 function render() {
   if (!state.data) return;
   const releases = state.view === "releases";
@@ -185,30 +362,37 @@ function render() {
   $("readNote").textContent = books.length
     ? Math.round((read / books.length) * 100) + "%"
     : "";
-  const prices = books.filter(
-    (b) =>
-      b.price !== "" && b.price !== null && Number.isFinite(Number(b.price)),
-  );
-  $("spent").textContent = number(
-    prices.reduce((sum, b) => sum + Number(b.price), 0),
-  );
+  const prices = books.filter((book) => recordedPrice(book) !== null);
+  $("spent").textContent = number(spendingTotal(books));
   const missingPrices = books.length - prices.length;
   $("priceNote").textContent = missingPrices
     ? number(missingPrices) +
       (missingPrices === 1 ? " book has" : " books have") +
       " no price"
     : "";
-  const q = $("search").value.trim().toLocaleLowerCase();
-  const matches = (b) =>
-    (!q ||
-      FIELDS.some((k) =>
-        String(b[k] ?? "")
-          .toLocaleLowerCase()
-          .includes(q),
-      )) &&
-    (!$("typeFilter").value || b.type === $("typeFilter").value) &&
-    (!$("statusFilter").value || b.status === $("statusFilter").value);
+  const filters = collectionFilters(),
+    filtered = Object.values(filters).some(Boolean),
+    matches = (book) => matchesCollectionBook(book, filters);
   const grouped = state.view === "collection" && state.selectedSeries === null;
+  $("collectionSort").options[0].textContent = grouped
+    ? "Series A–Z"
+    : state.view === "trash"
+      ? "Recently removed"
+      : "Volume order";
+  $("collectionSort").querySelector('[value="books"]').disabled = !grouped;
+  if (!grouped && $("collectionSort").value === "books")
+    $("collectionSort").value = "default";
+  const sort = $("collectionSort").value,
+    advancedCount =
+      COLLECTION_FILTERS.slice(3).filter((id) => filters[id]).length +
+      Number(sort !== "default");
+  $("collectionFiltersSummary").textContent =
+    "More filters & sorting" +
+    (advancedCount ? " · " + advancedCount + " active" : "");
+  $("clearCollectionFilters").hidden = !filtered && sort === "default";
+  $("collectionFilterHint").textContent = grouped
+    ? "Filters match individual books. Series show only matching books; opening a series shows all owned volumes."
+    : "Filters apply to the books shown below. Spending summaries always use your whole collection.";
   const owned =
     state.selectedSeries !== null
       ? books.filter((b) => seriesKey(b) === state.selectedSeries)
@@ -225,20 +409,20 @@ function render() {
   if (grouped) {
     const groups = new Map();
     books.forEach((b) => {
+      if (!matches(b)) return;
       const key = seriesKey(b);
-      if (!groups.has(key)) groups.set(key, { series: key, books: [] });
+      if (!groups.has(key))
+        groups.set(key, { series: key, books: [], filtered });
       groups.get(key).books.push(b);
     });
-    entries = [...groups.values()]
-      .filter((g) => g.books.some(matches))
-      .sort((a, b) => a.series.localeCompare(b.series));
+    entries = [...groups.values()];
   } else {
     entries = (
       state.view === "trash" ? trash : owned.map((book) => ({ book }))
     ).filter(({ book }) => matches(book));
-    if (state.view === "collection")
-      entries.sort((a, b) => byVolume(a.book, b.book));
   }
+  if (grouped || state.view === "collection" || sort !== "default")
+    entries.sort((a, b) => compareCollectionEntries(a, b, sort, grouped));
   // A series opens its entire owned-volume list, without paging it into separate screens.
   const pageSize =
     state.selectedSeries !== null
@@ -248,7 +432,6 @@ function render() {
   state.page = Math.max(0, Math.min(state.page, pages - 1));
   const start = state.page * pageSize,
     slice = entries.slice(start, start + pageSize);
-  const filtered = q || $("typeFilter").value || $("statusFilter").value;
   $("resultCount").textContent =
     number(entries.length) +
     (grouped
@@ -261,11 +444,18 @@ function render() {
           ? " removed book"
           : " removed books") +
     (filtered ? " found" : "");
-  $("listRight").textContent = grouped
-    ? "Books"
-    : state.view === "collection"
-      ? "Ordered by volume"
-      : "Ready to restore";
+  $("listRight").textContent =
+    sort === "spent"
+      ? "Most spent first"
+      : sort === "recent"
+        ? "Recently bought first"
+        : grouped
+          ? filtered
+            ? "Matching books"
+            : "Books"
+          : state.view === "collection"
+            ? "Ordered by volume"
+            : "Ready to restore";
   $("bookList").setAttribute(
     "aria-label",
     grouped
@@ -279,6 +469,8 @@ function render() {
     releases || discover || state.selectedSeries !== null;
   $("collectionStats").hidden =
     releases || discover || state.selectedSeries !== null;
+  $("collectionSpending").hidden = !grouped;
+  if (grouped) renderCollectionSpending(books);
   $("seriesTitle").textContent = state.selectedSeries || "";
   const numbered = owned.filter(
     (b) => b.volume !== "" && b.volume !== null,
@@ -291,6 +483,9 @@ function render() {
     [...new Set(owned.map((b) => b.type).filter(Boolean))].join(", ") +
     (sharedDetails.publisher ? " · " + sharedDetails.publisher : "") +
     (sharedDetails.source ? " · " + sharedDetails.source : "") +
+    " · ฿" +
+    number(spendingTotal(owned)) +
+    " recorded spending" +
     (numbered < owned.length
       ? " · " + (owned.length - numbered) + " unnumbered"
       : "");
@@ -401,7 +596,7 @@ function seriesRow(group) {
       group.series +
       ", " +
       group.books.length +
-      " owned " +
+      (group.filtered ? " matching " : " owned ") +
       (group.books.length === 1 ? "volume" : "volumes"),
   );
   const info = node("span", "series-info");
@@ -416,6 +611,9 @@ function seriesRow(group) {
           " / ",
         ),
         volumes,
+        group.books.some((book) => recordedPrice(book) !== null)
+          ? "฿" + number(spendingTotal(group.books)) + " spent"
+          : "No prices recorded",
       ]
         .filter(Boolean)
         .join(" · "),
@@ -432,9 +630,7 @@ function openSeries(series) {
   state.selectedSeries = series;
   state.seriesDetailsExpanded = false;
   state.page = 0;
-  $("search").value = "";
-  $("typeFilter").value = "";
-  $("statusFilter").value = "";
+  resetCollectionFilters();
   $("seriesReleaseError").hidden = true;
   $("seriesCatalogDetails").open = false;
   render();
@@ -1088,6 +1284,143 @@ function seriesDefaults(series = state.selectedSeries) {
   });
   return defaults;
 }
+function titleEditions(series) {
+  const editions = new Map();
+  state.data.books
+    .filter((book) => seriesKey(book) === series)
+    .forEach((book) => {
+      const key = JSON.stringify([book.type, book.publisher]);
+      if (!editions.has(key))
+        editions.set(key, {
+          key,
+          type: book.type,
+          publisher: book.publisher,
+          books: [],
+        });
+      editions.get(key).books.push(book);
+    });
+  return [...editions.values()];
+}
+function openTitle() {
+  if (state.busy || !state.selectedSeries) return;
+  const title = state.data.titles.find(
+    (entry) => entry.series === state.selectedSeries,
+  );
+  if (!title) return;
+  state.editingTitle = { ...title, editions: titleEditions(title.series) };
+  state.pendingTitle = null;
+  $("titleError").hidden = true;
+  $("titleSeries").value = title.series;
+  $("titleEditions").replaceChildren();
+  state.editingTitle.editions.forEach((edition, index) => {
+    const group = node("fieldset", "title-entry"),
+      grid = node("div", "form-grid");
+    group.append(node("legend", "", "Edition " + (index + 1)));
+    const type = node("select"),
+      publisher = node("input");
+    type.id = "titleEditionType" + index;
+    type.required = true;
+    [...new Set([...state.data.options.type, edition.type])]
+      .filter(Boolean)
+      .forEach((value) => {
+        const option = node("option", "", value);
+        option.value = value;
+        type.append(option);
+      });
+    type.value = edition.type;
+    publisher.id = "titleEditionPublisher" + index;
+    publisher.value = edition.publisher;
+    publisher.maxLength = 500;
+    publisher.setAttribute("list", "publisherOptions");
+    for (const [label, input] of [
+      ["Type *", type],
+      ["Publisher", publisher],
+    ]) {
+      const field = node("div", "field"),
+        caption = node("label", "", label);
+      caption.htmlFor = input.id;
+      field.append(caption, input);
+      grid.append(field);
+    }
+    group.append(
+      grid,
+      node(
+        "p",
+        "hint",
+        edition.books.length +
+          " owned " +
+          (edition.books.length === 1 ? "volume" : "volumes"),
+      ),
+    );
+    $("titleEditions").append(group);
+  });
+  $("titleSaveHint").textContent =
+    "Changes apply to all " +
+    state.editingTitle.editions.reduce(
+      (count, edition) => count + edition.books.length,
+      0,
+    ) +
+    " owned volumes in this title.";
+  $("titleDialog").showModal();
+  $("titleSeries").focus();
+}
+function closeTitle() {
+  if (state.busy) return;
+  $("titleDialog").close();
+  state.editingTitle = null;
+}
+async function saveTitle(event) {
+  event.preventDefault();
+  if (state.busy || !state.editingTitle || !$("titleForm").reportValidity())
+    return;
+  const content = {
+    series: state.editingTitle.series,
+    token: state.editingTitle.token,
+    title: {
+      series: $("titleSeries").value,
+      editions: state.editingTitle.editions.map((edition, index) => ({
+        originalType: edition.type,
+        originalPublisher: edition.publisher,
+        type: $("titleEditionType" + index).value,
+        publisher: $("titleEditionPublisher" + index).value,
+      })),
+    },
+  };
+  const key = JSON.stringify(content);
+  if (state.pendingTitle?.key !== key)
+    state.pendingTitle = {
+      key,
+      request: { ...content, requestId: requestId() },
+    };
+  $("titleError").hidden = true;
+  setBusy(true);
+  $("saveTitleButton").textContent = "Saving…";
+  try {
+    const result = await rpc("saveTitle", state.pendingTitle.request);
+    $("titleDialog").close();
+    state.editingTitle = null;
+    state.pendingTitle = null;
+    state.selectedSeries = result.series;
+    state.seriesCatalogs.clear();
+    state.catalogEditors.clear();
+    state.bookCovers.clear();
+    resetCollectionFilters();
+    notify("Title details saved for " + result.volumes + " owned volumes.");
+    try {
+      await load();
+    } catch {
+      errorAt(
+        "pageError",
+        "Title details were saved, but the list could not refresh. Press Refresh.",
+      );
+    }
+  } catch (error) {
+    errorAt("titleError", error);
+  } finally {
+    setBusy(false);
+    $("saveTitleButton").textContent = "Save title details";
+  }
+}
 function syncSeriesSelection() {
   if (state.editing) {
     renderBookDetails();
@@ -1107,6 +1440,7 @@ function syncSeriesSelection() {
           : state.sharedDraft[k]),
     );
     state.formSeries = series;
+    state.newEdition = false;
     state.detailsExpanded = false;
     $("priceCalculator").open =
       !series || $("regularPrice").value !== "" || $("discount").value !== "";
@@ -1115,30 +1449,54 @@ function syncSeriesSelection() {
 }
 function renderBookDetails() {
   const quick = !!state.formSeries && !state.editing;
+  const editions = state.formSeries ? titleEditions(state.formSeries) : [];
+  const editionKey = JSON.stringify([$("type").value, $("publisher").value]);
+  const inherited =
+    editions.some((edition) => edition.key === editionKey) && !state.newEdition;
+  const titleFields = !state.editing && !inherited;
+  $("titleNameField").hidden = state.titleLocked;
+  $("titleEntry").hidden = state.titleLocked && !titleFields;
+  $("bookForm")
+    .querySelectorAll("[data-title-field]")
+    .forEach((field) => (field.hidden = !titleFields));
+  $("bookEdition").replaceChildren();
+  editions.forEach((edition) => {
+    const option = node(
+      "option",
+      "",
+      [edition.type, edition.publisher || "No publisher"].join(" · "),
+    );
+    option.value = edition.key;
+    $("bookEdition").append(option);
+  });
+  if (!state.editing) {
+    const option = node("option", "", "Add another edition…");
+    option.value = "new";
+    $("bookEdition").append(option);
+  }
+  $("bookEdition").value = inherited ? editionKey : "new";
+  $("editionField").hidden =
+    !state.formSeries || (state.editing && editions.length < 2);
   $("bookForm")
     .querySelectorAll("[data-series-detail]")
     .forEach((e) => (e.hidden = quick && !state.detailsExpanded));
-  $("seriesDefaults").hidden = !quick;
+  $("seriesDefaults").hidden = !state.formSeries;
   $("seriesDefaultsText").textContent =
-    "From this series: " +
-    [
-      $("type").value,
-      $("publisher").value,
-      $("source").value ? "Bought from " + $("source").value : "",
-    ]
-      .filter(Boolean)
-      .join(" · ");
+    state.formSeries +
+    " · " +
+    [$("type").value, $("publisher").value].filter(Boolean).join(" · ");
   $("toggleBookDetails").textContent = state.detailsExpanded
-    ? "Hide other details"
-    : "Edit other details";
+    ? "Hide other volume details"
+    : "Edit other volume details";
+  $("toggleBookDetails").hidden = !!state.editing;
   $("toggleBookDetails").setAttribute(
     "aria-expanded",
     String(!!state.detailsExpanded),
   );
   $("bookDialogSubtitle").textContent = state.editing
-    ? "A few details, one well-kept shelf."
+    ? "Edit this volume’s ISBN, reading status and purchase details."
     : quick
-      ? "Enter the volume, reading status, price and date bought."
+      ? "Enter the volume, store, reading status, price and date bought."
       : "Scan an ISBN or fill in the details yourself.";
   $("keepAddingText").textContent = quick
     ? "Keep adding volumes to this series"
@@ -2587,7 +2945,10 @@ function openBook(book, defaults) {
   state.typeTouched = false;
   state.pendingSave = null;
   state.pendingRemove = null;
-  state.formSeries = null;
+  state.formSeries = book ? seriesKey(book) : null;
+  state.titleLocked =
+    !!book || (!!defaults?.series && defaults.series === state.selectedSeries);
+  state.newEdition = false;
   state.sharedDraft = null;
   state.detailsExpanded = false;
   $("bookForm").reset();
@@ -2621,6 +2982,11 @@ function openBook(book, defaults) {
   $("keepAddingLabel").hidden = !!book;
   $("priceCalculator").open = true;
   syncSeriesSelection();
+  if (!book && defaults?.type && defaults.publisher !== undefined) {
+    $("type").value = defaults.type;
+    $("publisher").value = defaults.publisher;
+    renderBookDetails();
+  }
   $("saveButton").disabled = !!book?.hasFormula;
   $("removeButton").disabled = !!book?.hasFormula;
   if (book?.hasFormula)
@@ -2629,7 +2995,7 @@ function openBook(book, defaults) {
       "This row contains a formula. Edit it directly in the sheet to preserve the formula.",
     );
   $("bookDialog").showModal();
-  (book ? $("series") : state.formSeries ? $("volume") : $("isbn")).focus();
+  (state.formSeries ? $("volume") : $("isbn")).focus();
 }
 function resetPricing() {
   state.calculatedPrice = null;
@@ -2736,7 +3102,12 @@ async function lookup() {
         ". Review the series name and volume before saving.";
       if (!initial.series && !$("series").value)
         $("series").value = d.series || d.title;
-      if (!initial.publisher && !$("publisher").value)
+      if (
+        !state.formSeries &&
+        !state.editing &&
+        !initial.publisher &&
+        !$("publisher").value
+      )
         $("publisher").value = d.publisher;
       syncSeriesSelection();
       if (d.volume !== undefined && d.volume !== "" && !$("volume").value)
@@ -2789,12 +3160,19 @@ function setBusy(busy) {
     "linkScanButton",
     "closeIsbn",
     "cancelIsbn",
+    "editTitleButton",
+    "saveTitleButton",
+    "closeTitle",
+    "cancelTitle",
   ].forEach((id) => ($(id).disabled = busy));
   $("bookForm")
     .querySelectorAll("input,select,textarea")
     .forEach((e) => (e.disabled = busy));
   $("isbnForm")
     .querySelectorAll("input")
+    .forEach((e) => (e.disabled = busy));
+  $("titleForm")
+    .querySelectorAll("input,select")
     .forEach((e) => (e.disabled = busy));
 }
 async function save(event) {
@@ -3419,9 +3797,7 @@ $("addButton").addEventListener("click", () =>
 $("backSeries").addEventListener("click", () => {
   state.selectedSeries = null;
   state.page = 0;
-  $("search").value = "";
-  $("typeFilter").value = "";
-  $("statusFilter").value = "";
+  resetCollectionFilters();
   render();
 });
 $("closeBook").addEventListener("click", closeBook);
@@ -3431,6 +3807,28 @@ $("bookDialog").addEventListener("cancel", (e) => {
   closeBook();
 });
 $("bookForm").addEventListener("submit", save);
+$("editTitleButton").addEventListener("click", openTitle);
+$("titleForm").addEventListener("submit", saveTitle);
+["closeTitle", "cancelTitle"].forEach((id) =>
+  $(id).addEventListener("click", closeTitle),
+);
+$("titleDialog").addEventListener("cancel", (event) => {
+  event.preventDefault();
+  closeTitle();
+});
+$("bookEdition").addEventListener("change", () => {
+  state.newEdition = $("bookEdition").value === "new";
+  if (!state.newEdition) {
+    const [type, publisher] = JSON.parse($("bookEdition").value);
+    $("type").value = type;
+    $("publisher").value = publisher;
+  }
+  state.typeTouched = true;
+  state.coverPickerGeneration++;
+  $("publisherCoverChoices").replaceChildren();
+  renderBookDetails();
+  renderMetadataCover();
+});
 ["input", "change"].forEach((event) =>
   $("series").addEventListener(event, syncSeriesSelection),
 );
@@ -3591,12 +3989,16 @@ $("hideSpecialReleases").addEventListener("click", () => {
   );
   renderReleases();
 });
-["search", "typeFilter", "statusFilter"].forEach((id) =>
-  $(id).addEventListener(id === "search" ? "input" : "change", () => {
+[...COLLECTION_FILTERS, "collectionSort"].forEach((id) =>
+  $(id).addEventListener($(id).tagName === "INPUT" ? "input" : "change", () => {
     state.page = 0;
     render();
   }),
 );
+$("clearCollectionFilters").addEventListener("click", () => {
+  resetCollectionFilters();
+  render();
+});
 $("previousPage").addEventListener("click", () => {
   state.page--;
   render();
