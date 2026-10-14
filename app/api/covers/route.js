@@ -9,12 +9,10 @@ export async function GET(request) {
   try {
     const { store, covers } = getApp();
     authorize(store, request);
-    const image = await covers.get(
-      new URL(request.url).searchParams.get("url"),
-    );
+    const image = covers.get(new URL(request.url).searchParams.get("id"));
     const headers = {
       "Content-Type": image.contentType,
-      "Cache-Control": "private, max-age=" + (image.stale ? 300 : 86400),
+      "Cache-Control": "private, max-age=31536000, immutable",
       ETag: image.etag,
       "X-Content-Type-Options": "nosniff",
     };
