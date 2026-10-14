@@ -46,6 +46,17 @@ const state = {
   catalogLoading: new Set(),
   catalogEditors: new Map(),
   catalogRefreshing: false,
+  discoveryFeeds: new Map(),
+  discoveryUrl: "https://www.phoenixnext.com/gl.html",
+  discoveryLoading: false,
+  bookCovers: new Map(),
+  coverQueue: [],
+  coverRequests: 0,
+  discoveryTitleResults: new Map(),
+  titleQueue: [],
+  titleRequests: 0,
+  discoveryRefresh: false,
+  titleGeneration: 0,
 };
 let toastTimer;
 function icon(name) {
@@ -156,8 +167,10 @@ async function load() {
 function render() {
   if (!state.data) return;
   const releases = state.view === "releases";
-  $("collectionBrowser").hidden = releases;
+  const discover = state.view === "discover";
+  $("collectionBrowser").hidden = releases || discover;
   $("releasesPanel").hidden = !releases;
+  $("discoverPanel").hidden = !discover;
   const { books, trash } = state.data;
   $("bookCount").textContent = number(books.length);
   $("activeCount").textContent = number(books.length);
@@ -261,8 +274,10 @@ function render() {
         : "Removed books",
   );
   $("seriesHeader").hidden = state.selectedSeries === null;
-  $("collectionHeading").hidden = releases || state.selectedSeries !== null;
-  $("collectionStats").hidden = releases || state.selectedSeries !== null;
+  $("collectionHeading").hidden =
+    releases || discover || state.selectedSeries !== null;
+  $("collectionStats").hidden =
+    releases || discover || state.selectedSeries !== null;
   $("seriesTitle").textContent = state.selectedSeries || "";
   const numbered = owned.filter(
     (b) => b.volume !== "" && b.volume !== null,
@@ -288,6 +303,9 @@ function render() {
   $("search").placeholder = grouped
     ? "Search series, ISBN, publisher or notes…"
     : "Search volumes, ISBN, publisher or notes…";
+  $("bookList")
+    .querySelectorAll(".shelf-cover")
+    .forEach((frame) => coverObserver.unobserve(frame));
   $("bookList").replaceChildren();
   if (!entries.length) {
     const empty = node("div", "empty");
@@ -327,6 +345,7 @@ function render() {
   $("previousPage").disabled = state.page === 0;
   $("nextPage").disabled = state.page >= pages - 1;
   if (releases) renderReleases();
+  if (discover) renderDiscovery();
 }
 function seriesKey(book) {
   return String(book.series || "").trim() || "Untitled series";
@@ -401,7 +420,8 @@ function seriesRow(group) {
         .join(" · "),
     ),
   );
-  button.append(info);
+  const first = [...group.books].sort(byVolume)[0];
+  button.append(bookCover(first, "shelf-cover"), info);
   const count = node("span", "series-total", String(group.books.length));
   button.append(count, node("span", "series-arrow", "›"));
   button.addEventListener("click", () => openSeries(group.series));
@@ -481,6 +501,7 @@ async function loadSeriesCatalogs(
               refresh,
             }),
           );
+          refreshVisibleCovers();
         } catch (error) {
           const old = state.seriesCatalogs.get(key);
           state.seriesCatalogs.set(key, {
@@ -1130,7 +1151,8 @@ function renderBookDetails() {
 function bookRow(entry, sharedDetails = {}) {
   const b = entry.book,
     row = node("article", "book-row");
-  const info = node("div", "book-info");
+  const details = node("div", "book-info"),
+    info = node("div", "book-copy");
   info.append(
     node(
       "h2",
@@ -1171,7 +1193,8 @@ function bookRow(entry, sharedDetails = {}) {
     addIsbn.addEventListener("click", () => openIsbn(b));
     meta.append(addIsbn);
   }
-  row.append(info);
+  details.append(bookCover(b, "shelf-cover"), info);
+  row.append(details);
   const statusWrap = node("div", "book-status");
   statusWrap.append(
     node(
@@ -1215,12 +1238,14 @@ function changeView(view) {
   state.view = view;
   state.selectedSeries = null;
   state.page = 0;
-  ["collection", "trash", "releases"].forEach((k) => {
+  ["collection", "trash", "releases", "discover"].forEach((k) => {
     $(k + "Tab").classList.toggle("active", k === view);
     $(k + "Tab").setAttribute("aria-pressed", String(k === view));
   });
   render();
   if (view === "releases" && !state.releasesLoaded) void loadReleases();
+  if (view === "discover" && !state.discoveryFeeds.has(state.discoveryUrl))
+    void loadDiscovery();
 }
 function releaseSeriesKey(title) {
   return String(title || "")
@@ -1233,6 +1258,7 @@ function releaseSeriesKey(title) {
     .replace(/\s*\((?:ฉบับพิเศษ|ปกพิเศษ)\)\s*$/i, "")
     .normalize("NFKC")
     .toLocaleLowerCase()
+    .replace(/@comic/gi, "")
     .replace(/[^\p{L}\p{N}\p{M}]/gu, "");
 }
 function matchingBookType(type) {
@@ -1354,6 +1380,425 @@ function releaseLink(label, url) {
   a.target = "_blank";
   a.rel = "noopener noreferrer";
   return a;
+}
+
+function coverImage(url, title, className) {
+  const frame = node("span", "cover-frame " + className);
+  setCoverImage(frame, url, title);
+  return frame;
+}
+function setCoverImage(frame, url, title) {
+  if (frame._coverUrl === (url || "")) return;
+  frame._coverUrl = url || "";
+  frame.replaceChildren();
+  const placeholder = node("span", "cover-placeholder", "No cover");
+  placeholder.prepend(icon("books"));
+  frame.append(placeholder);
+  if (!url || !/^https:\/\//i.test(url)) return;
+  const img = node("img");
+  img.alt = title + " cover";
+  img.width = 264;
+  img.height = 370;
+  img.loading = "lazy";
+  img.decoding = "async";
+  img.referrerPolicy = "no-referrer";
+  let failed = false;
+  img.addEventListener("load", () => {
+    if (!failed) placeholder.hidden = true;
+  });
+  img.addEventListener("error", () => {
+    failed = true;
+    img.remove();
+    placeholder.hidden = false;
+  });
+  img.src = url;
+  frame.append(img);
+}
+function bookCoverKey(book) {
+  return JSON.stringify([
+    canonical(book.isbn),
+    book.series,
+    book.publisher,
+    book.type,
+    book.volume,
+  ]);
+}
+function knownBookCover(book) {
+  const feeds = [
+    ...state.seriesCatalogs.values(),
+    ...state.releaseFeeds.values(),
+    ...state.discoveryFeeds.values(),
+  ];
+  const items = feeds.flatMap((feed) => feed.items || []);
+  const isbn = canonical(book.isbn);
+  const exact =
+    isbn &&
+    items.find((item) => canonical(item.isbn) === isbn && item.coverUrl);
+  if (exact) return exact.coverUrl;
+  const item = items.find(
+    (item) =>
+      item.coverUrl &&
+      !item.special &&
+      !item.bundle &&
+      item.volume !== "" &&
+      item.volume != null &&
+      book.volume !== "" &&
+      book.volume != null &&
+      Number(item.volume) === Number(book.volume) &&
+      item.publisherId === publisherKey(book.publisher) &&
+      matchingBookType(item.type) === matchingBookType(book.type) &&
+      releaseSeriesKey(item.catalogSeries || item.series) ===
+        releaseSeriesKey(book.series),
+  );
+  return item?.coverUrl || state.bookCovers.get(bookCoverKey(book)) || "";
+}
+const coverObserver = new IntersectionObserver(
+  (entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      coverObserver.unobserve(entry.target);
+      const book = entry.target._book,
+        key = bookCoverKey(book);
+      if (knownBookCover(book) || state.bookCovers.has(key)) continue;
+      state.bookCovers.set(key, "");
+      state.coverQueue.push({ book, key });
+    }
+    void fetchQueuedCovers();
+  },
+  { rootMargin: "100px" },
+);
+function bookCover(book, className) {
+  const title =
+    book.series + (book.volume !== "" ? ", volume " + book.volume : "");
+  const frame = coverImage(knownBookCover(book), title, className);
+  frame._book = book;
+  coverObserver.observe(frame);
+  return frame;
+}
+async function fetchQueuedCovers() {
+  while (state.coverRequests < 3 && state.coverQueue.length) {
+    const { book, key } = state.coverQueue.shift();
+    state.coverRequests++;
+    void rpc("getBookCover", { row: book.row })
+      .then((result) => {
+        state.bookCovers.set(key, result.coverUrl || "");
+        refreshVisibleCovers();
+      })
+      .catch(() => {})
+      .finally(() => {
+        state.coverRequests--;
+        void fetchQueuedCovers();
+      });
+  }
+}
+function refreshVisibleCovers() {
+  document.querySelectorAll(".shelf-cover").forEach((frame) => {
+    const book = frame._book;
+    if (book)
+      setCoverImage(
+        frame,
+        knownBookCover(book),
+        book.series + (book.volume !== "" ? ", volume " + book.volume : ""),
+      );
+  });
+}
+
+async function loadDiscovery(refresh = false) {
+  if (!state.data || state.discoveryLoading) return;
+  const url = $("discoveryUrl").value.trim();
+  state.discoveryUrl = url;
+  state.discoveryLoading = true;
+  $("discoveryError").hidden = true;
+  renderDiscovery();
+  try {
+    if (refresh) await load();
+    const feed = await rpc("getPublisherDirectory", { url, refresh });
+    if (refresh) {
+      state.titleGeneration++;
+      state.discoveryTitleResults.clear();
+      state.titleQueue = [];
+    }
+    state.discoveryRefresh = refresh;
+    state.discoveryFeeds.set(url, feed);
+    refreshVisibleCovers();
+  } catch (error) {
+    errorAt("discoveryError", error);
+  } finally {
+    state.discoveryLoading = false;
+    renderDiscovery();
+  }
+}
+function discoveryTitles(items) {
+  const groups = new Map();
+  for (const item of items) {
+    const key = item.publisherId + ":" + releaseSeriesKey(item.series);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  }
+  const owned = state.data.books;
+  const aliases = state.data.seriesCatalogs || [];
+  const rank = (item) =>
+    item.bundle
+      ? 5
+      : Number(item.volume) === 1
+        ? item.special
+          ? 1
+          : 0
+        : item.special
+          ? 4
+          : 2;
+  return [...groups.values()]
+    .filter(
+      (list) =>
+        !owned.some((book) =>
+          list.some(
+            (item) =>
+              (canonical(item.isbn) &&
+                canonical(item.isbn) === canonical(book.isbn)) ||
+              (publisherKey(book.publisher) === item.publisherId &&
+                (releaseSeriesKey(book.series) ===
+                  releaseSeriesKey(item.series) ||
+                  aliases.some(
+                    (alias) =>
+                      alias.publisherId === item.publisherId &&
+                      releaseSeriesKey(alias.series) ===
+                        releaseSeriesKey(book.series) &&
+                      releaseSeriesKey(alias.title) ===
+                        releaseSeriesKey(item.series),
+                  ))),
+          ),
+        ),
+    )
+    .map((list) => {
+      list.sort(
+        (a, b) =>
+          rank(a) - rank(b) ||
+          (a.volume === "" ? Infinity : Number(a.volume)) -
+            (b.volume === "" ? Infinity : Number(b.volume)) ||
+          Number(/\[แถม|\[ฟรี/.test(a.title)) -
+            Number(/\[แถม|\[ฟรี/.test(b.title)) ||
+          a.title.localeCompare(b.title),
+      );
+      const first = list[0];
+      return {
+        ...first,
+        coverUrl:
+          first.coverUrl ||
+          list.find((item) => item.volume === first.volume && item.coverUrl)
+            ?.coverUrl ||
+          "",
+      };
+    })
+    .sort((a, b) => a.series.localeCompare(b.series));
+}
+
+function discoveryTitleKey(item) {
+  return JSON.stringify(item.categories.map((category) => category.url).sort());
+}
+const titleObserver = new IntersectionObserver(
+  (entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      titleObserver.unobserve(entry.target);
+      const item = entry.target._title,
+        key = discoveryTitleKey(item);
+      if (state.discoveryTitleResults.has(key)) continue;
+      state.discoveryTitleResults.set(key, { loading: true });
+      state.titleQueue.push({
+        item,
+        key,
+        refresh: state.discoveryRefresh,
+        generation: state.titleGeneration,
+      });
+    }
+    void fetchQueuedTitles();
+  },
+  { rootMargin: "150px" },
+);
+async function fetchQueuedTitles() {
+  while (state.titleRequests < 3 && state.titleQueue.length) {
+    const { item, key, refresh, generation } = state.titleQueue.shift();
+    state.titleRequests++;
+    void rpc("getPublisherTitle", {
+      publisherId: item.publisherId,
+      categories: item.categories,
+      series: item.series,
+      refresh,
+    })
+      .then((result) => {
+        if (generation === state.titleGeneration)
+          state.discoveryTitleResults.set(key, result);
+      })
+      .catch(() => {
+        if (generation === state.titleGeneration)
+          state.discoveryTitleResults.set(key, {
+            error:
+              "Cover unavailable. Open the publisher category or refresh to try again.",
+          });
+      })
+      .finally(() => {
+        state.titleRequests--;
+        renderDiscovery();
+        void fetchQueuedTitles();
+      });
+  }
+}
+function renderDiscovery() {
+  if (!state.data) return;
+  const feed = state.discoveryFeeds.get(state.discoveryUrl);
+  $("refreshDiscovery").disabled = state.discoveryLoading;
+  $("loadDiscovery").disabled = state.discoveryLoading;
+  $("discoveryPreset").disabled = state.discoveryLoading;
+  $("discoveryUrl").disabled = state.discoveryLoading;
+  $("refreshDiscovery").textContent = state.discoveryLoading
+    ? "Checking category…"
+    : "Refresh titles";
+  const source = $("discoverySource");
+  source.replaceChildren();
+  if (feed) {
+    source.append(
+      releaseLink((feed.title || "Publisher category") + " ↗", feed.url),
+    );
+    if (feed.checkedAt)
+      source.append(
+        node(
+          "p",
+          "hint",
+          (feed.stale ? "Previous check " : "Checked ") +
+            new Date(feed.checkedAt).toLocaleString() +
+            " · " +
+            number(feed.titles?.length || 0) +
+            " titles from publisher navigation",
+        ),
+      );
+    if (feed.error) source.append(node("p", "source-error", feed.error));
+  }
+  const all = discoveryTitles(
+    (feed?.titles || []).map((entry) => {
+      const result = state.discoveryTitleResults.get(discoveryTitleKey(entry));
+      return result?.item
+        ? {
+            ...result.item,
+            categories: entry.categories,
+            series: entry.series,
+            catalogSeries: entry.series,
+            directory: true,
+            resolved: true,
+            categoryUrl: entry.url,
+          }
+        : entry;
+    }),
+  );
+  const query = $("discoverySearch").value.trim().toLocaleLowerCase();
+  const items = all.filter(
+    (item) => !query || item.series.toLocaleLowerCase().includes(query),
+  );
+  $("discoveryCount").textContent = state.discoveryLoading
+    ? "Reading the publisher category…"
+    : number(items.length) +
+      (items.length === 1 ? " title" : " titles") +
+      " you haven’t started";
+  const list = $("discoveryList");
+  list
+    .querySelectorAll(".discovery-card")
+    .forEach((card) => titleObserver.unobserve(card));
+  list.replaceChildren();
+  if (!items.length) {
+    const empty = node("div", "empty");
+    empty.append(
+      node(
+        "h2",
+        "",
+        state.discoveryLoading
+          ? "Finding your next series…"
+          : !feed || feed.stale
+            ? "Load a publisher category"
+            : query
+              ? "No titles match these filters"
+              : "No new titles in this category",
+      ),
+      node(
+        "p",
+        "",
+        state.discoveryLoading
+          ? "Checking category pages for titles and first volumes."
+          : "Try another category or adjust your search. Titles already on your shelf are hidden.",
+      ),
+    );
+    list.append(empty);
+  }
+  const saved = new Set(
+    (state.data.savedReleases || []).map((item) => item.id),
+  );
+  for (const item of items) {
+    const card = node("article", "discovery-card");
+    const result = state.discoveryTitleResults.get(discoveryTitleKey(item));
+    card._title = item;
+    if (!item.resolved) titleObserver.observe(card);
+    const coverLink = releaseLink("", item.url);
+    coverLink.setAttribute(
+      "aria-label",
+      "Open " + item.series + " on the publisher website",
+    );
+    coverLink.append(coverImage(item.coverUrl, item.title, "discovery-cover"));
+    card.append(
+      coverLink,
+      node("p", "eyebrow", item.publisher),
+      node("h2", "book-title", item.series),
+      node(
+        "p",
+        "release-meta",
+        !item.resolved
+          ? result && !result.loading
+            ? result.complete && !result.item
+              ? "No current book listing"
+              : "Cover unavailable"
+            : "Loading first-volume cover…"
+          : [
+              item.type,
+              item.bundle
+                ? "Set listing"
+                : item.volume === ""
+                  ? "Single book / unnumbered"
+                  : "Volume " + item.volume,
+              item.volume !== 1 && item.volume !== ""
+                ? "Volume 1 not listed"
+                : "",
+              item.special ? "Special edition" : "",
+            ]
+              .filter(Boolean)
+              .join(" · "),
+      ),
+    );
+    if (result?.error) card.append(node("p", "source-error", result.error));
+    const actions = node("div", "buttons");
+    const saveButton = node(
+      "button",
+      "btn",
+      saved.has(item.id) ? "Saved · Unsave" : "Save for later",
+    );
+    saveButton.disabled = !item.resolved || state.savingReleases.size > 0;
+    saveButton.setAttribute("aria-pressed", String(saved.has(item.id)));
+    saveButton.addEventListener(
+      "click",
+      () => void saveRelease(item, !saved.has(item.id)),
+    );
+    actions.append(saveButton);
+    const add = node("button", "btn", "Add to shelf");
+    add.disabled = !item.resolved || state.busy;
+    add.addEventListener("click", () =>
+      openRelease(item, releaseMatches(item)),
+    );
+    actions.append(add);
+    card.append(
+      releaseLink(
+        item.resolved ? "Publisher book page ↗" : "Publisher title category ↗",
+        item.url,
+      ),
+      actions,
+    );
+    list.append(card);
+  }
 }
 function publisherSource(p) {
   const feed = state.releaseFeeds.get(p.id),
@@ -1507,6 +1952,7 @@ function releaseCard(item, saved, context = {}) {
   const card = node("article", "release-card"),
     match = releaseMatches(item),
     busy = state.savingReleases.size > 0 || state.busy;
+  card.append(coverImage(item.coverUrl, item.title, "release-cover"));
   card.append(
     node("p", "eyebrow", item.publisher),
     node("h2", "book-title", item.title),
@@ -1619,7 +2065,9 @@ async function saveRelease(item, saved) {
   state.savingReleases.add(item.id);
   $("releaseError").hidden = true;
   $("seriesReleaseError").hidden = true;
+  $("discoveryError").hidden = true;
   renderReleases();
+  renderDiscovery();
   try {
     const result = await rpc("setSavedRelease", { release: item, saved });
     state.data.savedReleases = result.savedReleases;
@@ -1627,9 +2075,11 @@ async function saveRelease(item, saved) {
   } catch (error) {
     errorAt("releaseError", error);
     errorAt("seriesReleaseError", error);
+    errorAt("discoveryError", error);
   } finally {
     state.savingReleases.delete(item.id);
     renderReleases();
+    renderDiscovery();
   }
 }
 function openRelease(item, match) {
@@ -2868,6 +3318,26 @@ $("removeDialog").addEventListener("cancel", (e) => {
 $("collectionTab").addEventListener("click", () => changeView("collection"));
 $("trashTab").addEventListener("click", () => changeView("trash"));
 $("releasesTab").addEventListener("click", () => changeView("releases"));
+$("discoverTab").addEventListener("click", () => changeView("discover"));
+$("discoveryForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  void loadDiscovery();
+});
+$("refreshDiscovery").addEventListener("click", () => void loadDiscovery(true));
+$("discoveryPreset").addEventListener("change", () => {
+  if ($("discoveryPreset").value) {
+    $("discoveryUrl").value = $("discoveryPreset").value;
+    void loadDiscovery();
+  } else $("discoveryUrl").focus();
+});
+$("discoveryUrl").addEventListener("input", () => {
+  $("discoveryPreset").value = [...$("discoveryPreset").options].some(
+    (option) => option.value === $("discoveryUrl").value,
+  )
+    ? $("discoveryUrl").value
+    : "";
+});
+$("discoverySearch").addEventListener("input", renderDiscovery);
 $("refreshReleases").addEventListener("click", () => void loadReleases(true));
 $("refreshSeriesReleases").addEventListener(
   "click",

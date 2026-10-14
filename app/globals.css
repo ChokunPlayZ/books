@@ -1537,6 +1537,159 @@ textarea {
   padding: 8px 12px;
 }
 
+.cover-frame {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background: #f1f0e9;
+  border-radius: 5px;
+  flex-shrink: 0;
+}
+.cover-frame img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.cover-placeholder {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+}
+.cover-placeholder[hidden] {
+  display: none;
+}
+.cover-placeholder svg {
+  width: 23px;
+  height: 23px;
+}
+.shelf-cover {
+  width: 45px;
+  height: 63px;
+}
+.book-info {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+}
+.book-copy {
+  min-width: 0;
+}
+.series-row {
+  grid-template-columns: 45px minmax(0, 1fr) 54px 16px;
+}
+.release-cover {
+  width: 100%;
+  height: 175px;
+  margin-bottom: 5px;
+}
+.discovery-source {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  margin-top: 22px;
+}
+.discovery-source .field {
+  min-width: 0;
+  flex: 1 1 220px;
+}
+.discovery-source .discovery-url {
+  flex: 2 1 320px;
+}
+.discovery-source select,
+.discovery-source input {
+  width: 100%;
+}
+.discovery-status {
+  margin: 18px 0;
+  font-size: 12px;
+}
+.discovery-status p {
+  margin: 5px 0;
+}
+.discovery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.discovery-grid > .empty {
+  grid-column: 1 / -1;
+}
+.discovery-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+}
+.discovery-card p {
+  margin: 0;
+}
+.discovery-card > a {
+  font-size: 12px;
+}
+.discovery-cover {
+  width: 100%;
+  height: 230px;
+}
+.discovery-card .buttons {
+  margin-top: auto;
+  flex-wrap: wrap;
+}
+.discovery-card .btn {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+@media (max-width: 760px) {
+  .discovery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .series-row {
+    grid-template-columns: 40px minmax(0, 1fr) 32px 12px;
+  }
+  .shelf-cover {
+    width: 40px;
+    height: 56px;
+  }
+  .book-info {
+    gap: 10px;
+  }
+  .discovery-grid {
+    gap: 10px;
+  }
+  .discovery-card {
+    padding: 10px;
+  }
+  .discovery-cover {
+    height: 175px;
+  }
+  .discovery-card .book-title {
+    font-size: 13px;
+  }
+  .discovery-card .btn {
+    width: 100%;
+  }
+  .discovery-source .field {
+    flex-basis: 100%;
+  }
+}
+
 .data-page {
   max-width: 800px;
 }

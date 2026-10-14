@@ -222,6 +222,12 @@ try {
     process.argv.includes("--scan-photos")
   )
     await runLegacy("scan-photos.browser.mjs", fixturesUrl);
+  await runLegacy(
+    "discovery.browser.mjs",
+    await start("discovery", {
+      BOOKS_ALLOW_UNAUTHENTICATED: "true",
+    }),
+  );
   console.log("PASS all standalone app browser checks");
 } finally {
   if (browser) await browser.close();

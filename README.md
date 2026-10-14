@@ -105,9 +105,13 @@ Importing never writes to or changes the Google Sheet. Once the latest workbook 
 - Count regular and single-volume special editions toward the same volume; group alternate listings for missing volumes and review multi-volume sets separately.
 - Check full series catalogs, choose publisher categories, and review uncertain editions or special sets.
 - Browse Phoenix Next, First Page Pro and Luckpim releases; filter manga/light novels and special editions; save releases for later.
+- Use **Discover titles** to browse Phoenix Next or First Page Pro’s navigation, including Phoenix GL and each publisher’s full title directory. Titles with any owned volume are hidden; each remaining title shows one representative book, preferring regular volume 1.
+- See covers on series, owned volumes, missing catalog volumes and releases. Covers load as needed from publisher catalogs or verified ISBN metadata, with a placeholder when no image is available.
 - Look up exact ISBN metadata using Naiin, then Google Books and Open Library.
 
 Publisher requests run on the Next.js server using native asynchronous fetch. Catalog results are cached in SQLite; failed refreshes retain the previous successful result with its original check time and a stale warning. Catalog checks remain independent of recent release listings. Photos are decoded on the device and never uploaded to the app or metadata providers.
+
+Discovery reads the publisher’s navigation first, then checks title categories as their cards come into view (at most three checks concurrently). Duplicate format links share one title card. Directories and title catalogs are reused for 24 hours and retained for seven days; **Refresh titles** checks them again. When volume 1 is absent, the card identifies the available volume. Publisher navigation can contain categories without current book listings; these remain visible with a category link. Cover images are loaded directly from the supported publishers/image providers, and cover URL lookups are cached for 30 days.
 
 ## Backups and restoration
 
