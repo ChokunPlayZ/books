@@ -1,13 +1,13 @@
 /* Catalogs, discovery, and title details use the same quieter surfaces. */
 
 .release-heading {
-  margin: 12px 0 28px;
+  margin: 8px 0 18px;
   @apply items-end;
   gap: 20px;
 }
 
 .release-heading .eyebrow {
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .release-heading .release-note {
@@ -43,50 +43,114 @@
 }
 
 .release-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.discovery-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .release-card,
 .discovery-card {
   @apply bg-white;
-  padding: 18px;
-  border-radius: 12px;
-  gap: 10px;
+  @apply grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  align-items: start;
+  padding: 12px;
+  border-radius: 9px;
+  gap: 8px 12px;
+}
+
+.publisher-copy {
+  @apply flex;
+  @apply flex-col;
+  @apply items-start;
+  @apply min-w-0;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+
+.publisher-copy p {
+  margin: 0;
+}
+
+.publisher-copy .eyebrow {
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.publisher-copy .release-meta,
+.publisher-copy .release-price,
+.publisher-copy > a {
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.publisher-facts {
+  @apply flex;
+  @apply flex-wrap;
+  @apply items-baseline;
+  gap: 2px 10px;
+}
+
+.publisher-copy .release-links {
+  gap: 4px 12px;
+  font-size: 11px;
+  margin: 0;
+}
+
+.publisher-copy .publisher-details {
+  @apply w-full;
+  margin: 2px 0 0;
+  padding: 8px 10px;
 }
 
 .release-card .book-title,
 .discovery-card .book-title {
-  line-height: 1.7;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .release-cover,
 .discovery-cover {
-  height: 230px;
-  border-radius: 7px;
-  margin-bottom: 8px;
+  width: 52px;
+  height: 76px;
+  border-radius: 3px 5px 5px 3px;
+  margin: 0;
 }
 
 .release-cover .placeholder-label,
 .discovery-cover .placeholder-label {
-  font-size: 11px;
+  font-size: 8px;
 }
 
 .release-cover .cover-placeholder svg,
 .discovery-cover .cover-placeholder svg {
-  width: 36px;
-  height: 36px;
+  width: 20px;
+  height: 20px;
 }
 
 .release-card .buttons,
 .discovery-card .buttons {
-  padding-top: 8px;
-  gap: 8px;
+  grid-column: 2;
+  margin: 0;
+  padding: 0;
+  gap: 6px;
+}
+
+.release-card .btn,
+.discovery-card .btn {
+  min-height: 36px;
+  font-size: 11px;
+  padding: 7px 10px;
 }
 
 .discovery-source {
   @apply bg-white;
-  padding: 22px;
+  padding: 14px;
   border: 1px solid var(--line);
   border-radius: 12px;
   margin: 0 0 14px;
@@ -103,31 +167,31 @@
 }
 
 .series-header {
-  padding: 10px 0 18px;
+  padding: 0 0 14px;
 }
 
 .series-header h1 {
-  font-size: 36px;
-  line-height: 1.4;
+  font-size: 28px;
+  line-height: 1.35;
   letter-spacing: -0.5px;
 }
 
 .series-title-line {
   @apply items-center;
-  gap: 20px;
+  gap: 12px;
 }
 
 .series-header p {
-  font-size: 13px;
-  line-height: 1.8;
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .series-missing {
   background: #edf1e5;
   border-color: #dbe2d0;
   border-radius: 12px;
-  padding: 22px;
-  margin: 0 0 26px;
+  padding: 14px;
+  margin: 0 0 16px;
 }
 
 .series-missing .release-grid {
@@ -135,7 +199,7 @@
 }
 
 .missing-edition {
-  padding: 15px;
+  padding: 10px 12px;
   border-radius: 9px;
   @apply bg-white;
 }

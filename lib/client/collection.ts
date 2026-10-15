@@ -2191,8 +2191,8 @@ export function mountCollection() {
         "Open " + item.series + " on the publisher website",
       );
       coverLink.append(coverImage(item.coverId, item.title, "discovery-cover"));
-      card.append(
-        coverLink,
+      const copy = node("div", "publisher-copy");
+      copy.append(
         node("p", "eyebrow", item.publisher),
         node("h2", "book-title", item.series),
         node(
@@ -2220,11 +2220,11 @@ export function mountCollection() {
                 .join(" · "),
         ),
       );
-      if (result?.error) card.append(node("p", "source-error", result.error));
+      if (result?.error) copy.append(node("p", "source-error", result.error));
       const actions = node("div", "buttons");
       const saveButton = node(
         "button",
-        "btn",
+        "btn" + (saved.has(item.id) ? " saved" : ""),
         saved.has(item.id) ? "Saved · Unsave" : "Save for later",
       );
       saveButton.disabled = !item.resolved || state.savingReleases.size > 0;
@@ -2243,15 +2243,15 @@ export function mountCollection() {
         { signal: events.signal },
       );
       actions.append(add);
-      card.append(
+      copy.append(
         releaseLink(
           item.resolved
             ? "Publisher book page ↗"
             : "Publisher title category ↗",
           item.url,
         ),
-        actions,
       );
+      card.append(coverLink, copy, actions);
       list.append(card);
     }
   }
@@ -2419,10 +2419,11 @@ export function mountCollection() {
     } = {},
   ) {
     const card = node("article", "release-card"),
+      copy = node("div", "publisher-copy"),
       match = releaseMatches(item),
       busy = state.savingReleases.size > 0 || state.busy;
     card.append(coverImage(item.coverId, item.title, "release-cover"));
-    card.append(
+    copy.append(
       node("p", "eyebrow", item.publisher),
       node("h2", "book-title", item.title),
     );
@@ -2432,16 +2433,18 @@ export function mountCollection() {
       item.special ? "Special edition / set" : "",
       item.availability,
     ].filter(Boolean);
-    card.append(node("p", "release-meta", meta.join(" · ")));
+    copy.append(node("p", "release-meta", meta.join(" · ")));
+    const facts = node("div", "publisher-facts");
     if (item.price !== "")
-      card.append(
+      facts.append(
         node(
           "p",
           "release-price",
           "Listed price ฿" + number(Number(item.price)),
         ),
       );
-    if (item.isbn) card.append(node("p", "hint", "ISBN " + item.isbn));
+    if (item.isbn) facts.append(node("p", "hint", "ISBN " + item.isbn));
+    if (facts.childElementCount) copy.append(facts);
     if (
       saved &&
       !context.catalog &&
@@ -2450,11 +2453,11 @@ export function mountCollection() {
         feed.items.some((release) => release.id === item.id),
       )
     )
-      card.append(node("p", "hint", "Saved listing · Not in the latest check"));
+      copy.append(node("p", "hint", "Saved listing · Not in the latest check"));
     if (match.owned.length)
-      card.append(node("p", "release-match", "On your shelf · ISBN match"));
+      copy.append(node("p", "release-match", "On your shelf · ISBN match"));
     else if (match.possible.length)
-      card.append(
+      copy.append(
         node(
           "p",
           "release-match possible",
@@ -2462,7 +2465,7 @@ export function mountCollection() {
         ),
       );
     else if (context.review)
-      card.append(
+      copy.append(
         node(
           "p",
           "release-match possible",
@@ -2470,11 +2473,11 @@ export function mountCollection() {
         ),
       );
     else
-      card.append(
+      copy.append(
         node("p", "release-match unbought", "Not bought yet · No shelf match"),
       );
     if (match.series.length && !match.owned.length)
-      card.append(node("p", "hint", "A series you collect"));
+      copy.append(node("p", "hint", "A series you collect"));
     const links = node("div", "release-links");
     links.append(releaseLink("Publisher book page ↗", item.url));
     if (item.isbn)
@@ -2485,7 +2488,7 @@ export function mountCollection() {
             encodeURIComponent(item.isbn),
         ),
       );
-    card.append(links);
+    copy.append(links);
     if (context.alternatives?.length) {
       const alternatives = node("details", "publisher-details");
       alternatives.append(
@@ -2503,7 +2506,7 @@ export function mountCollection() {
           releaseLink(other.title + " ↗", other.url),
         ),
       );
-      card.append(alternatives);
+      copy.append(alternatives);
     }
     const buttons = node("div", "buttons"),
       saveButton = node(
@@ -2538,7 +2541,7 @@ export function mountCollection() {
       { signal: events.signal },
     );
     buttons.append(add);
-    card.append(buttons);
+    card.append(copy, buttons);
     return card;
   }
   async function saveRelease(item, saved) {

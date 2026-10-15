@@ -75,7 +75,7 @@
 }
 
 .series-header {
-  margin-top: 16px;
+  margin-top: 0;
 }
 
 .series-header .text-btn {
@@ -117,6 +117,7 @@
 
 .series-summary-line {
   @apply flex;
+  @apply flex-wrap;
   align-items: baseline;
   @apply justify-between;
   gap: 12px;
@@ -135,10 +136,6 @@
   @apply text-gold;
   font-size: 10px;
   margin-bottom: 6px;
-}
-
-.series-header .btn {
-  margin-bottom: 16px;
 }
 
 @media (max-width: 560px) {

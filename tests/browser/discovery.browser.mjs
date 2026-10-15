@@ -207,13 +207,13 @@ try {
     await fresh().locator(".release-meta").textContent(),
     /Special/,
   );
-  assert.match(
-    await page
-      .locator(".discovery-card")
-      .filter({ hasText: "Discovery later" })
-      .textContent(),
-    /Volume 1 not listed/,
-  );
+  // First-volume metadata loads when each compact row approaches the viewport.
+  const later = page
+    .locator(".discovery-card")
+    .filter({ hasText: "Discovery later" });
+  await later.scrollIntoViewIfNeeded();
+  await later.getByText(/Volume 1 not listed/).waitFor();
+  assert.match(await later.textContent(), /Volume 1 not listed/);
   assert.match(
     await page.locator("#discoverySource").textContent(),
     /titles from publisher navigation/,

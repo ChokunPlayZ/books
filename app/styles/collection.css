@@ -217,10 +217,10 @@
 }
 
 .series-row {
-  grid-template-columns: 54px minmax(0, 1fr) 42px 16px;
-  padding: 17px 20px;
-  gap: 16px;
-  min-height: 110px;
+  grid-template-columns: 38px minmax(0, 1fr) 34px 12px;
+  padding: 10px 14px;
+  gap: 12px;
+  min-height: 76px;
   @apply bg-white;
 }
 
@@ -235,20 +235,20 @@
 .series-name {
   font-size: 14px;
   font-weight: 600;
-  line-height: 1.55;
+  line-height: 1.45;
 }
 
 .series-meta {
-  margin-top: 6px;
+  margin-top: 2px;
   font-size: 11px;
-  line-height: 1.7;
+  line-height: 1.5;
 }
 
 .series-total {
   @apply bg-soft;
   border: 1px solid #e4e9da;
-  width: 38px;
-  min-height: 34px;
+  width: 32px;
+  min-height: 30px;
   border-radius: 7px;
   @apply text-center;
   padding: 5px;
@@ -263,8 +263,8 @@
 }
 
 .shelf-cover {
-  width: 54px;
-  height: 76px;
+  width: 38px;
+  height: 54px;
 }
 
 .cover-frame {
@@ -329,12 +329,12 @@
 }
 
 .book-row {
-  padding: 17px 20px;
-  min-height: 108px;
+  padding: 10px 14px;
+  min-height: 76px;
 }
 
 .book-info {
-  gap: 18px;
+  gap: 12px;
 }
 
 .book-title {
@@ -342,7 +342,7 @@
 }
 
 .book-meta {
-  line-height: 1.7;
+  line-height: 1.5;
 }
 
 .row-action {
@@ -364,7 +364,7 @@
 
 .status {
   font-size: 11px;
-  padding: 6px 11px;
+  padding: 4px 9px;
 }
 
 .empty {
