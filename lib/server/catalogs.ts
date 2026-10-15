@@ -32,6 +32,7 @@ import {
 } from "../domain.ts";
 import { yaakzProducts, yaakzItems } from "./yaakz.ts";
 import { publisherCovers } from "./publisher-covers.ts";
+import { createScrapeCache, SCRAPE_TTL } from "./scrape-cache.ts";
 import type { Release } from "../types.ts";
 
 type CatalogRequest = {
@@ -67,6 +68,7 @@ export function knownBookCoverUrl(store, book) {
 // Catalog caches are durable; failed refreshes keep the previous successful result.
 export function createCatalogService(store, fetchImpl = globalThis.fetch) {
   const cache = store.cache;
+  const scrapeCache = createScrapeCache(cache);
   const pendingCovers = new Map();
   const pendingTitles = new Map();
   function rememberCovers(items) {
@@ -301,8 +303,12 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
         "https://www.naiin.com/search-result?title=" +
         encodeURIComponent(canonical),
     };
-    if (details)
-      cache.put("isbn:v3:" + canonical, JSON.stringify(result), 21600);
+    // Cache confirmed misses too; transient provider failures get a shorter TTL.
+    cache.put(
+      "isbn:v3:" + canonical,
+      JSON.stringify(result),
+      warnings.length ? SCRAPE_TTL.retry : SCRAPE_TTL.isbn,
+    );
     return result;
   }
 
@@ -391,7 +397,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
           series: book.series,
           type: book.type,
           publisherId,
-          refresh: true,
+          refresh: request.refresh,
         })
       : { items: [] };
     const matchingType = (type) =>
@@ -446,7 +452,9 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
             if (publisherId === "yaakz") {
               const options = item.coverUrl
                 ? [item]
-                : yaakzItems(await fetchYaakzProduct_(item.url));
+                : yaakzItems(
+                    await fetchYaakzProduct_(item.url, request.refresh),
+                  );
               for (const option of options) {
                 if (specialSet(option.title) || option.bundle) continue;
                 if (
@@ -462,7 +470,11 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
               }
               return;
             }
-            const html = await fetchText_(item.url);
+            const html = await fetchText_(
+              item.url,
+              request.refresh,
+              SCRAPE_TTL.product,
+            );
             const title = textHtml(
               /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(html)?.[1] ||
                 meta(html, "og:title") ||
@@ -484,8 +496,8 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     if (isbn || /\(TH\)/.test(book.type)) {
       try {
         const shop = isbn
-          ? await lookupNaiin_(isbn)
-          : await lookupNaiinTitle_(book);
+          ? await lookupNaiin_(isbn, request.refresh)
+          : await lookupNaiinTitle_(book, request.refresh);
         if (shop?.coverUrl)
           add(shop.coverUrl, {
             title: shop.title,
@@ -502,6 +514,8 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
         const shops = await fetchYaakzCatalog_(
           "https://www.yaakz.com/search?q=" +
             encodeURIComponent(isbn || book.series),
+          20,
+          request.refresh,
         );
         for (const item of shops.items) {
           if (item.bundle || specialSet(item.title)) continue;
@@ -542,14 +556,18 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     if (
       previous &&
       !request.refresh &&
-      Date.now() - Date.parse(previous.checkedAt) < 86400000
+      Date.now() - Date.parse(previous.checkedAt) < SCRAPE_TTL.catalog * 1000
     )
       return previous;
     try {
       const catalog =
         source.publisherId === "yaakz"
           ? await fetchYaakzCatalog_(source.url, 20, !!request.refresh)
-          : await fetchSeriesCategory_(source.publisherId, source.url);
+          : await fetchSeriesCategory_(
+              source.publisherId,
+              source.url,
+              request.refresh,
+            );
       if (previous?.complete && !catalog.complete)
         throw new Error("Incomplete refresh");
       rememberCovers(catalog.items);
@@ -596,11 +614,15 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     if (
       previous &&
       !request.refresh &&
-      Date.now() - Date.parse(previous.checkedAt) < 86400000
+      Date.now() - Date.parse(previous.checkedAt) < SCRAPE_TTL.directory * 1000
     )
       return previous;
     try {
-      const html = await fetchText_(source.url);
+      const html = await fetchText_(
+        source.url,
+        request.refresh,
+        SCRAPE_TTL.directory,
+      );
       const titles = parsePublisherTitles(source.publisherId, html, source.url);
       if (!titles.length) {
         // A pasted single-series category can omit its own link in navigation.
@@ -749,17 +771,23 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     if (
       previous &&
       !request.refresh &&
-      Date.now() - Date.parse(previous.checkedAt) < 3600000
+      Date.now() - Date.parse(previous.checkedAt) < SCRAPE_TTL.releases * 1000
     )
       return previous;
     try {
       const scraped =
         publisher.id === "luckpim"
-          ? await fetchLuckpim_()
+          ? await fetchLuckpim_(request.refresh)
           : publisher.id === "yaakz"
-            ? (await fetchYaakzCatalog_(publisher.url, 2, !!request.refresh))
-                .items
-            : await fetchCatalog_(publisher);
+            ? (
+                await fetchYaakzCatalog_(
+                  publisher.url,
+                  2,
+                  !!request.refresh,
+                  SCRAPE_TTL.releases,
+                )
+              ).items
+            : await fetchCatalog_(publisher, request.refresh);
       if (!scraped.length) throw new Error("No book listings could be read.");
       const items = scraped.filter((item) => !specialSet(item.title));
       rememberCovers(items);
@@ -771,7 +799,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
         error: "",
       };
       const json = JSON.stringify(result);
-      cache.put(key, json, 604800);
+      cache.put(key, json, SCRAPE_TTL.retention);
       return result;
     } catch (e) {
       if (previous)
@@ -810,7 +838,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     if (
       previous &&
       !spec.refresh &&
-      Date.now() - Date.parse(previous.checkedAt) < 3600000
+      Date.now() - Date.parse(previous.checkedAt) < SCRAPE_TTL.catalog * 1000
     )
       return previous;
     let category = saved;
@@ -851,10 +879,14 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
         };
       const catalog: CatalogResult =
         spec.publisherId === "luckpim"
-          ? await fetchLuckpimSeries_(category.url)
+          ? await fetchLuckpimSeries_(category.url, spec.refresh)
           : spec.publisherId === "yaakz"
             ? await fetchYaakzCatalog_(category.url, 20, spec.refresh)
-            : await fetchSeriesCategory_(spec.publisherId, category.url);
+            : await fetchSeriesCategory_(
+                spec.publisherId,
+                category.url,
+                spec.refresh,
+              );
       if (catalog.title) category = { title: catalog.title, url: category.url };
       annotateSeriesItems(catalog, spec, category);
       catalog.items = catalog.items.filter((item) => !specialSet(item.title));
@@ -916,7 +948,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     if (
       previous &&
       !request.refresh &&
-      Date.now() - Date.parse(previous.checkedAt) < 3600000
+      Date.now() - Date.parse(previous.checkedAt) < SCRAPE_TTL.directory * 1000
     )
       return previous;
     const url =
@@ -924,7 +956,10 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
         ? "https://www.phoenixnext.com/book-series.html"
         : "https://www.firstpagepro.com/";
     try {
-      const categories = parseSeriesCategories(id, await fetchText_(url));
+      const categories = parseSeriesCategories(
+        id,
+        await fetchText_(url, request.refresh, SCRAPE_TTL.directory),
+      );
       if (!categories.length) throw new Error("Category directory unavailable");
       const result = {
         publisherId: id,
@@ -957,10 +992,12 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     if (
       previous &&
       !refresh &&
-      Date.now() - Date.parse(previous.checkedAt) < 3600000
+      Date.now() - Date.parse(previous.checkedAt) < SCRAPE_TTL.product * 1000
     )
       return previous.product;
-    const products = yaakzProducts(await fetchText_(safe));
+    const products = yaakzProducts(
+      await fetchText_(safe, refresh, SCRAPE_TTL.product),
+    );
     const uuid = safe.split("/").pop();
     const product = products.find((product) => String(product.uuid) === uuid);
     if (!product) throw new Error("Yaakz product markup changed.");
@@ -968,7 +1005,12 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     return product;
   }
 
-  async function fetchYaakzCatalog_(url, maxPages = 20, refresh = false) {
+  async function fetchYaakzCatalog_(
+    url,
+    maxPages = 20,
+    refresh = false,
+    maxAge = SCRAPE_TTL.catalog,
+  ) {
     const parsed = new URL(url);
     const query = parsed.searchParams.get("q");
     const category = parsed.pathname.split("/").pop();
@@ -985,7 +1027,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       );
       endpoint.searchParams.set("page", String(page));
       endpoint.searchParams.set("per_page", "20");
-      const result = await fetchJson_(endpoint.href);
+      const result = await fetchJson_(endpoint.href, refresh, maxAge);
       if (!Array.isArray(result.data) || !Number.isSafeInteger(result.total))
         throw new Error("Yaakz catalog markup changed.");
       if (
@@ -1027,7 +1069,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     };
   }
 
-  async function fetchSeriesCategory_(id, url) {
+  async function fetchSeriesCategory_(id, url, refresh = false) {
     const items = new Map();
     let total = null,
       complete = false,
@@ -1038,6 +1080,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       try {
         html = await fetchText_(
           url + (page > 1 ? (id === "phoenix" ? "?p=" : "?tskp=") + page : ""),
+          refresh,
         );
       } catch (error) {
         if (!items.size) throw error;
@@ -1085,7 +1128,16 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     };
   }
 
-  async function fetchLuckpimSeries_(url) {
+  async function fetchLuckpimSeries_(url, refresh = false) {
+    // Cache public book records, never the token/cookie handshake.
+    return scrapeCache.get(
+      "luckpim-series:" + url,
+      { maxAge: SCRAPE_TTL.catalog, refresh },
+      () => loadLuckpimSeries_(url),
+    );
+  }
+
+  async function loadLuckpimSeries_(url) {
     const keyword = decodeURIComponent(url.split("?k=")[1]),
       session = await luckpimSession_("https://www.luckpim.com/");
     const result = await requestRemote(
@@ -1137,13 +1189,15 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     };
   }
 
-  async function fetchCatalog_(p) {
+  async function fetchCatalog_(p, refresh = false) {
     let items = [];
     for (let page = 1; page <= 2; page++) {
       const url = p.url + (page > 1 ? "?tskp=" + page : "");
       // Phoenix uses p, First Page Pro uses tskp.
       const html = await fetchText_(
         p.id === "phoenix" && page > 1 ? p.url + "?p=" + page : url,
+        refresh,
+        SCRAPE_TTL.releases,
       );
       const parsed = parseCatalog(p.id, html);
       if (!parsed.length) {
@@ -1162,7 +1216,15 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       .slice(0, p.id === "phoenix" ? 72 : 40);
   }
 
-  async function fetchLuckpim_() {
+  async function fetchLuckpim_(refresh = false) {
+    return scrapeCache.get(
+      "luckpim-releases",
+      { maxAge: SCRAPE_TTL.releases, refresh },
+      loadLuckpim_,
+    );
+  }
+
+  async function loadLuckpim_() {
     const session = await luckpimSession_(
       "https://www.luckpim.com/product/list/new",
     );
@@ -1189,10 +1251,12 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     return items;
   }
 
-  async function lookupNaiin_(canonical) {
+  async function lookupNaiin_(canonical, refresh = false) {
     const html = await fetchText_(
       "https://www.naiin.com/search-result?title=" +
         encodeURIComponent(canonical),
+      refresh,
+      SCRAPE_TTL.isbn,
     );
     const component = /<product-list\b[^>]*>/i.exec(html);
     if (!component) throw new Error("Search markup unavailable");
@@ -1213,7 +1277,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     for (let i = 0; i < candidates.length; i++) {
       const candidate = candidates[i],
         url = "https://www.naiin.com/product/detail/" + candidate.ProductID;
-      const page = await fetchText_(url),
+      const page = await fetchText_(url, refresh, SCRAPE_TTL.product),
         data = structuredBooks(page);
       const exact = data.find(function (b) {
         return [b.isbn, b.gtin13, b.sku].some(function (code) {
@@ -1242,11 +1306,13 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     return null;
   }
 
-  async function lookupNaiinTitle_(book) {
+  async function lookupNaiinTitle_(book, refresh = false) {
     if (book.volume === "" || book.volume == null) return null;
     const html = await fetchText_(
       "https://www.naiin.com/search-result?title=" +
         encodeURIComponent(book.series + " เล่ม " + book.volume),
+      refresh,
+      SCRAPE_TTL.isbn,
     );
     const component = /<product-list\b[^>]*>/i.exec(html);
     if (!component) throw new Error("Naiin search unavailable.");
@@ -1260,7 +1326,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       )
       .slice(0, 4)) {
       const url = "https://www.naiin.com/product/detail/" + candidate.ProductID;
-      const page = await fetchText_(url);
+      const page = await fetchText_(url, refresh, SCRAPE_TTL.product);
       for (const product of structuredBooks(page)) {
         const title = product.name || candidate.ProductName || "";
         const parsed = splitBookTitle(title);
@@ -1287,19 +1353,29 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     return null;
   }
 
-  async function fetchText_(url) {
-    const r = await requestRemote(url, {
-      headers: { "User-Agent": "Mozilla/5.0" },
-    });
-    if (r.status !== 200) throw new Error("Website unavailable");
-    return r.body;
+  async function fetchText_(url, refresh = false, maxAge = SCRAPE_TTL.catalog) {
+    return scrapeCache.get(
+      "text:" + new URL(url).href,
+      { maxAge, refresh },
+      async () => {
+        const response = await requestRemote(url);
+        if (response.status !== 200) throw new Error("Website unavailable");
+        return response.body;
+      },
+    );
   }
 
-  async function fetchJson_(url) {
-    const response = await requestRemote(url, {});
-    if (response.status !== 200)
-      throw new Error("Book lookup service returned " + response.status);
-    return JSON.parse(response.body);
+  async function fetchJson_(url, refresh = false, maxAge = SCRAPE_TTL.catalog) {
+    return scrapeCache.get(
+      "json:" + new URL(url).href,
+      { maxAge, refresh },
+      async () => {
+        const response = await requestRemote(url);
+        if (response.status !== 200)
+          throw new Error("Book lookup service returned " + response.status);
+        return JSON.parse(response.body);
+      },
+    );
   }
   function cachedJson_(cache, key) {
     try {
@@ -1311,7 +1387,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
   }
   function cacheJson_(cache, key, value) {
     const json = JSON.stringify(value);
-    cache.put(key, json, 604800);
+    cache.put(key, json, SCRAPE_TTL.retention);
   }
   return {
     lookupIsbn,

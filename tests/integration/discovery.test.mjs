@@ -392,18 +392,18 @@ test("First Page follows only same-category redirects and decodes raw UTF-8 Thai
     assert.equal(result.item.coverUrl, "https://cj.lnwfile.com/cover.jpg");
     assert.equal(result.complete, true);
     assert.equal(calls.length, 2);
-    for (const target of [
+    for (const [index, target] of [
       "https://evil.test/category/56",
       "http://www.firstpagepro.com/category/56/title",
       "https://www.firstpagepro.com/category/99/title",
-    ]) {
+    ].entries()) {
       let count = 0;
       const service = createCatalogService(store, async () => {
         count++;
         return new Response("", { status: 302, headers: { Location: target } });
       });
       const result = await service.getPublisherCatalog({
-        url: "https://www.firstpagepro.com/category/12",
+        url: "https://www.firstpagepro.com/category/" + (12 + index),
       });
       assert.equal(result.stale, true);
       assert.equal(count, 1);

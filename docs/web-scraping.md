@@ -1,10 +1,23 @@
 # Publisher catalogs and metadata
 
-The Next.js server fetches publisher pages using native `fetch`. `lib/server/catalogs.ts` manages bounded requests, pagination and durable SQLite caches. `lib/domain/releases.ts`, `titles.ts`, `urls.ts` and `html.ts` hold pure parsing and validation rules. Yaakz’s serialized product data is decoded in `lib/server/yaakz.ts`; gallery extraction lives in `lib/server/publisher-covers.ts`.
+The Next.js server fetches publisher pages using native `fetch`. `lib/server/catalogs.ts` manages bounded requests, pagination and parsed catalog caches; `lib/server/scrape-cache.ts` shares durable SQLite page/API responses across scraping features. `lib/domain/releases.ts`, `titles.ts`, `urls.ts` and `html.ts` hold pure parsing and validation rules. Yaakz’s serialized product data is decoded in `lib/server/yaakz.ts`; gallery extraction lives in `lib/server/publisher-covers.ts`.
 
 Requests have a 15-second timeout and an 8 MB response bound. Source and redirect allowlists reject unexpected hosts and credentials. External markup is parsed as data and never executed. The browser displays titles as text.
 
-Successful results have a freshness window and remain available for seven days. Failed refreshes keep previous records and their original check time with a stale warning. Exact-ISBN metadata is cached for six hours; discovery directories and title catalogs are reused for 24 hours. Saved releases and explicit series links are independent database records, so cache expiry does not remove them.
+Publisher requests use the following freshness windows, defined in `SCRAPE_TTL`:
+
+| Data                                            | Reuse window |
+| ----------------------------------------------- | ------------ |
+| Recent releases                                 | Six hours    |
+| Series and discovery title catalogs             | 24 hours     |
+| Publisher navigation/category directories       | Seven days   |
+| Product details and cover galleries             | Seven days   |
+| Exact-ISBN metadata, including confirmed misses | 24 hours     |
+| Lookup results containing provider warnings     | 15 minutes   |
+
+Successful catalog and page/API responses are retained for 30 days and survive restarts. Requests for the same resource share one in-flight operation, including concurrent refreshes. Shared results are copied before series-specific annotation. Opening the cover picker reuses catalogs and gallery pages instead of forcing another scrape. Stored image bytes remain permanent.
+
+Explicit `refresh: true` bypasses fresh catalog and page/API entries. Failed requests impose a durable 15-minute cooldown on that resource, including explicit refreshes, so repeated views or restarts cannot hammer an unavailable source. HTTP errors and invalid JSON are not cached as successful responses. Failed catalog refreshes keep previous records and their original check time with a stale warning. Saved releases and explicit series links are independent database records, so cache expiry does not remove them. SQLite owns this cache; outgoing `fetch` still uses `no-store` to avoid an additional framework cache overriding refresh behavior.
 
 ## Dedicated series catalogs
 
@@ -65,7 +78,7 @@ Luckpim's initial monthly page contains placeholders rather than its book record
 3. Request `https://www.luckpim.com/_api/getBookList?setting=new&page=1&limit=100`, sending the token as `XSRF-TOKEN` and the cookies as `Cookie`.
 4. Require HTTP 200, `sc === 200`, and an array in `d.data`. Read page 2 if the first page has 100 records and `d.total` indicates more records.
 
-The token and cookies belong to this public catalog request. They are obtained fresh for a fetch and held only for that server request; the app does not reuse the user's browser cookies, log in to a publisher account, or persist those credentials.
+The token and cookies belong to this public catalog request. They are obtained fresh when uncached book data is needed and held only for that fetch; the app does not reuse the user's browser cookies, log in to a publisher account, or persist those credentials. Luckpim caches parsed public book records rather than its token-bearing HTML or response headers, so cached series aliases share book data without replaying an old session.
 
 | Luckpim field                         | App use                                                                           |
 | ------------------------------------- | --------------------------------------------------------------------------------- |

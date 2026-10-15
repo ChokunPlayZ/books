@@ -211,6 +211,13 @@ test("cover lookup matches the volume and format, pulls alternate editions and s
         !calls.includes(urls[3]),
     );
     const before = calls.length;
+    const reused = await service.getBookCoverOptions({ row: result.row });
+    assert.deepEqual(reused.covers, result.covers);
+    assert.equal(
+      calls.length,
+      before,
+      "Reopening the picker reuses catalog and gallery pages",
+    );
     await assert.rejects(
       service.getBookCoverOptions({
         row: result.row,

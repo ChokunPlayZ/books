@@ -150,7 +150,11 @@ test("bookstores provide stored cover choices for unsupported publishers and rej
   assert.match(options.covers[0].coverId, /^[a-f0-9]{64}$/);
   assert.deepEqual(covers.get(options.covers[0].coverId).body, png);
   correct = false;
-  assert.equal((await api.getBookCoverOptions({ row: 1 })).covers.length, 0);
+  assert.equal((await api.getBookCoverOptions({ row: 1 })).covers.length, 1);
+  assert.equal(
+    (await api.getBookCoverOptions({ row: 1, refresh: true })).covers.length,
+    0,
+  );
 });
 
 test("ISBN metadata falls back to Yaakz and verifies the child ISBN before accepting a cover", async (t) => {
