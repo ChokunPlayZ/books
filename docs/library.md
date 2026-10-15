@@ -1,0 +1,23 @@
+# Library workflows
+
+- Browse by series, search, filter, and see all owned volumes in an edition.
+- Add books or use the short **Add volume** form with recent series defaults.
+- Edit series name, type and publisher from **Edit title details** on the title page. Changes apply to every owned volume in the matching edition; separate editions keep their own type and publisher. Volume forms inherit these details and let you select an existing edition or add another one.
+- Edit reading status and purchase details; calculate percent/amount discounts.
+- Remove and restore books through **Recently removed**.
+- Scan ISBNs from photos or a live camera, recognize printed ISBNs, and use a USB/Bluetooth barcode scanner.
+- Check ownership by equivalent ISBN-10/ISBN-13 and link ISBNs to existing volumes.
+- Show whole-volume shelf gaps by publisher and language, combining colored and regular manga without inventing fractional extras.
+- Count regular and single-volume special editions toward the same volume; group alternate listings for missing volumes and review multi-volume sets separately.
+- Check full series catalogs, choose publisher categories, and review uncertain editions. Automatic publisher results skip Special Set listings, including Thai special-set labels.
+- Browse Phoenix Next, First Page Pro, Luckpim and Siam Inter Comics (Yaakz) releases; filter manga/light novels and special editions; save releases for later.
+- Use **Discover titles** to browse Phoenix Next or First Page Pro’s navigation, or Yaakz’s product catalog, including Phoenix GL and each publisher’s full title directory. Titles with any owned volume are hidden; each remaining title shows one representative book, preferring regular volume 1.
+- See covers on series, owned volumes, missing catalog volumes and releases. Covers load as needed from publisher catalogs or verified ISBN metadata, with a placeholder when no image is available.
+- Open a volume’s three-dot menu to edit metadata, change its cover, or visit the publisher. **Pull covers** reads matching editions and their product galleries from Phoenix Next, First Page Pro, Luckpim and Yaakz, and checks Naiin and Yaakz bookstore listings; select an image and save. You can also enter a supported image URL and publisher product link. Choices are stored per copy, survive refreshes and restarts, and travel with JSON backups. Clear the image URL to return to automatic covers.
+- Look up exact ISBN metadata using Naiin, Yaakz, then Google Books and Open Library.
+
+Publisher requests run on the Next.js server using native asynchronous fetch. Catalog results are cached in SQLite; failed refreshes retain the previous successful result with its original check time and a stale warning. Catalog checks remain independent of recent release listings. Photos are decoded on the device and never uploaded to the app or metadata providers.
+
+Discovery reads the publisher’s navigation first, then checks title categories as their cards come into view (at most three checks concurrently). Duplicate format links share one title card. Directories and title catalogs are reused for 24 hours and retained for seven days; **Refresh titles** checks them again. When volume 1 is absent, the card identifies the available volume. Publisher navigation can contain categories without current book listings; these remain visible with a category link. Cover images are validated and stored as image bytes in SQLite, with a permanent content-based `coverId`. The browser loads `/api/covers/<id>` through the signed-in library; image requests read the database without contacting publishers. Identical images share one ID. Saved images survive restarts and source outages, and JSON backups include their bytes. Cover matching and source lookups run on the server; the browser has no cover cache or catalog-matching rules. Standard private browser caching uses immutable IDs and ETags.
+
+Yaakz provides paginated public product data and Nuxt product details. Products containing several volumes are expanded into their individual variants, each with its own ISBN, image and product URL; a parent range image is never assigned to every volume. Bookstore covers require an exact ISBN, or a matching series, volume, publisher/format where available. Cover choices show their source, and source failures leave successful choices available.

@@ -1,0 +1,512 @@
+.release-heading {
+  @apply flex;
+  @apply justify-between;
+}
+
+.release-heading h1 {
+  font-size: 40px;
+  margin: 0 0 8px;
+}
+
+.release-heading .buttons {
+  @apply flex-none;
+}
+
+.publisher-details {
+  margin-top: 8px;
+  @apply text-muted;
+  font-size: 12px;
+}
+
+.publisher-details summary {
+  @apply cursor-pointer;
+}
+
+.publisher-details[open] summary {
+  margin-bottom: 12px;
+}
+
+.publisher-sources {
+  @apply grid;
+  gap: 12px;
+}
+
+.publisher-source {
+  border: 1px solid var(--line);
+  padding: 15px;
+}
+
+.publisher-source > a {
+  font-weight: 600;
+  @apply no-underline;
+}
+
+.publisher-source .hint {
+  margin-top: 5px;
+}
+
+.source-error {
+  font-size: 11px;
+  @apply text-red;
+  margin: 8px 0 0;
+}
+
+.release-grid {
+  @apply grid;
+}
+
+.release-grid > .empty {
+  grid-column: 1/-1;
+}
+
+.release-card {
+  padding: 14px 16px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  @apply flex;
+  @apply flex-col;
+  @apply items-start;
+  gap: 6px;
+  @apply min-w-0;
+}
+
+.release-card p {
+  margin: 0;
+}
+
+.release-card .eyebrow {
+  font-size: 10px;
+}
+
+.release-meta {
+  font-size: 12px;
+  @apply text-muted;
+}
+
+.release-price {
+  font-size: 13px;
+}
+
+.release-links {
+  @apply flex;
+  @apply flex-wrap;
+  gap: 12px;
+  font-size: 12px;
+  margin: 2px 0 4px;
+}
+
+.release-card .buttons {
+  margin-top: auto;
+  @apply flex-wrap;
+}
+
+.release-card .btn {
+  font-size: 12px;
+  min-height: 40px;
+  padding: 8px 12px;
+}
+
+.release-match {
+  @apply bg-soft;
+  @apply text-green;
+  padding: 3px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.release-match.unbought {
+  background: #e6ecee;
+  color: #3d6272;
+}
+
+.release-match.possible {
+  background: #fbf0da;
+  color: #8e6b2d;
+}
+
+.btn.saved {
+  @apply bg-soft;
+  border-color: #bed0b4;
+}
+
+.release-note {
+  font-size: 12px;
+  @apply text-muted;
+  margin: 10px 0 0;
+}
+
+@media (max-width: 560px) {
+  .publisher-sources {
+    grid-template-columns: 1fr;
+  }
+  .publisher-source {
+    padding: 12px 14px;
+  }
+  .release-grid {
+    grid-template-columns: 1fr;
+  }
+  .release-card {
+    padding: 12px 14px;
+  }
+  .release-heading h1 {
+    font-size: 24px;
+  }
+}
+
+.release-filters .search {
+  flex: 1 1 240px;
+}
+
+.release-filters .btn {
+  min-height: 40px;
+  font-size: 12px;
+}
+
+#hideSpecialReleases[aria-pressed="true"] {
+  @apply bg-soft;
+  border-color: #bed0b4;
+}
+
+@media (max-width: 560px) {
+  .release-filters .search {
+    flex-basis: 100%;
+  }
+  .release-filters select,
+  .release-filters .btn {
+    flex: 1 1 calc(50% - 5px);
+  }
+}
+
+.series-missing {
+  border: 1px solid #d2ddc7;
+}
+
+.series-missing h2 {
+  font:
+    21px/1.3 Georgia,
+    Tahoma,
+    serif;
+  margin: 0 0 5px;
+}
+
+.series-missing h3 {
+  font-size: 14px;
+  margin: 0 0 6px;
+}
+
+.series-missing p {
+  margin: 0 0 6px;
+}
+
+.missing-editions {
+  @apply grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.missing-edition {
+  border: 1px solid var(--line);
+  @apply min-w-0;
+  overflow-wrap: anywhere;
+}
+
+.missing-volume {
+  background: #fbf0da;
+  border-color: #dfc78f;
+  color: #785b24;
+  min-height: 36px;
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.missing-volume:hover {
+  background: #f6e4bd;
+}
+
+.series-release-head {
+  @apply flex;
+  @apply justify-between;
+  @apply items-center;
+  gap: 12px;
+  margin: 12px 0 8px;
+}
+
+.series-release-head .btn {
+  font-size: 12px;
+  padding: 8px 12px;
+  @apply flex-none;
+}
+
+.series-missing .publisher-sources {
+  margin: 12px 0;
+}
+
+.series-missing .release-grid {
+  margin-top: 12px;
+}
+
+.series-review {
+  margin-top: 15px;
+}
+
+.series-review summary {
+  @apply cursor-pointer;
+  color: #8e6b2d;
+  font-size: 12px;
+}
+
+.series-missing .release-note {
+  margin: 8px 0 0;
+}
+
+@media (max-width: 560px) {
+  .series-missing {
+    padding: 12px;
+  }
+  .series-missing h2 {
+    font-size: 20px;
+  }
+  .missing-editions {
+    grid-template-columns: 1fr;
+  }
+  .series-release-head {
+    @apply items-start;
+    @apply flex-wrap;
+  }
+  .series-missing .publisher-source {
+    padding: 10px 12px;
+  }
+}
+
+.catalog-source {
+  @apply min-w-0;
+  overflow-wrap: anywhere;
+}
+
+.catalog-source .text-btn {
+  padding: 6px 0;
+  font-size: 12px;
+  @apply text-green;
+}
+
+.catalog-editor {
+  @apply grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.catalog-editor .field > span {
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.catalog-editor select {
+  @apply max-w-none;
+  @apply w-full;
+}
+
+.catalog-editor .btn {
+  font-size: 12px;
+  min-height: 38px;
+  padding: 8px 12px;
+}
+
+.cover-frame {
+  @apply relative;
+  @apply block;
+  @apply overflow-hidden;
+  @apply shrink-0;
+}
+
+.cover-frame img {
+  @apply absolute;
+  inset: 0;
+  @apply block;
+  @apply w-full;
+  @apply h-full;
+  @apply object-contain;
+}
+
+.cover-placeholder {
+  @apply h-full;
+  @apply flex;
+  @apply flex-col;
+  @apply justify-center;
+  @apply items-center;
+  gap: 6px;
+  font-size: 10px;
+  @apply text-center;
+}
+
+.cover-placeholder[hidden] {
+  @apply hidden;
+}
+
+.book-info {
+  @apply flex;
+  @apply items-center;
+  @apply min-w-0;
+}
+
+.book-copy {
+  @apply min-w-0;
+}
+
+.release-cover {
+  @apply w-full;
+  height: 175px;
+  margin-bottom: 5px;
+}
+
+.discovery-source {
+  @apply flex;
+  @apply flex-wrap;
+  gap: 12px;
+  align-items: end;
+  margin-top: 22px;
+}
+
+.discovery-source .field {
+  @apply min-w-0;
+  flex: 1 1 220px;
+}
+
+.discovery-source .discovery-url {
+  flex: 2 1 320px;
+}
+
+.discovery-source select,
+.discovery-source input {
+  @apply w-full;
+}
+
+.discovery-status {
+  margin: 18px 0;
+  font-size: 12px;
+}
+
+.discovery-status p {
+  margin: 5px 0;
+}
+
+.discovery-grid {
+  @apply grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.discovery-grid > .empty {
+  grid-column: 1 / -1;
+}
+
+.discovery-card {
+  @apply flex;
+  @apply flex-col;
+  gap: 8px;
+  @apply min-w-0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+}
+
+.discovery-card p {
+  margin: 0;
+}
+
+.discovery-card > a {
+  font-size: 12px;
+}
+
+.discovery-cover {
+  @apply w-full;
+  height: 230px;
+}
+
+.discovery-card .buttons {
+  margin-top: auto;
+  @apply flex-wrap;
+}
+
+.discovery-card .btn {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+@media (max-width: 760px) {
+  .discovery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .series-row {
+    grid-template-columns: 40px minmax(0, 1fr) 32px 12px;
+  }
+  .shelf-cover {
+    width: 40px;
+    height: 56px;
+  }
+  .book-info {
+    gap: 10px;
+  }
+  .discovery-grid {
+    gap: 10px;
+  }
+  .discovery-card {
+    padding: 10px;
+  }
+  .discovery-cover {
+    height: 175px;
+  }
+  .discovery-card .book-title {
+    font-size: 13px;
+  }
+  .discovery-card .btn {
+    @apply w-full;
+  }
+  .discovery-source .field {
+    flex-basis: 100%;
+  }
+}
+
+.data-card {
+  border: 1px solid var(--line);
+}
+
+.data-card h2 {
+  font:
+    26px Georgia,
+    serif;
+  margin-top: 0;
+}
+
+.data-card p {
+  @apply text-muted;
+}
+
+.data-card input[type="file"] {
+  @apply w-full;
+}
+
+.data-card pre {
+  @apply whitespace-pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.login form {
+  @apply grid;
+}
+
+.login label {
+  @apply grid;
+}
+
+.data-actions {
+  @apply flex;
+  gap: 10px;
+  @apply flex-wrap;
+}

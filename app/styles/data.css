@@ -1,0 +1,204 @@
+/* Data and backups. */
+
+.data-page {
+  max-width: 1120px;
+  padding-top: 48px;
+}
+
+.data-heading {
+  margin-bottom: 26px;
+}
+
+.data-heading h1 {
+  font-size: 44px;
+}
+
+.data-heading .intro {
+  font-size: 14px;
+}
+
+.data-overview {
+  @apply flex;
+  @apply flex-wrap;
+  gap: 14px 28px;
+  padding: 18px 0 24px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 28px;
+  @apply text-muted;
+  font-size: 12px;
+}
+
+.data-overview strong {
+  @apply text-ink;
+  font-size: 16px;
+  font-weight: 600;
+  margin-right: 5px;
+  @apply tabular-nums;
+}
+
+.data-grid {
+  @apply grid;
+  grid-template-columns: 0.85fr 1.15fr;
+  gap: 24px;
+  @apply items-start;
+}
+
+.data-card {
+  padding: 30px;
+  border-radius: 14px;
+  margin: 0;
+  @apply bg-white;
+}
+
+.data-icon {
+  @apply inline-flex;
+  @apply items-center;
+  @apply justify-center;
+  width: 48px;
+  height: 48px;
+  @apply bg-soft;
+  @apply text-green;
+  border-radius: 13px;
+  margin-bottom: 22px;
+}
+
+.data-icon svg {
+  width: 23px;
+  height: 23px;
+}
+
+.data-card h2 {
+  font-size: 27px;
+  letter-spacing: -0.5px;
+  margin-bottom: 16px;
+}
+
+.data-card p {
+  font-size: 13px;
+  line-height: 1.85;
+}
+
+.data-card .eyebrow {
+  font-size: 9px;
+  @apply text-gold;
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+
+.backup-card {
+  background: #f0f2e8;
+}
+
+.backup-card .data-icon {
+  background: #e0e8d4;
+}
+
+.backup-card > .btn {
+  margin-top: 12px;
+}
+
+.backup-note {
+  @apply flex;
+  @apply items-center;
+  gap: 7px;
+  padding-top: 24px;
+  margin-top: 26px;
+  border-top: 1px solid #dce2d0;
+  font-size: 11px !important;
+}
+
+.backup-note svg {
+  width: 15px;
+  height: 15px;
+}
+
+.import-picker {
+  padding: 18px;
+  margin: 22px 0 16px;
+  border: 1px dashed #bfcbb5;
+  border-radius: 10px;
+  background: #f8f9f3;
+}
+
+.import-picker label {
+  @apply block;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.import-picker .hint {
+  font-size: 11px;
+  margin: 4px 0 15px;
+}
+
+.import-picker input[type="file"] {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 11px;
+}
+
+input[type="file"]::file-selector-button {
+  font: inherit;
+  font-weight: 600;
+  @apply text-green;
+  @apply bg-white;
+  border: 1px solid #ced8c5;
+  border-radius: 7px;
+  padding: 10px 12px;
+  margin-right: 10px;
+  @apply cursor-pointer;
+}
+
+.import-review {
+  @apply bg-soft;
+  padding: 18px;
+  margin-top: 20px;
+  border-radius: 10px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.import-review h3 {
+  margin-top: 0;
+}
+
+.import-review ul {
+  padding-left: 20px;
+  line-height: 1.9;
+}
+
+.import-review .btn {
+  margin-top: 12px;
+}
+
+.import-success {
+  border: 1px solid #d1dfc4;
+  padding: 14px;
+  border-radius: 8px;
+  @apply bg-soft;
+}
+
+.data-footer {
+  @apply flex;
+  @apply justify-between;
+  @apply items-center;
+  gap: 20px;
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+  @apply text-muted;
+  font-size: 11px;
+}
+
+.data-footer > span {
+  @apply inline-flex;
+  @apply items-center;
+  gap: 7px;
+}
+
+.data-footer svg {
+  width: 15px;
+  height: 15px;
+}

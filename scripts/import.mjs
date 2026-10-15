@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { basename } from "node:path";
-import { openStore } from "../lib/server/store.mjs";
-import { parseImport, importSummary } from "../lib/server/importer.mjs";
+import { openStore } from "../lib/server/store.ts";
+import { parseImport, importSummary } from "../lib/server/importer.ts";
 import { configureEnvironment } from "./environment.mjs";
 
 configureEnvironment();

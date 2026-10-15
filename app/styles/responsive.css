@@ -1,0 +1,494 @@
+@media (min-width: 1080px) {
+  .library-main:has(#collectionSpending:not([hidden])) {
+    @apply grid;
+    grid-template-columns: minmax(0, 1fr) 286px;
+    grid-template-areas: "error error" "heading heading" "stats stats" "tabs tabs" "browser spending" "footer footer";
+    column-gap: 28px;
+  }
+  #pageError {
+    grid-area: error;
+  }
+  .collection-heading {
+    grid-area: heading;
+  }
+  .stats {
+    grid-area: stats;
+  }
+  .tabs {
+    grid-area: tabs;
+  }
+  #collectionBrowser {
+    grid-area: browser;
+  }
+  .collection-spending {
+    grid-area: spending;
+    margin-top: 0;
+  }
+  .library-main > .footer {
+    grid-area: footer;
+  }
+  .spending-highlights {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1079px) {
+  .stats {
+    gap: 10px;
+  }
+  .stat,
+  .stat:first-child,
+  .stat:last-child {
+    padding: 18px;
+  }
+  .stat-value {
+    font-size: 30px;
+  }
+  .shelf-note {
+    @apply hidden;
+  }
+  .spending-rankings {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .data-grid {
+    gap: 18px;
+  }
+  .data-card {
+    padding: 24px;
+  }
+}
+
+@media (max-width: 850px) {
+  .top-inner {
+    padding: 16px 24px;
+  }
+  main {
+    padding: 28px 24px;
+  }
+  .brand-caption {
+    font-size: 9px;
+  }
+  .top-actions .btn {
+    padding-inline: 12px;
+    font-size: 12px;
+  }
+  #dataLink {
+    margin-right: 0;
+    font-size: 11px;
+  }
+  #dataLink svg {
+    @apply hidden;
+  }
+  .stat,
+  .stat:first-child,
+  .stat:last-child {
+    padding: 16px;
+  }
+  .stat-value {
+    font-size: 27px;
+  }
+  .stat-icon {
+    width: 26px;
+    height: 26px;
+  }
+  .stat-icon svg {
+    width: 15px;
+    height: 15px;
+  }
+  .stat:first-child::after,
+  .stat:nth-child(2)::after {
+    font-size: 10px;
+  }
+  .collection-heading h1 {
+    font-size: 42px;
+  }
+  .heading-art {
+    transform: scale(0.7);
+  }
+  .release-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .data-grid {
+    grid-template-columns: 1fr;
+  }
+  .backup-card {
+    padding-bottom: 22px;
+  }
+  .login-story {
+    padding: 35px 30px;
+  }
+  .login-story-copy h2 {
+    font-size: 38px;
+  }
+  .login-story-copy .library-art {
+    transform: scale(1);
+  }
+  .login {
+    padding: 35px 28px;
+  }
+  .login h1 {
+    font-size: 31px;
+  }
+}
+
+@media (max-width: 640px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .stat-value {
+    font-size: 30px;
+  }
+  .stat,
+  .stat:first-child,
+  .stat:last-child {
+    padding: 18px;
+  }
+  .collection-heading {
+    min-height: auto;
+    margin-bottom: 24px;
+  }
+  .heading-art {
+    @apply hidden;
+  }
+  .login-page {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  .login-story {
+    padding: 20px 24px;
+  }
+  .login-story-copy,
+  .login-story-foot {
+    @apply hidden;
+  }
+  .login {
+    padding: 38px 28px;
+  }
+  .login h1 {
+    font-size: 36px;
+  }
+}
+
+@media (max-width: 560px) {
+  .top-inner {
+    min-height: auto;
+    padding: 16px;
+    gap: 14px 12px;
+  }
+  .brand {
+    gap: 9px;
+  }
+  .brand-mark {
+    padding: 9px;
+    border-radius: 10px;
+  }
+  .brand-name {
+    font-size: 14px;
+  }
+  .brand-caption {
+    font-size: 8px;
+    letter-spacing: 0.07em;
+  }
+  #dataLink {
+    font-size: 10px;
+    padding: 8px 0;
+  }
+  .top-actions .btn {
+    min-height: 44px;
+    font-size: 12px;
+  }
+  .top-inner > .btn {
+    font-size: 11px;
+    padding: 8px 10px;
+  }
+  .top-inner > .btn svg {
+    width: 15px;
+    height: 15px;
+  }
+  main {
+    padding: 24px 16px;
+  }
+  .collection-heading h1 {
+    font-size: 36px;
+    letter-spacing: -1px;
+    margin-bottom: 8px;
+  }
+  .collection-heading {
+    margin-bottom: 18px;
+  }
+  .collection-heading .intro {
+    font-size: 12px;
+  }
+  .stats {
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .stat,
+  .stat:first-child,
+  .stat:last-child,
+  .stat:nth-child(odd),
+  .stat:nth-child(even) {
+    padding: 12px 14px;
+    gap: 2px 6px;
+    border: 1px solid var(--line);
+  }
+  .stat > .stat-icon {
+    @apply absolute;
+    grid-area: auto;
+    top: 12px;
+    right: 12px;
+    width: 23px;
+    height: 23px;
+  }
+  .stat-value {
+    font-size: 27px;
+    padding-top: 8px;
+  }
+  .stat:last-child .stat-value {
+    font-size: clamp(20px, 6.5vw, 27px);
+  }
+  .stat-note {
+    font-size: 9px;
+    min-height: 14px;
+    margin-top: 0;
+  }
+  .stat-label {
+    font-size: 9px;
+  }
+  .stat:first-child::after,
+  .stat:nth-child(2)::after {
+    @apply hidden;
+  }
+  .tabs {
+    @apply grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: visible;
+    gap: 4px;
+    padding-bottom: 13px;
+    margin-bottom: 20px;
+  }
+  .tab {
+    @apply relative;
+    @apply flex-col;
+    padding: 9px 3px;
+    gap: 6px;
+    font-size: 10px;
+    min-height: 58px;
+    @apply min-w-0;
+  }
+  .tab svg {
+    width: 15px;
+    height: 15px;
+  }
+  .tab-count {
+    @apply absolute;
+    top: 2px;
+    right: 2px;
+    font-size: 8px;
+    padding: 1px 4px;
+  }
+  .toolbar {
+    gap: 8px;
+  }
+  .search input {
+    font-size: 16px;
+  }
+  .toolbar select {
+    font-size: 12px;
+  }
+  .collection-filters {
+    padding: 12px;
+    margin-bottom: 18px;
+  }
+  .collection-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .collection-filter-grid input,
+  .collection-filter-grid select {
+    font-size: 16px;
+  }
+  .collection-filters summary {
+    font-size: 11px;
+  }
+  .list-label {
+    font-size: 9px;
+  }
+  .series-row {
+    grid-template-columns: 44px minmax(0, 1fr) 30px 10px;
+    padding: 14px 12px;
+    gap: 10px;
+    min-height: 96px;
+  }
+  .shelf-cover {
+    width: 44px;
+    height: 62px;
+  }
+  .series-name {
+    font-size: 12px;
+  }
+  .series-meta {
+    font-size: 10px;
+    margin-top: 4px;
+  }
+  .series-total {
+    width: 30px;
+    min-height: 30px;
+    font-size: 11px;
+    padding: 5px 3px;
+  }
+  .book-row {
+    padding: 14px 12px;
+  }
+  .book-info {
+    gap: 12px;
+  }
+  .book-title {
+    font-size: 13px;
+  }
+  .collection-spending {
+    padding: 18px;
+    margin-top: 26px;
+  }
+  .spending-highlights,
+  .spending-rankings {
+    grid-template-columns: 1fr;
+  }
+  .spending-card {
+    padding: 18px;
+  }
+  .spending-amount {
+    font-size: 26px;
+  }
+  .footer {
+    gap: 6px;
+    margin-top: 24px;
+    font-size: 10px;
+  }
+  .release-heading {
+    @apply flex-wrap;
+    margin: 8px 0 24px;
+  }
+  .release-heading h1 {
+    font-size: 34px;
+  }
+  .release-heading .intro,
+  .release-heading .release-note {
+    font-size: 12px;
+  }
+  .release-heading .buttons {
+    margin-left: 0;
+  }
+  .release-card,
+  .discovery-card {
+    padding: 12px;
+    gap: 8px;
+  }
+  .release-grid,
+  .discovery-grid {
+    gap: 12px;
+  }
+  .release-cover,
+  .discovery-cover {
+    height: 180px;
+  }
+  .release-card .btn,
+  .discovery-card .btn {
+    min-height: 42px;
+    @apply w-full;
+  }
+  .release-card .buttons,
+  .discovery-card .buttons {
+    @apply w-full;
+  }
+  .publisher-sources {
+    grid-template-columns: 1fr;
+  }
+  .discovery-source {
+    padding: 18px;
+  }
+  .discovery-source input,
+  .discovery-source select {
+    font-size: 16px;
+  }
+  .series-header h1 {
+    font-size: 28px;
+  }
+  .series-title-line {
+    @apply flex-col;
+    @apply items-start;
+    gap: 14px;
+  }
+  .series-title-line h1 {
+    flex-basis: auto;
+    @apply w-full;
+  }
+  .series-missing {
+    padding: 16px;
+  }
+  .series-missing .release-grid {
+    grid-template-columns: 1fr;
+  }
+  dialog {
+    max-height: calc(100dvh - 24px);
+    width: calc(100% - 20px);
+    border-radius: 14px;
+  }
+  .dialog-head,
+  .dialog-body {
+    padding: 20px;
+  }
+  .dialog-head h2 {
+    font-size: 27px;
+  }
+  .dialog-foot {
+    padding: 16px 20px;
+  }
+  .dialog-foot .btn {
+    font-size: 12px;
+    padding-inline: 12px;
+  }
+  .data-page {
+    padding-top: 30px;
+  }
+  .data-heading h1 {
+    font-size: 36px;
+  }
+  .data-overview {
+    gap: 12px 20px;
+    font-size: 11px;
+  }
+  .data-card {
+    padding: 22px;
+  }
+  .data-card h2 {
+    font-size: 25px;
+  }
+  .data-card p {
+    font-size: 12px;
+  }
+  .data-footer {
+    @apply items-start;
+    gap: 12px;
+    font-size: 10px;
+  }
+  .import-picker {
+    padding: 15px;
+  }
+  .backup-card > .btn {
+    @apply w-full;
+    font-size: 12px;
+    padding-inline: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

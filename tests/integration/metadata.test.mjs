@@ -1,0 +1,277 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { openStore } from "../../lib/server/store.ts";
+import { parseImport } from "../../lib/server/importer.ts";
+import { createCatalogService } from "../../lib/server/catalogs.ts";
+import { publisherCovers } from "../../lib/server/publisher-covers.ts";
+import { specialSet } from "../../lib/domain.ts";
+
+const book = {
+  series: "Cover story",
+  publisher: "PHOENIX Next",
+  type: "Manga (TH)",
+  status: "Read",
+  volume: 1,
+  isbn: "",
+  price: "",
+  date: "",
+  source: "",
+  note: "",
+};
+const product = "https://www.phoenixnext.com/story-01.html";
+const category = "https://www.phoenixnext.com/book-series/story.html";
+const image = (name) =>
+  "https://www.phoenixnext.com/media/catalog/product/" + name + ".jpg";
+let sequence = 0;
+const save = (store, data, previous) =>
+  store.api.saveBook({
+    requestId: "metadata_test_" + ++sequence,
+    book: data,
+    ...(previous ? { row: previous.row, token: previous.token } : {}),
+  });
+
+test("volume metadata survives restart, edits, trash, restore and JSON backup import", async (t) => {
+  const directory = mkdtempSync(join(tmpdir(), "books-metadata-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const path = join(directory, "books.sqlite");
+  let store = openStore(path);
+  save(store, { ...book, coverUrl: image("chosen"), publisherUrl: product });
+  store.close();
+  store = openStore(path);
+  try {
+    let volume = store.api.getCollection().books[0];
+    assert.equal(volume.coverUrl, image("chosen"));
+    assert.equal(volume.publisherUrl, product);
+    const service = createCatalogService(store, () =>
+      assert.fail("Manual covers must not use the network"),
+    );
+    assert.equal(
+      (await service.getBookCover({ row: volume.row })).coverUrl,
+      image("chosen"),
+    );
+    save(store, { ...book, note: "ordinary edit" }, volume);
+    assert.throws(
+      () => save(store, { ...book, coverUrl: image("stale") }, volume),
+      { status: 409 },
+    );
+    volume = store.api.getCollection().books[0];
+    assert.equal(volume.coverUrl, image("chosen"));
+    const removed = store.api.removeBook({
+      row: volume.row,
+      token: volume.token,
+      requestId: "metadata_remove_1",
+    });
+    const backup = store.exportData();
+    assert.equal(backup.trash[0].book.coverUrl, image("chosen"));
+    const restored = openStore(":memory:");
+    try {
+      const plan = parseImport(
+        Buffer.from(JSON.stringify(backup)),
+        "backup.json",
+      );
+      restored.importData(plan, plan.fingerprint);
+      const entry = restored.api.getCollection().trash[0];
+      restored.api.restoreBook({
+        trashId: entry.id,
+        requestId: "metadata_restore_1",
+      });
+      assert.equal(restored.api.getCollection().books[0].publisherUrl, product);
+      assert.equal(
+        restored.api.getCollection().books[0].coverUrl,
+        image("chosen"),
+      );
+    } finally {
+      restored.close();
+    }
+    store.api.restoreBook({
+      trashId: removed.trashId,
+      requestId: "metadata_restore_2",
+    });
+    volume = store.api.getCollection().books[0];
+    save(store, { ...book, coverUrl: "", publisherUrl: "" }, volume);
+    assert.equal(store.api.getCollection().books[0].coverUrl, "");
+  } finally {
+    store.close();
+  }
+});
+
+test("version 1 databases migrate without losing books and invalid metadata rolls back", () => {
+  const directory = mkdtempSync(join(tmpdir(), "books-migration-"));
+  const path = join(directory, "books.sqlite");
+  let store = openStore(path);
+  save(store, book);
+  store.db.exec(
+    "ALTER TABLE books DROP COLUMN cover_id; DROP TABLE cover_sources; DROP TABLE covers; ALTER TABLE books DROP COLUMN cover_url; ALTER TABLE books DROP COLUMN publisher_url; PRAGMA user_version=1;",
+  );
+  store.close();
+  store = openStore(path);
+  try {
+    assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 3);
+    const volume = store.api.getCollection().books[0];
+    assert.equal(volume.series, book.series);
+    assert.equal(volume.coverUrl, "");
+    for (const data of [
+      { coverUrl: "https://evil.test/cover.jpg" },
+      { publisherUrl: "javascript:alert(1)" },
+      { publisherUrl: "https://www.phoenixnext.com.evil.test/book.html" },
+      { publisherUrl: "https://www.firstpagepro.com/product/1" },
+    ])
+      assert.throws(() => save(store, { ...book, ...data }, volume));
+    assert.equal(store.api.getCollection().books[0].token, volume.token);
+  } finally {
+    store.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("publisher galleries include all product images and exclude unrelated recommendation images", () => {
+  const phoenix = `<script>initialImages: ${JSON.stringify([
+    { full: image("front"), img: image("thumbnail"), type: "image" },
+    { full: image("alternate"), type: "image" },
+    { full: "https://evil.test/tracker.jpg", type: "image" },
+    { full: image("video"), type: "video" },
+  ])}</script><img src="${image("recommendation")}"><meta property="og:image" content="${image("thumbnail")}">`;
+  assert.deepEqual(publisherCovers(phoenix, product), [
+    image("front"),
+    image("alternate"),
+  ]);
+  const raw = "https://cj.lnwfile.com/_/cj/_raw/front.jpg";
+  assert.deepEqual(
+    publisherCovers(
+      `<img class="productImage" src="${raw}"><img class="thumb" src="small.jpg" data-src="${raw}"><img class="thumb" data-src="https://cj.lnwfile.com/alternate.jpg"><img src="https://cj.lnwfile.com/recommendation.jpg">`,
+      "https://www.firstpagepro.com/product/1",
+    ),
+    [raw, "https://cj.lnwfile.com/alternate.jpg"],
+  );
+  assert.deepEqual(
+    publisherCovers(
+      '<img class=gallery-img src=https://www.luckpim.com/stocks/front.webp><img class=gallery-img src=https://www.luckpim.com/stocks/back.webp><img class="img img-lazy" data-src=https://www.luckpim.com/stocks/unrelated.webp>',
+      "https://www.luckpim.com/product/detail/1",
+    ),
+    [
+      "https://www.luckpim.com/stocks/front.webp",
+      "https://www.luckpim.com/stocks/back.webp",
+    ],
+  );
+});
+
+test("cover lookup matches the volume and format, pulls alternate editions and skips special sets", async () => {
+  const store = openStore(":memory:");
+  try {
+    save(store, book);
+    store.api.setSeriesCatalog({
+      series: book.series,
+      type: book.type,
+      publisherId: "phoenix",
+      url: category,
+    });
+    const calls = [];
+    const titles = [
+      "Cover story เล่ม 1 (Mg)",
+      "Cover story เล่ม 2 (Mg)",
+      "Special Set Cover story เล่ม 1 (Mg)",
+      "Cover story เล่ม 1 (LN)",
+      "Limited Edition Cover story เล่ม 1 (Mg)",
+    ];
+    const urls = [
+      product,
+      product.replace("01", "02"),
+      product.replace("01", "set"),
+      product.replace("01", "novel"),
+      product.replace("01", "alternate"),
+    ];
+    const html =
+      '<span class="toolbar-number">5</span>' +
+      titles
+        .map(
+          (title, i) =>
+            `<a class="product-item-link" href="${urls[i]}">${title}</a>`,
+        )
+        .join("");
+    const service = createCatalogService(store, async (url) => {
+      calls.push(url);
+      if (url === category) return new Response(html);
+      return new Response(
+        `<h1>Cover story เล่ม 1</h1><script>initialImages: ${JSON.stringify([{ full: image(url === product ? "regular" : "limited"), type: "image" }])}</script>`,
+      );
+    });
+    const result = await service.getBookCoverOptions({
+      row: store.api.getCollection().books[0].row,
+    });
+    assert.deepEqual(result.covers.map((item) => item.coverUrl).sort(), [
+      image("limited"),
+      image("regular"),
+    ]);
+    assert.ok(
+      !calls.includes(urls[1]) &&
+        !calls.includes(urls[2]) &&
+        !calls.includes(urls[3]),
+    );
+    const before = calls.length;
+    await assert.rejects(
+      service.getBookCoverOptions({
+        row: result.row,
+        publisherUrl: "https://evil.test/private",
+      }),
+      /publisher/,
+    );
+    assert.equal(calls.length, before);
+  } finally {
+    store.close();
+  }
+});
+
+test("special set exclusion recognizes English and Thai without excluding special editions", () => {
+  for (const title of [
+    "Special Set Story",
+    "SPECIAL-SET Story",
+    "Special Combo Set Story",
+    "เรื่อง เซตพิเศษ",
+    "เรื่อง ชุดพิเศษ",
+    "เรื่อง เซ็ทพิเศษ",
+  ])
+    assert.equal(specialSet(title), true, title);
+  for (const title of [
+    "Special Edition Story",
+    "Limited Edition Story",
+    "Special Setting Story",
+    "Story เล่ม 1",
+  ])
+    assert.equal(specialSet(title), false, title);
+});
+
+test("manual covers belong to one copy and clearing a choice returns to automatic lookup", async () => {
+  const store = openStore(":memory:");
+  try {
+    save(store, { ...book, coverUrl: image("my-copy"), publisherUrl: product });
+    save(store, book);
+    const [selected, other] = store.api.getCollection().books;
+    const service = createCatalogService(store, () =>
+      assert.fail("Unindexed copies do not need an ISBN lookup"),
+    );
+    assert.equal(
+      (await service.getBookCover({ row: selected.row })).coverUrl,
+      image("my-copy"),
+    );
+    assert.equal((await service.getBookCover({ row: other.row })).coverUrl, "");
+    save(store, { ...book, coverUrl: "" }, selected);
+    assert.equal(
+      (await service.getBookCover({ row: selected.row })).coverUrl,
+      "",
+    );
+    save(store, {
+      ...book,
+      publisher: "Other Publisher",
+      publisherUrl: "https://publisher.example/books/1",
+    });
+    assert.equal(
+      store.api.getCollection().books[2].publisherUrl,
+      "https://publisher.example/books/1",
+    );
+  } finally {
+    store.close();
+  }
+});

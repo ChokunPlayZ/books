@@ -1,0 +1,113 @@
+/* A small illustration made from book spines, shared by the welcome pages. */
+
+.library-art {
+  @apply relative;
+  width: 260px;
+  height: 170px;
+  @apply shrink-0;
+}
+
+.art-orbit {
+  @apply absolute;
+  width: 150px;
+  height: 150px;
+  border: 1px solid #d9dfd0;
+  border-radius: 50%;
+  left: 60px;
+  top: 0;
+  background: #eef0e5;
+}
+
+.art-books {
+  @apply absolute;
+  @apply flex;
+  @apply items-end;
+  gap: 5px;
+  bottom: 20px;
+  left: 44px;
+}
+
+.art-book {
+  @apply relative;
+  @apply flex;
+  @apply flex-col;
+  @apply items-center;
+  @apply justify-between;
+  width: 36px;
+  height: 113px;
+  padding: 17px 0 14px;
+  border-radius: 3px 5px 5px 3px;
+  border-left: 3px solid #00000016;
+  color: #f7f3dd;
+  font:
+    12px Georgia,
+    serif;
+  box-shadow: 3px 3px 0 #00000008;
+}
+
+.art-book i {
+  @apply block;
+  width: 16px;
+  height: 3px;
+  border-block: 1px solid currentColor;
+}
+
+.art-book::after {
+  content: "";
+  @apply absolute;
+  bottom: 33px;
+  width: 14px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.5;
+}
+
+.art-book-one {
+  background: #78927a;
+  height: 97px;
+  transform: rotate(-9deg);
+  transform-origin: bottom;
+  margin-right: 7px;
+}
+
+.art-book-two {
+  background: #345b46;
+  height: 122px;
+}
+
+.art-book-three {
+  background: #c5ac79;
+  height: 106px;
+  color: #fff9e7;
+}
+
+.art-book-four {
+  background: #a66f59;
+  height: 114px;
+  transform: rotate(12deg);
+  transform-origin: bottom;
+  margin-left: 2px;
+}
+
+.art-shelf {
+  @apply absolute;
+  bottom: 15px;
+  left: 24px;
+  width: 222px;
+  height: 5px;
+  background: #d6d8c6;
+  border-radius: 3px;
+}
+
+.heading-art {
+  width: 260px;
+  height: 140px;
+  transform: scale(0.85);
+  transform-origin: right center;
+  margin-block: -12px;
+}
+
+.heading-art .art-orbit {
+  width: 130px;
+  height: 130px;
+}

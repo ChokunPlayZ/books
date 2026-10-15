@@ -6,3 +6,5 @@ node_modules/
 backups/
 outputs/next-*.png
 outputs/
+next-env.d.ts
+*.tsbuildinfo

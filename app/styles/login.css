@@ -1,0 +1,107 @@
+/* Sign in. */
+
+.login-page {
+  @apply max-w-none;
+  min-height: 100dvh;
+  padding: 0;
+  @apply grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.login-story {
+  @apply flex;
+  @apply flex-col;
+  background: #e9eddf;
+  padding: 44px 52px 30px;
+  @apply overflow-hidden;
+}
+
+.login-story-copy {
+  margin: auto;
+  padding: 70px 0 30px;
+  max-width: 420px;
+}
+
+.login-story-copy h2 {
+  font:
+    48px/1.18 Georgia,
+    serif;
+  letter-spacing: -1.5px;
+  margin: 14px 0 24px;
+}
+
+.login-story-copy > p:not(.eyebrow) {
+  font-size: 14px;
+  @apply text-muted;
+  line-height: 1.9;
+  max-width: 330px;
+}
+
+.login-story-copy .library-art {
+  transform: scale(1.35);
+  transform-origin: bottom left;
+  margin: 70px 0 30px;
+}
+
+.login-story-foot {
+  font-size: 11px;
+  @apply text-muted;
+}
+
+.login {
+  @apply w-full;
+  max-width: 420px;
+  margin: auto;
+  padding: 48px 35px;
+}
+
+.login h1 {
+  font-size: 36px;
+  letter-spacing: -1px;
+  margin-bottom: 14px;
+}
+
+.login .intro {
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.login form {
+  margin-top: 30px;
+  gap: 18px;
+}
+
+.login label {
+  font-size: 12px;
+  font-weight: 600;
+  gap: 9px;
+}
+
+.login input {
+  min-height: 49px;
+  font-weight: 400;
+  font-size: 15px;
+}
+
+.login form .btn {
+  min-height: 48px;
+}
+
+.login .form-error {
+  margin: 0;
+}
+
+.login-note {
+  @apply flex;
+  @apply items-center;
+  @apply justify-center;
+  gap: 7px;
+  margin-top: 28px;
+  font-size: 10px;
+  @apply text-muted;
+}
+
+.login-note svg {
+  width: 13px;
+  height: 13px;
+}

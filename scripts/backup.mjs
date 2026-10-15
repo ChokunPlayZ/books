@@ -1,5 +1,5 @@
 import { writeFileSync } from "node:fs";
-import { openStore } from "../lib/server/store.mjs";
+import { openStore } from "../lib/server/store.ts";
 import { configureEnvironment } from "./environment.mjs";
 
 configureEnvironment();

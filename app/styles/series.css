@@ -1,0 +1,495 @@
+.series-row {
+  @apply w-full;
+  @apply text-left;
+  @apply text-ink;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  @apply grid;
+  @apply items-center;
+}
+
+.series-row:last-child {
+  border-bottom: 0;
+}
+
+.series-row:focus-visible {
+  outline-offset: -4px;
+}
+
+.series-icon {
+  height: 55px;
+  @apply flex;
+  @apply items-center;
+  @apply justify-center;
+  @apply bg-soft;
+  border-radius: 5px;
+  color: #5b7850;
+}
+
+.series-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.series-name {
+  @apply block;
+  overflow-wrap: anywhere;
+}
+
+.series-meta {
+  @apply block;
+  @apply text-muted;
+  overflow-wrap: anywhere;
+}
+
+.owned-volumes {
+  @apply flex;
+  gap: 5px;
+  @apply flex-wrap;
+  margin-top: 12px;
+}
+
+.volume-chip {
+  @apply inline-flex;
+  @apply items-center;
+  @apply justify-center;
+  background: #eef2e9;
+  border: 1px solid #e1e7db;
+  border-radius: 4px;
+  font-size: 11px;
+  min-width: 25px;
+  padding: 3px 6px;
+  color: #5c7052;
+  @apply whitespace-nowrap;
+}
+
+.volume-more {
+  font-size: 11px;
+  padding: 3px 6px;
+  @apply text-muted;
+}
+
+.series-total {
+  font-weight: 600;
+  @apply tabular-nums;
+}
+
+.series-header {
+  margin-top: 16px;
+}
+
+.series-header .text-btn {
+  padding: 4px 0 8px;
+  @apply text-green;
+  font-size: 12px;
+}
+
+.series-header h1 {
+  font:
+    25px/1.3 Georgia,
+    Tahoma,
+    serif;
+  margin: 0 0 6px;
+  overflow-wrap: anywhere;
+}
+
+.series-title-line {
+  @apply flex;
+  @apply flex-wrap;
+  @apply justify-between;
+  margin-bottom: 8px;
+}
+
+.series-title-line h1 {
+  flex: 1 1 200px;
+  @apply min-w-0;
+  margin: 0;
+}
+
+.series-title-line .btn {
+  margin: 0;
+}
+
+.series-header p {
+  margin: 0;
+  @apply text-muted;
+}
+
+.series-summary-line {
+  @apply flex;
+  align-items: baseline;
+  @apply justify-between;
+  gap: 12px;
+}
+
+.series-summary-line p {
+  @apply min-w-0;
+}
+
+.series-summary-line .text-btn {
+  @apply flex-none;
+  padding: 0;
+}
+
+.series-header .eyebrow {
+  @apply text-gold;
+  font-size: 10px;
+  margin-bottom: 6px;
+}
+
+.series-header .btn {
+  margin-bottom: 16px;
+}
+
+@media (max-width: 560px) {
+  .series-row {
+    padding: 11px 12px;
+    grid-template-columns: minmax(0, 1fr) 32px 12px;
+    gap: 8px;
+  }
+  .series-name {
+    font-size: 14px;
+  }
+  .series-meta {
+    font-size: 11px;
+  }
+  .series-total {
+    font-size: 14px;
+  }
+  .series-arrow {
+    font-size: 20px;
+  }
+  .owned-volumes {
+    gap: 4px;
+    margin-top: 9px;
+  }
+  .volume-chip {
+    font-size: 10px;
+    min-width: 22px;
+    padding: 2px 5px;
+  }
+  .series-header h1 {
+    font-size: 25px;
+  }
+}
+
+.ownership-status {
+  padding: 18px;
+  border: 1px solid #c7d9be;
+  background: #edf4e7;
+  border-radius: 9px;
+  margin: 17px 0;
+}
+
+.ownership-status.unknown {
+  background: #fbf5e7;
+  border-color: #e4d3a8;
+}
+
+.ownership-status h3 {
+  margin: 0 0 6px;
+  font:
+    26px Georgia,
+    serif;
+}
+
+.ownership-status p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.ownership-book {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 13px 14px;
+  margin-top: 10px;
+  @apply flex;
+  @apply justify-between;
+  @apply items-center;
+  gap: 12px;
+}
+
+.ownership-book h3 {
+  font-size: 14px;
+  margin: 0 0 4px;
+  overflow-wrap: anywhere;
+}
+
+.ownership-book p {
+  @apply text-muted;
+  font-size: 11px;
+  margin: 0;
+}
+
+.ownership-book .btn {
+  font-size: 11px;
+  padding: 8px 11px;
+  min-height: 36px;
+  @apply flex-none;
+}
+
+.store-search {
+  margin-top: 23px;
+  border-top: 1px solid var(--line);
+  padding-top: 19px;
+}
+
+.store-search input {
+  @apply w-full;
+  margin-top: 6px;
+}
+
+.store-search label {
+  font-weight: 550;
+  font-size: 12px;
+}
+
+.store-result-note {
+  @apply text-muted;
+  font-size: 11px;
+  margin: 9px 0 0;
+}
+
+.store-foot {
+  @apply justify-between;
+}
+
+.store-stamp {
+  font-size: 11px;
+  @apply text-muted;
+  margin-top: 13px;
+}
+
+.check-hint {
+  margin-top: 10px;
+}
+
+.isbn-add {
+  margin-top: 0;
+  background: none;
+  border: 0;
+  @apply text-green;
+  padding: 2px 0;
+  @apply flex;
+  gap: 5px;
+  @apply items-center;
+  font-size: 11px;
+  font-weight: 550;
+}
+
+.isbn-add svg {
+  width: 14px;
+  height: 14px;
+}
+
+.isbn-only-details {
+  @apply bg-soft;
+  padding: 14px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.isbn-only-details h3 {
+  margin: 0 0 5px;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.isbn-only-details p {
+  margin: 0;
+  @apply text-muted;
+  font-size: 12px;
+}
+
+.isbn-only-checks {
+  @apply grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.isbn-only-foot {
+  @apply justify-end;
+}
+
+@media (max-width: 560px) {
+  .top-inner {
+    @apply flex-wrap;
+    gap: 12px;
+  }
+  .top-actions {
+    @apply w-full;
+  }
+  .top-actions .btn {
+    flex: 1;
+  }
+  .ownership-book {
+    @apply flex-wrap;
+  }
+  .ownership-book .btn {
+    @apply w-full;
+  }
+  .store-foot {
+    @apply flex-wrap;
+  }
+  .store-foot > .btn {
+    flex: 1;
+  }
+  .ownership-status h3 {
+    font-size: 24px;
+  }
+}
+
+#checkDialog[open] {
+  @apply flex;
+  @apply flex-col;
+  @apply overflow-hidden;
+}
+
+#checkDialog > .dialog-head,
+#checkDialog > .dialog-foot {
+  @apply shrink-0;
+}
+
+#checkDialog > .dialog-body {
+  @apply min-h-0;
+  @apply overflow-y-auto;
+}
+
+.purchase-price {
+  margin: 0;
+  padding: 14px 16px 17px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  @apply bg-paper;
+  @apply min-w-0;
+}
+
+.purchase-price legend {
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.discount-line {
+  @apply flex;
+  gap: 8px;
+}
+
+.discount-line input {
+  flex: 1;
+  @apply min-w-0;
+}
+
+.discount-line select {
+  width: auto;
+  @apply flex-none;
+  padding-left: 9px;
+  padding-right: 9px;
+}
+
+#priceSummary {
+  @apply text-green;
+  font-weight: 550;
+}
+
+#bookDialog[open],
+#titleDialog[open] {
+  @apply flex;
+  @apply flex-col;
+  @apply overflow-hidden;
+}
+
+#bookDialog > form,
+#titleDialog > form {
+  @apply flex;
+  @apply flex-col;
+  @apply min-h-0;
+}
+
+#bookDialog .dialog-head,
+#bookDialog .dialog-foot,
+#titleDialog .dialog-head,
+#titleDialog .dialog-foot {
+  @apply shrink-0;
+}
+
+#bookDialog .dialog-body,
+#titleDialog .dialog-body {
+  @apply min-h-0;
+  @apply overflow-y-auto;
+}
+
+@media (max-width: 560px) {
+  .purchase-price .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .purchase-price {
+    padding: 12px;
+  }
+}
+
+.series-defaults {
+  padding: 12px 14px;
+  @apply bg-soft;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.series-defaults p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.series-defaults .text-btn {
+  padding: 7px 0 0;
+  @apply text-green;
+  font-size: 12px;
+}
+
+.title-entry {
+  margin: 0;
+  padding: 14px;
+  @apply min-w-0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.title-entry legend {
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.title-editions {
+  @apply grid;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+#editionField {
+  margin: 12px 0 8px;
+}
+
+.title-entry > .hint {
+  margin-bottom: 0;
+}
+
+.price-calculator summary {
+  @apply cursor-pointer;
+  font-size: 12px;
+  @apply text-green;
+}
+
+.price-calculator[open] summary {
+  margin-bottom: 12px;
+}
+
+.tabs {
+  @apply overflow-x-auto;
+  overflow-y: hidden;
+}
+
+.tab {
+  @apply whitespace-nowrap;
+}

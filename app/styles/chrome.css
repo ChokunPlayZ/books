@@ -1,0 +1,183 @@
+/* Library chrome and shared interaction states. */
+
+html {
+  color-scheme: light;
+}
+
+::selection {
+  background: #dce8d5;
+  @apply text-ink;
+}
+
+button,
+a,
+input,
+select,
+textarea,
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn,
+.text-btn,
+.tab,
+.series-row,
+.row-action,
+.cover-choice {
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  transform: none;
+}
+
+.primary {
+  box-shadow: 0 2px 3px #213e3410;
+}
+
+.text-btn {
+  @apply inline-flex;
+  @apply items-center;
+  @apply justify-center;
+  gap: 8px;
+  border-radius: 8px;
+}
+
+.text-btn:hover {
+  @apply bg-soft;
+  @apply text-green;
+}
+
+summary {
+  @apply cursor-pointer;
+}
+
+summary:focus-visible {
+  outline: 3px solid #95b49b;
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #858b83;
+  opacity: 1;
+}
+
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: #bdc8b9;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  @apply border-green;
+}
+
+.skip-link {
+  @apply fixed;
+  top: -100px;
+  left: 20px;
+  z-index: 100;
+  @apply bg-green;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+}
+
+.skip-link:focus {
+  top: 12px;
+}
+
+.top {
+  background: #fffefbf5;
+}
+
+.top-inner {
+  min-height: 84px;
+}
+
+.brand {
+  @apply no-underline;
+  @apply text-ink;
+  gap: 12px;
+  @apply shrink-0;
+}
+
+.brand-mark {
+  border-radius: 12px;
+  padding: 11px;
+  @apply bg-green;
+}
+
+.brand-name {
+  @apply block;
+  letter-spacing: -0.3px;
+  font-size: 17px;
+}
+
+.brand-caption {
+  @apply block;
+  margin-top: 2px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.top-actions {
+  gap: 10px;
+}
+
+#dataLink {
+  font-size: 12px;
+  margin-right: 8px;
+}
+
+#dataLink svg {
+  width: 16px;
+  height: 16px;
+}
+
+.heading-dot {
+  color: #b08d54;
+}
+
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+}
+
+.library-main {
+  @apply flex;
+  @apply flex-col;
+}
+
+.library-main > * {
+  @apply min-w-0;
+}
+
+.collection-heading {
+  @apply flex;
+  @apply justify-between;
+  @apply items-center;
+  gap: 20px;
+  min-height: 128px;
+  margin-bottom: 28px;
+}
+
+.collection-heading h1 {
+  margin-bottom: 12px;
+}
+
+.collection-heading .intro {
+  font-size: 14px;
+}

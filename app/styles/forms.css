@@ -1,0 +1,392 @@
+dialog {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 0;
+  box-shadow: var(--shadow);
+  @apply text-ink;
+  max-width: 650px;
+  width: calc(100% - 28px);
+  max-height: 90dvh;
+}
+
+dialog::backdrop {
+  background: #172c237a;
+  backdrop-filter: blur(5px);
+}
+
+.dialog-head {
+  @apply flex;
+  @apply items-start;
+  @apply justify-between;
+  gap: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.dialog-head h2 {
+  font:
+    28px Georgia,
+    serif;
+  margin: 0 0 6px;
+}
+
+.dialog-head p {
+  font-size: 12px;
+  @apply text-muted;
+  margin: 0;
+}
+
+.close {
+  border: 0;
+  @apply text-muted;
+  padding: 5px;
+  @apply flex;
+}
+
+.form-grid {
+  @apply grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.field {
+  @apply flex;
+  @apply flex-col;
+  gap: 6px;
+}
+
+.field input,
+.field select,
+.field textarea {
+  @apply w-full;
+  @apply max-w-none;
+}
+
+.span-2 {
+  grid-column: 1 / -1;
+}
+
+.isbn-line {
+  @apply flex;
+  gap: 8px;
+}
+
+.isbn-line input {
+  flex: 1;
+  @apply min-w-0;
+}
+
+.isbn-line .btn {
+  padding: 10px 12px;
+}
+
+.hint {
+  font-size: 12px;
+  @apply text-muted;
+  margin: 0;
+}
+
+.check {
+  @apply flex;
+  @apply items-center;
+  gap: 8px;
+  font-size: 12px;
+  @apply text-muted;
+}
+
+.check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--green);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 74px;
+}
+
+.lookup {
+  padding: 13px 15px;
+  @apply bg-soft;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: pre-line;
+}
+
+.lookup strong {
+  @apply block;
+}
+
+.dialog-foot {
+  @apply flex;
+  @apply justify-between;
+  @apply items-center;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.dialog-foot .buttons {
+  margin-left: auto;
+}
+
+.form-error {
+  font-size: 12px;
+  @apply text-red;
+  padding: 0 0 12px;
+  white-space: pre-line;
+}
+
+.toast {
+  @apply fixed;
+  bottom: 25px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: white;
+  box-shadow: var(--shadow);
+  max-width: calc(100% - 30px);
+  font-size: 13px;
+}
+
+.scanner-area {
+  min-height: 150px;
+  background: #f1f4ec;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  @apply overflow-hidden;
+}
+
+.scanner-area:empty:before {
+  content: "Point your camera at the 978 or 979 barcode.";
+  @apply block;
+  padding: 55px 20px;
+  @apply text-center;
+  font-size: 12px;
+  @apply text-muted;
+}
+
+.scanner-note {
+  font-size: 12px;
+  @apply text-muted;
+  margin: 12px 0 0;
+}
+
+.file {
+  @apply relative;
+}
+
+.file input {
+  @apply absolute;
+  inset: 0;
+  opacity: 0;
+  @apply w-full;
+  @apply cursor-pointer;
+  padding: 0;
+}
+
+.scan-buttons {
+  @apply flex-wrap;
+}
+
+.remove-name {
+  font-size: 16px;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+  margin: 0 0 12px;
+}
+
+.sr-only {
+  @apply absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  @apply overflow-hidden;
+  clip: rect(0, 0, 0, 0);
+  @apply whitespace-nowrap;
+  border: 0;
+}
+
+@media (min-width: 1500px) {
+  main {
+    padding-top: 24px;
+  }
+}
+
+@media (max-width: 850px) {
+  .top-inner,
+  main {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  .book-row {
+    grid-template-columns: minmax(0, 1fr) 94px 38px;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+  .type {
+    @apply hidden;
+  }
+  .book-status {
+    grid-column: 2;
+  }
+  .price {
+    @apply hidden;
+  }
+  .row-action {
+    grid-column: 3;
+  }
+  .restore {
+    grid-column: 2 / 4;
+  }
+  .edition {
+    @apply hidden;
+  }
+  .stat {
+    padding: 0 12px;
+  }
+  .stat-value {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 560px) {
+  .top-inner {
+    @apply grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 10px 16px;
+    gap: 8px;
+  }
+  .brand {
+    grid-column: 1;
+    gap: 7px;
+  }
+  .brand-name {
+    font-size: 14px;
+    @apply whitespace-nowrap;
+  }
+  .brand-mark {
+    padding: 6px;
+  }
+  .brand-mark svg {
+    width: 20px;
+    height: 20px;
+  }
+  .top-actions {
+    display: contents;
+  }
+  #dataLink {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    font-size: 12px;
+    padding: 6px 0;
+  }
+  .top-actions .btn {
+    grid-row: 2;
+    padding: 8px 10px;
+    min-height: 40px;
+  }
+  main {
+    padding: 12px 16px 28px;
+  }
+  h1 {
+    font-size: 35px;
+  }
+  .intro {
+    font-size: 13px;
+  }
+  .stats {
+    grid-template-columns: 1fr 1fr;
+    margin: 0 0 8px;
+    padding: 0 0 10px;
+    row-gap: 8px;
+  }
+  .stat {
+    padding: 0 10px;
+    gap: 2px 7px;
+  }
+  .stat:nth-child(odd) {
+    padding-left: 0;
+  }
+  .stat:nth-child(even) {
+    padding-right: 0;
+    border-right: 0;
+  }
+  .stat-value {
+    font-size: 17px;
+  }
+  #priceNote {
+    flex-basis: 100%;
+  }
+  .toolbar {
+    @apply flex-wrap;
+  }
+  .search {
+    flex-basis: 100%;
+  }
+  .toolbar select {
+    flex: 1;
+    @apply max-w-none;
+    @apply min-w-0;
+  }
+  .book-row {
+    grid-template-columns: minmax(0, 1fr) 38px;
+    padding: 11px 12px;
+    gap: 5px 10px;
+  }
+  .book-title {
+    font-size: 14px;
+  }
+  .book-meta {
+    font-size: 11px;
+    gap: 6px;
+  }
+  .book-status {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .book-row .row-action {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    width: 38px;
+    height: 38px;
+  }
+  .restore {
+    grid-column: 1 / 3;
+    font-size: 12px;
+    justify-self: start;
+  }
+  .dialog-head,
+  .dialog-body {
+    padding: 19px;
+  }
+  .dialog-foot {
+    padding: 15px 19px;
+  }
+  .form-grid {
+    gap: 14px;
+  }
+  .isbn-line {
+    @apply flex-wrap;
+  }
+  .isbn-line input {
+    flex-basis: 100%;
+  }
+  .isbn-line .btn {
+    flex: 1;
+  }
+  .footer {
+    @apply flex-col;
+    gap: 8px;
+  }
+  .pagination {
+    @apply flex-wrap;
+  }
+  .pagination .buttons {
+    margin-left: auto;
+  }
+  .tab {
+    font-size: 13px;
+  }
+  .tabs {
+    gap: 20px;
+  }
+}

@@ -88,7 +88,6 @@ try {
   );
   assert.ok(asset, "The page must reference a built static asset");
   assert.equal((await request(asset[1])).status, 200);
-  assert.equal((await request("/collection.js")).status, 200);
   const dataPage = await request("/data");
   assert.equal(dataPage.status, 200);
   assert.match(await dataPage.text(), /Download library backup/);

@@ -4,20 +4,23 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22.16.0"
+    "node": ">=22.18.0"
   },
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
     "build": "next build --webpack",
     "postbuild": "node scripts/prepare-standalone.mjs",
     "start": "node scripts/start.mjs",
-    "test": "node --test tests/*.test.mjs tests/app/*.test.mjs",
-    "test:app": "node --test tests/app/*.test.mjs",
-    "test:browser": "node tests/app/browser.mjs",
-    "test:e2e": "node tests/app/browser.mjs",
+    "test": "node --test tests/unit/*.test.mjs tests/integration/*.test.mjs",
+    "test:browser": "node tests/browser/run.mjs",
+    "test:e2e": "node tests/browser/run.mjs",
     "test:docker": "node scripts/test-docker.mjs",
     "import": "node scripts/import.mjs",
-    "backup": "node scripts/backup.mjs"
+    "backup": "node scripts/backup.mjs",
+    "typecheck": "next typegen && tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run typecheck && npm run format:check && npm test"
   },
   "dependencies": {
     "@next/env": "16.4.0",
@@ -27,7 +30,14 @@
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "playwright": "1.64.0",
-    "prettier": "^3.9.9"
+    "postcss": "^8.5.30",
+    "prettier": "^3.9.9",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~5.9.3"
   }
 }

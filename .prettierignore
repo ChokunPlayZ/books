@@ -1,0 +1,7 @@
+node_modules/
+.next/
+data/
+outputs/
+package-lock.json
+next-env.d.ts
+tests/fixtures/
