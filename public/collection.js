@@ -168,6 +168,9 @@ async function load() {
     fillOptions("sourceFilter", state.data.options.source, "All stores");
     $("addButton").disabled = state.busy;
     $("checkBookButton").disabled = state.busy;
+    ["collection", "trash", "releases", "discover"].forEach((view) => {
+      $(view + "Tab").disabled = false;
+    });
     $("syncNote").textContent =
       "Updated " +
       new Date().toLocaleTimeString([], {
@@ -365,8 +368,10 @@ function render() {
   const read = books.filter((b) => b.status === "Read").length;
   $("readCount").textContent = number(read);
   $("readNote").textContent = books.length
-    ? Math.round((read / books.length) * 100) + "%"
-    : "";
+    ? Math.round((read / books.length) * 100) + "% of your shelf"
+    : "Your next read awaits";
+  $("readProgress").style.width =
+    (books.length ? (read / books.length) * 100 : 0) + "%";
   const prices = books.filter((book) => recordedPrice(book) !== null);
   $("spent").textContent = number(spendingTotal(books));
   const missingPrices = books.length - prices.length;
@@ -457,7 +462,7 @@ function render() {
         : grouped
           ? filtered
             ? "Matching books"
-            : "Books"
+            : "Volumes"
           : state.view === "collection"
             ? "Ordered by volume"
             : "Ready to restore";
@@ -472,6 +477,16 @@ function render() {
   $("seriesHeader").hidden = state.selectedSeries === null;
   $("collectionHeading").hidden =
     releases || discover || state.selectedSeries !== null;
+  $("collectionTitle").replaceChildren(
+    document.createTextNode(
+      state.view === "trash" ? "Recently removed" : "Your collection",
+    ),
+    node("span", "heading-dot", "."),
+  );
+  $("collectionIntro").textContent =
+    state.view === "trash"
+      ? "A place to find the books you’ve set aside. Restore them whenever you like."
+      : "Every story, every volume. All in one place.";
   $("collectionStats").hidden =
     releases || discover || state.selectedSeries !== null;
   $("collectionSpending").hidden = !grouped;
@@ -510,6 +525,9 @@ function render() {
   $("bookList").replaceChildren();
   if (!entries.length) {
     const empty = node("div", "empty");
+    const illustration = node("span", "empty-icon");
+    illustration.append(icon("books"));
+    empty.append(illustration);
     empty.append(
       node(
         "h2",
@@ -517,7 +535,9 @@ function render() {
         state.view === "trash"
           ? "Nothing removed"
           : grouped
-            ? "No series found"
+            ? books.length
+              ? "No series found"
+              : "Your shelf starts here"
             : "No volumes found",
       ),
       node(
@@ -528,6 +548,24 @@ function render() {
           : "Try a different search or add a book to your shelf.",
       ),
     );
+    if (state.view !== "trash") {
+      const action = node(
+        "button",
+        "btn primary",
+        filtered
+          ? "Clear filters"
+          : books.length
+            ? "Add a book"
+            : "Add your first book",
+      );
+      action.addEventListener("click", () => {
+        if (filtered) {
+          resetCollectionFilters();
+          render();
+        } else openBook(null, seriesDefaults());
+      });
+      empty.append(action);
+    }
     $("bookList").append(empty);
   }
   slice.forEach((entry) =>
@@ -1807,7 +1845,15 @@ function setCoverImage(frame, id, title) {
   if (frame._coverId === (id || "")) return;
   frame._coverId = id || "";
   frame.replaceChildren();
-  const placeholder = node("span", "cover-placeholder", "No cover");
+  const placeholder = node("span", "cover-placeholder");
+  const colors = ["sage", "clay", "slate", "sand", "plum"];
+  const tint = [...String(title)].reduce(
+    (sum, char) => sum + char.codePointAt(0),
+    0,
+  );
+  placeholder.dataset.tint = colors[tint % colors.length];
+  placeholder.setAttribute("aria-label", "No cover available");
+  placeholder.append(node("span", "placeholder-label", "No cover"));
   placeholder.prepend(icon("books"));
   frame.append(placeholder);
   if (!/^[a-f0-9]{64}$/.test(id || "")) return;
@@ -2216,7 +2262,10 @@ function renderDiscovery() {
     .forEach((card) => titleObserver.unobserve(card));
   list.replaceChildren();
   if (!items.length) {
-    const empty = node("div", "empty");
+    const empty = node(
+      "div",
+      state.discoveryLoading ? "empty is-loading" : "empty",
+    );
     empty.append(
       node(
         "h2",
@@ -2416,7 +2465,10 @@ function renderReleases() {
   $("releaseCount").hidden = !releaseItems().length;
   $("releaseList").replaceChildren();
   if (!items.length) {
-    const empty = node("div", "empty");
+    const empty = node(
+      "div",
+      state.releasesLoading ? "empty is-loading" : "empty",
+    );
     const failed = [...state.releaseFeeds.values()].some((f) => f.error);
     const filtered = (type || hideSpecial) && !failed && !state.releasesLoading;
     empty.append(
@@ -2440,17 +2492,19 @@ function renderReleases() {
       node(
         "p",
         "",
-        filtered
-          ? "Try All types, show special editions, or adjust the other filters."
-          : scope === "saved"
-            ? "Save a release to keep it here, even after it leaves the latest listings."
-            : scope === "series"
-              ? "Try All releases. Series names, publisher and language/type must match your shelf."
-              : scope === "unbought" && !failed
-                ? "Use Check edition for possible owned volumes, or All releases to see everything."
-                : failed
-                  ? "Use the publisher links above, or refresh to try again."
-                  : "Try another search or publisher.",
+        state.releasesLoading
+          ? "Looking for the latest volumes. This may take a moment."
+          : filtered
+            ? "Try All types, show special editions, or adjust the other filters."
+            : scope === "saved"
+              ? "Save a release to keep it here, even after it leaves the latest listings."
+              : scope === "series"
+                ? "Try All releases. Series names, publisher and language/type must match your shelf."
+                : scope === "unbought" && !failed
+                  ? "Use Check edition for possible owned volumes, or All releases to see everything."
+                  : failed
+                    ? "Use the publisher links above, or refresh to try again."
+                    : "Try another search or publisher.",
       ),
     );
     $("releaseList").append(empty);

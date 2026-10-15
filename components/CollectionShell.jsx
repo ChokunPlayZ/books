@@ -1,6 +1,13 @@
+import Icon from "./Icon.jsx";
+import LibraryBrand from "./LibraryBrand.jsx";
+import LibraryArtwork from "./LibraryArtwork.jsx";
+
 export default function CollectionShell() {
   return (
     <>
+      <a className="skip-link" href="#libraryMain">
+        Skip to library
+      </a>
       <svg className={"sr-only"} aria-hidden={"true"}>
         <defs>
           <symbol id={"i-books"} viewBox={"0 0 24 24"}>
@@ -48,18 +55,10 @@ export default function CollectionShell() {
       </svg>
       <header className={"top"}>
         <div className={"top-inner"}>
-          <div className={"brand"}>
-            <div className={"brand-mark"}>
-              <svg aria-hidden={"true"}>
-                <use href={"#i-books"} />
-              </svg>
-            </div>
-            <div>
-              <div className={"brand-name"}>{"Book Collection"}</div>
-            </div>
-          </div>
+          <LibraryBrand />
           <div className={"top-actions"}>
             <a id={"dataLink"} className={"text-btn"} href={"/data"}>
+              <Icon name="archive" />
               {"Data & backups"}
             </a>
             <button id={"checkBookButton"} className={"btn"} disabled>
@@ -77,10 +76,19 @@ export default function CollectionShell() {
           </div>
         </div>
       </header>
-      <main>
+      <main id="libraryMain" className="library-main" tabIndex={-1}>
         <div id={"pageError"} className={"banner"} role={"alert"} hidden></div>
-        <div id={"collectionHeading"} className={"sr-only"}>
-          <h1>{"Your collection"}</h1>
+        <div id="collectionHeading" className="collection-heading">
+          <div>
+            <p className="eyebrow">Your personal library</p>
+            <h1 id="collectionTitle">
+              Your collection<span className="heading-dot">.</span>
+            </h1>
+            <p id="collectionIntro" className="intro">
+              Every story, every volume. All in one place.
+            </p>
+          </div>
+          <LibraryArtwork className="heading-art" />
         </div>
         <section
           id={"collectionStats"}
@@ -88,27 +96,42 @@ export default function CollectionShell() {
           aria-label={"Collection overview"}
         >
           <div className={"stat"}>
+            <span className="stat-icon">
+              <Icon name="books" />
+            </span>
             <div className={"stat-label"}>{"Books"}</div>
             <div id={"bookCount"} className={"stat-value"}>
               {"—"}
             </div>
           </div>
           <div className={"stat"}>
+            <span className="stat-icon">
+              <Icon name="grid" />
+            </span>
             <div className={"stat-label"}>{"Series"}</div>
             <div id={"seriesCount"} className={"stat-value"}>
               {"—"}
             </div>
           </div>
           <div className={"stat"}>
+            <span className="stat-icon">
+              <Icon name="check" />
+            </span>
             <div className={"stat-label"}>{"Read"}</div>
             <div id={"readCount"} className={"stat-value"}>
               {"—"}
             </div>
             <div id={"readNote"} className={"stat-note"}>
-              {"Marked as Read"}
+              {"Your reading progress"}
+            </div>
+            <div className="reading-progress" aria-hidden="true">
+              <span id="readProgress" style={{ width: "0%" }} />
             </div>
           </div>
           <div className={"stat"}>
+            <span className="stat-icon">
+              <Icon name="wallet" />
+            </span>
             <div className={"stat-label"}>{"Spent (฿)"}</div>
             <div id={"spent"} className={"stat-value"}>
               {"—"}
@@ -124,7 +147,12 @@ export default function CollectionShell() {
           aria-labelledby="spendingTitle"
           hidden
         >
-          <h2 id="spendingTitle">Collection spending</h2>
+          <div className="spending-heading">
+            <span className="stat-icon">
+              <Icon name="wallet" />
+            </span>
+            <h2 id="spendingTitle">Collection spending</h2>
+          </div>
           <p className="hint">
             Total amount paid across your current collection, regardless of
             filters.
@@ -157,25 +185,44 @@ export default function CollectionShell() {
               </div>
             </div>
           </details>
+          <div className="shelf-note">
+            <Icon name="book" />
+            <p>One volume at a time.</p>
+            <span>A growing collection of stories you love.</span>
+          </div>
         </section>
-        <div className={"tabs"} aria-label={"Collection views"}>
+        <nav className={"tabs"} aria-label={"Collection views"}>
           <button
             id={"collectionTab"}
             className={"tab active"}
             aria-pressed={"true"}
+            disabled
           >
+            <Icon name="books" />
             {"Collection "}
             <span id={"activeCount"} className={"sr-only"}>
               {"—"}
             </span>
           </button>
-          <button id={"releasesTab"} className={"tab"} aria-pressed={"false"}>
+          <button
+            id={"releasesTab"}
+            className={"tab"}
+            aria-pressed={"false"}
+            disabled
+          >
+            <Icon name="spark" />
             {"New releases "}
             <span id={"releaseCount"} className={"tab-count"} hidden>
               {"—"}
             </span>
           </button>
-          <button id="discoverTab" className="tab" aria-pressed="false">
+          <button
+            id="discoverTab"
+            className="tab"
+            aria-pressed="false"
+            disabled
+          >
+            <Icon name="compass" />
             Discover titles
           </button>
           <button
@@ -183,13 +230,15 @@ export default function CollectionShell() {
             className={"tab"}
             aria-pressed={"false"}
             aria-label={"Recently removed"}
+            disabled
           >
+            <Icon name="archive" />
             {"Removed "}
             <span id={"trashCount"} className={"tab-count"} hidden>
               {"0"}
             </span>
           </button>
-        </div>
+        </nav>
         <div id={"seriesHeader"} className={"series-header"} hidden>
           <button id={"backSeries"} className={"text-btn"}>
             {"← All series"}
@@ -415,7 +464,13 @@ export default function CollectionShell() {
         </div>
         <section id={"releasesPanel"} aria-label={"Publisher releases"} hidden>
           <div className={"release-heading"}>
-            <h1>{"New releases"}</h1>
+            <div>
+              <p className="eyebrow">The next chapter</p>
+              <h1>{"New releases"}</h1>
+              <p className="intro">
+                Fresh from your favorite publishers. Find your next read.
+              </p>
+            </div>
             <div className={"buttons"}>
               <button id={"refreshReleases"} className={"btn"}>
                 {"Refresh releases"}
@@ -511,6 +566,7 @@ export default function CollectionShell() {
         >
           <div className="release-heading">
             <div>
+              <p className="eyebrow">Something new to love</p>
               <h1>Discover titles</h1>
               <p className="release-note">
                 Find series you haven’t started. One book per title, preferably
@@ -574,6 +630,9 @@ export default function CollectionShell() {
           <div id="discoverySource" className="discovery-status"></div>
           <div className="toolbar release-filters">
             <div className="search">
+              <svg aria-hidden="true">
+                <use href="#i-search" />
+              </svg>
               <label htmlFor="discoverySearch" className="sr-only">
                 Search discovered titles
               </label>
@@ -589,6 +648,7 @@ export default function CollectionShell() {
         </section>
         <footer className={"footer"}>
           <span id={"syncNote"}>{"Opening your library"}</span>
+          <span>Made for the love of books.</span>
         </footer>
       </main>
       <dialog id="titleDialog" aria-labelledby="titleDialogTitle">
