@@ -1,5 +1,6 @@
 import Icon from "../Icon";
 import LibraryBrand from "../LibraryBrand";
+import ThemeToggle from "../ThemeToggle";
 
 export default function CollectionHeader() {
   return (
@@ -7,10 +8,13 @@ export default function CollectionHeader() {
       <div className="top-inner flex items-center justify-between">
         <LibraryBrand />
         <div className={"top-actions"}>
-          <a id={"dataLink"} className={"text-btn"} href={"/data"}>
-            <Icon name="archive" />
-            {"Data & backups"}
-          </a>
+          <div className="header-links">
+            <a id={"dataLink"} className={"text-btn"} href={"/data"}>
+              <Icon name="archive" />
+              <span>Data &amp; backups</span>
+            </a>
+            <ThemeToggle />
+          </div>
           <button id={"checkBookButton"} className={"btn"} disabled>
             <svg aria-hidden={"true"}>
               <use href={"#i-scan"} />

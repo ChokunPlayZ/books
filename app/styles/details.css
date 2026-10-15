@@ -17,7 +17,7 @@
 
 .publisher-details {
   border: 1px solid var(--line);
-  background: #f0f1e9;
+  background: var(--surface-inset);
   border-radius: 10px;
   padding: 12px 16px;
   margin-bottom: 20px;
@@ -187,8 +187,8 @@
 }
 
 .series-missing {
-  background: #edf1e5;
-  border-color: #dbe2d0;
+  background: var(--soft);
+  border-color: var(--line);
   border-radius: 12px;
   padding: 14px;
   margin: 0 0 16px;
@@ -266,7 +266,7 @@ dialog[open] {
   bottom: 0;
   z-index: 2;
   padding: 18px 28px;
-  background: #f8f9f3;
+  background: var(--surface-inset);
 }
 
 .field {
@@ -289,15 +289,15 @@ dialog[open] {
 }
 
 .form-error:not(:empty) {
-  background: #faeeea;
-  border: 1px solid #eddbd4;
+  background: var(--error-background);
+  border: 1px solid var(--error-line);
   border-radius: 8px;
   padding: 12px 14px;
   margin: 0 0 16px;
 }
 
 .toast {
-  @apply bg-ink;
+  background: var(--toast-background);
   border-radius: 10px;
   padding: 14px 22px;
   z-index: 50;

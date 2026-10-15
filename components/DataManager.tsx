@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Icon from "./Icon";
 import LibraryBrand from "./LibraryBrand";
+import ThemeToggle from "./ThemeToggle";
 import type { ImportResult, ImportReview } from "../lib/types";
 
 type DataManagerProps = {
@@ -49,13 +50,16 @@ export default function DataManager({ counts, canSignOut }: DataManagerProps) {
   }
   return (
     <>
-      <header className="top">
+      <header className="top data-header">
         <div className="top-inner flex items-center justify-between">
           <LibraryBrand />
-          <a className="btn" href="/">
-            <Icon name="arrow" />
-            Your collection
-          </a>
+          <div className="header-links">
+            <ThemeToggle />
+            <a className="btn return-link" href="/">
+              <Icon name="arrow" />
+              Your collection
+            </a>
+          </div>
         </div>
       </header>
       <main className="data-page">

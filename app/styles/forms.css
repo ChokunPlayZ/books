@@ -10,7 +10,7 @@ dialog {
 }
 
 dialog::backdrop {
-  background: #172c237a;
+  background: var(--backdrop);
   backdrop-filter: blur(5px);
 }
 
@@ -139,7 +139,7 @@ textarea {
   bottom: 25px;
   left: 50%;
   transform: translateX(-50%);
-  color: white;
+  color: var(--toast-ink);
   box-shadow: var(--shadow);
   max-width: calc(100% - 30px);
   font-size: 13px;
@@ -147,7 +147,7 @@ textarea {
 
 .scanner-area {
   min-height: 150px;
-  background: #f1f4ec;
+  background: var(--surface-inset);
   border-radius: 8px;
   margin-bottom: 16px;
   @apply overflow-hidden;

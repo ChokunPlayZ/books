@@ -23,7 +23,7 @@
   @apply justify-center;
   @apply bg-soft;
   border-radius: 5px;
-  color: #5b7850;
+  color: var(--green);
 }
 
 .series-icon svg {
@@ -53,13 +53,13 @@
   @apply inline-flex;
   @apply items-center;
   @apply justify-center;
-  background: #eef2e9;
-  border: 1px solid #e1e7db;
+  background: var(--soft);
+  border: 1px solid var(--line);
   border-radius: 4px;
   font-size: 11px;
   min-width: 25px;
   padding: 3px 6px;
-  color: #5c7052;
+  color: var(--green);
   @apply whitespace-nowrap;
 }
 
@@ -172,15 +172,15 @@
 
 .ownership-status {
   padding: 18px;
-  border: 1px solid #c7d9be;
-  background: #edf4e7;
+  border: 1px solid var(--success-line);
+  background: var(--success-background);
   border-radius: 9px;
   margin: 17px 0;
 }
 
 .ownership-status.unknown {
-  background: #fbf5e7;
-  border-color: #e4d3a8;
+  background: var(--warning-background);
+  border-color: var(--warning-line);
 }
 
 .ownership-status h3 {

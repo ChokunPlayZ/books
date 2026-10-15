@@ -4,6 +4,7 @@ import type { FormEvent } from "react";
 import Icon from "../../components/Icon";
 import LibraryBrand from "../../components/LibraryBrand";
 import LibraryArtwork from "../../components/LibraryArtwork";
+import ThemeToggle from "../../components/ThemeToggle";
 export default function LoginPage() {
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
@@ -32,7 +33,10 @@ export default function LoginPage() {
   return (
     <main className="login-page">
       <section className="login-story">
-        <LibraryBrand />
+        <div className="login-header">
+          <LibraryBrand />
+          <ThemeToggle />
+        </div>
         <div className="login-story-copy">
           <p className="eyebrow">A home for every story</p>
           <h2>

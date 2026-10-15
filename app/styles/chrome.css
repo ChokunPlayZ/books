@@ -1,11 +1,7 @@
 /* Library chrome and shared interaction states. */
 
-html {
-  color-scheme: light;
-}
-
 ::selection {
-  background: #dce8d5;
+  background: var(--selection);
   @apply text-ink;
 }
 
@@ -61,21 +57,21 @@ summary {
 }
 
 summary:focus-visible {
-  outline: 3px solid #95b49b;
+  outline: 3px solid var(--focus);
   outline-offset: 4px;
   border-radius: 4px;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #858b83;
+  color: var(--placeholder);
   opacity: 1;
 }
 
 input:hover,
 select:hover,
 textarea:hover {
-  border-color: #bdc8b9;
+  border-color: var(--line-hover);
 }
 
 input:focus,
@@ -89,8 +85,8 @@ textarea:focus {
   top: -100px;
   left: 20px;
   z-index: 100;
-  @apply bg-green;
-  color: white;
+  background: var(--primary);
+  color: var(--on-primary);
   padding: 12px 20px;
   border-radius: 8px;
 }
@@ -100,7 +96,7 @@ textarea:focus {
 }
 
 .top {
-  background: #fffefbf5;
+  background: var(--top-background);
 }
 
 .top-inner {
@@ -117,7 +113,7 @@ textarea:focus {
 .brand-mark {
   border-radius: 12px;
   padding: 11px;
-  @apply bg-green;
+  background: var(--primary);
 }
 
 .brand-name {
@@ -137,6 +133,32 @@ textarea:focus {
   gap: 10px;
 }
 
+.header-links,
+.login-header {
+  @apply flex items-center;
+  gap: 8px;
+}
+
+.login-header {
+  @apply justify-between;
+}
+
+.theme-toggle {
+  width: 44px;
+  height: 44px;
+  padding: 10px;
+  @apply shrink-0;
+}
+
+.theme-toggle .theme-sun,
+[data-theme="dark"] .theme-toggle .theme-moon {
+  display: none;
+}
+
+[data-theme="dark"] .theme-toggle .theme-sun {
+  display: block;
+}
+
 #dataLink {
   font-size: 12px;
   margin-right: 8px;
@@ -148,7 +170,7 @@ textarea:focus {
 }
 
 .heading-dot {
-  color: #b08d54;
+  color: var(--gold);
 }
 
 .eyebrow {

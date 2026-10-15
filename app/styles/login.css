@@ -11,7 +11,7 @@
 .login-story {
   @apply flex;
   @apply flex-col;
-  background: #e9eddf;
+  background: var(--soft);
   padding: 44px 52px 30px;
   @apply overflow-hidden;
 }

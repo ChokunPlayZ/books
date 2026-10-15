@@ -195,6 +195,28 @@
     font-size: 10px;
     padding: 8px 0;
   }
+  .header-links {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    gap: 4px;
+  }
+  .header-links .theme-toggle {
+    width: 36px;
+    padding: 8px;
+  }
+  .data-header .header-links {
+    display: contents;
+  }
+  .data-header .theme-toggle {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+  .data-header .return-link {
+    grid-column: 1 / -1;
+    font-size: 12px;
+  }
   .top-actions .btn {
     min-height: 44px;
     font-size: 12px;
@@ -490,6 +512,21 @@
     @apply w-full;
     font-size: 12px;
     padding-inline: 10px;
+  }
+}
+
+@media (max-width: 380px) {
+  #dataLink {
+    width: 36px;
+    height: 44px;
+    padding: 8px;
+    margin: 0;
+  }
+  #dataLink svg {
+    display: block;
+  }
+  #dataLink span {
+    @apply sr-only;
   }
 }
 

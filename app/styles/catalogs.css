@@ -61,7 +61,7 @@
 
 .release-card {
   padding: 14px 16px;
-  background: white;
+  @apply bg-white;
   border: 1px solid var(--line);
   border-radius: 10px;
   @apply flex;
@@ -116,18 +116,18 @@
 }
 
 .release-match.unbought {
-  background: #e6ecee;
-  color: #3d6272;
+  background: var(--info-background);
+  color: var(--info-ink);
 }
 
 .release-match.possible {
-  background: #fbf0da;
-  color: #8e6b2d;
+  background: var(--warning-background);
+  color: var(--warning-ink);
 }
 
 .btn.saved {
   @apply bg-soft;
-  border-color: #bed0b4;
+  border-color: var(--success-line);
 }
 
 .release-note {
@@ -165,7 +165,7 @@
 
 #hideSpecialReleases[aria-pressed="true"] {
   @apply bg-soft;
-  border-color: #bed0b4;
+  border-color: var(--success-line);
 }
 
 @media (max-width: 560px) {
@@ -179,7 +179,7 @@
 }
 
 .series-missing {
-  border: 1px solid #d2ddc7;
+  border: 1px solid var(--line);
 }
 
 .series-missing h2 {
@@ -213,16 +213,16 @@
 }
 
 .missing-volume {
-  background: #fbf0da;
-  border-color: #dfc78f;
-  color: #785b24;
+  background: var(--warning-background);
+  border-color: var(--warning-line);
+  color: var(--warning-ink);
   min-height: 36px;
   font-size: 12px;
   padding: 6px 10px;
 }
 
 .missing-volume:hover {
-  background: #f6e4bd;
+  background: var(--warning-hover);
 }
 
 .series-release-head {
@@ -253,7 +253,7 @@
 
 .series-review summary {
   @apply cursor-pointer;
-  color: #8e6b2d;
+  color: var(--warning-ink);
   font-size: 12px;
 }
 
@@ -410,7 +410,7 @@
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: white;
+  @apply bg-white;
 }
 
 .discovery-card p {

@@ -14,6 +14,8 @@ const paths = {
   arrow: "M19 12H5m6-6-6 6 6 6",
   lock: "M6 10h12v11H6zM8 10V7a4 4 0 0 1 8 0v3",
   logout: "M9 4H4v16h5m5-13 5 5-5 5M8 12h12",
+  moon: "M20.9 13a9 9 0 0 1-9.9-9.9A9 9 0 1 0 20.9 13Z",
+  sun: "M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4",
 };
 
 type IconProps = SVGProps<SVGSVGElement> & { name: keyof typeof paths };

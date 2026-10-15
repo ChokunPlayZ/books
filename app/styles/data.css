@@ -86,11 +86,11 @@
 }
 
 .backup-card {
-  background: #f0f2e8;
+  background: var(--surface-inset);
 }
 
 .backup-card .data-icon {
-  background: #e0e8d4;
+  background: var(--soft);
 }
 
 .backup-card > .btn {
@@ -103,7 +103,7 @@
   gap: 7px;
   padding-top: 24px;
   margin-top: 26px;
-  border-top: 1px solid #dce2d0;
+  border-top: 1px solid var(--line);
   font-size: 11px !important;
 }
 
@@ -115,9 +115,9 @@
 .import-picker {
   padding: 18px;
   margin: 22px 0 16px;
-  border: 1px dashed #bfcbb5;
+  border: 1px dashed var(--line-hover);
   border-radius: 10px;
-  background: #f8f9f3;
+  background: var(--surface-inset);
 }
 
 .import-picker label {
@@ -144,7 +144,7 @@ input[type="file"]::file-selector-button {
   font-weight: 600;
   @apply text-green;
   @apply bg-white;
-  border: 1px solid #ced8c5;
+  border: 1px solid var(--line);
   border-radius: 7px;
   padding: 10px 12px;
   margin-right: 10px;
@@ -174,7 +174,7 @@ input[type="file"]::file-selector-button {
 }
 
 .import-success {
-  border: 1px solid #d1dfc4;
+  border: 1px solid var(--success-line);
   padding: 14px;
   border-radius: 8px;
   @apply bg-soft;

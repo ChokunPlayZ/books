@@ -11,11 +11,11 @@
   @apply absolute;
   width: 150px;
   height: 150px;
-  border: 1px solid #d9dfd0;
+  border: 1px solid var(--art-line);
   border-radius: 50%;
   left: 60px;
   top: 0;
-  background: #eef0e5;
+  background: var(--art-background);
 }
 
 .art-books {
@@ -95,7 +95,7 @@
   left: 24px;
   width: 222px;
   height: 5px;
-  background: #d6d8c6;
+  background: var(--art-shelf);
   border-radius: 3px;
 }
 
