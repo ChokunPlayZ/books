@@ -398,10 +398,19 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       String(type || "")
         .replace(/\s*\(colou?r\)/gi, "")
         .trim();
+    // Revised editions can supply alternate covers without changing the saved series.
+    const coverSeriesKey = (title) =>
+      catalogSeriesKey(
+        String(title || "").replace(/\s*\(ฉบับปรับปรุงใหม่\)\s*$/, ""),
+      );
     const candidates = catalog.items.filter(
       (item) =>
         !item.bundle &&
-        !item.catalogVariant &&
+        (!item.catalogVariant ||
+          [book.series, catalog.title].some(
+            (title) =>
+              title && coverSeriesKey(item.series) === coverSeriesKey(title),
+          )) &&
         !specialSet(item.title) &&
         ((canonicalIsbn(book.isbn) &&
           canonicalIsbn(item.isbn) === canonicalIsbn(book.isbn)) ||

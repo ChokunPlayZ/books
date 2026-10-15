@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openStore } from "../../lib/server/store.ts";
@@ -222,6 +222,71 @@ test("cover lookup matches the volume and format, pulls alternate editions and s
   } finally {
     store.close();
   }
+});
+
+test("cover lookup includes Phoenix revised editions without a product link and excludes unrelated catalog variants", async (t) => {
+  const series = "ดอกรักผลิบานที่กลางใจ";
+  const revisedUrl = "https://www.phoenixnext.com/mg0435-02.html";
+  const revisedCover =
+    "https://www.phoenixnext.com/media/catalog/product/cache/616a7398005cfee60500354f848a3838/_/m/_m_kaoru_hana_vol1_jacket_cover_1.jpg";
+  const gallery = readFileSync(
+    new URL(
+      "../fixtures/publishers/phoenix-revised-volume.html",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const entries = [
+    [revisedUrl, `(มังงะ) ${series} (ฉบับปรับปรุงใหม่) เล่ม 1`],
+    [product.replace("01", "02"), `(มังงะ) ${series} เล่ม 2`],
+    [product.replace("01", "novel"), `(LN) ${series} เล่ม 1`],
+    [product.replace("01", "set"), `Special Set (มังงะ) ${series} เล่ม 1`],
+    [product.replace("01", "spinoff"), `(มังงะ) ${series} ภาคพิเศษ เล่ม 1`],
+    [product.replace("01", "other"), "(มังงะ) เรื่องอื่น เล่ม 1"],
+  ];
+  const categoryHtml =
+    `<h1>${series}</h1><span class="toolbar-number">${entries.length}</span>` +
+    entries
+      .map(
+        ([url, title]) =>
+          `<a class="product-item-link" href="${url}">${title}</a>`,
+      )
+      .join("");
+  for (const libraryTitle of [
+    series,
+    "The Fragrant Flower Blooms With Dignity",
+  ])
+    await t.test(libraryTitle, async () => {
+      const store = openStore(":memory:");
+      try {
+        save(store, { ...book, series: libraryTitle });
+        store.api.setSeriesCatalog({
+          series: libraryTitle,
+          type: book.type,
+          publisherId: "phoenix",
+          url: category,
+          title: series,
+        });
+        const calls = [];
+        const service = createCatalogService(store, async (url) => {
+          calls.push(url);
+          if (url === category) return new Response(categoryHtml);
+          if (url === revisedUrl) return new Response(gallery);
+          return new Response("", { status: 503 });
+        });
+        const result = await service.getBookCoverOptions({ row: 1 });
+        assert.deepEqual(
+          result.covers.map((cover) => cover.coverUrl),
+          [revisedCover],
+        );
+        assert.equal(result.covers[0].publisherUrl, revisedUrl);
+        assert.ok(calls.includes(revisedUrl));
+        assert.ok(entries.slice(1).every(([url]) => !calls.includes(url)));
+        assert.equal(store.api.getCollection().books[0].series, libraryTitle);
+      } finally {
+        store.close();
+      }
+    });
 });
 
 test("special set exclusion recognizes English and Thai without excluding special editions", () => {
