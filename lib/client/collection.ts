@@ -2,6 +2,7 @@ import { $, node, icon, fillOptions, number, requestId } from "./dom.ts";
 import { createCollectionState } from "./state.ts";
 import { restorePagePreferences } from "./page-preferences.ts";
 import { createInfiniteList } from "./infinite-list.ts";
+import { createSeriesEditor } from "./series-editor.ts";
 import { shelfCoverBook, coverTint } from "../domain/shelf.ts";
 import { seriesPath, type CollectionView } from "../domain/navigation.ts";
 import { createScanner } from "./scanner.ts";
@@ -141,6 +142,7 @@ export function mountCollection({
       $("addButton").disabled = state.busy;
       $("checkBookButton").disabled = state.busy;
       if ($("editTitleButton")) $("editTitleButton").disabled = state.busy;
+      seriesEditor.syncControls();
       $("syncNote").textContent =
         "Updated " +
         new Date().toLocaleTimeString([], {
@@ -2971,6 +2973,7 @@ export function mountCollection({
     $("titleForm")
       .querySelectorAll<HTMLInputElement | HTMLSelectElement>("input,select")
       .forEach((e) => (e.disabled = busy));
+    seriesEditor.syncControls();
   }
   async function save(event) {
     event.preventDefault();
@@ -3117,6 +3120,14 @@ export function mountCollection({
   }
   const { openScanner, closeScanner, startCamera, stopScanner, scanPhoto } =
     createScanner({ state, $, node, checkBook, lookup, clearLookup });
+  const seriesEditor = createSeriesEditor({
+    state,
+    signal: events.signal,
+    rpc,
+    reload: load,
+    notify,
+    setBusy,
+  });
 
   // Initialize collection controls.
   $("addButton")?.addEventListener(

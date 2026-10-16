@@ -18,19 +18,31 @@ export default function SeriesHeader({
       </a>
       <div className="series-title-line">
         <h1 id={"seriesTitle"}>{series}</h1>
-        <button
-          id="editTitleButton"
-          className="btn"
-          type="button"
-          aria-label="Edit title details"
-          title="Edit title details"
-          disabled
-        >
-          <svg aria-hidden="true">
-            <use href="#i-edit" />
-          </svg>
-          <span className="title-edit-label">Edit title details</span>
-        </button>
+        <div className="series-header-actions">
+          <button
+            id="editTitleButton"
+            className="btn"
+            type="button"
+            aria-label="Edit title details"
+            title="Edit title details"
+            disabled
+          >
+            <svg aria-hidden="true">
+              <use href="#i-edit" />
+            </svg>
+            <span className="title-edit-label">Edit title details</span>
+          </button>
+          <button
+            id="editVolumesButton"
+            className="btn primary"
+            type="button"
+            aria-controls="seriesEditor"
+            aria-expanded="false"
+            disabled
+          >
+            Edit volumes
+          </button>
+        </div>
       </div>
       <div className={"series-summary-line"}>
         <p id={"seriesSummary"}>

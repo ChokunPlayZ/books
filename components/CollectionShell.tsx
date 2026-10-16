@@ -5,6 +5,7 @@ import CollectionStats from "./collection/CollectionStats";
 import CollectionSpending from "./collection/CollectionSpending";
 import CollectionTabs from "./collection/CollectionTabs";
 import SeriesHeader from "./collection/SeriesHeader";
+import SeriesEditor from "./collection/SeriesEditor";
 import SeriesCatalogPanel from "./collection/SeriesCatalogPanel";
 import ShelfBrowser from "./collection/ShelfBrowser";
 import ReleasesPanel from "./collection/ReleasesPanel";
@@ -47,6 +48,7 @@ export default function CollectionShell({
         {view === "collection" && series === null && <CollectionSpending />}
         <CollectionTabs view={view} data={data} />
         {series !== null && <SeriesHeader series={series} books={data.books} />}
+        {series !== null && <SeriesEditor />}
         {shelf && (
           <ShelfBrowser
             data={data}

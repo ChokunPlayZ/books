@@ -45,6 +45,22 @@ export function dateSerial(value) {
   return Math.round((date.getTime() - Date.UTC(1899, 11, 30)) / 86400000);
 }
 
+export function normalizePurchaseDetails(input: Record<string, unknown>) {
+  const date = String(input.date ?? "").trim();
+  const source = String(input.source ?? "").trim();
+  const price = String(input.price ?? "").trim();
+  if (source.length > 500) throw new Error("Bought from is too long.");
+  if (date) dateSerial(date);
+  if (
+    price !== "" &&
+    (!/^\d+(?:\.\d+)?$/.test(price) ||
+      price.length > 500 ||
+      !Number.isFinite(Number(price)))
+  )
+    throw new Error("Price paid must be a non-negative number.");
+  return { date, source, price: price === "" ? ("" as const) : Number(price) };
+}
+
 export function bookMetadata(input) {
   const coverUrl = safeCoverUrl(input.coverUrl);
   const publisherUrl = safePublisherUrl(input.publisherUrl, input.publisher);

@@ -269,6 +269,11 @@
   .series-page .title-edit-label {
     @apply sr-only;
   }
+
+  .series-page .series-title-line #editVolumesButton {
+    width: auto;
+    padding-inline: 12px;
+  }
 }
 
 .series-header h1 {

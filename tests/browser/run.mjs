@@ -359,6 +359,7 @@ try {
     "collection-filters.browser.mjs",
     "pricing.browser.mjs",
     "series-entry.browser.mjs",
+    "series-edit.browser.mjs",
     "title-details.browser.mjs",
     "series-missing.browser.mjs",
     "volume-editions.browser.mjs",

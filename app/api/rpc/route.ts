@@ -15,7 +15,8 @@ export async function POST(request: NextRequest) {
     const { store, api } = getApp();
     authorize(store, request);
     sameOrigin(request);
-    const { name, arg } = await readJson(request);
+    // Bulk purchase edits can include many volumes in a single transaction.
+    const { name, arg } = await readJson(request, 1_000_000);
     if (!Object.hasOwn(api, name))
       throw new AppError("Unknown library action.", 404);
     return json(await api[name](arg));

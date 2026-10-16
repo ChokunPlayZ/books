@@ -14,6 +14,7 @@ interface LibraryElements {
   cancelBook: HTMLButtonElement;
   cancelIsbn: HTMLButtonElement;
   cancelRemove: HTMLButtonElement;
+  cancelSeriesEdit: HTMLButtonElement;
   cancelTitle: HTMLButtonElement;
   checkBookButton: HTMLButtonElement;
   checkDialog: HTMLDialogElement;
@@ -66,6 +67,7 @@ interface LibraryElements {
   discoveryUrl: HTMLInputElement;
   doneCheck: HTMLButtonElement;
   editTitleButton: HTMLButtonElement;
+  editVolumesButton: HTMLButtonElement;
   editionField: HTMLDivElement;
   formError: HTMLDivElement;
   hideSpecialReleases: HTMLButtonElement;
@@ -148,6 +150,7 @@ interface LibraryElements {
   resultCount: HTMLSpanElement;
   saveButton: HTMLButtonElement;
   saveIsbnButton: HTMLButtonElement;
+  saveSeriesEdits: HTMLButtonElement;
   saveTitleButton: HTMLButtonElement;
   scanButton: HTMLButtonElement;
   scanCandidates: HTMLDivElement;
@@ -164,6 +167,10 @@ interface LibraryElements {
   seriesCount: HTMLDivElement;
   seriesDefaults: HTMLDivElement;
   seriesDefaultsText: HTMLParagraphElement;
+  seriesEditError: HTMLDivElement;
+  seriesEditRows: HTMLTableSectionElement;
+  seriesEditor: HTMLFormElement;
+  seriesEditorTitle: HTMLHeadingElement;
   seriesGaps: HTMLDivElement;
   seriesHeader: HTMLDivElement;
   seriesMissing: HTMLElement;
@@ -177,6 +184,9 @@ interface LibraryElements {
   seriesReleaseReviewSummary: HTMLElement;
   seriesReleaseSources: HTMLDivElement;
   seriesReleaseStatus: HTMLParagraphElement;
+  seriesSaveBar: HTMLDivElement;
+  seriesSaveHint: HTMLParagraphElement;
+  seriesSaveStatus: HTMLParagraphElement;
   seriesSpendingList: HTMLElement;
   seriesSummary: HTMLParagraphElement;
   seriesTitle: HTMLHeadingElement;

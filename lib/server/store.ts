@@ -8,6 +8,7 @@ import {
   BOOK_APP,
   PUBLISHERS,
   normalizeBook,
+  normalizePurchaseDetails,
   normalizeIsbn,
   canonicalIsbn,
   digest,
@@ -504,6 +505,46 @@ export function openStore(
           writeMetadata(id, data);
         } else id = insertBook(data);
         return { row: id, action: existing ? "updated" : "added" };
+      });
+    },
+    saveSeriesPurchases(request: {
+      requestId: string;
+      series: string;
+      changes: {
+        row: number;
+        token: string;
+        date: string;
+        price: string;
+        source: string;
+      }[];
+    }) {
+      return receipt("series-purchases", request, () => {
+        if (
+          typeof request.series !== "string" ||
+          !request.series ||
+          !Array.isArray(request.changes) ||
+          !request.changes.length
+        )
+          throw new AppError("Choose volumes in this series to update.");
+        const seen = new Set<number>();
+        for (const change of request.changes) {
+          if (!change || typeof change !== "object" || seen.has(change.row))
+            throw new AppError("Include each volume only once.");
+          seen.add(change.row);
+          const row = current(change);
+          if ((row.series.trim() || "Untitled series") !== request.series)
+            throw new AppError("Choose volumes from the same series.");
+          const details = normalizePurchaseDetails(change);
+          run(
+            "UPDATE books SET purchased_on=?,price=?,source=?,revision=revision+1 WHERE id=?",
+            details.date,
+            details.price === "" ? null : details.price,
+            details.source,
+            row.id,
+          );
+          rememberOptions({ source: details.source });
+        }
+        return { volumes: seen.size, action: "purchases updated" };
       });
     },
     setBookIsbn(request) {

@@ -51,8 +51,8 @@ export async function readBody(
   }
   return Buffer.concat(chunks);
 }
-export async function readJson(request: Request) {
+export async function readJson(request: Request, limit = 20000) {
   if (!request.headers.get("content-type")?.startsWith("application/json"))
     throw new AppError("Expected a JSON request.", 415);
-  return JSON.parse((await readBody(request)).toString("utf8"));
+  return JSON.parse((await readBody(request, limit)).toString("utf8"));
 }

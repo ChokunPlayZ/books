@@ -4,6 +4,7 @@
 - Add books or use the short **Add volume** form with recent series defaults.
 - Edit series name, type and publisher from **Edit title details** on the title page. Changes apply to every owned volume in the matching edition; separate editions keep their own type and publisher. Volume forms inherit these details and let you select an existing edition or add another one.
 - Edit reading status and purchase details; calculate percent/amount discounts.
+- Choose **Edit volumes** on a series page to switch to a table of every owned volume’s purchase date, price and store. A bottom-centered bar shows unsaved changes: **Save changes** applies them together, while **Discard changes** returns to the covers without saving. Blank prices stay distinct from zero, and leaving the page with unsaved edits prompts a warning.
 - Remove and restore books through **Recently removed**.
 - Scan ISBNs from photos or a live camera, recognize printed ISBNs, and use a USB/Bluetooth barcode scanner.
 - Check ownership by equivalent ISBN-10/ISBN-13 and link ISBNs to existing volumes.
