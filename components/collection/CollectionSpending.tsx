@@ -6,7 +6,6 @@ export default function CollectionSpending() {
       id="collectionSpending"
       className="collection-spending"
       aria-labelledby="spendingTitle"
-      hidden
     >
       <div className="spending-heading">
         <span className="stat-icon">

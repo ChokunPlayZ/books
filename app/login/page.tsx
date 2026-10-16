@@ -22,7 +22,12 @@ export default function LoginPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message);
-      window.location.assign("/");
+      const returnTo =
+        new URLSearchParams(window.location.search).get("returnTo") || "/";
+      const destination = new URL(returnTo, window.location.origin);
+      window.location.assign(
+        destination.origin === window.location.origin ? destination.href : "/",
+      );
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : "Sign in failed. Try again.",

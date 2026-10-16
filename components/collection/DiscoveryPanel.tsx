@@ -1,6 +1,6 @@
 export default function DiscoveryPanel() {
   return (
-    <section id="discoverPanel" aria-label="Discover publisher titles" hidden>
+    <section id="discoverPanel" aria-label="Discover publisher titles">
       <div className="release-heading">
         <div>
           <p className="eyebrow">Something new to love</p>

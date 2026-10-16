@@ -164,6 +164,7 @@ try {
   );
   await page.locator("#search").fill(saved.series);
   await page.locator(".series-row").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page
     .getByRole("button", {
       name: "Volume options for " + saved.series,
@@ -209,6 +210,7 @@ try {
     );
   }
   await page.locator("#backSeries").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#refreshButton").click();
   await page.waitForFunction(
     () => !document.getElementById("refreshButton").disabled,

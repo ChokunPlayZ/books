@@ -84,8 +84,10 @@ try {
   const openSeries = async (series) => {
     if (await page.locator("#backSeries").isVisible())
       await page.locator("#backSeries").click();
+    await page.waitForFunction(() => !!window.bookCollection?.state.data);
     await page.locator("#search").fill(series);
     await page.locator(".series-row").click();
+    await page.waitForFunction(() => !!window.bookCollection?.state.data);
     await page.waitForFunction(
       () => !window.bookCollection?.state.catalogLoading.size,
     );

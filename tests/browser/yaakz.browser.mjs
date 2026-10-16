@@ -101,6 +101,7 @@ try {
   await page.goto(url);
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#discoverTab").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#discoveryPreset").selectOption("https://www.yaakz.com/");
   const card = page.locator(".discovery-card").filter({ hasText: marker });
   await card.locator("img").waitFor();
@@ -111,6 +112,7 @@ try {
     "/api/covers/" + coverId,
   );
   await page.locator("#collectionTab").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.evaluate(
     async ({ marker }) => {
       await window.bookCollection?.rpc("saveBook", {
@@ -132,6 +134,7 @@ try {
   );
   await page.locator("#search").fill(marker);
   await page.locator(".series-row").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page
     .getByRole("button", {
       name: "Volume options for " + marker + ", volume 1",

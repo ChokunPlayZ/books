@@ -142,6 +142,7 @@ try {
     () => !document.getElementById("refreshButton").disabled,
   );
   await page.locator("#releasesTab").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.waitForFunction(
     () =>
       window.bookCollection?.state.releasesLoaded &&
@@ -219,6 +220,7 @@ try {
   await page.reload();
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#releasesTab").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.waitForFunction(
     () =>
       window.bookCollection?.state.releasesLoaded &&
@@ -266,6 +268,7 @@ try {
   );
   assert.equal(await page.locator("#releasesPanel").isVisible(), false);
   await page.locator("#backSeries").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#addButton").click();
   await page.locator("#isbn").fill("9786166247275");
   await page.locator("#lookupButton").click();
@@ -306,6 +309,7 @@ try {
   assert.equal(await page.locator("#type").inputValue(), "LN (EN)");
   await page.locator("#cancelBook").click();
   await page.locator("#releasesTab").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   assert.equal(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

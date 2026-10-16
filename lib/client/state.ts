@@ -1,10 +1,12 @@
+import type { CollectionView } from "../domain/navigation.ts";
+
 export function createCollectionState() {
   return {
     data: null as ReturnType<
       import("../server/store").Store["api"]["getCollection"]
     > | null,
-    view: "collection",
-    selectedSeries: null,
+    view: "collection" as CollectionView,
+    selectedSeries: null as string | null,
     seriesDetailsExpanded: false,
     page: 0,
     pageSize: 20,

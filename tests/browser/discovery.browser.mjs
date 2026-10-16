@@ -173,6 +173,7 @@ try {
     "Discovery owned, volume 5 cover",
   );
   await page.locator("#discoverTab").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.waitForFunction(
     () =>
       !window.bookCollection?.state.discoveryLoading &&
@@ -249,7 +250,12 @@ try {
   assert.ok(calls >= 3);
   assert.ok(titleCalls.every((category) => !category.includes("owned")));
   await page.locator("#collectionTab").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#discoverTab").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
+  await page.waitForFunction(
+    () => !window.bookCollection?.state.discoveryLoading,
+  );
   assert.equal(await page.locator(".discovery-card").count(), 4);
   await page.locator(".discovery-cover img").first().waitFor();
   await page
@@ -295,6 +301,7 @@ try {
   await page.waitForFunction(() => !document.getElementById("bookDialog").open);
   assert.equal(await fresh().count(), 0);
   await page.locator("#releasesTab").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.waitForFunction(
     () =>
       window.bookCollection?.state.releasesLoaded &&

@@ -15,28 +15,50 @@ import ScanDialog from "./collection/dialogs/ScanDialog";
 import RemoveDialog from "./collection/dialogs/RemoveDialog";
 import CheckDialog from "./collection/dialogs/CheckDialog";
 import IsbnDialog from "./collection/dialogs/IsbnDialog";
+import type { CollectionView } from "../lib/domain/navigation.ts";
+import type { Store } from "../lib/server/store.ts";
 
-export default function CollectionShell() {
+export default function CollectionShell({
+  view,
+  series,
+  data,
+}: {
+  view: CollectionView;
+  series: string | null;
+  data: ReturnType<Store["api"]["getCollection"]>;
+}) {
+  const shelf = view === "collection" || view === "trash";
+  const overview = shelf && series === null;
   return (
     <>
       <a className="skip-link" href="#libraryMain">
         Skip to library
       </a>
       <IconSymbols />
-      <CollectionHeader />
-      <main id="libraryMain" className="library-main" tabIndex={-1}>
+      <CollectionHeader series={series} />
+      <main
+        id="libraryMain"
+        className={"library-main" + (series !== null ? " series-page" : "")}
+        tabIndex={-1}
+      >
         <div id={"pageError"} className={"banner"} role={"alert"} hidden></div>
-        <CollectionHeading />
-        <CollectionStats />
-        <CollectionSpending />
-        <CollectionTabs />
-        <SeriesHeader />
-        <SeriesCatalogPanel />
-        <ShelfBrowser />
-        <ReleasesPanel />
-        <DiscoveryPanel />
+        {overview && <CollectionHeading removed={view === "trash"} />}
+        {overview && <CollectionStats books={data.books} />}
+        {view === "collection" && series === null && <CollectionSpending />}
+        <CollectionTabs view={view} data={data} />
+        {series !== null && <SeriesHeader series={series} books={data.books} />}
+        {shelf && (
+          <ShelfBrowser
+            data={data}
+            series={series}
+            removed={view === "trash"}
+          />
+        )}
+        {series !== null && <SeriesCatalogPanel />}
+        {view === "releases" && <ReleasesPanel />}
+        {view === "discover" && <DiscoveryPanel />}
         <footer className={"footer"}>
-          <span id={"syncNote"}>{"Opening your library"}</span>
+          <span id={"syncNote"}>{"Saved in your library"}</span>
           <span>Made for the love of books.</span>
         </footer>
       </main>

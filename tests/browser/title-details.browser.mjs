@@ -64,6 +64,7 @@ try {
   );
   await page.locator("#search").fill(original);
   await page.locator(".series-row").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#editTitleButton").click();
   assert.equal(await page.locator("#titleEditions fieldset").count(), 2);
   assert.match(
@@ -93,6 +94,7 @@ try {
   await page.locator("#saveTitleButton").click();
   await page.waitForFunction(
     (name) =>
+      !!window.bookCollection?.state.data &&
       !document.getElementById("titleDialog").open &&
       !window.bookCollection?.state.busy &&
       document.getElementById("seriesTitle").textContent === name,
@@ -188,11 +190,13 @@ try {
       !window.bookCollection?.state.busy,
   );
   await page.reload();
+  await page.locator("#backSeries").click();
   await page.waitForFunction(
     () => !document.getElementById("addButton").disabled,
   );
   await page.locator("#search").fill(renamed);
   await page.locator(".series-row").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.locator("#editTitleButton").click();
   assert.equal(await page.locator("#titleEditions fieldset").count(), 3);

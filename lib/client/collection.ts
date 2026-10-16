@@ -1,5 +1,7 @@
 import { $, node, icon, fillOptions, number, requestId } from "./dom.ts";
 import { createCollectionState } from "./state.ts";
+import { restorePagePreferences } from "./page-preferences.ts";
+import { seriesPath, type CollectionView } from "../domain/navigation.ts";
 import { createScanner } from "./scanner.ts";
 import { canonicalIsbn as canonical } from "../domain/isbn.ts";
 import {
@@ -13,7 +15,13 @@ import {
 } from "./matching.ts";
 // Collection controller. Talks only to this app’s same-origin Next.js API.
 
-export function mountCollection() {
+export function mountCollection({
+  view,
+  series,
+}: {
+  view: CollectionView;
+  series: string | null;
+}) {
   const events = new AbortController();
   const FIELDS = [
     "isbn",
@@ -42,10 +50,15 @@ export function mountCollection() {
     "dateToFilter",
   ] as const;
   const state = createCollectionState();
+  state.view = view;
+  state.selectedSeries = series;
+  const savePagePreferences = restorePagePreferences(view);
+  if (view === "discover") state.discoveryUrl = $("discoveryUrl").value;
   let toastTimer;
 
   function errorAt(id, error) {
     const e = $(id);
+    if (!e) return;
     e.textContent = error?.message || String(error);
     e.hidden = false;
   }
@@ -63,7 +76,9 @@ export function mountCollection() {
       signal: events.signal,
     });
     if (response.status === 401) {
-      window.location.assign("/login");
+      window.location.assign(
+        "/login?returnTo=" + encodeURIComponent(window.location.pathname),
+      );
       throw new Error("Sign in to open your library.");
     }
     const value = await response.json();
@@ -80,7 +95,7 @@ export function mountCollection() {
   }
 
   async function load() {
-    $("refreshButton").disabled = true;
+    if ($("refreshButton")) $("refreshButton").disabled = true;
     $("pageError").hidden = true;
     try {
       state.data = await rpc("getCollection");
@@ -88,26 +103,25 @@ export function mountCollection() {
         fillOptions(k + "Options", state.data.options[k]),
       );
       (["type", "status"] as const).forEach((k) => {
-        fillOptions(
-          k + "Filter",
-          state.data.options[k],
-          "All " + (k === "type" ? "types" : "statuses"),
-        );
+        if ($(`${k}Filter`))
+          fillOptions(
+            k + "Filter",
+            state.data.options[k],
+            "All " + (k === "type" ? "types" : "statuses"),
+          );
         if (!$("bookDialog").open) fillOptions(k, state.data.options[k]);
       });
-      fillOptions(
-        "publisherFilter",
-        state.data.options.publisher,
-        "All publishers",
-      );
-      fillOptions("sourceFilter", state.data.options.source, "All stores");
+      if ($("publisherFilter"))
+        fillOptions(
+          "publisherFilter",
+          state.data.options.publisher,
+          "All publishers",
+        );
+      if ($("sourceFilter"))
+        fillOptions("sourceFilter", state.data.options.source, "All stores");
       $("addButton").disabled = state.busy;
       $("checkBookButton").disabled = state.busy;
-      (["collection", "trash", "releases", "discover"] as const).forEach(
-        (view) => {
-          $(`${view}Tab`).disabled = false;
-        },
-      );
+      if ($("editTitleButton")) $("editTitleButton").disabled = state.busy;
       $("syncNote").textContent =
         "Updated " +
         new Date().toLocaleTimeString([], {
@@ -120,7 +134,7 @@ export function mountCollection() {
         void loadSeriesCatalogs();
     } catch (error) {
       errorAt("pageError", error);
-      if (!state.data)
+      if (!state.data && $("bookList"))
         $("bookList").replaceChildren(
           node(
             "div",
@@ -130,7 +144,7 @@ export function mountCollection() {
         );
       throw error;
     } finally {
-      $("refreshButton").disabled = false;
+      if ($("refreshButton")) $("refreshButton").disabled = false;
     }
   }
   function recordedPrice(book) {
@@ -310,32 +324,39 @@ export function mountCollection() {
     if (!state.data) return;
     const releases = state.view === "releases";
     const discover = state.view === "discover";
-    $("collectionBrowser").hidden = releases || discover;
-    $("releasesPanel").hidden = !releases;
-    $("discoverPanel").hidden = !discover;
     const { books, trash } = state.data;
-    $("bookCount").textContent = number(books.length);
     $("activeCount").textContent = number(books.length);
     $("trashCount").textContent = number(trash.length);
     $("trashCount").hidden = !trash.length;
-    $("seriesCount").textContent = number(
-      new Set(books.map((b) => String(b.series).trim()).filter(Boolean)).size,
-    );
-    const read = books.filter((b) => b.status === "Read").length;
-    $("readCount").textContent = number(read);
-    $("readNote").textContent = books.length
-      ? Math.round((read / books.length) * 100) + "% of your shelf"
-      : "Your next read awaits";
-    $("readProgress").style.width =
-      (books.length ? (read / books.length) * 100 : 0) + "%";
-    const prices = books.filter((book) => recordedPrice(book) !== null);
-    $("spent").textContent = number(spendingTotal(books));
-    const missingPrices = books.length - prices.length;
-    $("priceNote").textContent = missingPrices
-      ? number(missingPrices) +
-        (missingPrices === 1 ? " book has" : " books have") +
-        " no price"
-      : "";
+    if ($("collectionStats")) {
+      $("bookCount").textContent = number(books.length);
+      $("seriesCount").textContent = number(
+        new Set(books.map((b) => String(b.series).trim()).filter(Boolean)).size,
+      );
+      const read = books.filter((b) => b.status === "Read").length;
+      $("readCount").textContent = number(read);
+      $("readNote").textContent = books.length
+        ? Math.round((read / books.length) * 100) + "% of your shelf"
+        : "Your next read awaits";
+      $("readProgress").style.width =
+        (books.length ? (read / books.length) * 100 : 0) + "%";
+      const prices = books.filter((book) => recordedPrice(book) !== null);
+      $("spent").textContent = number(spendingTotal(books));
+      const missingPrices = books.length - prices.length;
+      $("priceNote").textContent = missingPrices
+        ? number(missingPrices) +
+          (missingPrices === 1 ? " book has" : " books have") +
+          " no price"
+        : "";
+    }
+    if (releases) {
+      renderReleases();
+      return;
+    }
+    if (discover) {
+      renderDiscovery();
+      return;
+    }
     const filters = collectionFilters(),
       filtered = Object.values(filters).some(Boolean),
       matches = (book) => matchesCollectionBook(book, filters);
@@ -433,42 +454,28 @@ export function mountCollection() {
           ? "Owned volumes in " + state.selectedSeries
           : "Removed books",
     );
-    $("seriesHeader").hidden = state.selectedSeries === null;
-    $("collectionHeading").hidden =
-      releases || discover || state.selectedSeries !== null;
-    $("collectionTitle").replaceChildren(
-      document.createTextNode(
-        state.view === "trash" ? "Recently removed" : "Your collection",
-      ),
-      node("span", "heading-dot", "."),
-    );
-    $("collectionIntro").textContent =
-      state.view === "trash"
-        ? "A place to find the books you’ve set aside. Restore them whenever you like."
-        : "Every story, every volume. All in one place.";
-    $("collectionStats").hidden =
-      releases || discover || state.selectedSeries !== null;
-    $("collectionSpending").hidden = !grouped;
-    if (grouped) renderCollectionSpending(books);
-    $("seriesTitle").textContent = state.selectedSeries || "";
-    const numbered = owned.filter(
-      (b) => b.volume !== "" && b.volume !== null,
-    ).length;
-    $("seriesSummary").textContent =
-      number(owned.length) +
-      " owned " +
-      (owned.length === 1 ? "volume" : "volumes") +
-      " · " +
-      [...new Set(owned.map((b) => b.type).filter(Boolean))].join(", ") +
-      (sharedDetails.publisher ? " · " + sharedDetails.publisher : "") +
-      (sharedDetails.source ? " · " + sharedDetails.source : "") +
-      " · ฿" +
-      number(spendingTotal(owned)) +
-      " recorded spending" +
-      (numbered < owned.length
-        ? " · " + (owned.length - numbered) + " unnumbered"
-        : "");
-    renderSeriesMissing();
+    if ($("collectionSpending")) renderCollectionSpending(books);
+    if (state.selectedSeries !== null) {
+      $("seriesTitle").textContent = state.selectedSeries;
+      const numbered = owned.filter(
+        (b) => b.volume !== "" && b.volume !== null,
+      ).length;
+      $("seriesSummary").textContent =
+        number(owned.length) +
+        " owned " +
+        (owned.length === 1 ? "volume" : "volumes") +
+        " · " +
+        [...new Set(owned.map((b) => b.type).filter(Boolean))].join(", ") +
+        (sharedDetails.publisher ? " · " + sharedDetails.publisher : "") +
+        (sharedDetails.source ? " · " + sharedDetails.source : "") +
+        " · ฿" +
+        number(spendingTotal(owned)) +
+        " recorded spending" +
+        (numbered < owned.length
+          ? " · " + (owned.length - numbered) + " unnumbered"
+          : "");
+      renderSeriesMissing();
+    }
     $("addButton").replaceChildren(
       icon("plus"),
       document.createTextNode(
@@ -546,8 +553,6 @@ export function mountCollection() {
       entries.length;
     $("previousPage").disabled = state.page === 0;
     $("nextPage").disabled = state.page >= pages - 1;
-    if (releases) renderReleases();
-    if (discover) renderDiscovery();
   }
   function seriesKey(book) {
     return String(book.series || "").trim() || "Untitled series";
@@ -595,8 +600,8 @@ export function mountCollection() {
       .join(" · ");
   }
   function seriesRow(group) {
-    const button = node("button", "series-row");
-    button.disabled = state.busy;
+    const button = node("a", "series-row");
+    button.href = seriesPath(group.series);
     button.setAttribute(
       "aria-label",
       "Open " +
@@ -630,21 +635,10 @@ export function mountCollection() {
     button.append(bookCover(first, "shelf-cover"), info);
     const count = node("span", "series-total", String(group.books.length));
     button.append(count, node("span", "series-arrow", "›"));
-    button.addEventListener("click", () => openSeries(group.series), {
-      signal: events.signal,
-    });
     return button;
   }
-  function openSeries(series) {
-    state.selectedSeries = series;
-    state.seriesDetailsExpanded = false;
-    state.page = 0;
-    resetCollectionFilters();
-    $("seriesReleaseError").hidden = true;
-    $("seriesCatalogDetails").open = false;
-    render();
-    $("backSeries").focus();
-    void loadSeriesCatalogs();
+  function openSeries(series: string) {
+    window.location.assign(seriesPath(series));
   }
   function seriesCatalogSpecs(series = state.selectedSeries) {
     const specs = new Map();
@@ -675,7 +669,7 @@ export function mountCollection() {
     if (series === null || !state.data) return;
     if (refresh) {
       state.catalogRefreshing = true;
-      $("seriesReleaseError").hidden = true;
+      if ($("seriesReleaseError")) $("seriesReleaseError").hidden = true;
       renderSeriesMissing();
       try {
         await load();
@@ -764,7 +758,7 @@ export function mountCollection() {
       editor = state.catalogEditors.get(key);
     if (state.catalogLoading.has(key)) return;
     state.catalogLoading.add(key);
-    $("seriesReleaseError").hidden = true;
+    if ($("seriesReleaseError")) $("seriesReleaseError").hidden = true;
     renderSeriesMissing();
     try {
       await rpc("setSeriesCatalog", {
@@ -797,6 +791,7 @@ export function mountCollection() {
   function renderSeriesMissing() {
     const visible =
       state.view === "collection" && state.selectedSeries !== null;
+    if (!$("seriesMissing")) return;
     $("seriesMissing").hidden = !visible;
     if (!visible) return;
     const owned = state.data.books.filter(
@@ -1424,7 +1419,10 @@ export function mountCollection() {
       $("titleDialog").close();
       state.editingTitle = null;
       state.pendingTitle = null;
-      state.selectedSeries = result.series;
+      if (result.series !== state.selectedSeries) {
+        window.location.replace(seriesPath(result.series));
+        return;
+      }
       state.seriesCatalogs.clear();
       state.catalogEditors.clear();
       resetCollectionFilters();
@@ -1680,28 +1678,14 @@ export function mountCollection() {
     }
     return row;
   }
-  function changeView(view) {
-    state.view = view;
-    state.selectedSeries = null;
-    state.page = 0;
-    (["collection", "trash", "releases", "discover"] as const).forEach((k) => {
-      $(`${k}Tab`).classList.toggle("active", k === view);
-      $(`${k}Tab`).setAttribute("aria-pressed", String(k === view));
-    });
-    render();
-    if (view === "releases" && !state.releasesLoaded) void loadReleases();
-    if (view === "discover" && !state.discoveryFeeds.has(state.discoveryUrl))
-      void loadDiscovery();
-  }
-
   function releaseMatches(item) {
     return matchRelease(item, state.data.books);
   }
   async function loadReleases(refresh = false) {
     if (!state.data || state.releasesLoading) return;
     state.releasesLoading = true;
-    $("releaseError").hidden = true;
-    $("seriesReleaseError").hidden = true;
+    if ($("releaseError")) $("releaseError").hidden = true;
+    if ($("seriesReleaseError")) $("seriesReleaseError").hidden = true;
     renderReleases();
     try {
       if (refresh) {
@@ -1992,7 +1976,7 @@ export function mountCollection() {
     const url = $("discoveryUrl").value.trim();
     state.discoveryUrl = url;
     state.discoveryLoading = true;
-    $("discoveryError").hidden = true;
+    if ($("discoveryError")) $("discoveryError").hidden = true;
     renderDiscovery();
     try {
       if (refresh) await load();
@@ -2075,7 +2059,7 @@ export function mountCollection() {
     }
   }
   function renderDiscovery() {
-    if (!state.data) return;
+    if (!state.data || !$("discoverPanel")) return;
     const feed = state.discoveryFeeds.get(state.discoveryUrl);
     $("refreshDiscovery").disabled = state.discoveryLoading;
     $("loadDiscovery").disabled = state.discoveryLoading;
@@ -2277,7 +2261,7 @@ export function mountCollection() {
     return card;
   }
   function renderReleases() {
-    if (!state.data) return;
+    if (!state.data || !$("releasesPanel")) return;
     $("refreshReleases").disabled = state.releasesLoading;
     $("refreshReleases").textContent = state.releasesLoading
       ? "Checking publishers…"
@@ -2407,7 +2391,6 @@ export function mountCollection() {
     items.forEach((item) =>
       $("releaseList").append(releaseCard(item, saved.has(item.id))),
     );
-    renderSeriesMissing();
   }
   function releaseCard(
     item,
@@ -2534,7 +2517,6 @@ export function mountCollection() {
       "click",
       () => {
         if (match.owned.length) {
-          changeView("collection");
           openSeries(seriesKey(match.owned[0]));
         } else openRelease(item, match);
       },
@@ -2547,11 +2529,12 @@ export function mountCollection() {
   async function saveRelease(item, saved) {
     if (state.savingReleases.size > 0) return;
     state.savingReleases.add(item.id);
-    $("releaseError").hidden = true;
-    $("seriesReleaseError").hidden = true;
-    $("discoveryError").hidden = true;
+    if ($("releaseError")) $("releaseError").hidden = true;
+    if ($("seriesReleaseError")) $("seriesReleaseError").hidden = true;
+    if ($("discoveryError")) $("discoveryError").hidden = true;
     renderReleases();
     renderDiscovery();
+    renderSeriesMissing();
     try {
       const result = await rpc("setSavedRelease", { release: item, saved });
       state.data.savedReleases = result.savedReleases;
@@ -2564,6 +2547,7 @@ export function mountCollection() {
       state.savingReleases.delete(item.id);
       renderReleases();
       renderDiscovery();
+      renderSeriesMissing();
     }
   }
   function openRelease(item, match) {
@@ -2754,7 +2738,6 @@ export function mountCollection() {
           openIsbn(book, state.checkResult.isbn);
         } else {
           closeCheck();
-          changeView("collection");
           openSeries(seriesKey(book));
         }
       },
@@ -3111,7 +3094,9 @@ export function mountCollection() {
         "closeTitle",
         "cancelTitle",
       ] as const
-    ).forEach((id) => ($(id).disabled = busy));
+    ).forEach((id) => {
+      if ($(id)) $(id).disabled = busy;
+    });
     $("bookForm")
       .querySelectorAll<
         HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
@@ -3271,28 +3256,18 @@ export function mountCollection() {
     createScanner({ state, $, node, checkBook, lookup, clearLookup });
 
   // Initialize collection controls.
-  $("addButton").addEventListener(
+  $("addButton")?.addEventListener(
     "click",
     () => openBook(null, seriesDefaults()),
     { signal: events.signal },
   );
-  $("backSeries").addEventListener(
-    "click",
-    () => {
-      state.selectedSeries = null;
-      state.page = 0;
-      resetCollectionFilters();
-      render();
-    },
-    { signal: events.signal },
-  );
-  $("closeBook").addEventListener("click", closeBook, {
+  $("closeBook")?.addEventListener("click", closeBook, {
     signal: events.signal,
   });
-  $("cancelBook").addEventListener("click", closeBook, {
+  $("cancelBook")?.addEventListener("click", closeBook, {
     signal: events.signal,
   });
-  $("bookDialog").addEventListener(
+  $("bookDialog")?.addEventListener(
     "cancel",
     (e) => {
       e.preventDefault();
@@ -3300,17 +3275,17 @@ export function mountCollection() {
     },
     { signal: events.signal },
   );
-  $("bookForm").addEventListener("submit", save, { signal: events.signal });
-  $("editTitleButton").addEventListener("click", openTitle, {
+  $("bookForm")?.addEventListener("submit", save, { signal: events.signal });
+  $("editTitleButton")?.addEventListener("click", openTitle, {
     signal: events.signal,
   });
-  $("titleForm").addEventListener("submit", saveTitle, {
+  $("titleForm")?.addEventListener("submit", saveTitle, {
     signal: events.signal,
   });
   (["closeTitle", "cancelTitle"] as const).forEach((id) =>
-    $(id).addEventListener("click", closeTitle, { signal: events.signal }),
+    $(id)?.addEventListener("click", closeTitle, { signal: events.signal }),
   );
-  $("titleDialog").addEventListener(
+  $("titleDialog")?.addEventListener(
     "cancel",
     (event) => {
       event.preventDefault();
@@ -3318,7 +3293,7 @@ export function mountCollection() {
     },
     { signal: events.signal },
   );
-  $("bookEdition").addEventListener(
+  $("bookEdition")?.addEventListener(
     "change",
     () => {
       state.newEdition = $("bookEdition").value === "new";
@@ -3336,11 +3311,11 @@ export function mountCollection() {
     { signal: events.signal },
   );
   (["input", "change"] as const).forEach((event) =>
-    $("series").addEventListener(event, syncSeriesSelection, {
+    $("series")?.addEventListener(event, syncSeriesSelection, {
       signal: events.signal,
     }),
   );
-  $("toggleBookDetails").addEventListener(
+  $("toggleBookDetails")?.addEventListener(
     "click",
     () => {
       if (state.busy) return;
@@ -3349,7 +3324,7 @@ export function mountCollection() {
     },
     { signal: events.signal },
   );
-  $("type").addEventListener(
+  $("type")?.addEventListener(
     "change",
     () => {
       state.typeTouched = true;
@@ -3357,28 +3332,28 @@ export function mountCollection() {
     { signal: events.signal },
   );
   (["type", "publisher", "source"] as const).forEach((id) =>
-    $(id).addEventListener(
+    $(id)?.addEventListener(
       id === "type" ? "change" : "input",
       renderBookDetails,
       { signal: events.signal },
     ),
   );
   (["regularPrice", "discount"] as const).forEach((id) =>
-    $(id).addEventListener("input", calculateSalePrice, {
+    $(id)?.addEventListener("input", calculateSalePrice, {
       signal: events.signal,
     }),
   );
-  $("discountType").addEventListener("change", calculateSalePrice, {
+  $("discountType")?.addEventListener("change", calculateSalePrice, {
     signal: events.signal,
   });
-  $("price").addEventListener("input", enterSalePrice, {
+  $("price")?.addEventListener("input", enterSalePrice, {
     signal: events.signal,
   });
-  $("lookupButton").addEventListener("click", lookup, {
+  $("lookupButton")?.addEventListener("click", lookup, {
     signal: events.signal,
   });
-  $("isbn").addEventListener("input", clearLookup, { signal: events.signal });
-  $("isbn").addEventListener(
+  $("isbn")?.addEventListener("input", clearLookup, { signal: events.signal });
+  $("isbn")?.addEventListener(
     "keydown",
     (e) => {
       if (e.key === "Enter") {
@@ -3388,25 +3363,25 @@ export function mountCollection() {
     },
     { signal: events.signal },
   );
-  $("scanButton").addEventListener("click", () => openScanner("add"), {
+  $("scanButton")?.addEventListener("click", () => openScanner("add"), {
     signal: events.signal,
   });
-  $("checkBookButton").addEventListener("click", openCheck, {
+  $("checkBookButton")?.addEventListener("click", openCheck, {
     signal: events.signal,
   });
-  $("checkForm").addEventListener("submit", checkBook, {
+  $("checkForm")?.addEventListener("submit", checkBook, {
     signal: events.signal,
   });
-  $("checkIsbn").addEventListener("input", invalidateCheck, {
+  $("checkIsbn")?.addEventListener("input", invalidateCheck, {
     signal: events.signal,
   });
-  $("checkSearch").addEventListener("input", renderManualCheck, {
+  $("checkSearch")?.addEventListener("input", renderManualCheck, {
     signal: events.signal,
   });
   (["closeCheck", "doneCheck"] as const).forEach((id) =>
-    $(id).addEventListener("click", closeCheck, { signal: events.signal }),
+    $(id)?.addEventListener("click", closeCheck, { signal: events.signal }),
   );
-  $("checkDialog").addEventListener(
+  $("checkDialog")?.addEventListener(
     "cancel",
     (e) => {
       e.preventDefault();
@@ -3415,18 +3390,20 @@ export function mountCollection() {
     { signal: events.signal },
   );
   (["checkScanButton", "scanNextBook"] as const).forEach((id) =>
-    $(id).addEventListener("click", () => openScanner("check"), {
+    $(id)?.addEventListener("click", () => openScanner("check"), {
       signal: events.signal,
     }),
   );
-  $("isbnForm").addEventListener("submit", saveIsbn, { signal: events.signal });
-  $("linkScanButton").addEventListener("click", () => openScanner("link"), {
+  $("isbnForm")?.addEventListener("submit", saveIsbn, {
+    signal: events.signal,
+  });
+  $("linkScanButton")?.addEventListener("click", () => openScanner("link"), {
     signal: events.signal,
   });
   (["closeIsbn", "cancelIsbn"] as const).forEach((id) =>
-    $(id).addEventListener("click", closeIsbn, { signal: events.signal }),
+    $(id)?.addEventListener("click", closeIsbn, { signal: events.signal }),
   );
-  $("isbnDialog").addEventListener(
+  $("isbnDialog")?.addEventListener(
     "cancel",
     (e) => {
       e.preventDefault();
@@ -3434,10 +3411,10 @@ export function mountCollection() {
     },
     { signal: events.signal },
   );
-  $("startCamera").addEventListener("click", () => void startCamera(), {
+  $("startCamera")?.addEventListener("click", () => void startCamera(), {
     signal: events.signal,
   });
-  $("stopCamera").addEventListener(
+  $("stopCamera")?.addEventListener(
     "click",
     () => {
       stopScanner();
@@ -3446,10 +3423,10 @@ export function mountCollection() {
     },
     { signal: events.signal },
   );
-  $("closeScan").addEventListener("click", closeScanner, {
+  $("closeScan")?.addEventListener("click", closeScanner, {
     signal: events.signal,
   });
-  $("scanDialog").addEventListener(
+  $("scanDialog")?.addEventListener(
     "cancel",
     (e) => {
       e.preventDefault();
@@ -3458,7 +3435,7 @@ export function mountCollection() {
     { signal: events.signal },
   );
   (["barcodePhoto", "chooseBarcodePhoto"] as const).forEach((id) =>
-    $(id).addEventListener("change", scanPhoto, { signal: events.signal }),
+    $(id)?.addEventListener("change", scanPhoto, { signal: events.signal }),
   );
   // iOS may hide the page while its native camera/photo picker is open. Preserve photo scans.
   document.addEventListener(
@@ -3472,16 +3449,23 @@ export function mountCollection() {
     },
     { signal: events.signal },
   );
-  window.addEventListener("pagehide", stopScanner, { signal: events.signal });
-  $("removeButton").addEventListener("click", askRemove, {
+  window.addEventListener(
+    "pagehide",
+    () => {
+      savePagePreferences();
+      stopScanner();
+    },
+    { signal: events.signal },
+  );
+  $("removeButton")?.addEventListener("click", askRemove, {
     signal: events.signal,
   });
-  $("pullPublisherCovers").addEventListener(
+  $("pullPublisherCovers")?.addEventListener(
     "click",
     () => void pullPublisherCovers(),
     { signal: events.signal },
   );
-  $("coverUrl").addEventListener(
+  $("coverUrl")?.addEventListener(
     "input",
     () => {
       state.selectedCoverId = "";
@@ -3489,13 +3473,13 @@ export function mountCollection() {
     { signal: events.signal },
   );
   (["coverUrl", "publisherUrl", "publisher"] as const).forEach((id) =>
-    $(id).addEventListener("input", renderMetadataCover, {
+    $(id)?.addEventListener("input", renderMetadataCover, {
       signal: events.signal,
     }),
   );
   (["series", "volume", "type", "publisher", "publisherUrl"] as const).forEach(
     (id) =>
-      $(id).addEventListener(
+      $(id)?.addEventListener(
         id === "type" ? "change" : "input",
         () => {
           state.coverPickerGeneration++;
@@ -3532,11 +3516,11 @@ export function mountCollection() {
     },
     { signal: events.signal },
   );
-  $("confirmRemove").addEventListener("click", remove, {
+  $("confirmRemove")?.addEventListener("click", remove, {
     signal: events.signal,
   });
   (["closeRemove", "cancelRemove"] as const).forEach((id) =>
-    $(id).addEventListener(
+    $(id)?.addEventListener(
       "click",
       () => {
         if (!state.busy) $("removeDialog").close();
@@ -3544,26 +3528,14 @@ export function mountCollection() {
       { signal: events.signal },
     ),
   );
-  $("removeDialog").addEventListener(
+  $("removeDialog")?.addEventListener(
     "cancel",
     (e) => {
       if (state.busy) e.preventDefault();
     },
     { signal: events.signal },
   );
-  $("collectionTab").addEventListener("click", () => changeView("collection"), {
-    signal: events.signal,
-  });
-  $("trashTab").addEventListener("click", () => changeView("trash"), {
-    signal: events.signal,
-  });
-  $("releasesTab").addEventListener("click", () => changeView("releases"), {
-    signal: events.signal,
-  });
-  $("discoverTab").addEventListener("click", () => changeView("discover"), {
-    signal: events.signal,
-  });
-  $("discoveryForm").addEventListener(
+  $("discoveryForm")?.addEventListener(
     "submit",
     (event) => {
       event.preventDefault();
@@ -3571,12 +3543,12 @@ export function mountCollection() {
     },
     { signal: events.signal },
   );
-  $("refreshDiscovery").addEventListener(
+  $("refreshDiscovery")?.addEventListener(
     "click",
     () => void loadDiscovery(true),
     { signal: events.signal },
   );
-  $("discoveryPreset").addEventListener(
+  $("discoveryPreset")?.addEventListener(
     "change",
     () => {
       if ($("discoveryPreset").value) {
@@ -3586,7 +3558,7 @@ export function mountCollection() {
     },
     { signal: events.signal },
   );
-  $("discoveryUrl").addEventListener(
+  $("discoveryUrl")?.addEventListener(
     "input",
     () => {
       $("discoveryPreset").value = [...$("discoveryPreset").options].some(
@@ -3597,20 +3569,20 @@ export function mountCollection() {
     },
     { signal: events.signal },
   );
-  $("discoverySearch").addEventListener("input", renderDiscovery, {
+  $("discoverySearch")?.addEventListener("input", renderDiscovery, {
     signal: events.signal,
   });
-  $("refreshReleases").addEventListener(
+  $("refreshReleases")?.addEventListener(
     "click",
     () => void loadReleases(true),
     { signal: events.signal },
   );
-  $("refreshSeriesReleases").addEventListener(
+  $("refreshSeriesReleases")?.addEventListener(
     "click",
     () => void loadSeriesCatalogs(true),
     { signal: events.signal },
   );
-  $("seriesCatalogToggle").addEventListener(
+  $("seriesCatalogToggle")?.addEventListener(
     "click",
     () => {
       state.seriesDetailsExpanded = !state.seriesDetailsExpanded;
@@ -3627,13 +3599,13 @@ export function mountCollection() {
       "releaseType",
     ] as const
   ).forEach((id) =>
-    $(id).addEventListener(
+    $(id)?.addEventListener(
       id === "releaseSearch" ? "input" : "change",
       renderReleases,
       { signal: events.signal },
     ),
   );
-  $("hideSpecialReleases").addEventListener(
+  $("hideSpecialReleases")?.addEventListener(
     "click",
     () => {
       $("hideSpecialReleases").setAttribute(
@@ -3647,8 +3619,8 @@ export function mountCollection() {
     { signal: events.signal },
   );
   ([...COLLECTION_FILTERS, "collectionSort"] as const).forEach((id) =>
-    $(id).addEventListener(
-      $(id).tagName === "INPUT" ? "input" : "change",
+    $(id)?.addEventListener(
+      $(id)?.tagName === "INPUT" ? "input" : "change",
       () => {
         state.page = 0;
         render();
@@ -3656,7 +3628,7 @@ export function mountCollection() {
       { signal: events.signal },
     ),
   );
-  $("clearCollectionFilters").addEventListener(
+  $("clearCollectionFilters")?.addEventListener(
     "click",
     () => {
       resetCollectionFilters();
@@ -3664,7 +3636,7 @@ export function mountCollection() {
     },
     { signal: events.signal },
   );
-  $("previousPage").addEventListener(
+  $("previousPage")?.addEventListener(
     "click",
     () => {
       state.page--;
@@ -3672,7 +3644,7 @@ export function mountCollection() {
     },
     { signal: events.signal },
   );
-  $("nextPage").addEventListener(
+  $("nextPage")?.addEventListener(
     "click",
     () => {
       state.page++;
@@ -3680,12 +3652,17 @@ export function mountCollection() {
     },
     { signal: events.signal },
   );
-  $("refreshButton").addEventListener(
+  $("refreshButton")?.addEventListener(
     "click",
     () => void load().catch(() => {}),
     { signal: events.signal },
   );
-  void load().catch(() => {});
+  void load()
+    .then(() => {
+      if (view === "releases") void loadReleases();
+      if (view === "discover") void loadDiscovery();
+    })
+    .catch(() => {});
 
   const applicationWindow = window as Window & {
     bookCollection?: { state: typeof state; rpc: typeof rpc };

@@ -170,6 +170,107 @@
   padding: 0 0 14px;
 }
 
+.series-page {
+  padding-top: 18px;
+}
+
+.series-page > .tabs {
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.series-page .series-header {
+  padding-bottom: 10px;
+}
+
+.series-page .series-title-line {
+  margin-bottom: 4px;
+  gap: 6px 12px;
+}
+
+.series-page .series-title-line .btn {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
+.series-page .series-title-line .btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.series-page .series-header h1 {
+  font-size: 26px;
+}
+
+.series-page .series-summary-line {
+  gap: 4px 12px;
+}
+
+.series-page .toolbar {
+  margin-bottom: 8px;
+}
+
+.series-page .collection-filters {
+  padding: 8px 12px;
+  margin-bottom: 10px;
+}
+
+.series-page .list-label {
+  margin-bottom: 8px;
+}
+
+.series-page .book-row {
+  min-height: 66px;
+  padding-block: 7px;
+}
+
+.series-page > .series-missing {
+  margin: 16px 0 0;
+}
+
+.series-page > .footer {
+  margin-top: 18px;
+  padding-top: 12px;
+}
+
+@media (max-width: 560px) {
+  .series-page {
+    padding-top: 12px;
+  }
+
+  .series-page > .tabs .tab {
+    min-height: 44px;
+    padding-block: 4px;
+    gap: 3px;
+  }
+
+  .series-page .series-header h1 {
+    font-size: 22px;
+  }
+
+  .series-page .series-title-line {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .series-page .series-title-line h1 {
+    flex: 1 1 180px;
+    width: auto;
+  }
+
+  .series-page .series-title-line .btn {
+    min-height: 44px;
+    width: 44px;
+    padding: 10px;
+    flex: none;
+  }
+
+  .series-page .title-edit-label {
+    @apply sr-only;
+  }
+}
+
 .series-header h1 {
   font-size: 28px;
   line-height: 1.35;

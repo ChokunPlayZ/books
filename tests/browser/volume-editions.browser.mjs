@@ -112,6 +112,7 @@ try {
   const openSeries = async (series) => {
     await page.locator("#search").fill(series);
     await page.locator(".series-row").click();
+    await page.waitForFunction(() => !!window.bookCollection?.state.data);
     await page.waitForFunction(
       () => !window.bookCollection?.state.catalogLoading.size,
     );
@@ -173,6 +174,7 @@ try {
   );
 
   await page.locator("#backSeries").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await openSeries(colorTitle);
   assert.equal(await page.locator(".missing-edition").count(), 1);
   assert.match(
@@ -223,6 +225,7 @@ try {
     4,
   );
   await page.locator("#releasesTab").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.waitForFunction(
     () =>
       window.bookCollection?.state.releasesLoaded &&

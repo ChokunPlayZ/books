@@ -2,7 +2,11 @@ import Icon from "../Icon";
 import LibraryBrand from "../LibraryBrand";
 import ThemeToggle from "../ThemeToggle";
 
-export default function CollectionHeader() {
+export default function CollectionHeader({
+  series,
+}: {
+  series: string | null;
+}) {
   return (
     <header className={"top"}>
       <div className="top-inner flex items-center justify-between">
@@ -25,7 +29,7 @@ export default function CollectionHeader() {
             <svg aria-hidden={"true"}>
               <use href={"#i-plus"} />
             </svg>
-            {"Add book"}
+            {series === null ? "Add book" : "Add volume"}
           </button>
         </div>
       </div>

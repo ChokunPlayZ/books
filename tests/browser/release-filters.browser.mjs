@@ -90,6 +90,7 @@ try {
   await page.goto(testUrl);
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#releasesTab").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.waitForFunction(
     () =>
       window.bookCollection?.state.releasesLoaded &&
@@ -191,7 +192,9 @@ try {
   );
   await hide.click();
   await page.locator("#collectionTab").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#releasesTab").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   assert.equal(await page.locator("#releaseType").inputValue(), "LN");
   assert.equal(await hide.getAttribute("aria-pressed"), "true");
   assert.equal(await cards.count(), 0);

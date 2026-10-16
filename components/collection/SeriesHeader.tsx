@@ -1,17 +1,45 @@
-export default function SeriesHeader() {
+import type { StoredBook } from "../../lib/types.ts";
+
+export default function SeriesHeader({
+  series,
+  books,
+}: {
+  series: string;
+  books: StoredBook[];
+}) {
+  const owned = books.filter(
+    (book) => (book.series.trim() || "Untitled series") === series,
+  );
+  const total = owned.reduce((sum, book) => sum + Number(book.price || 0), 0);
   return (
-    <div id={"seriesHeader"} className={"series-header"} hidden>
-      <button id={"backSeries"} className={"text-btn"}>
+    <div id={"seriesHeader"} className={"series-header"}>
+      <a id={"backSeries"} className={"text-btn"} href="/">
         {"← All series"}
-      </button>
+      </a>
       <div className="series-title-line">
-        <h1 id={"seriesTitle"}></h1>
-        <button id="editTitleButton" className="btn" type="button">
-          Edit title details
+        <h1 id={"seriesTitle"}>{series}</h1>
+        <button
+          id="editTitleButton"
+          className="btn"
+          type="button"
+          aria-label="Edit title details"
+          title="Edit title details"
+          disabled
+        >
+          <svg aria-hidden="true">
+            <use href="#i-edit" />
+          </svg>
+          <span className="title-edit-label">Edit title details</span>
         </button>
       </div>
       <div className={"series-summary-line"}>
-        <p id={"seriesSummary"}></p>
+        <p id={"seriesSummary"}>
+          {owned.length} owned {owned.length === 1 ? "volume" : "volumes"} · ฿
+          {new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(
+            total,
+          )}{" "}
+          recorded spending
+        </p>
         <button
           id={"seriesCatalogToggle"}
           className={"text-btn"}

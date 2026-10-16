@@ -115,7 +115,7 @@ export function createScanner({
     state.cameraTimer = null;
     state.cameraStream?.getTracks().forEach((track) => track.stop());
     state.cameraStream = null;
-    const video = $("scannerArea").querySelector("video");
+    const video = $("scannerArea")?.querySelector("video");
     if (video) {
       video.pause();
       video.srcObject = null;
@@ -130,11 +130,19 @@ export function createScanner({
       void task.worker.terminate().catch(() => {});
       task.worker = null;
     }
-    $("startCamera").disabled = false;
-    $("stopCamera").hidden = true;
-    $("startCamera").hidden = false;
-    $("scanCandidates").hidden = true;
-    $("scanCandidates").replaceChildren();
+    // Effect cleanup can run after the page's elements have been removed.
+    const start = $("startCamera"),
+      stop = $("stopCamera"),
+      candidates = $("scanCandidates");
+    if (start) {
+      start.disabled = false;
+      start.hidden = false;
+    }
+    if (stop) stop.hidden = true;
+    if (candidates) {
+      candidates.hidden = true;
+      candidates.replaceChildren();
+    }
   }
   function closeScanner() {
     stopScanner();

@@ -1,4 +1,24 @@
-export default function ShelfBrowser() {
+import type { Store } from "../../lib/server/store.ts";
+import ShelfEntries from "./ShelfEntries";
+
+export default function ShelfBrowser({
+  data,
+  series,
+  removed,
+}: {
+  data: ReturnType<Store["api"]["getCollection"]>;
+  series: string | null;
+  removed: boolean;
+}) {
+  const count = removed
+    ? data.trash.length
+    : series === null
+      ? new Set(
+          data.books.map((book) => book.series.trim() || "Untitled series"),
+        ).size
+      : data.books.filter(
+          (book) => (book.series.trim() || "Untitled series") === series,
+        ).length;
   return (
     <div id={"collectionBrowser"}>
       <div className={"toolbar"}>
@@ -119,7 +139,12 @@ export default function ShelfBrowser() {
       <div className={"list-label"}>
         <div className="collection-results">
           <span id={"resultCount"} role="status">
-            {"Loading your collection"}
+            {count}{" "}
+            {removed
+              ? "removed books"
+              : series === null
+                ? "series"
+                : "owned volumes"}
           </span>
           <button
             id="clearCollectionFilters"
@@ -130,10 +155,20 @@ export default function ShelfBrowser() {
             Clear filters
           </button>
         </div>
-        <span id={"listRight"}>{"Your volumes"}</span>
+        <span id={"listRight"}>
+          {removed
+            ? "Ready to restore"
+            : series === null
+              ? "Volumes"
+              : "Ordered by volume"}
+        </span>
       </div>
       <section id={"bookList"} className={"collection"} aria-label={"Books"}>
-        <div className={"loading"}>{"Opening your shelf…"}</div>
+        <ShelfEntries
+          books={removed ? data.trash.map((entry) => entry.book) : data.books}
+          series={series}
+          removed={removed}
+        />
       </section>
       <div id={"pagination"} className={"pagination"} hidden>
         <span id={"pageInfo"}></span>

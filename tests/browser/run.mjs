@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { createCoverService, coverDigest } from "../../lib/server/covers.ts";
 import { openStore } from "../../lib/server/store.ts";
+import { seriesPath } from "../../lib/domain/navigation.ts";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const directory = mkdtempSync(join(tmpdir(), "book-collection-e2e-"));
@@ -129,6 +130,23 @@ try {
   await page.waitForFunction(
     () => !document.getElementById("addButton").disabled,
   );
+  const bookmarkContext = await browser.newContext();
+  const bookmark = await bookmarkContext.newPage();
+  const bookmarkedPath = seriesPath("Bookmarked title");
+  await bookmark.goto(url + bookmarkedPath);
+  await bookmark.waitForURL("**/login?returnTo=*");
+  assert.equal(
+    new URL(bookmark.url()).searchParams.get("returnTo"),
+    bookmarkedPath,
+  );
+  await bookmark.getByLabel("Library password").fill(password);
+  await bookmark.getByRole("button", { name: "Sign in", exact: true }).click();
+  await bookmark.waitForURL(url + bookmarkedPath);
+  assert.equal(
+    await bookmark.locator("#seriesTitle").textContent(),
+    "Bookmarked title",
+  );
+  await bookmarkContext.close();
   assert.equal((await post({ name: "getCollection" })).status(), 200);
   const cover = await page.request.get(url + coverPath);
   assert.equal(cover.status(), 200);
@@ -181,8 +199,10 @@ try {
   assert.equal(await page.locator("#bookCount").textContent(), "150");
   await page.locator("#search").fill("Bocchi");
   await page.locator(".series-row").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   assert.equal(await page.locator(".book-row").count(), 1);
   await page.locator("#backSeries").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#addButton").click();
   await page.locator("#series").fill("Next.js browser check");
   await page.locator("#type").selectOption("LN (TH)");
@@ -229,6 +249,7 @@ try {
   });
   await page.locator("#search").fill("Next.js browser check");
   await page.locator(".series-row").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   const options = page.getByRole("button", {
     name: "Volume options for Next.js browser check, volume 14.5",
     exact: true,
@@ -284,8 +305,6 @@ try {
   assert.equal(metadataBook.coverUrl, coverSource);
   assert.equal(metadataBook.publisherUrl, publisherPage);
   assert.equal(metadataBook.note, "Selected publisher cover");
-  await page.locator("#search").fill("Next.js browser check");
-  await page.locator(".series-row").click();
   await page.locator(".book-row img").waitFor();
   assert.equal(
     await page.locator(".book-row img").getAttribute("src"),
@@ -300,6 +319,7 @@ try {
   );
   await page.keyboard.press("Escape");
   await page.locator("#backSeries").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#search").fill("");
   await page.setViewportSize({ width: 390, height: 844 });
   console.log(
@@ -353,6 +373,7 @@ try {
     "publishers.browser.mjs",
     "release-filters.browser.mjs",
     "yaakz.browser.mjs",
+    "navigation.browser.mjs",
   ])
     await runBrowserScenario(name, fixturesUrl);
   if (

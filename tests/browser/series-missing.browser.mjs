@@ -228,6 +228,7 @@ try {
   await page.locator("#search").fill(title);
   await page.locator("#typeFilter").selectOption("Manga (TH)");
   await page.locator(".series-row").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   assert.equal(await page.locator("#seriesMissing").isVisible(), true);
   assert.equal(await page.locator("#typeFilter").inputValue(), "");
   assert.equal(await page.locator(".book-row").count(), 9);
@@ -263,10 +264,12 @@ try {
     "PASS immediate shelf gaps, duplicate/zero/decimal handling, separate languages and formats, all owned volumes",
   );
 
-  // Navigate away while requests are outstanding: arriving feeds must follow the current series.
+  // Leave while requests are outstanding: the next document owns its catalog state.
   await page.locator("#backSeries").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#search").fill(other);
   await page.locator(".series-row").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   releaseGate();
   delayFeeds = false;
   await page.waitForFunction(
@@ -287,9 +290,14 @@ try {
   assert.equal(await page.locator("#seriesMissing").isVisible(), false);
   assert.equal(await page.locator("#seriesCatalogToggle").isVisible(), false);
   await page.locator("#backSeries").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#search").fill(title);
   await page.locator(".series-row").click();
-  assert.equal(feedCalls.length, 2);
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
+  await page.waitForFunction(
+    () => !window.bookCollection?.state.catalogLoading.size,
+  );
+  assert.equal(feedCalls.length, 4);
   assert.equal(recentCalls, 0);
   assert.equal(
     await page.locator("#seriesReleaseList .release-card").count(),
@@ -519,16 +527,20 @@ try {
     ["Large sequence", /Missing 999,999 volumes/],
   ]) {
     await page.locator("#backSeries").click();
+    await page.waitForFunction(() => !!window.bookCollection?.state.data);
     await page.locator("#search").fill(series);
     await page.locator(".series-row").click();
+    await page.waitForFunction(() => !!window.bookCollection?.state.data);
     assert.match(await page.locator("#seriesGaps").textContent(), expected);
   }
   assert.equal(await page.locator(".missing-volume").count(), 1);
   assert.match(await page.locator(".missing-volume").textContent(), /1–999999/);
 
   await page.locator("#backSeries").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#search").fill(alias);
   await page.locator(".series-row").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.waitForFunction(
     () =>
       !window.bookCollection?.state.catalogLoading.size &&
@@ -572,8 +584,6 @@ try {
   );
   await page.reload();
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
-  await page.locator("#search").fill(alias);
-  await page.locator(".series-row").click();
   await page.waitForFunction(
     () =>
       !window.bookCollection?.state.catalogLoading.size &&
@@ -585,6 +595,7 @@ try {
     "PASS manual category search, unsafe URLs rejected, saved links persist across reloads and older missing volumes appear",
   );
   await page.locator("#releasesTab").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.waitForFunction(
     () =>
       window.bookCollection?.state.releasesLoaded &&
@@ -601,8 +612,10 @@ try {
   );
 
   await page.locator("#collectionTab").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#search").fill(completeTitle);
   await page.locator(".series-row").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.waitForFunction(
     () => !window.bookCollection?.state.catalogLoading.size,
   );

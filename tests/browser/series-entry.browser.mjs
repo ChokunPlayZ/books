@@ -249,6 +249,7 @@ try {
 
   await page.locator("#search").fill(title);
   await page.locator(".series-row").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#addButton").click();
   assert.equal(await value("series"), title);
   assert.equal(await page.locator("#type").isVisible(), false);
@@ -286,6 +287,7 @@ try {
 
   // A scanned/typed ISBN survives title selection, and lookup suggestions also select a known title.
   await page.locator("#backSeries").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#addButton").click();
   await page.locator("#isbn").fill("9780140328721");
   await page.locator("#series").fill(title);

@@ -1,6 +1,6 @@
 export default function ReleasesPanel() {
   return (
-    <section id={"releasesPanel"} aria-label={"Publisher releases"} hidden>
+    <section id={"releasesPanel"} aria-label={"Publisher releases"}>
       <div className={"release-heading"}>
         <div>
           <p className="eyebrow">The next chapter</p>

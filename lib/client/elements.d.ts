@@ -2,7 +2,7 @@ interface LibraryElements {
   activeCount: HTMLSpanElement;
   addButton: HTMLButtonElement;
   allowDuplicate: HTMLInputElement;
-  backSeries: HTMLButtonElement;
+  backSeries: HTMLAnchorElement;
   barcodePhoto: HTMLInputElement;
   bookCount: HTMLDivElement;
   bookDialog: HTMLDialogElement;
@@ -43,7 +43,7 @@ interface LibraryElements {
   collectionSort: HTMLSelectElement;
   collectionSpending: HTMLElement;
   collectionStats: HTMLElement;
-  collectionTab: HTMLButtonElement;
+  collectionTab: HTMLAnchorElement;
   collectionTitle: HTMLHeadingElement;
   confirmRemove: HTMLButtonElement;
   coverUrl: HTMLInputElement;
@@ -55,7 +55,7 @@ interface LibraryElements {
   discountHint: HTMLParagraphElement;
   discountType: HTMLSelectElement;
   discoverPanel: HTMLElement;
-  discoverTab: HTMLButtonElement;
+  discoverTab: HTMLAnchorElement;
   discoveryCount: HTMLParagraphElement;
   discoveryError: HTMLDivElement;
   discoveryForm: HTMLFormElement;
@@ -143,7 +143,7 @@ interface LibraryElements {
   releaseSearch: HTMLInputElement;
   releaseType: HTMLSelectElement;
   releasesPanel: HTMLElement;
-  releasesTab: HTMLButtonElement;
+  releasesTab: HTMLAnchorElement;
   removeButton: HTMLButtonElement;
   removeDialog: HTMLDialogElement;
   removeError: HTMLDivElement;
@@ -215,7 +215,7 @@ interface LibraryElements {
   topStoreName: HTMLParagraphElement;
   topStoreNote: HTMLParagraphElement;
   trashCount: HTMLSpanElement;
-  trashTab: HTMLButtonElement;
+  trashTab: HTMLAnchorElement;
   type: HTMLSelectElement;
   typeFilter: HTMLSelectElement;
   volume: HTMLInputElement;

@@ -215,11 +215,13 @@ try {
   }
   await page.locator("#search").fill(marker + "Alpha");
   await page.locator(".series-row").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   assert.equal(await page.locator(".book-row").count(), 3);
   assert.match(
     await page.locator("#seriesSummary").textContent(),
     /฿400 recorded spending/,
   );
+  await page.locator("#collectionFilters summary").click();
   await page.locator("#sourceFilter").selectOption("Store A");
   assert.equal(await page.locator(".book-row").count(), 2);
   await clear();
@@ -243,6 +245,7 @@ try {
       !window.bookCollection?.state.busy,
   );
   await page.reload();
+  await page.locator("#backSeries").click();
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
   assert.equal(
     await page.locator("#topSeriesName").textContent(),
@@ -255,6 +258,7 @@ try {
   );
   await page.locator("#search").fill(marker + "Alpha");
   await page.locator(".series-row").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page
     .getByRole("button", {
       name: `Volume options for ${marker}Alpha, volume 4`,
@@ -273,12 +277,14 @@ try {
       !document.getElementById("bookDialog").open,
   );
   await page.locator("#backSeries").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   assert.equal(
     await page.locator("#topSeriesName").textContent(),
     marker + "Beta",
   );
   assert.equal(await page.locator("#spent").textContent(), "926");
   await page.locator("#trashTab").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   assert.equal(await page.locator("#collectionSpending").isVisible(), false);
   await page.locator(".restore").click();
   await page.waitForFunction(
@@ -287,6 +293,7 @@ try {
       window.bookCollection?.state.data.books.length === 9,
   );
   await page.locator("#collectionTab").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
   assert.equal(await page.locator("#topSeriesAmount").textContent(), "฿550");
   assert.deepEqual(errors, []);
   console.log(
