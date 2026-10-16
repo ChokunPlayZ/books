@@ -10,6 +10,7 @@ declare const ZXingWASM: {
       tryHarder: boolean;
       tryRotate: boolean;
       tryInvert: boolean;
+      minLineCount: number;
       maxNumberOfSymbols: number;
     },
   ): Promise<BarcodeResult[]>;

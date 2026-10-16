@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createScanner, printedIsbns } from "../../lib/client/scanner.ts";
+import {
+  createScanner,
+  focusCamera,
+  printedIsbns,
+} from "../../lib/client/scanner.ts";
+import { enhanceBarcode } from "../../lib/client/scanner-image.ts";
 
 function scannerHarness(t, extra = {}) {
   for (const [name, value] of Object.entries({ navigator: {}, ...extra })) {
@@ -61,6 +66,44 @@ test("printed ISBN recognition handles punctuation and rejects shop codes and ba
     "ISBN 978-O16-489-468-6",
   ])
     assert.deepEqual(printedIsbns(text), [], text);
+});
+
+test("barcode enhancement increases faint bar contrast and preserves transparency", () => {
+  const data = new Uint8ClampedArray(
+    [110, 110, 130, 130, 110, 110, 130, 130].flatMap((value) => [
+      value,
+      value,
+      value,
+      200,
+    ]),
+  );
+  enhanceBarcode({ width: 8, height: 1, data });
+  assert.ok(data[2 * 4] - data[1 * 4] > 100);
+  assert.equal(data[0], data[1]);
+  assert.equal(data[1], data[2]);
+  assert.equal(data[3], 200);
+  assert.equal(data[7 * 4 + 3], 200);
+});
+
+test("continuous camera focus is requested only when supported and is optional", async () => {
+  const requests = [];
+  await focusCamera({
+    getCapabilities: () => ({ focusMode: ["manual", "continuous"] }),
+    applyConstraints: async (constraints) => requests.push(constraints),
+  });
+  assert.deepEqual(requests, [{ advanced: [{ focusMode: "continuous" }] }]);
+  await focusCamera({
+    getCapabilities: () => ({ focusMode: ["manual"] }),
+    applyConstraints: async (constraints) => requests.push(constraints),
+  });
+  assert.equal(requests.length, 1, "Unsupported focus must not be requested");
+  await focusCamera({});
+  await focusCamera({
+    getCapabilities: () => ({ focusMode: ["continuous"] }),
+    applyConstraints: async () => {
+      throw new DOMException("Unsupported", "OverconstrainedError");
+    },
+  });
 });
 
 test("closing scanner stops camera tracks and cancels photo work without waiting for permission", (t) => {

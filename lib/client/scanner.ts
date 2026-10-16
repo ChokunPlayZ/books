@@ -1,4 +1,5 @@
 import { canonicalIsbn as canonical } from "../domain/isbn.ts";
+import { barcodeRegions, barcodeRetry } from "./scanner-image.ts";
 
 type ScannerBindings = {
   state: ScannerState;
@@ -39,6 +40,21 @@ export function printedIsbns(text) {
     }
   }
   return [...found];
+}
+
+export async function focusCamera(track: MediaStreamTrack) {
+  try {
+    const capabilities =
+      track?.getCapabilities?.() as MediaTrackCapabilities & {
+        focusMode?: string[];
+      };
+    if (capabilities?.focusMode?.includes("continuous"))
+      await track.applyConstraints({
+        advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet],
+      });
+  } catch {
+    // Optional camera controls are not supported consistently across browsers.
+  }
 }
 
 export function createScanner({
@@ -190,22 +206,47 @@ export function createScanner({
     canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
     return canvas;
   }
-  async function readBarcodes(canvas, generation) {
+  async function readBarcodes(canvas, generation, liveAttempt?: number) {
     if (typeof ZXingWASM === "undefined")
       await loadScannerScript(
         "https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.5/dist/iife/reader/index.js",
       );
     requireScan(generation);
-    return ZXingWASM.readBarcodes(
-      canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height),
-      {
+    const decode = (image: ImageData) =>
+      ZXingWASM.readBarcodes(image, {
         formats: ["EAN13"] as const,
         tryHarder: true,
         tryRotate: true,
         tryInvert: true,
+        minLineCount: 2,
         maxNumberOfSymbols: 8,
-      },
+      });
+    const results = await decode(
+      canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height),
     );
+    requireScan(generation);
+    if (results.some((result) => canonical(result.text))) return results;
+    // Live scanning rotates through one retry per frame to keep the camera responsive.
+    const attempts =
+      liveAttempt === undefined
+        ? barcodeRegions.map((_, index) => index)
+        : [liveAttempt];
+    for (const attempt of attempts) {
+      requireScan(generation);
+      const retry = await decode(barcodeRetry(canvas, attempt));
+      requireScan(generation);
+      results.push(...retry);
+      if (retry.some((result) => canonical(result.text))) break;
+    }
+    return results;
+  }
+
+  function createPhotoTask(): PhotoTask {
+    const task: PhotoTask = { worker: null };
+    task.cancelled = new Promise((resolve) => {
+      task.cancel = resolve;
+    });
+    return task;
   }
 
   function photoStep<T>(promise: Promise<T>, task: PhotoTask): Promise<T> {
@@ -332,6 +373,8 @@ export function createScanner({
         return;
       }
       state.cameraStream = stream;
+      // Focus is optional; a rejected camera control must not prevent playback.
+      void focusCamera(stream.getVideoTracks?.()[0]);
       const video = node("video");
       video.muted = true;
       video.autoplay = true;
@@ -366,35 +409,63 @@ export function createScanner({
       $("startCamera").hidden = true;
       $("stopCamera").hidden = false;
       $("scanMessage").textContent =
-        "Hold the whole barcode steady. For a shop barcode, use Take photo and include the printed ISBN.";
+        "Hold the barcode and printed ISBN steady. If the bars are unclear, the camera will try the printed digits too.";
+      let liveAttempt = 0,
+        nextTextScan = performance.now() + 3000;
       const frame = async () => {
         if (!scanActive(generation) || !state.cameraRunning) return;
         try {
           if (video.readyState >= 2) {
-            const canvas = photoCanvas(video, 1600);
-            let results;
+            const canvas = photoCanvas(video);
             try {
-              results = await readBarcodes(canvas, generation);
+              const results = await readBarcodes(
+                canvas,
+                generation,
+                liveAttempt++,
+              );
+              if (!scanActive(generation)) return;
+              const isbns = [
+                ...new Set(
+                  results
+                    .map((result) => canonical(result.text))
+                    .filter(Boolean),
+                ),
+              ];
+              if (isbns.length === 1) {
+                await acceptScan(isbns[0], generation);
+                return;
+              }
+              if (isbns.length > 1) {
+                reviewScan(isbns, generation);
+                return;
+              }
+              if (performance.now() >= nextTextScan) {
+                const task = createPhotoTask();
+                state.photoTask = task;
+                try {
+                  const printed = await readPrintedIsbns(
+                    canvas,
+                    generation,
+                    task,
+                  );
+                  requireScan(generation);
+                  if (printed.length) {
+                    reviewScan(printed, generation, true);
+                    return;
+                  }
+                } catch {
+                  // Keep barcode scanning available when text reading cannot load.
+                  if (!scanActive(generation)) return;
+                } finally {
+                  if (state.photoTask === task) state.photoTask = null;
+                  nextTextScan = performance.now() + 15000;
+                }
+                $("scanMessage").textContent =
+                  "Still scanning. Keep the whole barcode in view, avoid glare, or take a closer photo including the printed ISBN.";
+              }
             } finally {
               canvas.width = canvas.height = 1;
             }
-            if (!scanActive(generation)) return;
-            const isbns = [
-              ...new Set(
-                results.map((result) => canonical(result.text)).filter(Boolean),
-              ),
-            ];
-            if (isbns.length === 1) {
-              await acceptScan(isbns[0], generation);
-              return;
-            }
-            if (isbns.length > 1) {
-              reviewScan(isbns, generation);
-              return;
-            }
-            if (results.length)
-              $("scanMessage").textContent =
-                "This barcode is not an ISBN. Use Take photo and include the printed ISBN above it.";
           }
         } catch (error) {
           if (scanActive(generation)) {
@@ -428,10 +499,7 @@ export function createScanner({
     if (!file) return;
     stopScanner();
     const generation = state.scanGeneration,
-      task: PhotoTask = { worker: null };
-    task.cancelled = new Promise((resolve) => {
-      task.cancel = resolve;
-    });
+      task = createPhotoTask();
     state.photoTask = task;
     $("scannerArea").replaceChildren();
     $("scanMessage").textContent = "Reading the barcode in your photo…";
