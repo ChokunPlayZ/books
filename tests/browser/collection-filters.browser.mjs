@@ -105,9 +105,11 @@ try {
     () => !document.getElementById("refreshButton").disabled,
   );
   const names = async () =>
-    (await page.locator(".series-name").allTextContents()).map((name) =>
-      name.slice(marker.length),
-    );
+    (
+      await page
+        .locator(".series-card")
+        .evaluateAll((links) => links.map((link) => link.title))
+    ).map((name) => name.slice(marker.length));
   const clear = () => page.locator("#clearCollectionFilters").click();
   assert.equal(await page.locator("#spent").textContent(), "926");
   assert.equal(
@@ -140,10 +142,9 @@ try {
   assert.deepEqual(await names(), []); // Different volumes cannot satisfy separate filters.
   await page.locator("#sourceFilter").selectOption("Store B");
   assert.deepEqual(await names(), ["Alpha", "Gamma"]);
-  assert.equal(await page.locator(".series-total").first().textContent(), "1");
   assert.match(
-    await page.locator(".series-meta").first().textContent(),
-    /Vol. 2.*฿300/,
+    await page.locator(".series-card").first().getAttribute("aria-label"),
+    /1 matching volume$/,
   );
   await page.locator("#minPriceFilter").fill("300");
   await page.locator("#maxPriceFilter").fill("300");
@@ -176,11 +177,17 @@ try {
   await page.locator("#dateFromFilter").fill("2026-02-15");
   await page.locator("#dateToFilter").fill("2026-02-16");
   assert.deepEqual(await names(), ["Beta"]);
-  assert.equal(await page.locator(".series-total").textContent(), "2");
+  assert.match(
+    await page.locator(".series-card").getAttribute("aria-label"),
+    /2 matching volumes$/,
+  );
   await clear();
   await page.locator("#search").fill("birthday purchase");
   assert.deepEqual(await names(), ["Beta"]);
-  assert.equal(await page.locator(".series-total").textContent(), "1");
+  assert.match(
+    await page.locator(".series-card").getAttribute("aria-label"),
+    /1 matching volume$/,
+  );
   await clear();
   for (const [sort, expected] of [
     ["spent", ["Beta", "Alpha", "Delta", "Gamma", "Epsilon"]],
@@ -195,7 +202,14 @@ try {
     "PASS combined book-level filters, inclusive dates and prices, missing metadata, search, clear and sorting",
   );
 
-  for (const width of [390, 1280]) {
+  await page.evaluate(() => {
+    document.querySelectorAll("details[open]").forEach((details) => {
+      details.open = false;
+    });
+    document.activeElement?.blur();
+    window.scrollTo(0, 0);
+  });
+  for (const width of [320, 390, 768, 1280]) {
     await page.setViewportSize({ width, height: 1000 });
     assert.equal(
       await page.evaluate(
@@ -203,12 +217,32 @@ try {
       ),
       true,
     );
+    assert.equal(
+      await page
+        .locator("#bookList")
+        .evaluate((grid) => getComputedStyle(grid).display),
+      "grid",
+    );
+    const covers = await page.locator(".series-cover").evaluateAll((elements) =>
+      elements.map((element) => {
+        const box = element.getBoundingClientRect();
+        return { x: box.x, y: box.y, width: box.width, height: box.height };
+      }),
+    );
+    assert.ok(covers[0].width > 100 && covers[0].height > covers[0].width);
+    assert.equal(covers[0].y, covers[1].y);
+    assert.ok(covers[1].x > covers[0].x);
+    assert.equal(
+      await page
+        .locator(
+          ".series-card .series-meta, .series-card .series-total, .series-card .series-arrow",
+        )
+        .count(),
+      0,
+    );
     await page.screenshot({
       path: fileURLToPath(
-        new URL(
-          `../outputs/browser-collection-filters-${width}.png`,
-          import.meta.url,
-        ),
+        new URL(`../../outputs/cover-grid-${width}.png`, import.meta.url),
       ),
       fullPage: true,
     });

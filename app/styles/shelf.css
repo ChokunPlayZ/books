@@ -1,0 +1,100 @@
+/* The collection is a cover gallery; title pages keep their volume list. */
+.collection.cover-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(144px, 1fr));
+  gap: 22px 18px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.cover-grid .series-card {
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  transition: transform 160ms ease;
+}
+
+.cover-grid .series-card:hover {
+  transform: translateY(-3px);
+}
+
+.cover-grid .series-card:focus-visible {
+  outline-offset: 5px;
+}
+
+.cover-grid .series-cover {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 264 / 370;
+  border-radius: 3px 6px 6px 3px;
+  box-shadow: 1px 3px 7px #1b35231a;
+}
+
+.series-cover .cover-placeholder {
+  padding: 14px 12px;
+  gap: 12px;
+  border-left-width: 5px;
+}
+
+.series-cover .cover-placeholder::before {
+  inset: 12px;
+}
+
+.series-cover .cover-placeholder svg {
+  width: 26px;
+  height: 26px;
+}
+
+.series-cover .placeholder-title {
+  color: #344434;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font:
+    16px/1.4 Georgia,
+    Tahoma,
+    serif;
+}
+
+.series-cover .placeholder-label {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.cover-grid > .empty,
+.cover-grid > .loading {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 560px) {
+  .collection.cover-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 12px;
+  }
+
+  .series-cover .placeholder-title {
+    font-size: 15px;
+  }
+
+  .series-cover .cover-placeholder {
+    padding: 16px 12px;
+    gap: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cover-grid .series-card:hover {
+    transform: none;
+  }
+}

@@ -19,6 +19,7 @@ export default function ShelfBrowser({
       : data.books.filter(
           (book) => (book.series.trim() || "Untitled series") === series,
         ).length;
+  const gallery = series === null && !removed;
   return (
     <div id={"collectionBrowser"}>
       <div className={"toolbar"}>
@@ -159,11 +160,15 @@ export default function ShelfBrowser({
           {removed
             ? "Ready to restore"
             : series === null
-              ? "Volumes"
+              ? "Open a cover for details"
               : "Ordered by volume"}
         </span>
       </div>
-      <section id={"bookList"} className={"collection"} aria-label={"Books"}>
+      <section
+        id={"bookList"}
+        className={"collection" + (gallery ? " cover-grid" : "")}
+        aria-label={gallery ? "Series" : "Books"}
+      >
         <ShelfEntries
           books={removed ? data.trash.map((entry) => entry.book) : data.books}
           series={series}

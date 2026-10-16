@@ -1,6 +1,7 @@
 import { $, node, icon, fillOptions, number, requestId } from "./dom.ts";
 import { createCollectionState } from "./state.ts";
 import { restorePagePreferences } from "./page-preferences.ts";
+import { shelfCoverBook, coverTint } from "../domain/shelf.ts";
 import { seriesPath, type CollectionView } from "../domain/navigation.ts";
 import { createScanner } from "./scanner.ts";
 import { canonicalIsbn as canonical } from "../domain/isbn.ts";
@@ -440,9 +441,7 @@ export function mountCollection({
         : sort === "recent"
           ? "Recently bought first"
           : grouped
-            ? filtered
-              ? "Matching books"
-              : "Volumes"
+            ? "Open a cover for details"
             : state.view === "collection"
               ? "Ordered by volume"
               : "Ready to restore";
@@ -563,45 +562,10 @@ export function mountCollection({
       bv = b.volume === "" || b.volume === null ? Infinity : Number(b.volume);
     return av - bv || a.row - b.row;
   }
-  function ownedVolumeSummary(books) {
-    const volumes = [
-      ...new Set<number>(
-        books
-          .filter((book) => book.volume !== "" && book.volume !== null)
-          .map((book) => Number(book.volume))
-          .filter(Number.isFinite),
-      ),
-    ].sort((a, b) => a - b);
-    const ranges = [];
-    volumes.forEach((volume) => {
-      const last = ranges.at(-1);
-      if (
-        last &&
-        Number.isInteger(last[1]) &&
-        Number.isInteger(volume) &&
-        volume === last[1] + 1
-      )
-        last[1] = volume;
-      else ranges.push([volume, volume]);
-    });
-    const unnumbered = books.filter(
-      (book) => book.volume === "" || book.volume === null,
-    ).length;
-    return [
-      ranges.length
-        ? "Vol. " +
-          ranges
-            .map(([from, to]) => (from === to ? String(from) : from + "–" + to))
-            .join(", ")
-        : "",
-      unnumbered ? number(unnumbered) + " unnumbered" : "",
-    ]
-      .filter(Boolean)
-      .join(" · ");
-  }
   function seriesRow(group) {
-    const button = node("a", "series-row");
+    const button = node("a", "series-row series-card");
     button.href = seriesPath(group.series);
+    button.title = group.series;
     button.setAttribute(
       "aria-label",
       "Open " +
@@ -611,30 +575,9 @@ export function mountCollection({
         (group.filtered ? " matching " : " owned ") +
         (group.books.length === 1 ? "volume" : "volumes"),
     );
-    const info = node("span", "series-info");
-    info.append(node("span", "series-name", group.series));
-    const volumes = ownedVolumeSummary(group.books);
-    info.append(
-      node(
-        "span",
-        "series-meta",
-        [
-          [...new Set(group.books.map((b) => b.type).filter(Boolean))].join(
-            " / ",
-          ),
-          volumes,
-          group.books.some((book) => recordedPrice(book) !== null)
-            ? "฿" + number(spendingTotal(group.books)) + " spent"
-            : "No prices recorded",
-        ]
-          .filter(Boolean)
-          .join(" · "),
-      ),
+    button.append(
+      bookCover(shelfCoverBook(group.books), "shelf-cover series-cover"),
     );
-    const first = [...group.books].sort(byVolume)[0];
-    button.append(bookCover(first, "shelf-cover"), info);
-    const count = node("span", "series-total", String(group.books.length));
-    button.append(count, node("span", "series-arrow", "›"));
     return button;
   }
   function openSeries(series: string) {
@@ -1751,20 +1694,29 @@ export function mountCollection({
     setCoverImage(frame, id, title);
     return frame;
   }
-  function setCoverImage(frame, id, title) {
+  function setCoverImage(
+    frame: Element & { _coverId?: string },
+    id: string,
+    title: string,
+  ) {
     if (frame._coverId === (id || "")) return;
     frame._coverId = id || "";
     frame.replaceChildren();
     const placeholder = node("span", "cover-placeholder");
-    const colors = ["sage", "clay", "slate", "sand", "plum"] as const;
-    const tint = [...String(title)].reduce(
-      (sum, char) => sum + char.codePointAt(0),
-      0,
-    );
-    placeholder.dataset.tint = colors[tint % colors.length];
+    const galleryTitle = frame.classList.contains("series-cover")
+      ? frame.closest<HTMLAnchorElement>("a")?.title ||
+        frame._book?.series ||
+        title
+      : null;
+    placeholder.dataset.tint = coverTint(String(galleryTitle || title));
     placeholder.setAttribute("aria-label", "No cover available");
     placeholder.append(node("span", "placeholder-label", "No cover"));
     placeholder.prepend(icon("books"));
+    if (galleryTitle)
+      placeholder.insertBefore(
+        node("span", "placeholder-title", galleryTitle),
+        placeholder.lastChild,
+      );
     frame.append(placeholder);
     if (!/^[a-f0-9]{64}$/.test(id || "")) return;
     const img = node("img");
@@ -1952,8 +1904,9 @@ export function mountCollection({
     { rootMargin: "100px" },
   );
   function bookCover(book, className) {
-    const title =
-      book.series + (book.volume !== "" ? ", volume " + book.volume : "");
+    const title = className.includes("series-cover")
+      ? seriesKey(book)
+      : book.series + (book.volume !== "" ? ", volume " + book.volume : "");
     const frame = coverImage(book.coverId, title, className);
     frame._book = book;
     if (!book.coverId) coverObserver.observe(frame);
@@ -1966,7 +1919,10 @@ export function mountCollection({
         setCoverImage(
           frame,
           book.coverId,
-          book.series + (book.volume !== "" ? ", volume " + book.volume : ""),
+          frame.classList.contains("series-cover")
+            ? seriesKey(book)
+            : book.series +
+                (book.volume !== "" ? ", volume " + book.volume : ""),
         );
     });
   }

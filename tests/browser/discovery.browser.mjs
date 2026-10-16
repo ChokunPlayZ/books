@@ -159,13 +159,17 @@ try {
     () => !document.getElementById("refreshButton").disabled,
   );
   await page
-    .locator(".series-row")
-    .filter({ hasText: "Discovery owned" })
+    .getByRole("link", {
+      name: "Open Discovery owned, 1 owned volume",
+      exact: true,
+    })
     .locator("img")
     .waitFor();
   await page
-    .locator(".series-row")
-    .filter({ hasText: "Discovery owned" })
+    .getByRole("link", {
+      name: "Open Discovery owned, 1 owned volume",
+      exact: true,
+    })
     .click();
   await page.locator(".book-row .shelf-cover img").waitFor();
   assert.equal(

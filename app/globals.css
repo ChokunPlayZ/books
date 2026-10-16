@@ -13,6 +13,7 @@
 @import "./styles/data.css" layer(components);
 @import "./styles/login.css" layer(components);
 @import "./styles/responsive.css" layer(components);
+@import "./styles/shelf.css" layer(components);
 @source "../components";
 @source "../lib/client";
 

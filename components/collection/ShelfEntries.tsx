@@ -1,15 +1,35 @@
 import Icon from "../Icon";
 import { seriesPath } from "../../lib/domain/navigation.ts";
 import type { StoredBook } from "../../lib/types.ts";
+import { shelfCoverBook, coverTint } from "../../lib/domain/shelf.ts";
 
-function Cover({ book }: { book: StoredBook }) {
+function Cover({
+  book,
+  gallery = false,
+}: {
+  book: StoredBook;
+  gallery?: boolean;
+}) {
+  const title = book.series.trim() || "Untitled series";
   return (
-    <span className="cover-frame shelf-cover" aria-hidden="true">
+    <span
+      className={"cover-frame shelf-cover" + (gallery ? " series-cover" : "")}
+      aria-hidden="true"
+    >
       {book.coverId ? (
         <img src={"/api/covers/" + book.coverId} alt="" loading="lazy" />
       ) : (
-        <span className="cover-placeholder">
+        <span
+          className="cover-placeholder"
+          data-tint={gallery ? coverTint(title) : undefined}
+        >
           <Icon name="books" />
+          {gallery && (
+            <>
+              <span className="placeholder-title">{title}</span>
+              <span className="placeholder-label">No cover</span>
+            </>
+          )}
         </span>
       )}
     </span>
@@ -61,22 +81,13 @@ export default function ShelfEntries({
       .slice(0, 20)
       .map(([name, owned]) => (
         <a
-          className="series-row"
+          className="series-row series-card"
           href={seriesPath(name)}
           key={name}
+          title={name}
           aria-label={`Open ${name}, ${owned.length} owned ${owned.length === 1 ? "volume" : "volumes"}`}
         >
-          <Cover book={owned[0]} />
-          <span className="series-info">
-            <span className="series-name">{name}</span>
-            <span className="series-meta">
-              {[
-                ...new Set(owned.map((book) => book.type).filter(Boolean)),
-              ].join(" / ")}
-            </span>
-          </span>
-          <span className="series-total">{owned.length}</span>
-          <span className="series-arrow">›</span>
+          <Cover book={shelfCoverBook(owned)} gallery />
         </a>
       ));
   }

@@ -53,7 +53,10 @@ try {
   const plain = await browser.newContext({ javaScriptEnabled: false });
   const serverPage = await plain.newPage();
   await serverPage.goto(testUrl);
-  const link = serverPage.locator(".series-row").filter({ hasText: series });
+  const link = serverPage.getByRole("link", {
+    name: `Open ${series}, 2 owned volumes`,
+    exact: true,
+  });
   assert.equal(await link.getAttribute("href"), path);
   await link.click();
   assert.equal(new URL(serverPage.url()).pathname, path);
@@ -73,7 +76,11 @@ try {
   await page.evaluate(() => {
     window.documentMarker = true;
   });
-  await page.locator(".series-row").click();
+  await page.locator(".series-row").focus();
+  await Promise.all([
+    page.waitForURL(testUrl + path),
+    page.locator(".series-row").press("Enter"),
+  ]);
   await ready(page);
   assert.equal(new URL(page.url()).pathname, path);
   assert.equal(await page.evaluate(() => window.documentMarker), undefined);
