@@ -12,6 +12,8 @@ Build title links with `seriesPath()` from `lib/domain/navigation.ts`. It encode
 
 `CollectionController.tsx` loads `mountCollection()` in a browser effect with the page’s view and selected series. The controller progressively adds filtering, editing, catalog checks and scanning to the current page; it does not switch views. It refreshes the initial server data through the same-origin API, and binds controls only when their panel exists. Its cleanup aborts event handlers, stops the scanner and disconnects observers. There are no generated scripts in `public/` and no custom development watcher. `window.bookCollection` exposes the current state and RPC helper for browser diagnostics.
 
+Main result lists use `lib/client/infinite-list.ts` to append batches as the end of the list approaches the viewport. `LIST_BATCH_SIZE` in `lib/domain/lists.ts` also bounds the initial server-rendered shelf, volumes and removed books. Changing filters or sorting starts a new batch; refreshing data keeps the loaded range. Cover and discovery-title lookups observe only rendered rows.
+
 Pure shelf-gap, release matching and discovery grouping rules live in `lib/client/matching.ts` and can be tested without a browser. `lib/client/scanner.ts` owns camera, photo and OCR tasks through explicit UI bindings. Keep new pure rules outside the controller where they can be imported directly by tests.
 
 ## Make a focused change

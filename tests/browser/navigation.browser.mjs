@@ -63,6 +63,10 @@ try {
   assert.equal(await serverPage.locator("#seriesTitle").textContent(), series);
   assert.equal(await serverPage.locator(".book-row").count(), 2);
   assert.equal(
+    await serverPage.locator("#bookList.cover-grid .book-card").count(),
+    2,
+  );
+  assert.equal(
     await serverPage
       .locator("#releasesPanel, #discoverPanel, #collectionStats")
       .count(),
@@ -88,6 +92,20 @@ try {
   await ready(page);
   assert.equal(await page.locator("#seriesTitle").textContent(), series);
   assert.equal(await page.locator(".book-row").count(), 2);
+  assert.deepEqual(
+    await page
+      .locator(".book-card")
+      .evaluateAll((cards) => cards.map((card) => card.title)),
+    [1, 2].map((volume) => `${series}, volume ${volume}`),
+  );
+  assert.equal(
+    await page
+      .locator(
+        "#bookList .book-copy, #bookList .book-status, #bookList .price, #bookList .volume-actions",
+      )
+      .count(),
+    0,
+  );
   for (const width of [390, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     assert.equal(
@@ -97,6 +115,10 @@ try {
       true,
     );
     const first = await page.locator(".book-row").first().boundingBox();
+    const second = await page.locator(".book-row").nth(1).boundingBox();
+    assert.ok(first.width > 100 && first.height > first.width);
+    assert.equal(first.y, second.y);
+    assert.ok(second.x > first.x);
     await page.screenshot({
       path: join(process.cwd(), "outputs", `book-page-${width}.png`),
       fullPage: true,
@@ -106,6 +128,16 @@ try {
       `Owned volumes stay near the top of the page (${width}px viewport, first row at ${first.y}px)`,
     );
   }
+  const volume = page.getByRole("button", {
+    name: `Edit ${series}, volume 2`,
+    exact: true,
+  });
+  await volume.focus();
+  await volume.press("Enter");
+  assert.equal(await page.locator("#bookDialog").isVisible(), true);
+  assert.equal(await page.locator("#volume").inputValue(), "2");
+  assert.equal(await page.locator("#removeButton").isVisible(), true);
+  await page.locator("#cancelBook").click();
   await page.locator("#backSeries").click();
   await ready(page);
   assert.equal(new URL(page.url()).pathname, "/");
@@ -140,7 +172,7 @@ try {
   }
   assert.deepEqual(errors, []);
   console.log(
-    "PASS server-rendered title pages, encoded names, document navigation, direct reload, Back/Forward, separate views and compact phone/desktop layouts",
+    "PASS server-rendered title pages, cover-only volume grids, keyboard editing, encoded names, document navigation, direct reload, Back/Forward and phone/desktop layouts",
   );
 } finally {
   const cleanup = await browser.newPage();

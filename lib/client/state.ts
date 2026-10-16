@@ -8,8 +8,6 @@ export function createCollectionState() {
     view: "collection" as CollectionView,
     selectedSeries: null as string | null,
     seriesDetailsExpanded: false,
-    page: 0,
-    pageSize: 20,
     editing: null as import("../types").StoredBook | null,
     busy: false,
     lookupGeneration: 0,

@@ -260,11 +260,12 @@ try {
   assert.equal(await page.locator(".book-row").count(), 2);
   await clear();
   await page.locator("#collectionSort").selectOption("spent");
-  assert.deepEqual(await page.locator(".book-title").allTextContents(), [
-    "Volume 2",
-    "Volume 1",
-    "Volume 3",
-  ]);
+  assert.deepEqual(
+    await page
+      .locator(".book-card")
+      .evaluateAll((cards) => cards.map((card) => card.title)),
+    [2, 1, 3].map((volume) => `${marker}Alpha, volume ${volume}`),
+  );
   await clear();
   await page.locator("#addButton").click();
   assert.equal(await page.locator("#source").isVisible(), true);
@@ -293,12 +294,6 @@ try {
   await page.locator("#search").fill(marker + "Alpha");
   await page.locator(".series-row").click();
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
-  await page
-    .getByRole("button", {
-      name: `Volume options for ${marker}Alpha, volume 4`,
-      exact: true,
-    })
-    .click();
   await page
     .getByRole("button", { name: `Edit ${marker}Alpha, volume 4`, exact: true })
     .click();

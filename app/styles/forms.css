@@ -377,12 +377,6 @@ textarea {
     @apply flex-col;
     gap: 8px;
   }
-  .pagination {
-    @apply flex-wrap;
-  }
-  .pagination .buttons {
-    margin-left: auto;
-  }
   .tab {
     font-size: 13px;
   }

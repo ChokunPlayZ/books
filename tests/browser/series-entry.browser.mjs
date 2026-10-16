@@ -256,12 +256,6 @@ try {
   assert.equal(await page.evaluate(() => document.activeElement.id), "volume");
   await page.locator("#cancelBook").click();
   await page
-    .getByRole("button", {
-      name: "Volume options for " + title + ", volume 4",
-      exact: true,
-    })
-    .click();
-  await page
     .getByRole("button", { name: "Edit " + title + ", volume 4", exact: true })
     .click();
   assert.equal(await page.locator("#seriesDefaults").isVisible(), true);

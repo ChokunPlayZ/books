@@ -104,13 +104,9 @@ interface LibraryElements {
   metadataManager: HTMLElement;
   metadataPublisherLink: HTMLAnchorElement;
   minPriceFilter: HTMLInputElement;
-  nextPage: HTMLButtonElement;
   note: HTMLTextAreaElement;
   ownershipResult: HTMLDivElement;
   pageError: HTMLDivElement;
-  pageInfo: HTMLSpanElement;
-  pagination: HTMLDivElement;
-  previousPage: HTMLButtonElement;
   price: HTMLInputElement;
   priceCalculator: HTMLDetailsElement;
   priceFilter: HTMLSelectElement;

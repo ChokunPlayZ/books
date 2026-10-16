@@ -137,11 +137,10 @@ try {
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page
     .getByRole("button", {
-      name: "Volume options for " + marker + ", volume 1",
+      name: "Edit " + marker + ", volume 1",
       exact: true,
     })
     .click();
-  await page.getByRole("button", { name: "Change cover", exact: true }).click();
   await page.locator("#pullPublisherCovers").click();
   await page.locator(".cover-choice").nth(1).waitFor();
   assert.match(

@@ -1,4 +1,4 @@
-/* The collection is a cover gallery; title pages keep their volume list. */
+/* Series and owned volumes share the same cover-only gallery. */
 .collection.cover-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(144px, 1fr));
@@ -10,26 +10,28 @@
   overflow: visible;
 }
 
-.cover-grid .series-card {
+.cover-grid :is(.series-card, .book-card) {
   display: block;
   min-width: 0;
   min-height: 0;
+  width: 100%;
   padding: 0;
   border: 0;
   border-radius: 5px;
   background: transparent;
+  color: var(--ink);
   transition: transform 160ms ease;
 }
 
-.cover-grid .series-card:hover {
+.cover-grid :is(.series-card, .book-card):hover {
   transform: translateY(-3px);
 }
 
-.cover-grid .series-card:focus-visible {
+.cover-grid :is(.series-card, .book-card):focus-visible {
   outline-offset: 5px;
 }
 
-.cover-grid .series-cover {
+.cover-grid :is(.series-cover, .volume-cover) {
   width: 100%;
   height: auto;
   aspect-ratio: 264 / 370;
@@ -37,22 +39,22 @@
   box-shadow: 1px 3px 7px #1b35231a;
 }
 
-.series-cover .cover-placeholder {
+:is(.series-cover, .volume-cover) .cover-placeholder {
   padding: 14px 12px;
   gap: 12px;
   border-left-width: 5px;
 }
 
-.series-cover .cover-placeholder::before {
+:is(.series-cover, .volume-cover) .cover-placeholder::before {
   inset: 12px;
 }
 
-.series-cover .cover-placeholder svg {
+:is(.series-cover, .volume-cover) .cover-placeholder svg {
   width: 26px;
   height: 26px;
 }
 
-.series-cover .placeholder-title {
+:is(.series-cover, .volume-cover) .placeholder-title {
   color: #344434;
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -65,7 +67,7 @@
     serif;
 }
 
-.series-cover .placeholder-label {
+:is(.series-cover, .volume-cover) .placeholder-label {
   font-size: 9px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -83,18 +85,18 @@
     gap: 16px 12px;
   }
 
-  .series-cover .placeholder-title {
+  :is(.series-cover, .volume-cover) .placeholder-title {
     font-size: 15px;
   }
 
-  .series-cover .cover-placeholder {
+  :is(.series-cover, .volume-cover) .cover-placeholder {
     padding: 16px 12px;
     gap: 12px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cover-grid .series-card:hover {
+  .cover-grid :is(.series-card, .book-card):hover {
     transform: none;
   }
 }

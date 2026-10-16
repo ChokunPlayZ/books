@@ -250,12 +250,11 @@ try {
   await page.locator("#search").fill("Next.js browser check");
   await page.locator(".series-row").click();
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
-  const options = page.getByRole("button", {
-    name: "Volume options for Next.js browser check, volume 14.5",
+  const volumeCover = page.getByRole("button", {
+    name: "Edit Next.js browser check, volume 14.5",
     exact: true,
   });
-  await options.click();
-  await page.getByRole("button", { name: "Change cover", exact: true }).click();
+  await volumeCover.click();
   await page.locator("#pullPublisherCovers").click();
   await page.locator(".cover-choice").nth(1).waitFor();
   await page.locator(".cover-choice").first().click();
@@ -280,13 +279,7 @@ try {
     ).coverUrl,
     "",
   );
-  await options.click();
-  await page
-    .getByRole("button", {
-      name: "Edit Next.js browser check, volume 14.5",
-      exact: true,
-    })
-    .click();
+  await volumeCover.click();
   await page.locator("#pullPublisherCovers").click();
   await page.locator(".cover-choice").nth(1).click();
   await page.locator("#note").fill("Selected publisher cover");
@@ -310,10 +303,10 @@ try {
     await page.locator(".book-row img").getAttribute("src"),
     coverPath,
   );
-  await options.click();
+  await volumeCover.click();
   assert.equal(
     await page
-      .getByRole("link", { name: "Publisher site ↗", exact: true })
+      .getByRole("link", { name: "Open publisher site ↗", exact: true })
       .getAttribute("href"),
     publisherPage,
   );
@@ -323,7 +316,7 @@ try {
   await page.locator("#search").fill("");
   await page.setViewportSize({ width: 390, height: 844 });
   console.log(
-    "PASS volume metadata menu, publisher cover picker, cancellation, saved cover priority, publisher link and reload persistence",
+    "PASS volume cover details, publisher cover picker, cancellation, saved cover priority, publisher link and reload persistence",
   );
   const backup = await (await page.request.get(url + "/api/backup")).json();
   assert.equal(backup.books.length, 151);
@@ -381,6 +374,12 @@ try {
     process.argv.includes("--scan-photos")
   )
     await runBrowserScenario("scan-photos.browser.mjs", fixturesUrl);
+  await runBrowserScenario(
+    "infinite-scroll.browser.mjs",
+    await start("infinite-scroll", {
+      BOOKS_ALLOW_UNAUTHENTICATED: "true",
+    }),
+  );
   await runBrowserScenario(
     "discovery.browser.mjs",
     await start("discovery", {

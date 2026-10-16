@@ -162,12 +162,6 @@ try {
   assert.equal(added.source, "My new shop");
   await page
     .getByRole("button", {
-      name: "Volume options for " + renamed + ", volume 3",
-      exact: true,
-    })
-    .click();
-  await page
-    .getByRole("button", {
       name: "Edit " + renamed + ", volume 3",
       exact: true,
     })

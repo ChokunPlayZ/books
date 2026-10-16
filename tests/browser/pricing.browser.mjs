@@ -166,12 +166,6 @@ try {
   await page.locator(".series-row").click();
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page
-    .getByRole("button", {
-      name: "Volume options for " + saved.series,
-      exact: true,
-    })
-    .click();
-  await page
     .getByRole("button", { name: "Edit " + saved.series, exact: true })
     .click();
   assert.equal(await sale.inputValue(), "170");

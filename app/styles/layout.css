@@ -696,18 +696,11 @@ select {
   margin: 0 0 10px;
 }
 
-.pagination {
-  @apply flex;
-  @apply items-center;
-  @apply justify-between;
-  gap: 10px;
+.infinite-scroll {
+  padding: 20px 12px;
+  @apply text-center;
   @apply text-muted;
   font-size: 12px;
-}
-
-.pagination .btn {
-  font-size: 12px;
-  padding: 6px 13px;
 }
 
 .footer {
