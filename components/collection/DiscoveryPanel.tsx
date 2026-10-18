@@ -39,6 +39,15 @@ export default function DiscoveryPanel() {
             <option value="https://www.firstpagepro.com/">
               First Page Pro · All titles
             </option>
+            <option value="https://www.firstpagepro.com/category/22">
+              First Page Pro · Manga (General)
+            </option>
+            <option value="https://www.firstpagepro.com/category/7">
+              First Page Pro · Manga (18+)
+            </option>
+            <option value="https://www.firstpagepro.com/category/63">
+              First Page Pro · Manga (20+)
+            </option>
             <option value="https://www.yaakz.com/">Yaakz · New arrivals</option>
             <option value="">Another category URL</option>
           </select>

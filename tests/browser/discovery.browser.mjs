@@ -409,6 +409,7 @@ try {
   assert.equal(await page.locator("#volume").inputValue(), "1");
   await page.locator("#saveButton").click();
   await page.waitForFunction(() => !document.getElementById("bookDialog").open);
+  await fresh().waitFor({ state: "detached" });
   assert.equal(await fresh().count(), 0);
   await page.locator("#releasesTab").click();
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
@@ -422,10 +423,58 @@ try {
     await page.locator(".release-cover img").first().getAttribute("src"),
     coverUrl(items[3].coverUrl),
   );
+  await page.locator("#discoverTab").click();
+  await page.waitForFunction(
+    () =>
+      !window.bookCollection?.state.discoveryLoading &&
+      window.bookCollection?.state.discoveryFeeds.size > 0,
+  );
+  for (const [id, label] of [
+    [22, "General"],
+    [7, "18+"],
+    [63, "20+"],
+  ]) {
+    const categoryUrl = "https://www.firstpagepro.com/category/" + id;
+    const loaded = page.waitForResponse((response) => {
+      if (!response.url().endsWith("/api/rpc")) return false;
+      const request = response.request().postDataJSON();
+      return (
+        request.name === "getPublisherDirectory" &&
+        request.arg.url === categoryUrl
+      );
+    });
+    await page.locator("#discoveryPreset").selectOption({
+      label: "First Page Pro · Manga (" + label + ")",
+    });
+    assert.equal((await loaded).status(), 200);
+    await page.waitForFunction(
+      (selected) =>
+        !window.bookCollection?.state.discoveryLoading &&
+        window.bookCollection?.state.discoveryFeeds.has(selected),
+      categoryUrl,
+    );
+    assert.equal(await page.locator("#discoveryUrl").inputValue(), categoryUrl);
+  }
+  await page.reload();
+  await page.waitForFunction(
+    () =>
+      !window.bookCollection?.state.discoveryLoading &&
+      window.bookCollection?.state.discoveryFeeds.has(
+        "https://www.firstpagepro.com/category/63",
+      ),
+  );
+  assert.equal(
+    await page.locator("#discoveryPreset").inputValue(),
+    "https://www.firstpagepro.com/category/63",
+  );
+  assert.equal(
+    await page.locator("#discoveryUrl").inputValue(),
+    "https://www.firstpagepro.com/category/63",
+  );
   assert.deepEqual(errors, []);
   assert.deepEqual(externalImages, []);
   console.log(
-    "PASS discovery deduplication, ownership, first-volume covers, filters, cached outage, save/add, image fallback and phone/desktop layout",
+    "PASS discovery deduplication, ownership, first-volume covers, filters, First Page rating presets and persistence, cached outage, save/add, image fallback and phone/desktop layout",
   );
 } finally {
   await browser.close();

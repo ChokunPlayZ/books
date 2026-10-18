@@ -334,6 +334,55 @@ test("navigation supplies the title directory, excludes parent categories and me
   assert.equal(first[0].type, "");
 });
 
+test("First Page manga rating directories contain only titles from the selected rating and cache separately", async () => {
+  const html = readFileSync(
+    new URL(
+      "../fixtures/series-catalogs/firstpage-directory.html",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const store = openStore(":memory:"),
+    calls = [],
+    seen = new Set();
+  const service = createCatalogService(store, async (requested) => {
+    calls.push(requested);
+    return new Response(html);
+  });
+  try {
+    for (const [id, count, sample] of [
+      [22, 54, "https://www.firstpagepro.com/category/126"],
+      [7, 28, "https://www.firstpagepro.com/category/133"],
+      [63, 21, "https://www.firstpagepro.com/category/79"],
+    ]) {
+      const url = "https://www.firstpagepro.com/category/" + id;
+      const directory = await service.getPublisherDirectory({ url });
+      assert.equal(directory.stale, false);
+      assert.equal(directory.url, url);
+      assert.equal(directory.titles.length, count);
+      assert.ok(directory.titles.every((title) => title.type === "Manga (TH)"));
+      const categories = directory.titles.flatMap((title) => title.categories);
+      assert.ok(categories.some((category) => category.url === sample));
+      for (const category of categories) {
+        assert.ok(
+          !seen.has(category.url),
+          "Ratings must not leak other categories",
+        );
+        assert.notEqual(category.url, url, "The rating itself is not a title");
+        seen.add(category.url);
+      }
+      const cached = await service.getPublisherDirectory({ url });
+      assert.deepEqual(cached, directory);
+    }
+    assert.deepEqual(
+      calls,
+      [22, 7, 63].map((id) => "https://www.firstpagepro.com/category/" + id),
+    );
+  } finally {
+    store.close();
+  }
+});
+
 test("directory loading needs one navigation request, lazily resolves first volumes, and preserves stale directories", async () => {
   const store = openStore(":memory:"),
     calls = [];
