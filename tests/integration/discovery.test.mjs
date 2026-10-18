@@ -380,6 +380,94 @@ test("directory loading needs one navigation request, lazily resolves first volu
   }
 });
 
+test("Phoenix categories with an explicit empty message are complete empty catalogs and can later list a book", async () => {
+  const html = readFileSync(
+    new URL(
+      "../fixtures/series-catalogs/phoenix-empty-category.html",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.equal(catalogTotal("phoenix", html), 0);
+  assert.equal(catalogTotal("firstpage", html), null);
+  assert.equal(
+    catalogTotal("phoenix", '<div class="empty info message extra"></div>'),
+    0,
+  );
+  assert.equal(
+    catalogTotal("phoenix", '<div class="message info"></div>'),
+    null,
+  );
+  const store = openStore(":memory:");
+  const category =
+    "https://www.phoenixnext.com/gl/the-story-of-unforgettable-witch.html";
+  let body = html,
+    calls = 0;
+  const service = createCatalogService(store, async () => {
+    calls++;
+    return new Response(body);
+  });
+  try {
+    const catalog = await service.getPublisherCatalog({ url: category });
+    assert.deepEqual(catalog.items, []);
+    assert.equal(catalog.total, 0);
+    assert.equal(catalog.complete, true);
+    assert.equal(catalog.stale, false);
+    assert.equal(catalog.error, "");
+    assert.equal(catalog.pages, 1);
+    const request = {
+      publisherId: "phoenix",
+      categories: [{ url: category }],
+    };
+    const empty = await service.getPublisherTitle(request);
+    assert.equal(empty.item, null);
+    assert.equal(empty.complete, true);
+    assert.equal(empty.stale, false);
+    assert.equal(calls, 1);
+    body =
+      '<span class="toolbar-number">1</span>' +
+      card("witch", "(มังงะ) เรื่องแม่มด");
+    const released = await service.getPublisherTitle({
+      ...request,
+      refresh: true,
+    });
+    assert.equal(released.item.series, "เรื่องแม่มด");
+    assert.equal(released.item.volume, "");
+    assert.equal(released.complete, true);
+    assert.equal(released.stale, false);
+    assert.equal(calls, 2);
+  } finally {
+    store.close();
+  }
+});
+
+test("unrecognized Phoenix markup and outages do not confirm an empty series", async () => {
+  for (const [body, status] of [
+    ['<div class="message info">Unknown category markup</div>', 200],
+    ["Publisher unavailable", 503],
+  ]) {
+    const store = openStore(":memory:");
+    try {
+      const service = createCatalogService(
+        store,
+        async () => new Response(body, { status }),
+      );
+      const result = await service.getPublisherTitle({
+        publisherId: "phoenix",
+        categories: [
+          { url: "https://www.phoenixnext.com/gl/unavailable.html" },
+        ],
+      });
+      assert.equal(result.item, null);
+      assert.equal(result.complete, false);
+      assert.equal(result.stale, true);
+      assert.ok(result.error);
+    } finally {
+      store.close();
+    }
+  }
+});
+
 test("First Page follows only same-category redirects and decodes raw UTF-8 Thai Location headers", async () => {
   const store = openStore(":memory:"),
     calls = [];

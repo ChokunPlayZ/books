@@ -93,9 +93,22 @@ export function catalogTotal(id, html) {
       : /<span\b[^>]*class=["'][^"']*\btsk-all\b[^"']*["'][^>]*>\s*([\d,]+)\s*<\/span>/i;
   // Phoenix shows the first item, last item and total in separate toolbar spans.
   const matches = [...html.matchAll(new RegExp(pattern.source, "gi"))];
-  return matches.length
-    ? Math.max(...matches.map((match) => Number(match[1].replace(/,/g, ""))))
-    : null;
+  if (matches.length)
+    return Math.max(
+      ...matches.map((match) => Number(match[1].replace(/,/g, ""))),
+    );
+  // Empty Phoenix categories omit the toolbar and show this product-list message.
+  if (
+    id === "phoenix" &&
+    (html.match(/<div\b[^>]*>/gi) || []).some((tag) => {
+      const classes = attr(tag, "class").split(/\s+/);
+      return ["message", "info", "empty"].every((name) =>
+        classes.includes(name),
+      );
+    })
+  )
+    return 0;
+  return null;
 }
 
 export function luckpimItem(book) {

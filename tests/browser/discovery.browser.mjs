@@ -58,6 +58,27 @@ const titles = [items[0], items[3], items[4], items[5], items[6]].map(
     ],
   }),
 );
+const upcoming = {
+  ...titles[1],
+  id: "phoenix:title:upcoming",
+  series: "Discovery upcoming",
+  title: "Discovery upcoming",
+  url: "https://www.phoenixnext.com/gl/the-story-of-unforgettable-witch.html",
+  categories: [
+    {
+      url: "https://www.phoenixnext.com/gl/the-story-of-unforgettable-witch.html",
+      type: "",
+    },
+  ],
+};
+titles.push(upcoming);
+let upcomingResult = {
+  item: null,
+  complete: true,
+  checkedAt: "2026-10-14T05:00:00Z",
+  stale: true,
+  error: "Could not refresh this publisher category.",
+};
 let fail = false,
   calls = 0;
 const titleCalls = [];
@@ -104,6 +125,8 @@ try {
     if (request.name === "getPublisherTitle") {
       const category = request.arg.categories[0].url;
       titleCalls.push(category);
+      if (category === upcoming.url)
+        return route.fulfill({ json: upcomingResult });
       const title = titles.find((item) => item.categories[0].url === category);
       const item =
         items.find(
@@ -185,7 +208,7 @@ try {
       window.bookCollection?.state.discoveryFeeds.size > 0,
   );
   assert.equal(await page.locator("#collectionBrowser").isVisible(), false);
-  assert.equal(await page.locator(".discovery-card").count(), 4);
+  assert.equal(await page.locator(".discovery-card").count(), 5);
   assert.equal(
     await page
       .locator(".discovery-card")
@@ -193,6 +216,34 @@ try {
       .count(),
     0,
   );
+  const upcomingCard = page
+    .locator(".discovery-card")
+    .filter({ hasText: upcoming.series });
+  await upcomingCard.evaluateAll((cards) => cards[0]?.scrollIntoView());
+  await upcomingCard
+    .getByText("No current book listing", { exact: true })
+    .waitFor();
+  assert.equal(await upcomingCard.count(), 1);
+  upcomingResult = { ...upcomingResult, stale: false, error: "" };
+  await page.locator("#refreshDiscovery").click();
+  await page.waitForFunction(
+    () => !window.bookCollection?.state.discoveryLoading,
+  );
+  await upcomingCard.evaluateAll((cards) => cards[0]?.scrollIntoView());
+  await page.waitForFunction(
+    () =>
+      !window.bookCollection?.state.discoveryLoading &&
+      [...window.bookCollection.state.discoveryTitleResults.values()].some(
+        (result) => result.item === null && result.complete && !result.stale,
+      ),
+  );
+  assert.equal(await upcomingCard.count(), 0);
+  assert.equal(await page.locator(".discovery-card").count(), 4);
+  assert.match(await page.locator("#discoveryCount").textContent(), /4 titles/);
+  await page.locator("#discoverySearch").fill(upcoming.series);
+  assert.equal(await page.locator(".discovery-card").count(), 0);
+  assert.match(await page.locator("#discoveryCount").textContent(), /0 titles/);
+  await page.locator("#discoverySearch").fill("");
   const fresh = () =>
     page.locator(".discovery-card").filter({
       has: page.getByRole("heading", {
@@ -285,6 +336,7 @@ try {
   );
   assert.ok(calls >= 3);
   assert.ok(titleCalls.every((category) => !category.includes("owned")));
+  assert.equal(await upcomingCard.count(), 0);
   await page.locator("#discoveryType").selectOption("LN");
   await page.locator("#collectionTab").click();
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
@@ -310,6 +362,10 @@ try {
     ["Discovery novel"],
   );
   await page.locator("#discoveryType").selectOption("");
+  await upcomingCard.evaluateAll((cards) => cards[0]?.scrollIntoView());
+  await page.waitForFunction(
+    () => document.querySelectorAll(".discovery-card").length === 4,
+  );
   assert.equal(await page.locator(".discovery-card").count(), 4);
   await page.locator(".discovery-cover img").first().waitFor();
   await page

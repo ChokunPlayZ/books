@@ -1989,21 +1989,30 @@ export function mountCollection({
           resolved: true,
           categories: [{ url: feed.url, type: item.type }],
         }))
-      ).map((entry) => {
+      ).flatMap((entry) => {
         const result = state.discoveryTitleResults.get(
           discoveryTitleKey(entry),
         );
-        return result?.item
-          ? {
-              ...result.item,
-              categories: entry.categories,
-              series: entry.series,
-              catalogSeries: entry.series,
-              directory: true,
-              resolved: true,
-              categoryUrl: entry.url,
-            }
-          : entry;
+        if (
+          entry.publisherId === "phoenix" &&
+          result?.complete &&
+          !result.stale &&
+          result.item === null
+        )
+          return [];
+        return [
+          result?.item
+            ? {
+                ...result.item,
+                categories: entry.categories,
+                series: entry.series,
+                catalogSeries: entry.series,
+                directory: true,
+                resolved: true,
+                categoryUrl: entry.url,
+              }
+            : entry,
+        ];
       }),
     );
     const query = $("discoverySearch").value.trim().toLocaleLowerCase(),
