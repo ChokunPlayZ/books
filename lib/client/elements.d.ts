@@ -107,6 +107,13 @@ interface LibraryElements {
   metadataManager: HTMLElement;
   metadataPublisherLink: HTMLAnchorElement;
   minPriceFilter: HTMLInputElement;
+  missingList: HTMLDivElement;
+  missingPanel: HTMLElement;
+  missingSearch: HTMLInputElement;
+  missingSort: HTMLSelectElement;
+  missingSummary: HTMLParagraphElement;
+  missingTab: HTMLAnchorElement;
+  missingTitle: HTMLHeadingElement;
   note: HTMLTextAreaElement;
   ownershipResult: HTMLDivElement;
   pageError: HTMLDivElement;

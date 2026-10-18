@@ -4,6 +4,7 @@ const paths = {
   books: "M4 4h4v16H4zM10 6h4v14h-4zM16 4l3-1 4 16-3 1zM4 8h4M10 10h4",
   book: "M12 5C9 3 5 3 2 4v15c3-1 7-1 10 1 3-2 7-2 10-1V4c-3-1-7-1-10 1Zm0 0v15",
   grid: "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z",
+  missing: "M4 4h6v16H4zM14 4h6v4M20 12v4M20 20h-6v-4M14 12V8",
   check: "m5 12 4 4L19 6",
   wallet: "M20 7H4V4h14v3M4 7v13h16V7M20 11h-6v5h6",
   spark: "m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z",

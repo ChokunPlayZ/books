@@ -3,6 +3,7 @@ import { createCollectionState } from "./state.ts";
 import { restorePagePreferences } from "./page-preferences.ts";
 import { createInfiniteList } from "./infinite-list.ts";
 import { createSeriesEditor } from "./series-editor.ts";
+import { createMissingBrowser } from "./missing.ts";
 import { shelfCoverBook, coverTint } from "../domain/shelf.ts";
 import { seriesPath, type CollectionView } from "../domain/navigation.ts";
 import { createScanner } from "./scanner.ts";
@@ -58,6 +59,20 @@ export function mountCollection({
   const savePagePreferences = restorePagePreferences(view);
   if (view === "discover") state.discoveryUrl = $("discoveryUrl").value;
   let toastTimer;
+  const missingBrowser = createMissingBrowser((series, edition, volume) => {
+    if (state.busy) return;
+    const source =
+      [...edition.books]
+        .sort((a, b) => b.date.localeCompare(a.date) || b.row - a.row)
+        .find((book) => book.source)?.source || "";
+    openBook(null, {
+      series,
+      volume,
+      type: edition.type || "Other",
+      publisher: edition.publisher,
+      source,
+    });
+  });
   const shelfList = $("bookList")
     ? createInfiniteList($("bookList"), () =>
         $("bookList")
@@ -375,6 +390,10 @@ export function mountCollection({
     }
     if (discover) {
       renderDiscovery();
+      return;
+    }
+    if (state.view === "missing") {
+      missingBrowser.render(books);
       return;
     }
     const filters = collectionFilters(),
@@ -3521,6 +3540,15 @@ export function mountCollection({
     () => void load().catch(() => {}),
     { signal: events.signal },
   );
+  (["missingSearch", "missingSort"] as const).forEach((id) =>
+    $(id)?.addEventListener(
+      id === "missingSearch" ? "input" : "change",
+      render,
+      {
+        signal: events.signal,
+      },
+    ),
+  );
   void load()
     .then(() => {
       if (view === "releases") void loadReleases();
@@ -3537,6 +3565,7 @@ export function mountCollection({
     shelfList?.dispose();
     releaseList?.dispose();
     discoveryList?.dispose();
+    missingBrowser?.dispose();
     stopScanner();
     coverObserver.disconnect();
     titleObserver.disconnect();

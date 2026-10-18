@@ -107,6 +107,37 @@ export function seriesGaps<T extends MatchBook>(books: T[]) {
   });
 }
 
+export function collectionGaps<T extends MatchBook>(books: T[]) {
+  const series = new Map<string, T[]>();
+  for (const book of books) {
+    const title = book.series.trim() || "Untitled series";
+    if (!series.has(title)) series.set(title, []);
+    series.get(title).push(book);
+  }
+  return [...series]
+    .map(([series, owned]) => {
+      const editions = seriesGaps(owned).filter((edition) => edition.missing);
+      return {
+        series,
+        editions,
+        missing: editions.reduce((sum, edition) => sum + edition.missing, 0),
+      };
+    })
+    .filter((group) => group.missing)
+    .sort((a, b) => a.series.localeCompare(b.series));
+}
+
+export function missingSummary(groups: { missing: number }[]) {
+  const count = groups.reduce((sum, group) => sum + group.missing, 0);
+  const format = new Intl.NumberFormat("en");
+  return (
+    format.format(count) +
+    (count === 1 ? " missing volume across " : " missing volumes across ") +
+    format.format(groups.length) +
+    " series"
+  );
+}
+
 export function matchRelease<T extends MatchBook>(
   item: MatchRelease,
   books: T[],

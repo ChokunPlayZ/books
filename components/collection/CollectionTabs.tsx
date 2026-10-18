@@ -21,10 +21,19 @@ export default function CollectionTabs({
         aria-current={view === "collection" ? "page" : undefined}
       >
         <Icon name="books" />
-        Collection
+        <span className="tab-label">Collection</span>
         <span id="activeCount" className="sr-only">
           {data.books.length}
         </span>
+      </a>
+      <a
+        id="missingTab"
+        className={"tab" + (view === "missing" ? " active" : "")}
+        href={collectionPaths.missing}
+        aria-current={view === "missing" ? "page" : undefined}
+      >
+        <Icon name="missing" />
+        <span className="tab-label">What’s missing</span>
       </a>
       <a
         id="releasesTab"
@@ -33,7 +42,7 @@ export default function CollectionTabs({
         aria-current={view === "releases" ? "page" : undefined}
       >
         <Icon name="spark" />
-        New releases
+        <span className="tab-label">New releases</span>
         <span id="releaseCount" className="tab-count" hidden>
           —
         </span>
@@ -45,7 +54,7 @@ export default function CollectionTabs({
         aria-current={view === "discover" ? "page" : undefined}
       >
         <Icon name="compass" />
-        Discover titles
+        <span className="tab-label">Discover titles</span>
       </a>
       <a
         id="trashTab"
@@ -55,7 +64,7 @@ export default function CollectionTabs({
         aria-label="Recently removed"
       >
         <Icon name="archive" />
-        Removed
+        <span className="tab-label">Removed</span>
         <span id="trashCount" className="tab-count" hidden={!data.trash.length}>
           {data.trash.length}
         </span>

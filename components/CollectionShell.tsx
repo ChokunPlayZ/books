@@ -10,6 +10,7 @@ import SeriesCatalogPanel from "./collection/SeriesCatalogPanel";
 import ShelfBrowser from "./collection/ShelfBrowser";
 import ReleasesPanel from "./collection/ReleasesPanel";
 import DiscoveryPanel from "./collection/DiscoveryPanel";
+import MissingPanel from "./collection/MissingPanel";
 import TitleDialog from "./collection/dialogs/TitleDialog";
 import BookDialog from "./collection/dialogs/BookDialog";
 import ScanDialog from "./collection/dialogs/ScanDialog";
@@ -59,6 +60,7 @@ export default function CollectionShell({
         {series !== null && <SeriesCatalogPanel />}
         {view === "releases" && <ReleasesPanel />}
         {view === "discover" && <DiscoveryPanel />}
+        {view === "missing" && <MissingPanel books={data.books} />}
         <footer className={"footer"}>
           <span id={"syncNote"}>{"Saved in your library"}</span>
           <span>Made for the love of books.</span>
