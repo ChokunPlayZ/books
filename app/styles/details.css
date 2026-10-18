@@ -249,6 +249,21 @@
     font-size: 22px;
   }
 
+  .series-page .series-header {
+    position: relative;
+  }
+
+  .series-page #backSeries {
+    min-height: 44px;
+    padding-block: 0;
+  }
+
+  .series-page .series-header-actions {
+    position: absolute;
+    top: 0;
+    right: 0;
+  }
+
   .series-page .series-title-line {
     flex-direction: row;
     align-items: center;
