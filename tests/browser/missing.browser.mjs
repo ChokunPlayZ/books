@@ -23,6 +23,12 @@ const base = {
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const errors = [];
+  await page.route("**/api/rpc", (route) => {
+    const { name } = route.request().postDataJSON();
+    if (name === "getSeriesCatalog")
+      return route.fulfill({ json: { items: [], complete: true } });
+    return route.continue();
+  });
   page.on("pageerror", (error) => errors.push(error.message));
   const rpc = async (name, arg) => {
     const response = await page.request.post(testUrl + "/api/rpc", {

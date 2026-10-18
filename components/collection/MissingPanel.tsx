@@ -10,15 +10,17 @@ export default function MissingPanel({ books }: { books: StoredBook[] }) {
     <section id="missingPanel" aria-labelledby="missingTitle">
       <div className="release-heading">
         <div>
-          <p className="eyebrow">Fill the gaps</p>
+          <p className="eyebrow">Complete your series</p>
           <h1 id="missingTitle">What’s missing</h1>
-          <p className="intro">The volumes still missing from your series.</p>
+          <p className="intro">
+            Every volume you don’t have, grouped by series.
+          </p>
         </div>
       </div>
       <p className="missing-note">
-        Whole-volume gaps up to your highest owned volume in each edition.
-        Languages and publishers are checked separately. Open a series to check
-        its publisher catalog for newer volumes.
+        Publisher catalogs show unowned volumes, including those beyond your
+        highest owned volume. Shelf gaps are included too. Languages and
+        publishers are checked separately.
       </p>
       <div className="toolbar missing-filters">
         <div className="search">
@@ -42,6 +44,14 @@ export default function MissingPanel({ books }: { books: StoredBook[] }) {
           <option value="missing">Most missing</option>
         </select>
         <button
+          id="refreshMissingCatalogs"
+          className="btn"
+          type="button"
+          disabled
+        >
+          Refresh catalogs
+        </button>
+        <button
           id="refreshButton"
           className="btn refresh"
           type="button"
@@ -53,6 +63,23 @@ export default function MissingPanel({ books }: { books: StoredBook[] }) {
           </svg>
         </button>
       </div>
+      <p id="missingCatalogStatus" className="missing-summary" role="status">
+        {books.length
+          ? "Publisher catalogs will be checked when this page opens."
+          : "Add a series to check its publisher catalog."}
+      </p>
+      <details
+        id="missingCoverage"
+        className="publisher-details missing-coverage"
+        hidden={!books.length}
+      >
+        <summary id="missingCoverageSummary">Catalog coverage</summary>
+        <ul id="missingCoverageList"></ul>
+        <p className="hint">
+          Unavailable catalogs and uncertain editions can be reviewed on each
+          series page.
+        </p>
+      </details>
       <p id="missingSummary" className="missing-summary" role="status">
         {missingSummary(groups)}
       </p>
@@ -109,12 +136,14 @@ export default function MissingPanel({ books }: { books: StoredBook[] }) {
               <Icon name="check" />
             </span>
             <h2>
-              {books.length ? "No shelf gaps found" : "Your shelf starts here"}
+              {books.length
+                ? "Checking publisher catalogs…"
+                : "Your shelf starts here"}
             </h2>
             <p>
               {books.length
-                ? "Your numbered editions have no whole-volume gaps. Series catalogs can help you find newer volumes."
-                : "Add numbered volumes to your collection to see what’s missing."}
+                ? "Unowned catalog volumes will appear as checks finish, including volumes beyond your shelf."
+                : "Add volumes to your collection to see what’s missing."}
             </p>
             <a className="btn" href="/">
               View collection

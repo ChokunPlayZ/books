@@ -9,7 +9,7 @@
 - Scan ISBNs from photos or a live camera, recognize printed ISBNs, and use a USB/Bluetooth barcode scanner.
 - Check ownership by equivalent ISBN-10/ISBN-13 and link ISBNs to existing volumes.
 - Show whole-volume shelf gaps by publisher and language, combining colored and regular manga without inventing fractional extras.
-- Open **What’s missing** for shelf gaps grouped by series and edition. Search series, types or publishers, sort by the most missing volumes, and select a volume range to add its first missing volume. Gaps stop at the highest owned volume; each series links to its publisher catalog check for newer volumes.
+- Open **What’s missing** for every unowned volume in your series’ publisher catalogs, including newer volumes beyond your shelf, alongside shelf gaps. Catalogs load automatically with up to three checks at once. Alternate listings and gaps count each volume once; languages and publishers stay separate. Search, sort, add a missing volume, or refresh the catalogs. **Catalog coverage** identifies unavailable sources, incomplete checks and editions that need review on their series page.
 - Count regular and single-volume special editions toward the same volume; group alternate listings for missing volumes and review multi-volume sets separately.
 - Check full series catalogs, choose publisher categories, and review uncertain editions. Automatic publisher results skip Special Set listings, including Thai special-set labels.
 - Browse Phoenix Next, First Page Pro, Luckpim and Siam Inter Comics (Yaakz) releases; filter manga/light novels and special editions; save releases for later.

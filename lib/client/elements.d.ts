@@ -108,6 +108,10 @@ interface LibraryElements {
   metadataPublisherLink: HTMLAnchorElement;
   minPriceFilter: HTMLInputElement;
   missingList: HTMLDivElement;
+  missingCatalogStatus: HTMLParagraphElement;
+  missingCoverage: HTMLDetailsElement;
+  missingCoverageList: HTMLUListElement;
+  missingCoverageSummary: HTMLElement;
   missingPanel: HTMLElement;
   missingSearch: HTMLInputElement;
   missingSort: HTMLSelectElement;
@@ -136,6 +140,7 @@ interface LibraryElements {
   readProgress: HTMLSpanElement;
   refreshButton: HTMLButtonElement;
   refreshDiscovery: HTMLButtonElement;
+  refreshMissingCatalogs: HTMLButtonElement;
   refreshReleases: HTMLButtonElement;
   refreshSeriesReleases: HTMLButtonElement;
   regularPrice: HTMLInputElement;

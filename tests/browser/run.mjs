@@ -364,6 +364,10 @@ try {
     "missing.browser.mjs",
     await start("missing", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
   );
+  await runBrowserScenario(
+    "missing-catalogs.browser.mjs",
+    await start("missing-catalogs", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
+  );
   for (const name of [
     "theme.browser.mjs",
     "collection-filters.browser.mjs",

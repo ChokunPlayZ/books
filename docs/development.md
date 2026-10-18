@@ -6,7 +6,7 @@ Pages and route handlers live in `app/`. Keep them small: check the session, val
 
 Put rules that do not need HTTP or SQLite in `lib/domain/`. The small `lib/domain.ts` file re-exports the public domain API for server callers. Browser code should import the specific browser-safe module it needs, such as `lib/domain/isbn.ts`, so Node-only hashing and storage never enter the client bundle.
 
-The library uses separate server-rendered pages: `/` for the collection, `/series/[series]` for a title’s owned volumes, `/missing` for shelf gaps grouped by series, `/releases`, `/discover`, and `/removed`. Navigation uses ordinary links and loads a new document, so URLs can be bookmarked and refreshed and browser history works normally. `components/CollectionPage.tsx` checks the session and loads the collection for each page. `CollectionShell.tsx` includes only that route’s panels plus shared dialogs; `ShelfEntries.tsx` renders the initial shelf and volumes on the server. Keep controller-facing IDs stable: `lib/client/elements.d.ts` records the corresponding element types.
+The library uses separate server-rendered pages: `/` for the collection, `/series/[series]` for a title’s owned volumes, `/missing` for unowned catalog volumes and shelf gaps grouped by series, `/releases`, `/discover`, and `/removed`. Navigation uses ordinary links and loads a new document, so URLs can be bookmarked and refreshed and browser history works normally. `components/CollectionPage.tsx` checks the session and loads the collection for each page. `CollectionShell.tsx` includes only that route’s panels plus shared dialogs; `ShelfEntries.tsx` renders the initial shelf and volumes on the server. Keep controller-facing IDs stable: `lib/client/elements.d.ts` records the corresponding element types.
 
 Build title links with `seriesPath()` from `lib/domain/navigation.ts`. It encodes arbitrary title names into a URL-safe segment, including Thai text, slashes and percent signs. Release filters and the discovery category are retained in tab session storage across page navigation.
 
@@ -14,7 +14,7 @@ Build title links with `seriesPath()` from `lib/domain/navigation.ts`. It encode
 
 Main result lists use `lib/client/infinite-list.ts` to append batches as the end of the list approaches the viewport. `LIST_BATCH_SIZE` in `lib/domain/lists.ts` also bounds the initial server-rendered shelf, volumes and removed books. Changing filters or sorting starts a new batch; refreshing data keeps the loaded range. Cover and discovery-title lookups observe only rendered rows.
 
-Pure shelf-gap, release matching and discovery grouping rules live in `lib/client/matching.ts` and can be tested without a browser. `lib/client/scanner.ts` owns camera, photo and OCR tasks through explicit UI bindings. Keep new pure rules outside the controller where they can be imported directly by tests.
+Pure shelf-gap, release matching and discovery grouping rules live in `lib/client/matching.ts` and can be tested without a browser. `lib/client/missing-catalogs.ts` combines unowned catalog listings with shelf gaps without double-counting; `lib/client/missing.ts` checks catalogs with three concurrent requests and displays coverage and stale results. `lib/client/scanner.ts` owns camera, photo and OCR tasks through explicit UI bindings. Keep new pure rules outside the controller where they can be imported directly by tests.
 
 ## Make a focused change
 

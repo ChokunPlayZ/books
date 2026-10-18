@@ -59,19 +59,26 @@ export function mountCollection({
   const savePagePreferences = restorePagePreferences(view);
   if (view === "discover") state.discoveryUrl = $("discoveryUrl").value;
   let toastTimer;
-  const missingBrowser = createMissingBrowser((series, edition, volume) => {
-    if (state.busy) return;
-    const source =
-      [...edition.books]
-        .sort((a, b) => b.date.localeCompare(a.date) || b.row - a.row)
-        .find((book) => book.source)?.source || "";
-    openBook(null, {
-      series,
-      volume,
-      type: edition.type || "Other",
-      publisher: edition.publisher,
-      source,
-    });
+  const missingBrowser = createMissingBrowser({
+    rpc,
+    signal: events.signal,
+    addCatalogVolume: (item) => {
+      if (!state.busy) openRelease(item, releaseMatches(item));
+    },
+    addVolume: (series, edition, volume) => {
+      if (state.busy) return;
+      const source =
+        [...edition.books]
+          .sort((a, b) => b.date.localeCompare(a.date) || b.row - a.row)
+          .find((book) => book.source)?.source || "";
+      openBook(null, {
+        series,
+        volume,
+        type: edition.type || "Other",
+        publisher: edition.publisher,
+        source,
+      });
+    },
   });
   const shelfList = $("bookList")
     ? createInfiniteList($("bookList"), () =>
@@ -129,7 +136,7 @@ export function mountCollection({
     return value;
   }
 
-  async function load() {
+  async function load(refreshMissingCatalogs = false) {
     if ($("refreshButton")) $("refreshButton").disabled = true;
     $("pageError").hidden = true;
     try {
@@ -166,6 +173,10 @@ export function mountCollection({
         }) +
         " · Saved in your library";
       render();
+      if (state.view === "missing") {
+        const catalogs = missingBrowser.loadCatalogs(refreshMissingCatalogs);
+        if (refreshMissingCatalogs) await catalogs;
+      }
       if (state.selectedSeries !== null && !state.catalogRefreshing)
         void loadSeriesCatalogs();
     } catch (error) {
@@ -3547,6 +3558,20 @@ export function mountCollection({
   $("refreshButton")?.addEventListener(
     "click",
     () => void load().catch(() => {}),
+    { signal: events.signal },
+  );
+  $("refreshMissingCatalogs")?.addEventListener(
+    "click",
+    async () => {
+      $("refreshMissingCatalogs").disabled = true;
+      try {
+        await load(true);
+      } catch {
+        // The shelf error is already shown by load(). Keep the current catalog.
+      } finally {
+        if (state.data) missingBrowser.render(state.data.books);
+      }
+    },
     { signal: events.signal },
   );
   (["missingSearch", "missingSort"] as const).forEach((id) =>
