@@ -77,6 +77,14 @@ export default function DiscoveryPanel() {
             placeholder="Search titles…"
           />
         </div>
+        <label htmlFor="discoveryType" className="sr-only">
+          Title type
+        </label>
+        <select id="discoveryType">
+          <option value="">All types</option>
+          <option value="Manga">Manga</option>
+          <option value="LN">Light novels (LN)</option>
+        </select>
       </div>
       <p id="discoveryCount" className="release-note" role="status"></p>
       <div id="discoveryList" className="discovery-grid"></div>

@@ -12,7 +12,12 @@ export function restorePagePreferences(view: CollectionView) {
           "hideSpecialReleases",
         ] as const)
       : view === "discover"
-        ? (["discoveryPreset", "discoveryUrl", "discoverySearch"] as const)
+        ? ([
+            "discoveryPreset",
+            "discoveryUrl",
+            "discoverySearch",
+            "discoveryType",
+          ] as const)
         : [];
   const key = "books:page-preferences:" + view;
   try {

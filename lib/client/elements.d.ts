@@ -64,6 +64,7 @@ interface LibraryElements {
   discoveryPreset: HTMLSelectElement;
   discoverySearch: HTMLInputElement;
   discoverySource: HTMLDivElement;
+  discoveryType: HTMLSelectElement;
   discoveryUrl: HTMLInputElement;
   doneCheck: HTMLButtonElement;
   editTitleButton: HTMLButtonElement;

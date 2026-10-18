@@ -1987,9 +1987,15 @@ export function mountCollection({
           : entry;
       }),
     );
-    const query = $("discoverySearch").value.trim().toLocaleLowerCase();
+    const query = $("discoverySearch").value.trim().toLocaleLowerCase(),
+      type = $("discoveryType").value;
     const items = all.filter(
-      (item) => !query || item.series.toLocaleLowerCase().includes(query),
+      (item) =>
+        (!query || item.series.toLocaleLowerCase().includes(query)) &&
+        (!type ||
+          // Untyped directory entries need to load their first-volume metadata.
+          (!item.resolved && !item.type) ||
+          String(item.type || "").startsWith(type)),
     );
     $("discoveryCount").textContent = state.discoveryLoading
       ? "Reading the publisher category…"
@@ -2001,7 +2007,7 @@ export function mountCollection({
       (state.data.savedReleases || []).map((item) => item.id),
     );
     discoveryList.render(items, (item) => discoveryCard(item, saved), {
-      key: JSON.stringify([state.discoveryUrl, query]),
+      key: JSON.stringify([state.discoveryUrl, query, type]),
       label: "titles",
     });
     if (!items.length) {
@@ -2017,7 +2023,7 @@ export function mountCollection({
             ? "Finding your next series…"
             : !feed || feed.stale
               ? "Load a publisher category"
-              : query
+              : query || type
                 ? "No titles match these filters"
                 : "No new titles in this category",
         ),
@@ -2026,7 +2032,7 @@ export function mountCollection({
           "",
           state.discoveryLoading
             ? "Checking category pages for titles and first volumes."
-            : "Try another category or adjust your search. Titles already on your shelf are hidden.",
+            : "Try another category or adjust your filters. Titles already on your shelf are hidden.",
         ),
       );
       list.append(empty);
@@ -3444,6 +3450,9 @@ export function mountCollection({
     { signal: events.signal },
   );
   $("discoverySearch")?.addEventListener("input", renderDiscovery, {
+    signal: events.signal,
+  });
+  $("discoveryType")?.addEventListener("change", renderDiscovery, {
     signal: events.signal,
   });
   $("refreshReleases")?.addEventListener(

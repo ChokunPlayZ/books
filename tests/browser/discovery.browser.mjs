@@ -36,7 +36,7 @@ const items = [
   make("fresh-set-1", "(มังงะ) Special Set Discovery fresh เล่ม 1"),
   make("fresh-1", "(มังงะ) Discovery fresh เล่ม 1"),
   make("later-3", "(มังงะ) Discovery later เล่ม 3"),
-  make("standalone", "(มังงะ) Discovery one-shot"),
+  make("standalone", "(มังงะ) Discovery one-shot", "Manga (JP) (Color)"),
   make("novel-1", "(LN) Discovery novel เล่ม 1", "LN (TH)"),
 ];
 const titles = [items[0], items[3], items[4], items[5], items[6]].map(
@@ -44,6 +44,7 @@ const titles = [items[0], items[3], items[4], items[5], items[6]].map(
     ...item,
     id: item.id + ":title",
     title: item.series,
+    type: item.type.startsWith("LN") ? "" : item.type,
     directory: true,
     coverUrl: "",
     coverId: "",
@@ -52,7 +53,7 @@ const titles = [items[0], items[3], items[4], items[5], items[6]].map(
     categories: [
       {
         url: "https://www.phoenixnext.com/gl/" + item.url.split("/").pop(),
-        type: item.type,
+        type: item.type.startsWith("LN") ? "" : item.type,
       },
     ],
   }),
@@ -226,6 +227,37 @@ try {
   await page.locator("#discoverySearch").fill("fresh");
   assert.equal(await page.locator(".discovery-card").count(), 1);
   await page.locator("#discoverySearch").fill("");
+  const directoryCalls = calls;
+  await page.getByLabel("Title type", { exact: true }).selectOption("Manga");
+  // Phoenix directory entries can omit types until the first volume loads.
+  const novel = page
+    .locator(".discovery-card")
+    .filter({ hasText: "Discovery novel" });
+  if (await novel.count()) await novel.scrollIntoViewIfNeeded();
+  await page.waitForFunction(
+    () => document.querySelectorAll(".discovery-card").length === 3,
+  );
+  assert.deepEqual(
+    await page.locator(".discovery-card .book-title").allTextContents(),
+    ["Discovery fresh", "Discovery later", "Discovery one-shot"],
+  );
+  assert.match(await page.locator("#discoveryCount").textContent(), /3 titles/);
+  await page.locator("#discoverySearch").fill("novel");
+  assert.equal(await page.locator(".discovery-card").count(), 0);
+  await page
+    .getByRole("heading", { name: "No titles match these filters" })
+    .waitFor();
+  assert.match(await page.locator("#discoveryCount").textContent(), /0 titles/);
+  await page.locator("#discoveryType").selectOption("LN");
+  assert.deepEqual(
+    await page.locator(".discovery-card .book-title").allTextContents(),
+    ["Discovery novel"],
+  );
+  assert.match(await page.locator("#discoveryCount").textContent(), /1 title /);
+  assert.equal(calls, directoryCalls);
+  await page.locator("#discoverySearch").fill("");
+  await page.locator("#discoveryType").selectOption("");
+  assert.equal(await page.locator(".discovery-card").count(), 4);
   await fresh().getByRole("button", { name: "Save for later" }).click();
   await fresh().getByRole("button", { name: "Saved · Unsave" }).waitFor();
   const backup = await (await page.request.get(url + "/api/backup")).json();
@@ -253,6 +285,7 @@ try {
   );
   assert.ok(calls >= 3);
   assert.ok(titleCalls.every((category) => !category.includes("owned")));
+  await page.locator("#discoveryType").selectOption("LN");
   await page.locator("#collectionTab").click();
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#discoverTab").click();
@@ -260,6 +293,23 @@ try {
   await page.waitForFunction(
     () => !window.bookCollection?.state.discoveryLoading,
   );
+  assert.equal(await page.locator("#discoveryType").inputValue(), "LN");
+  assert.deepEqual(
+    await page.locator(".discovery-card .book-title").allTextContents(),
+    ["Discovery novel"],
+  );
+  await page.reload();
+  await page.waitForFunction(
+    () =>
+      !window.bookCollection?.state.discoveryLoading &&
+      window.bookCollection?.state.discoveryFeeds.size > 0,
+  );
+  assert.equal(await page.locator("#discoveryType").inputValue(), "LN");
+  assert.deepEqual(
+    await page.locator(".discovery-card .book-title").allTextContents(),
+    ["Discovery novel"],
+  );
+  await page.locator("#discoveryType").selectOption("");
   assert.equal(await page.locator(".discovery-card").count(), 4);
   await page.locator(".discovery-cover img").first().waitFor();
   await page
