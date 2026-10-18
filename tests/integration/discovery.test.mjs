@@ -490,31 +490,70 @@ test("Phoenix categories with an explicit empty message are complete empty catal
   }
 });
 
-test("unrecognized Phoenix markup and outages do not confirm an empty series", async () => {
-  for (const [body, status] of [
-    ['<div class="message info">Unknown category markup</div>', 200],
-    ["Publisher unavailable", 503],
-  ]) {
-    const store = openStore(":memory:");
-    try {
-      const service = createCatalogService(
-        store,
-        async () => new Response(body, { status }),
-      );
-      const result = await service.getPublisherTitle({
-        publisherId: "phoenix",
-        categories: [
-          { url: "https://www.phoenixnext.com/gl/unavailable.html" },
-        ],
-      });
-      assert.equal(result.item, null);
-      assert.equal(result.complete, false);
-      assert.equal(result.stale, true);
-      assert.ok(result.error);
-    } finally {
-      store.close();
+test("First Page categories with cover artwork but zero products are confirmed empty and can later list a book", async (t) => {
+  const html = readFileSync(
+    new URL(
+      "../fixtures/series-catalogs/firstpage-empty-category.html",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const store = openStore(":memory:");
+  t.after(() => store.close());
+  const category = "https://www.firstpagepro.com/category/154";
+  let body = html;
+  const service = createCatalogService(store, async () => new Response(body));
+  const request = {
+    publisherId: "firstpage",
+    categories: [{ url: category, type: "Manga (TH)" }],
+  };
+  const empty = await service.getPublisherTitle(request);
+  assert.equal(empty.item, null);
+  assert.equal(empty.complete, true);
+  assert.equal(empty.stale, false);
+  assert.equal(empty.error, "");
+  body =
+    '<span class="tsk-all">1</span><div class="productArea productItem"><a class="gadgetThumbnail" href="https://www.firstpagepro.com/product/1" title="การ์ตูน 16 ปี แค่ได้คิดถึงเธอ มันก็ช่างใหญ่เกินใจ"><img data-src="https://cj.lnwfile.com/cover.jpg"></a></div>';
+  const released = await service.getPublisherTitle({
+    ...request,
+    refresh: true,
+  });
+  assert.equal(
+    released.item.series,
+    "16 ปี แค่ได้คิดถึงเธอ มันก็ช่างใหญ่เกินใจ",
+  );
+  assert.equal(released.item.volume, "");
+  assert.equal(released.complete, true);
+  assert.equal(released.stale, false);
+});
+
+test("unrecognized publisher markup and outages do not confirm an empty series", async () => {
+  for (const [publisherId, url] of [
+    ["phoenix", "https://www.phoenixnext.com/gl/unavailable.html"],
+    ["firstpage", "https://www.firstpagepro.com/category/154"],
+  ])
+    for (const [body, status] of [
+      ['<div class="message info">Unknown category markup</div>', 200],
+      ["Publisher unavailable", 503],
+    ]) {
+      const store = openStore(":memory:");
+      try {
+        const service = createCatalogService(
+          store,
+          async () => new Response(body, { status }),
+        );
+        const result = await service.getPublisherTitle({
+          publisherId,
+          categories: [{ url }],
+        });
+        assert.equal(result.item, null);
+        assert.equal(result.complete, false);
+        assert.equal(result.stale, true);
+        assert.ok(result.error);
+      } finally {
+        store.close();
+      }
     }
-  }
 });
 
 test("First Page follows only same-category redirects and decodes raw UTF-8 Thai Location headers", async () => {

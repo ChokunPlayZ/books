@@ -79,6 +79,20 @@ let upcomingResult = {
   stale: true,
   error: "Could not refresh this publisher category.",
 };
+const firstpageUpcoming = {
+  ...upcoming,
+  id: "firstpage:title:upcoming",
+  publisherId: "firstpage",
+  publisher: "First Page Pro",
+  series: "16 ปี แค่ได้คิดถึงเธอ มันก็ช่างใหญ่เกินใจ",
+  title: "16 ปี แค่ได้คิดถึงเธอ มันก็ช่างใหญ่เกินใจ",
+  type: "Manga (TH)",
+  url: "https://www.firstpagepro.com/category/154",
+  categories: [
+    { url: "https://www.firstpagepro.com/category/154", type: "Manga (TH)" },
+  ],
+};
+let firstpageResult = { ...upcomingResult };
 let fail = false,
   calls = 0;
 const titleCalls = [];
@@ -127,6 +141,8 @@ try {
       titleCalls.push(category);
       if (category === upcoming.url)
         return route.fulfill({ json: upcomingResult });
+      if (category === firstpageUpcoming.url)
+        return route.fulfill({ json: firstpageResult });
       const title = titles.find((item) => item.categories[0].url === category);
       const item =
         items.find(
@@ -150,13 +166,16 @@ try {
         status: 503,
         json: { message: "Test publisher outage" },
       });
+    const firstpage = request.arg.url.startsWith(
+      "https://www.firstpagepro.com/",
+    );
     return route.fulfill({
       json: {
-        titles,
+        titles: firstpage ? [firstpageUpcoming] : titles,
         items: [],
         url: request.arg.url,
-        publisherId: "phoenix",
-        title: "Girl’s Love",
+        publisherId: firstpage ? "firstpage" : "phoenix",
+        title: firstpage ? "First Page Pro titles" : "Girl’s Love",
         complete: true,
         checkedAt: "2026-10-14T05:00:00Z",
         stale: false,
@@ -470,6 +489,53 @@ try {
   assert.equal(
     await page.locator("#discoveryUrl").inputValue(),
     "https://www.firstpagepro.com/category/63",
+  );
+  const firstpageCard = page.locator(".discovery-card").filter({
+    has: page.getByRole("heading", {
+      name: firstpageUpcoming.series,
+      exact: true,
+    }),
+  });
+  await firstpageCard
+    .getByText("No current book listing", { exact: true })
+    .waitFor();
+  assert.equal(
+    await firstpageCard
+      .getByRole("button", { name: "Add to shelf" })
+      .isDisabled(),
+    true,
+  );
+  // An incomplete check must keep the category visible even without a listing.
+  firstpageResult = { ...firstpageResult, complete: false, stale: false };
+  await page.locator("#refreshDiscovery").click();
+  await firstpageCard.getByText("Cover unavailable", { exact: true }).waitFor();
+  firstpageResult = { ...firstpageResult, complete: true, error: "" };
+  await page.locator("#refreshDiscovery").click();
+  await firstpageCard.waitFor({ state: "detached" });
+  assert.match(await page.locator("#discoveryCount").textContent(), /0 titles/);
+  await page
+    .getByRole("heading", { name: "No new titles in this category" })
+    .waitFor();
+  // A newly listed unnumbered book should return on the next successful refresh.
+  firstpageResult = {
+    ...firstpageResult,
+    item: {
+      ...releaseItem(
+        "firstpage",
+        "การ์ตูน " + firstpageUpcoming.series,
+        "https://www.firstpagepro.com/product/1",
+      ),
+      coverId: items[3].coverId,
+    },
+  };
+  await page.locator("#refreshDiscovery").click();
+  await firstpageCard.getByText(/Single book \/ unnumbered/).waitFor();
+  assert.equal(await firstpageCard.count(), 1);
+  assert.equal(
+    await firstpageCard
+      .getByRole("button", { name: "Add to shelf" })
+      .isEnabled(),
+    true,
   );
   assert.deepEqual(errors, []);
   assert.deepEqual(externalImages, []);

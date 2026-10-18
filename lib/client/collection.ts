@@ -1994,7 +1994,7 @@ export function mountCollection({
           discoveryTitleKey(entry),
         );
         if (
-          entry.publisherId === "phoenix" &&
+          ["phoenix", "firstpage"].includes(entry.publisherId) &&
           result?.complete &&
           !result.stale &&
           result.item === null
