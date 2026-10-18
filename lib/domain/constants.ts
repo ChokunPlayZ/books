@@ -26,6 +26,7 @@ export const BOOK_APP = Object.freeze({
   statuses: ["Sealed", "Un Sealed", "Reading", "Read"],
   types: [
     "LN (EN)",
+    "Manga (EN)",
     "Manga (JP) (Color)",
     "Manga (TH)",
     "LN (TH)",

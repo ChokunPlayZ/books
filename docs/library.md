@@ -16,7 +16,7 @@
 - Use **Discover titles** to browse Phoenix Next or First Page Pro’s navigation, or Yaakz’s product catalog, including Phoenix GL and each publisher’s full title directory. Titles with any owned volume are hidden; each remaining title shows one representative book, preferring regular volume 1.
 - See covers on series, owned volumes, missing catalog volumes and releases. Covers load as needed from publisher catalogs or verified ISBN metadata, with a placeholder when no image is available.
 - Open a volume’s three-dot menu to edit metadata, change its cover, or visit the publisher. **Pull covers** reads matching editions and their product galleries from Phoenix Next, First Page Pro, Luckpim and Yaakz, and checks Naiin and Yaakz bookstore listings; select an image and save. You can also enter a supported image URL and publisher product link. Choices are stored per copy, survive refreshes and restarts, and travel with JSON backups. Clear the image URL to return to automatic covers.
-- Look up exact ISBN metadata using Naiin, Yaakz, then Google Books and Open Library.
+- Look up exact ISBN metadata using Naiin, Yaakz, Yen Press, then Google Books and Open Library. Yen Press supplies English manga and novel details, imprint names and covers; **Pull covers** also checks Yen Press for English editions with an ISBN.
 
 Publisher requests run on the Next.js server using native asynchronous fetch. Catalog results are cached in SQLite; failed refreshes retain the previous successful result with its original check time and a stale warning. Catalog checks remain independent of recent release listings. Photos are decoded on the device and never uploaded to the app or metadata providers.
 

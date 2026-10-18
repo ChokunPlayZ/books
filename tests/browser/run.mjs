@@ -377,6 +377,7 @@ try {
     "publishers.browser.mjs",
     "release-filters.browser.mjs",
     "yaakz.browser.mjs",
+    "yenpress.browser.mjs",
     "navigation.browser.mjs",
   ])
     await runBrowserScenario(name, fixturesUrl);

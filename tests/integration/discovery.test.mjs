@@ -250,6 +250,20 @@ test("owned covers use matching catalog volumes before ISBN lookup, and ISBN cov
       calls++;
       if (requested.includes("naiin"))
         return new Response('<product-list :items="[]">');
+      if (requested.includes("yaakz"))
+        return new Response('{"data":[],"total":0}');
+      if (requested === "https://yenpress.com/search")
+        return new Response(
+          readFileSync(
+            new URL(
+              "../fixtures/publishers/yenpress-search.html",
+              import.meta.url,
+            ),
+            "utf8",
+          ),
+        );
+      if (requested.includes("enterprise-search.yenpress.com"))
+        return new Response('{"results":[]}');
       return new Response(
         JSON.stringify({
           items: [
@@ -277,9 +291,9 @@ test("owned covers use matching catalog volumes before ISBN lookup, and ISBN cov
     ]);
     assert.equal(covers[0].coverUrl, "https://books.google.com/cover.jpg");
     assert.equal(covers[1].coverUrl, covers[0].coverUrl);
-    assert.equal(calls, 3);
+    assert.equal(calls, 5);
     await lookup.getBookCover({ row: isbnRow });
-    assert.equal(calls, 3);
+    assert.equal(calls, 5);
     await assert.rejects(lookup.getBookCover({ row: 999 }), /no longer/);
   } finally {
     store.close();

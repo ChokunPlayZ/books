@@ -124,9 +124,22 @@ Special-edition detection recognizes markers including `Special Set`, `Complete 
 4. Parses `application/ld+json` script contents as JSON, including arrays and `@graph` records. A candidate must have an exact canonical ISBN match in `isbn`, `gtin13`, or `sku`, or in the page's `book:isbn` meta tag. A search result alone is insufficient.
 5. Returns the matched title, parsed series/volume/type, publisher, authors, product URL, and `book:release_date` when present. Publisher/author names can fall back to the search record after the detail page confirms the ISBN.
 
-If Naiin has no confirmed candidate, the app tries Google Books, then Open Library. Google Books also requires a matching ISBN in `industryIdentifiers`; Open Library is queried by the canonical ISBN key. A Naiin search link remains available even if all metadata providers fail. Suggested details are reviewed in the form before saving.
+If Naiin has no confirmed candidate, the app tries Yaakz, Yen Press, Google Books, then Open Library. Yaakz verifies the ISBN of an individual product variant. Google Books also requires a matching ISBN in `industryIdentifiers`; Open Library is queried by the canonical ISBN key. A Naiin search link remains available even if all metadata providers fail. Suggested details are reviewed in the form before saving.
 
-An HTTP error or parsing failure ends that Naiin attempt and adds an availability warning before trying the fallbacks. Candidate-page errors are not retried individually. Up to five Naiin requests are made per uncached lookup: one search and four detail pages. Fallback providers can add two more requests.
+An HTTP error or parsing failure ends that provider's attempt and adds an availability warning before trying the fallbacks. Candidate-page errors are not retried individually. Up to five Naiin requests are made per uncached lookup: one search and four detail pages. Each fallback uses its own bounded requests.
+
+## Yen Press ISBN lookup
+
+`lib/domain/yenpress.ts` parses Yen Press's public search configuration, search records and book detail pages. `lookupYenPress_()` in `lib/server/catalogs.ts` follows the site's public search flow:
+
+1. Fetch `https://yenpress.com/search` and read the JSON `_elastic` configuration without executing page scripts. Require the known Yen Press search host and engine. The public search key is used only for that request and is not persisted.
+2. POST the canonical ISBN to `https://enterprise-search.yenpress.com/api/as/v1/engines/yenpress/search`, with the site's public search key and origin headers. Request at most four results using the ISBN search field. Search can return fuzzy matches, so candidates must state the exact canonical ISBN and use a validated HTTPS `/titles/<isbn>-<slug>` URL on `yenpress.com`.
+3. Fetch at most four unique candidate pages. Read the labeled ISBN inside the `book-details` section and accept only the matching `detail-info` block. Print and digital editions can share a page but have different ISBNs and imprints; neither retailer links nor the active tab confirm an edition.
+4. Read the title, series, volume, author names (including “Original author”), imprint and release date. The book's own category breadcrumb identifies `LN (EN)` or `Manga (EN)`; digital pages use the genre category in their book details when the breadcrumb only says “Digital eBooks”. Read the lazy-loaded `series cover` image, allowing only supported image hosts, including `images.yenpress.com`; the site's generic Open Graph image is not a cover.
+
+Successful results and confirmed misses are shared across ISBN lookup and **Pull covers** for 24 hours, including across restarts. Product HTML uses the existing seven-day cache. Failures use the 15-minute retry cooldown and do not stop Google Books or Open Library fallback. Automatic cover lookup uses the same verified details. Yen Press is a metadata and cover provider; its release feeds and series catalogs are not integrated.
+
+The saved comic, digital and novel fixtures in `tests/fixtures/publishers/yenpress-*` preserve representative page sections from [Solo Leveling, Vol. 1](https://yenpress.com/titles/9781975319434-solo-leveling-vol-1-comic) and [Omniscient Reader's Viewpoint (novel), Vol. 1](https://yenpress.com/titles/9798400903526-omniscient-reader-s-viewpoint-novel-vol-1). The search bootstrap fixture substitutes a test public key.
 
 ## Ownership and covers
 

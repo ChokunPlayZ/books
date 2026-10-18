@@ -104,6 +104,7 @@ export function safeCoverUrl(raw, base?: string) {
       "books.google.com",
       "books.googleusercontent.com",
       "covers.openlibrary.org",
+      "images.yenpress.com",
     ];
     if (
       !allowed.includes(host) &&
@@ -170,6 +171,7 @@ export function safeProductUrl(raw, id) {
       /^https:\/\/www\.firstpagepro\.com\/product\/(\d+)(?:\/[^?#]*)?$/,
     yaakz: /^https:\/\/www\.yaakz\.com\/product\/(?:[^/?#]+\/)*\d+\/?$/,
     luckpim: /^https:\/\/www\.luckpim\.com\/product\/detail\/\d+\/?$/,
+    yenpress: /^https:\/\/yenpress\.com\/titles\/\d{13}-[a-zA-Z0-9-]+\/?$/,
   };
   if (!patterns[id] || !patterns[id].test(url)) return "";
   if (id === "yaakz")

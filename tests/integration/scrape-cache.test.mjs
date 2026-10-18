@@ -241,7 +241,11 @@ test("equivalent ISBN lookups share requests and cache confirmed misses for a da
         ? '<product-list :items="[]">'
         : url.includes("yaakz")
           ? '{"data":[],"total":0}'
-          : "{}",
+          : url === "https://yenpress.com/search"
+            ? fixture("publishers/yenpress-search.html")
+            : url.includes("enterprise-search.yenpress.com")
+              ? '{"results":[]}'
+              : "{}",
     );
   };
   let service = createCatalogService(db.store, remote);
@@ -251,12 +255,12 @@ test("equivalent ISBN lookups share requests and cache confirmed misses for a da
   assert.ok(
     results.every((result) => !result.found && !result.warnings.length),
   );
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 6);
   service = createCatalogService(db.restart(), remote);
   t.mock.timers.tick(day - 1);
   await service.lookupIsbn("9780140328721");
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 6);
   t.mock.timers.tick(1);
   await service.lookupIsbn("9780140328721");
-  assert.equal(calls.length, 8);
+  assert.equal(calls.length, 12);
 });

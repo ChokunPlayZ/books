@@ -32,6 +32,11 @@ import {
 } from "../domain.ts";
 import { yaakzProducts, yaakzItems } from "./yaakz.ts";
 import { publisherCovers } from "./publisher-covers.ts";
+import {
+  yenPressBook,
+  yenPressCandidates,
+  yenPressSearchKey,
+} from "../domain/yenpress.ts";
 import { createScrapeCache, SCRAPE_TTL } from "./scrape-cache.ts";
 import type { Release } from "../types.ts";
 
@@ -126,6 +131,8 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       "www.yaakz.com",
       "www.googleapis.com",
       "openlibrary.org",
+      "yenpress.com",
+      "enterprise-search.yenpress.com",
     ];
     if (
       parsed.protocol !== "https:" ||
@@ -211,7 +218,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     if (!isbn) throw new Error("Enter or scan an ISBN first.");
     const canonical = canonicalIsbn(isbn);
 
-    const cached = cache.get("isbn:v3:" + canonical);
+    const cached = cache.get("isbn:v4:" + canonical);
     if (cached) return JSON.parse(cached);
     const warnings = [];
     let details = null;
@@ -233,6 +240,12 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
         if (item) details = { ...item, source: "Yaakz" };
       } catch {
         warnings.push("Yaakz is unavailable right now.");
+      }
+    if (!details)
+      try {
+        details = await lookupYenPress_(canonical);
+      } catch {
+        warnings.push("Yen Press is unavailable right now.");
       }
     if (!details)
       try {
@@ -305,7 +318,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     };
     // Cache confirmed misses too; transient provider failures get a shorter TTL.
     cache.put(
-      "isbn:v3:" + canonical,
+      "isbn:v4:" + canonical,
       JSON.stringify(result),
       warnings.length ? SCRAPE_TTL.retry : SCRAPE_TTL.isbn,
     );
@@ -355,7 +368,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       );
       return { row, token: book.token, coverUrl: match?.coverUrl || "" };
     }
-    if (!isbn || cache.get("cover:miss:v1:" + isbn))
+    if (!isbn || cache.get("cover:miss:v2:" + isbn))
       return { row, token: book.token, coverUrl: "" };
     if (!pendingCovers.has(isbn)) {
       const pending = lookupIsbn(isbn)
@@ -363,7 +376,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
           const cover = safeCoverUrl(result.details?.coverUrl);
           if (cover) cache.put(key, cover, 2592000);
           else if (!result.warnings.length)
-            cache.put("cover:miss:v1:" + isbn, "1", 86400);
+            cache.put("cover:miss:v2:" + isbn, "1", 86400);
           return cover;
         })
         .finally(() => pendingCovers.delete(isbn));
@@ -537,6 +550,14 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
         }
       } catch {
         warnings.push("Could not check Yaakz for this volume.");
+      }
+    }
+    if (isbn && !/\(TH\)/.test(book.type)) {
+      try {
+        const item = await lookupYenPress_(isbn, request.refresh);
+        if (item?.coverUrl) add(item.coverUrl, item);
+      } catch {
+        warnings.push("Could not check Yen Press for this ISBN.");
       }
     }
     return {
@@ -1249,6 +1270,52 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       if (page * 100 >= Number(data.d.total) || data.d.data.length < 100) break;
     }
     return items;
+  }
+
+  async function lookupYenPress_(canonical: string, refresh = false) {
+    return scrapeCache.get(
+      "yenpress-isbn:v1:" + canonical,
+      { maxAge: SCRAPE_TTL.isbn, refresh },
+      async () => {
+        // Use the site's public search configuration without persisting its key.
+        const bootstrap = await requestRemote("https://yenpress.com/search");
+        if (bootstrap.status !== 200)
+          throw new Error("Yen Press search unavailable.");
+        const searchKey = yenPressSearchKey(bootstrap.body);
+        const response = await requestRemote(
+          "https://enterprise-search.yenpress.com/api/as/v1/engines/yenpress/search",
+          {
+            method: "POST",
+            headers: {
+              Authorization: "Bearer " + searchKey,
+              "Content-Type": "application/json",
+              Origin: "https://yenpress.com",
+              Referer: "https://yenpress.com/",
+            },
+            body: JSON.stringify({
+              query: canonical,
+              page: { size: 4 },
+              search_fields: { isbn: {} },
+              result_fields: { isbn: { raw: {} }, url: { raw: {} } },
+            }),
+          },
+        );
+        if (response.status !== 200)
+          throw new Error("Yen Press search unavailable.");
+        for (const url of yenPressCandidates(
+          JSON.parse(response.body),
+          canonical,
+        )) {
+          const book = yenPressBook(
+            await fetchText_(url, refresh, SCRAPE_TTL.product),
+            canonical,
+            url,
+          );
+          if (book) return book;
+        }
+        return null;
+      },
+    );
   }
 
   async function lookupNaiin_(canonical, refresh = false) {
