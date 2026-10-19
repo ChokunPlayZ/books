@@ -1,5 +1,13 @@
 import { decodeHtml } from "./html.ts";
 
+// The former thailand.kinokuniya.com storefront now redirects here.
+export function kinokuniyaSearchUrl(query: string): string {
+  return (
+    "https://kinokuniya.co.th/search?type=product&q=" +
+    encodeURIComponent(query)
+  );
+}
+
 export function safeSeriesCatalogUrl(raw, id) {
   const url = decodeHtml(String(raw || "").trim());
   if (
@@ -114,11 +122,14 @@ export function safeCoverUrl(raw, base?: string) {
       "books.googleusercontent.com",
       "covers.openlibrary.org",
       "images.yenpress.com",
+      "kinokuniya.co.th",
     ];
     if (
       !allowed.includes(host) &&
       !/^(?:[a-z0-9-]+\.)*(?:naiin\.com|lnwfile\.com)$/.test(host)
     )
+      return "";
+    if (host === "kinokuniya.co.th" && !url.pathname.startsWith("/cdn/shop/"))
       return "";
     if (url.protocol === "http:") url.protocol = "https:";
     if (

@@ -32,6 +32,7 @@ import {
 } from "../domain.ts";
 import { yaakzProducts, yaakzItems } from "./yaakz.ts";
 import { publisherCovers } from "./publisher-covers.ts";
+import { kinokuniyaBook } from "../domain/kinokuniya.ts";
 import {
   yenPressBook,
   yenPressCandidates,
@@ -144,6 +145,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       "openlibrary.org",
       "yenpress.com",
       "enterprise-search.yenpress.com",
+      "kinokuniya.co.th",
     ];
     if (
       parsed.protocol !== "https:" ||
@@ -229,7 +231,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     if (!isbn) throw new Error("Enter or scan an ISBN first.");
     const canonical = canonicalIsbn(isbn);
 
-    const cached = cache.get("isbn:v4:" + canonical);
+    const cached = cache.get("isbn:v5:" + canonical);
     if (cached) return JSON.parse(cached);
     const warnings = [];
     let details = null;
@@ -257,6 +259,12 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
         details = await lookupYenPress_(canonical);
       } catch {
         warnings.push("Yen Press is unavailable right now.");
+      }
+    if (!details)
+      try {
+        details = await lookupKinokuniya_(canonical);
+      } catch {
+        warnings.push("Kinokuniya is unavailable right now.");
       }
     if (!details)
       try {
@@ -329,7 +337,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     };
     // Cache confirmed misses too; transient provider failures get a shorter TTL.
     cache.put(
-      "isbn:v4:" + canonical,
+      "isbn:v5:" + canonical,
       JSON.stringify(result),
       warnings.length ? SCRAPE_TTL.retry : SCRAPE_TTL.isbn,
     );
@@ -379,7 +387,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       );
       return { row, token: book.token, coverUrl: match?.coverUrl || "" };
     }
-    if (!isbn || cache.get("cover:miss:v2:" + isbn))
+    if (!isbn || cache.get("cover:miss:v3:" + isbn))
       return { row, token: book.token, coverUrl: "" };
     if (!pendingCovers.has(isbn)) {
       const pending = lookupIsbn(isbn)
@@ -387,7 +395,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
           const cover = safeCoverUrl(result.details?.coverUrl);
           if (cover) cache.put(key, cover, 2592000);
           else if (!result.warnings.length)
-            cache.put("cover:miss:v2:" + isbn, "1", 86400);
+            cache.put("cover:miss:v3:" + isbn, "1", 86400);
           return cover;
         })
         .finally(() => pendingCovers.delete(isbn));
@@ -585,6 +593,20 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
         if (item?.coverUrl) add(item.coverUrl, item);
       } catch {
         warnings.push("Could not check Yen Press for this ISBN.");
+      }
+    }
+    if (isbn) {
+      try {
+        const shop = await lookupKinokuniya_(isbn, request.refresh);
+        if (shop?.coverUrl)
+          add(shop.coverUrl, {
+            title: shop.title,
+            url: book.publisherUrl || "",
+            source: "Kinokuniya",
+            sourceUrl: shop.url,
+          });
+      } catch {
+        warnings.push("Could not check Kinokuniya for this ISBN.");
       }
     }
     return {
@@ -1513,6 +1535,21 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       ),
       pages,
     };
+  }
+
+  async function lookupKinokuniya_(canonical: string, refresh = false) {
+    return scrapeCache.get(
+      "kinokuniya-isbn:v1:" + canonical,
+      { maxAge: SCRAPE_TTL.isbn, refresh },
+      async () => {
+        const response = await requestRemote(
+          "https://kinokuniya.co.th/products/" + canonical,
+        );
+        if (response.status === 404) return null;
+        if (response.status !== 200) throw new Error("Kinokuniya unavailable.");
+        return kinokuniyaBook(response.body, canonical);
+      },
+    );
   }
 
   async function lookupNaiin_(canonical, refresh = false) {

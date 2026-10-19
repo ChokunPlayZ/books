@@ -8,6 +8,7 @@ import { shelfCoverBook, coverTint } from "../domain/shelf.ts";
 import { seriesPath, type CollectionView } from "../domain/navigation.ts";
 import { createScanner } from "./scanner.ts";
 import { canonicalIsbn as canonical } from "../domain/isbn.ts";
+import { kinokuniyaSearchUrl } from "../domain/urls.ts";
 import {
   releaseSeriesKey,
   matchingBookType,
@@ -2382,6 +2383,7 @@ export function mountCollection({
           "https://www.naiin.com/search-result?title=" +
             encodeURIComponent(item.isbn),
         ),
+        releaseLink("Find at Kinokuniya ↗", kinokuniyaSearchUrl(item.isbn)),
       );
     copy.append(links);
     if (context.alternatives?.length) {
@@ -2972,6 +2974,13 @@ export function mountCollection({
           releaseLink("Search this ISBN at Naiin ↗", result.searchUrl),
         );
       }
+      $("lookupResult").append(
+        document.createTextNode("\n"),
+        releaseLink(
+          "Search this ISBN at Kinokuniya ↗",
+          kinokuniyaSearchUrl(canonical(result.isbn)),
+        ),
+      );
     } catch (error) {
       if (generation === state.lookupGeneration)
         $("lookupResult").textContent = error.message || String(error);

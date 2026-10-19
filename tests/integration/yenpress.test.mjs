@@ -37,6 +37,8 @@ function remote(calls, overrides = {}) {
     if (url.includes("naiin.com"))
       return new Response('<product-list :items="[]">');
     if (url.includes("yaakz.com")) return new Response('{"data":[],"total":0}');
+    if (url.startsWith("https://kinokuniya.co.th/products/"))
+      return new Response("Not found", { status: 404 });
     if (url === "https://yenpress.com/search")
       return new Response(
         overrides.bootstrap ?? fixture("yenpress-search.html"),

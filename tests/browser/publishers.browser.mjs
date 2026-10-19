@@ -259,6 +259,12 @@ try {
     /Unable to check Luckpim/,
   );
   assert.ok(await page.locator(".release-card").count());
+  assert.equal(
+    await card(exact.title)
+      .getByRole("link", { name: "Find at Kinokuniya ↗" })
+      .getAttribute("href"),
+    "https://kinokuniya.co.th/search?type=product&q=" + exact.isbn,
+  );
   await card(exact.title)
     .getByRole("button", { name: "View owned series" })
     .click();
@@ -284,8 +290,16 @@ try {
   assert.equal(await page.locator("#volume").inputValue(), "22");
   assert.equal(await page.locator("#publisher").inputValue(), "PHOENIX Next");
   assert.equal(
-    await page.locator("#lookupResult a").getAttribute("href"),
+    await page
+      .getByRole("link", { name: "Search this ISBN at Naiin ↗" })
+      .getAttribute("href"),
     "https://www.naiin.com/search-result?title=9786166247275",
+  );
+  assert.equal(
+    await page
+      .getByRole("link", { name: "Search this ISBN at Kinokuniya ↗" })
+      .getAttribute("href"),
+    "https://kinokuniya.co.th/search?type=product&q=9786166247275",
   );
   await page.locator("#cancelBook").click();
   await page.locator("#addButton").click();

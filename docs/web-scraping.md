@@ -125,9 +125,19 @@ Special-edition detection recognizes markers including `Special Set`, `Complete 
 4. Parses `application/ld+json` script contents as JSON, including arrays and `@graph` records. A candidate must have an exact canonical ISBN match in `isbn`, `gtin13`, or `sku`, or in the page's `book:isbn` meta tag. A search result alone is insufficient.
 5. Returns the matched title, parsed series/volume/type, publisher, authors, product URL, and `book:release_date` when present. Publisher/author names can fall back to the search record after the detail page confirms the ISBN.
 
-If Naiin has no confirmed candidate, the app tries Yaakz, Yen Press, Google Books, then Open Library. Yaakz verifies the ISBN of an individual product variant. Google Books also requires a matching ISBN in `industryIdentifiers`; Open Library is queried by the canonical ISBN key. A Naiin search link remains available even if all metadata providers fail. Suggested details are reviewed in the form before saving.
+If Naiin has no confirmed candidate, the app tries Yaakz, Yen Press, Kinokuniya, Google Books, then Open Library. Yaakz verifies the ISBN of an individual product variant. Google Books also requires a matching ISBN in `industryIdentifiers`; Open Library is queried by the canonical ISBN key. Naiin and Kinokuniya search links remain available even if all metadata providers fail. Suggested details are reviewed in the form before saving.
 
 An HTTP error or parsing failure ends that provider's attempt and adds an availability warning before trying the fallbacks. Candidate-page errors are not retried individually. Up to five Naiin requests are made per uncached lookup: one search and four detail pages. Each fallback uses its own bounded requests.
+
+## Kinokuniya Thailand ISBN lookup and covers
+
+The supplied [former storefront](https://thailand.kinokuniya.com/) redirects in a browser to [kinokuniya.co.th](https://kinokuniya.co.th/). The integration requests the current public storefront directly; it does not depend on the former site's redirect.
+
+`lib/domain/kinokuniya.ts` parses representative product sections saved from the current storefront. Exact ISBN lookups request `/products/<canonical-isbn>`, then require both the displayed ISBN and the main product's structured `isbn`, `gtin`, or `gtin13` to match. The structured product URL must identify that same book; recommendations cannot supply its image. Publisher, authors and publication date come from the product details. The bookstore name remains the metadata source, while the original publisher is retained. Edition type remains blank because these multilingual pages do not reliably state the language and format; unstated volume numbers also remain blank.
+
+Kinokuniya supplies automatic ISBN covers and additional **Pull covers** choices for any publisher and language when an ISBN is saved. Its image allowlist accepts only the current storefront's `/cdn/shop/` assets, which use the existing permanent cover storage. Choosing a bookstore cover preserves the saved publisher link. ISBN lookup and release cards also provide public Kinokuniya search links.
+
+Successful lookups and confirmed misses, including HTTP 404, share a 24-hour durable cache. Source failures and changed markup use the existing 15-minute cooldown, including across refreshes and restarts; other metadata and cover providers continue working. ISBN and cover-miss cache versions were advanced so earlier misses do not hide the new provider.
 
 ## Yen Press ISBN lookup
 

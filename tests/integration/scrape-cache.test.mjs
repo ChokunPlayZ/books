@@ -236,6 +236,8 @@ test("equivalent ISBN lookups share requests and cache confirmed misses for a da
     calls = [];
   const remote = async (url) => {
     calls.push(url);
+    if (url.startsWith("https://kinokuniya.co.th/products/"))
+      return new Response("Not found", { status: 404 });
     return new Response(
       url.includes("naiin")
         ? '<product-list :items="[]">'
@@ -255,12 +257,12 @@ test("equivalent ISBN lookups share requests and cache confirmed misses for a da
   assert.ok(
     results.every((result) => !result.found && !result.warnings.length),
   );
-  assert.equal(calls.length, 6);
+  assert.equal(calls.length, 7);
   service = createCatalogService(db.restart(), remote);
   t.mock.timers.tick(day - 1);
   await service.lookupIsbn("9780140328721");
-  assert.equal(calls.length, 6);
+  assert.equal(calls.length, 7);
   t.mock.timers.tick(1);
   await service.lookupIsbn("9780140328721");
-  assert.equal(calls.length, 12);
+  assert.equal(calls.length, 14);
 });

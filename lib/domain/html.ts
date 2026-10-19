@@ -14,7 +14,7 @@ export function structuredBooks(html) {
   function visit(v) {
     if (!v || typeof v !== "object") return;
     if (Array.isArray(v)) return v.forEach(visit);
-    if (v.isbn || v.gtin13 || v.sku) out.push(v);
+    if (v.isbn || v.gtin || v.gtin13 || v.sku) out.push(v);
     if (v["@graph"]) visit(v["@graph"]);
   }
   let match;
