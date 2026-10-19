@@ -1,0 +1,69 @@
+{
+  "meta": {
+    "page": {
+      "current": 1,
+      "total_pages": 1,
+      "total_results": 3,
+      "size": 1000
+    }
+  },
+  "results": [
+    {
+      "type": {
+        "raw": "books-light-novels"
+      },
+      "isbn": {
+        "raw": "9798400904103"
+      },
+      "url": {
+        "raw": "/titles/9798400904103-semantic-error-novel-vol-3"
+      },
+      "id": {
+        "raw": "26890"
+      },
+      "_meta": {
+        "id": "26890",
+        "engine": "yenpress",
+        "score": 1.0
+      }
+    },
+    {
+      "type": {
+        "raw": "books-light-novels"
+      },
+      "isbn": {
+        "raw": "9798855407716"
+      },
+      "url": {
+        "raw": "/titles/9798855407716-agents-of-the-four-seasons-vol-7"
+      },
+      "id": {
+        "raw": "26755"
+      },
+      "_meta": {
+        "id": "26755",
+        "engine": "yenpress",
+        "score": 1.0
+      }
+    },
+    {
+      "type": {
+        "raw": "books-manga"
+      },
+      "isbn": {
+        "raw": "9798855437829"
+      },
+      "url": {
+        "raw": "/titles/9798855437829-visions-2024-illustrators-book"
+      },
+      "id": {
+        "raw": "26551"
+      },
+      "_meta": {
+        "id": "26551",
+        "engine": "yenpress",
+        "score": 1.0
+      }
+    }
+  ]
+}

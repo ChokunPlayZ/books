@@ -25,6 +25,7 @@ export function volumeCoverKey(book) {
 
 export function catalogSeriesKey(text) {
   return bookSeriesTitle(text)
+    .replace(/\s*\((?:light\s*novel|novel|manga|comic)\)\s*$/i, "")
     .normalize("NFKC")
     .toLocaleLowerCase()
     .replace(/@comic/gi, "")

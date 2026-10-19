@@ -385,6 +385,10 @@ try {
     "navigation.browser.mjs",
   ])
     await runBrowserScenario(name, fixturesUrl);
+  await runBrowserScenario(
+    "yenpress-publisher.browser.mjs",
+    await start("yenpress-publisher", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
+  );
   if (
     process.env.BOOKS_TEST_SCANNING === "true" ||
     process.argv.includes("--scan-photos")

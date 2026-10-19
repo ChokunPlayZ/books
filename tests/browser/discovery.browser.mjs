@@ -238,6 +238,7 @@ try {
   const upcomingCard = page
     .locator(".discovery-card")
     .filter({ hasText: upcoming.series });
+  await page.locator("#discoverySearch").fill(upcoming.series);
   await upcomingCard.evaluateAll((cards) => cards[0]?.scrollIntoView());
   await upcomingCard
     .getByText("No current book listing", { exact: true })
@@ -257,6 +258,7 @@ try {
       ),
   );
   assert.equal(await upcomingCard.count(), 0);
+  await page.locator("#discoverySearch").fill("");
   assert.equal(await page.locator(".discovery-card").count(), 4);
   assert.match(await page.locator("#discoveryCount").textContent(), /4 titles/);
   await page.locator("#discoverySearch").fill(upcoming.series);
@@ -292,7 +294,7 @@ try {
   assert.match(await later.textContent(), /Volume 1 not listed/);
   assert.match(
     await page.locator("#discoverySource").textContent(),
-    /titles from publisher navigation/,
+    /titles from the publisher catalog/,
   );
   await page.locator("#discoverySearch").fill("fresh");
   assert.equal(await page.locator(".discovery-card").count(), 1);

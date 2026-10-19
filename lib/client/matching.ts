@@ -14,6 +14,7 @@ type CatalogAlias = { publisherId: string; series: string; title: string };
 
 export function releaseSeriesKey(title: string) {
   return String(title || "")
+    .replace(/\s*\((?:light\s*novel|novel|manga|comic)\)\s*$/i, "")
     .replace(/^\[PRE-ORDER\]\s*/i, "")
     .replace(/^(?:\(LN\)|\(มังงะ\)|\(นิยาย\)|นิยาย|การ์ตูน)\s*/i, "")
     .replace(
@@ -62,6 +63,7 @@ export function publisherKey(name: string) {
   if (/firstpage|เฟิร์สเพจ/.test(key)) return "firstpage";
   if (/luckpim|รักพิมพ์/.test(key)) return "luckpim";
   if (/yaakz|siaminter|สยามอินเตอร์|^sic$/.test(key)) return "yaakz";
+  if (/^(?:yenpress|yenon|izepress|jy)$/.test(key)) return "yenpress";
   return key;
 }
 
@@ -172,7 +174,13 @@ export function discoverTitles<T extends Release>(
 ) {
   const groups = new Map<string, T[]>();
   for (const item of items) {
-    const key = item.publisherId + ":" + releaseSeriesKey(item.series);
+    const key =
+      item.publisherId +
+      ":" +
+      releaseSeriesKey(item.series) +
+      (item.publisherId === "yenpress"
+        ? ":" + matchingBookType(item.type)
+        : "");
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(item);
   }

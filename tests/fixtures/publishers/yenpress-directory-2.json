@@ -1,0 +1,31 @@
+{
+  "meta": {
+    "page": {
+      "current": 2,
+      "total_pages": 2,
+      "total_results": 3,
+      "size": 2
+    }
+  },
+  "results": [
+    {
+      "title": {
+        "raw": "The Returned Tyrant Princess Rewrites Her Dark Past"
+      },
+      "url": {
+        "raw": "/series/the-returned-tyrant-princess-rewrites-her-dark-past"
+      },
+      "imprint_id": {
+        "raw": "2"
+      },
+      "id": {
+        "raw": "1759_series"
+      },
+      "_meta": {
+        "id": "1759_series",
+        "engine": "yenpress",
+        "score": 1.0
+      }
+    }
+  ]
+}

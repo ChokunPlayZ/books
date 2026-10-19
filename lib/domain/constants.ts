@@ -38,6 +38,12 @@ export const BOOK_APP = Object.freeze({
 
 export const PUBLISHERS = Object.freeze([
   {
+    id: "yenpress",
+    name: "Yen Press",
+    url: "https://yenpress.com/calendar",
+    scope: "Current month’s print releases, up to 200 listings",
+  },
+  {
     id: "yaakz",
     name: "Siam Inter Comics (Yaakz)",
     url: "https://www.yaakz.com/category/new-arrivals-best-sellers/976",

@@ -1,0 +1,74 @@
+{
+  "meta": {
+    "page": {
+      "current": 1,
+      "total_pages": 2,
+      "total_results": 3,
+      "size": 2
+    }
+  },
+  "results": [
+    {
+      "title": {
+        "raw": "Solo Leveling (novel)"
+      },
+      "url": {
+        "raw": "/series/solo-leveling-novel"
+      },
+      "image": {
+        "raw": "https://yenpress.com/thumbs/9781975319274_thumb-list_thumb_brick.jpg"
+      },
+      "type": {
+        "raw": "series"
+      },
+      "description": {
+        "raw": "Arise, Solo Leveling fans! Experience all eight novels chronicling the tale of Jinwoo Sung in a deluxe omnibus fit for the strongest S-rank hunter. Featuring stunning art from the hit webcomic, this edition is sure to level up your collection!"
+      },
+      "imprint_id": {
+        "raw": "2"
+      },
+      "original_id": {
+        "raw": 12.0
+      },
+      "id": {
+        "raw": "12_series"
+      },
+      "_meta": {
+        "id": "12_series",
+        "engine": "yenpress",
+        "score": 89.3136
+      }
+    },
+    {
+      "title": {
+        "raw": "Solo Leveling (comic)"
+      },
+      "url": {
+        "raw": "/series/solo-leveling-comic"
+      },
+      "image": {
+        "raw": "https://yenpress.com/thumbs/9781975319434_thumb-list_thumb_brick.jpg"
+      },
+      "type": {
+        "raw": "series"
+      },
+      "description": {
+        "raw": "Much to Jinwoo and Haein’s surprise, their toddler son is showing signs of inheriting the powers of a Shadow Monarch! Luckily, they’re able to suppress his abilities to give him a normal childhood...but years later, something strange starts to happen as the now teenage Sooho suddenly starts to have strange dreams about being trapped in some sort of dungeon with monsters galore! "
+      },
+      "imprint_id": {
+        "raw": "5"
+      },
+      "original_id": {
+        "raw": 2.0
+      },
+      "id": {
+        "raw": "2_series"
+      },
+      "_meta": {
+        "id": "2_series",
+        "engine": "yenpress",
+        "score": 86.81075
+      }
+    }
+  ]
+}

@@ -39,6 +39,15 @@ import {
 } from "../domain/yenpress.ts";
 import { createScrapeCache, SCRAPE_TTL } from "./scrape-cache.ts";
 import type { Release } from "../types.ts";
+import {
+  yenPressSearchPage,
+  yenPressDirectoryTitles,
+  yenPressSeriesCatalog,
+  yenPressSeriesPage,
+  yenPressSeriesComplete,
+  yenPressCalendar,
+  yenPressPrintReleases,
+} from "../domain/yenpress-catalogs.ts";
 
 type CatalogRequest = {
   row?: number;
@@ -46,6 +55,7 @@ type CatalogRequest = {
   url?: string;
   refresh?: boolean;
   publisherId?: string;
+  type?: string;
   categories?: { title: string; url: string; type?: string }[];
   series?: string;
 };
@@ -104,6 +114,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
             item.isbn,
             item.type,
           ),
+          ...(item.publisherId === "yenpress" ? { series: item.series } : {}),
           availability: item.availability,
         })),
     };
@@ -351,11 +362,11 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       return { row, token: book.token, coverUrl: safeCoverUrl(cached) };
     if (request.lookup === false)
       return { row, token: book.token, coverUrl: "" };
-    if (!isbn && publisherKey(book.publisher) === "yaakz") {
+    if (!isbn && ["yaakz", "yenpress"].includes(publisherKey(book.publisher))) {
       const catalog = await getSeriesCatalog({
         series: book.series,
         type: book.type,
-        publisherId: "yaakz",
+        publisherId: publisherKey(book.publisher),
       });
       const match = catalog.items.find(
         (item) =>
@@ -488,6 +499,22 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
               request.refresh,
               SCRAPE_TTL.product,
             );
+            if (publisherId === "yenpress") {
+              const isbn =
+                canonicalIsbn(book.isbn) ||
+                /\/titles\/(\d{13})-/.exec(item.url)?.[1];
+              const details = yenPressBook(html, isbn, item.url);
+              if (
+                details &&
+                (canonicalIsbn(book.isbn) ||
+                  (book.volume !== "" &&
+                    details.volume !== "" &&
+                    Number(details.volume) === Number(book.volume) &&
+                    details.type === book.type))
+              )
+                add(details.coverUrl, { ...item, url: details.url });
+              return;
+            }
             const title = textHtml(
               /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(html)?.[1] ||
                 meta(html, "og:title") ||
@@ -584,11 +611,13 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       const catalog =
         source.publisherId === "yaakz"
           ? await fetchYaakzCatalog_(source.url, 20, !!request.refresh)
-          : await fetchSeriesCategory_(
-              source.publisherId,
-              source.url,
-              request.refresh,
-            );
+          : source.publisherId === "yenpress"
+            ? await fetchYenPressSeries_(source.url, request.refresh)
+            : await fetchSeriesCategory_(
+                source.publisherId,
+                source.url,
+                request.refresh,
+              );
       if (previous?.complete && !catalog.complete)
         throw new Error("Incomplete refresh");
       rememberCovers(catalog.items);
@@ -628,7 +657,11 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     const source = publisherCatalogSource(
       request.url || "https://www.phoenixnext.com/gl.html",
     );
-    if (source.publisherId === "yaakz")
+    if (
+      source.publisherId === "yaakz" ||
+      (source.publisherId === "yenpress" &&
+        source.url !== "https://yenpress.com/")
+    )
       return getPublisherCatalog({ ...request, url: source.url });
     const key = "publisher-directory:v1:" + digest(source.url),
       previous = cachedJson_(cache, key);
@@ -639,12 +672,14 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     )
       return previous;
     try {
-      const html = await fetchText_(
-        source.url,
-        request.refresh,
-        SCRAPE_TTL.directory,
-      );
-      const titles = parsePublisherTitles(source.publisherId, html, source.url);
+      const html =
+        source.publisherId === "yenpress"
+          ? ""
+          : await fetchText_(source.url, request.refresh, SCRAPE_TTL.directory);
+      const titles =
+        source.publisherId === "yenpress"
+          ? await fetchYenPressDirectory_(request.refresh)
+          : parsePublisherTitles(source.publisherId, html, source.url);
       if (!titles.length) {
         // A pasted single-series category can omit its own link in navigation.
         const title = /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(html);
@@ -671,11 +706,13 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
         checkedAt: new Date().toISOString(),
         stale: false,
         title:
-          source.publisherId === "firstpage"
-            ? "First Page Pro titles"
-            : source.url.endsWith("gl.html")
-              ? "Phoenix Next · Girl’s Love"
-              : "Phoenix Next titles",
+          source.publisherId === "yenpress"
+            ? "Yen Press titles"
+            : source.publisherId === "firstpage"
+              ? "First Page Pro titles"
+              : source.url.endsWith("gl.html")
+                ? "Phoenix Next · Girl’s Love"
+                : "Phoenix Next titles",
         error: "",
       };
       cacheJson_(cache, key, result);
@@ -808,7 +845,9 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
                   SCRAPE_TTL.releases,
                 )
               ).items
-            : await fetchCatalog_(publisher, request.refresh);
+            : publisher.id === "yenpress"
+              ? await fetchYenPressReleases_(request.refresh)
+              : await fetchCatalog_(publisher, request.refresh);
       if (!scraped.length) throw new Error("No book listings could be read.");
       const items = scraped.filter((item) => !specialSet(item.title));
       rememberCovers(items);
@@ -903,11 +942,19 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
           ? await fetchLuckpimSeries_(category.url, spec.refresh)
           : spec.publisherId === "yaakz"
             ? await fetchYaakzCatalog_(category.url, 20, spec.refresh)
-            : await fetchSeriesCategory_(
-                spec.publisherId,
-                category.url,
-                spec.refresh,
-              );
+            : spec.publisherId === "yenpress"
+              ? await fetchYenPressSeries_(category.url, spec.refresh)
+              : await fetchSeriesCategory_(
+                  spec.publisherId,
+                  category.url,
+                  spec.refresh,
+                );
+      if (
+        spec.publisherId === "yenpress" &&
+        previous?.complete &&
+        !catalog.complete
+      )
+        throw new Error("Incomplete Yen Press series refresh.");
       if (catalog.title) category = { title: catalog.title, url: category.url };
       annotateSeriesItems(catalog, spec, category);
       catalog.items = catalog.items.filter((item) => !specialSet(item.title));
@@ -955,6 +1002,26 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
 
   async function getSeriesCategories(request) {
     const id = request && request.publisherId;
+    if (id === "yenpress") {
+      const directory = await getPublisherDirectory({
+        url: "https://yenpress.com/",
+        refresh: request.refresh,
+      });
+      if (directory.stale && !directory.titles.length)
+        throw new Error(directory.error);
+      return {
+        publisherId: id,
+        url: directory.url,
+        checkedAt: directory.checkedAt,
+        stale: directory.stale,
+        error: directory.error,
+        categories: directory.titles.map((title) => ({
+          title: title.series,
+          url: title.url,
+          type: title.type,
+        })),
+      };
+    }
     if (
       !PUBLISHERS.some(function (p) {
         return p.id === id;
@@ -1277,35 +1344,13 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       "yenpress-isbn:v1:" + canonical,
       { maxAge: SCRAPE_TTL.isbn, refresh },
       async () => {
-        // Use the site's public search configuration without persisting its key.
-        const bootstrap = await requestRemote("https://yenpress.com/search");
-        if (bootstrap.status !== 200)
-          throw new Error("Yen Press search unavailable.");
-        const searchKey = yenPressSearchKey(bootstrap.body);
-        const response = await requestRemote(
-          "https://enterprise-search.yenpress.com/api/as/v1/engines/yenpress/search",
-          {
-            method: "POST",
-            headers: {
-              Authorization: "Bearer " + searchKey,
-              "Content-Type": "application/json",
-              Origin: "https://yenpress.com",
-              Referer: "https://yenpress.com/",
-            },
-            body: JSON.stringify({
-              query: canonical,
-              page: { size: 4 },
-              search_fields: { isbn: {} },
-              result_fields: { isbn: { raw: {} }, url: { raw: {} } },
-            }),
-          },
-        );
-        if (response.status !== 200)
-          throw new Error("Yen Press search unavailable.");
-        for (const url of yenPressCandidates(
-          JSON.parse(response.body),
-          canonical,
-        )) {
+        const data = await searchYenPress_(await yenPressKey_(), {
+          query: canonical,
+          page: { size: 4 },
+          search_fields: { isbn: {} },
+          result_fields: { isbn: { raw: {} }, url: { raw: {} } },
+        });
+        for (const url of yenPressCandidates(data, canonical)) {
           const book = yenPressBook(
             await fetchText_(url, refresh, SCRAPE_TTL.product),
             canonical,
@@ -1316,6 +1361,158 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
         return null;
       },
     );
+  }
+
+  async function yenPressKey_() {
+    // The site's public key is held only for this operation, never persisted.
+    const bootstrap = await requestRemote("https://yenpress.com/search");
+    if (bootstrap.status !== 200)
+      throw new Error("Yen Press search unavailable.");
+    return yenPressSearchKey(bootstrap.body);
+  }
+
+  async function searchYenPress_(key: string, query: Record<string, unknown>) {
+    const response = await requestRemote(
+      "https://enterprise-search.yenpress.com/api/as/v1/engines/yenpress/search",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + key,
+          "Content-Type": "application/json",
+          Origin: "https://yenpress.com",
+          Referer: "https://yenpress.com/",
+        },
+        body: JSON.stringify(query),
+      },
+    );
+    if (response.status !== 200)
+      throw new Error("Yen Press search unavailable.");
+    return JSON.parse(response.body) as unknown;
+  }
+
+  async function fetchYenPressDirectory_(refresh = false) {
+    return scrapeCache.get(
+      "yenpress-directory:v1",
+      { maxAge: SCRAPE_TTL.directory, refresh },
+      async () => {
+        const key = await yenPressKey_(),
+          records: unknown[] = [],
+          seen = new Set<string>();
+        let expected: number | null = null;
+        for (let current = 1; current <= 20; current++) {
+          const page = yenPressSearchPage(
+            await searchYenPress_(key, {
+              query: "",
+              filters: {
+                all: [{ type: "series" }],
+                none: [{ imprint_id: "3" }],
+              },
+              page: { size: 1000, current },
+              result_fields: {
+                title: { raw: {} },
+                url: { raw: {} },
+                imprint_id: { raw: {} },
+              },
+            }),
+          );
+          if (
+            page.current !== current ||
+            (expected !== null && expected !== page.total)
+          )
+            throw new Error("Yen Press directory changed while loading.");
+          expected = page.total;
+          for (const [index, record] of page.records.entries()) {
+            const id = page.ids[index];
+            if (!seen.has(id)) {
+              seen.add(id);
+              records.push(record);
+            }
+          }
+          if (current >= page.pages) {
+            if (records.length !== expected)
+              throw new Error("Yen Press directory is incomplete.");
+            return yenPressDirectoryTitles(records);
+          }
+          if (!page.records.length) break;
+        }
+        throw new Error("Yen Press directory is incomplete.");
+      },
+    );
+  }
+
+  async function fetchYenPressReleases_(refresh = false) {
+    return scrapeCache.get(
+      "yenpress-releases:v1",
+      { maxAge: SCRAPE_TTL.releases, refresh },
+      async () => {
+        const calendar = yenPressCalendar(
+          await fetchText_(
+            "https://yenpress.com/calendar",
+            refresh,
+            SCRAPE_TTL.releases,
+          ),
+        );
+        if (!calendar.length) return [];
+        const data = await searchYenPress_(await yenPressKey_(), {
+          query: "",
+          filters: {
+            all: [
+              { isbn: calendar.map((book) => book.lookupIsbn) },
+              { type: ["books-manga", "books-comics", "books-light-novels"] },
+            ],
+          },
+          page: { size: 1000 },
+          result_fields: {
+            isbn: { raw: {} },
+            url: { raw: {} },
+            type: { raw: {} },
+          },
+        });
+        return yenPressPrintReleases(data, calendar);
+      },
+    );
+  }
+
+  async function fetchYenPressSeries_(
+    url: string,
+    refresh = false,
+  ): Promise<CatalogResult> {
+    const first = yenPressSeriesCatalog(await fetchText_(url, refresh), url);
+    const items = new Map(first.items.map((item) => [item.url, item]));
+    const visited = new Set<string>();
+    let nextUrl = first.nextUrl,
+      pages = 1;
+    while (nextUrl && pages < 20 && !visited.has(nextUrl)) {
+      visited.add(nextUrl);
+      try {
+        const page = yenPressSeriesPage(
+          await fetchText_(nextUrl, refresh, SCRAPE_TTL.catalog, {
+            headers: { "X-Requested-With": "XMLHttpRequest", Referer: url },
+          }),
+          url,
+          first.title,
+          first.type,
+        );
+        const before = items.size;
+        for (const item of page.items) items.set(item.url, item);
+        pages++;
+        nextUrl = page.nextUrl;
+        if (items.size === before) break;
+      } catch {
+        break;
+      }
+    }
+    return {
+      title: first.title,
+      items: [...items.values()],
+      total: first.total,
+      complete: yenPressSeriesComplete(
+        [...items.values()],
+        first.total,
+        nextUrl,
+      ),
+      pages,
+    };
   }
 
   async function lookupNaiin_(canonical, refresh = false) {
@@ -1420,12 +1617,17 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     return null;
   }
 
-  async function fetchText_(url, refresh = false, maxAge = SCRAPE_TTL.catalog) {
+  async function fetchText_(
+    url,
+    refresh = false,
+    maxAge = SCRAPE_TTL.catalog,
+    options: RequestInit = {},
+  ) {
     return scrapeCache.get(
       "text:" + new URL(url).href,
       { maxAge, refresh },
       async () => {
-        const response = await requestRemote(url);
+        const response = await requestRemote(url, options);
         if (response.status !== 200) throw new Error("Website unavailable");
         return response.body;
       },

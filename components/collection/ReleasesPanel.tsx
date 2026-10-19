@@ -50,6 +50,7 @@ export default function ReleasesPanel() {
           <option value={"firstpage"}>{"First Page Pro"}</option>
           <option value={"luckpim"}>{"Luckpim"}</option>
           <option value={"yaakz"}>{"Siam Inter Comics (Yaakz)"}</option>
+          <option value="yenpress">Yen Press</option>
         </select>
         <label htmlFor={"releaseScope"} className={"sr-only"}>
           {"Release list"}

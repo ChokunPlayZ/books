@@ -3,6 +3,11 @@ import { decodeHtml } from "./html.ts";
 export function safeSeriesCatalogUrl(raw, id) {
   const url = decodeHtml(String(raw || "").trim());
   if (
+    id === "yenpress" &&
+    /^https:\/\/yenpress\.com\/series\/[a-zA-Z0-9-]+\/?$/.test(url)
+  )
+    return url.replace(/\/$/, "");
+  if (
     id === "phoenix" &&
     /^https:\/\/www\.phoenixnext\.com\/book-series\/[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*\.html$/.test(
       url,
@@ -57,7 +62,7 @@ export function safeSeriesCatalogUrl(raw, id) {
 
 export function publisherCatalogSource(raw) {
   const url = decodeHtml(String(raw || "").trim());
-  for (const id of ["phoenix", "firstpage", "yaakz"]) {
+  for (const id of ["phoenix", "firstpage", "yaakz", "yenpress"]) {
     const category = safePublisherTitleUrl(url, id);
     if (category) return { publisherId: id, url: category };
   }
@@ -74,7 +79,11 @@ export function publisherCatalogSource(raw) {
     return { publisherId: "firstpage", url: "https://www.firstpagepro.com/" };
   if (url === "https://www.yaakz.com/" || url === "https://www.yaakz.com")
     return { publisherId: "yaakz", url: "https://www.yaakz.com/" };
-  throw new Error("Use a Phoenix Next, First Page Pro or Yaakz category URL.");
+  if (url === "https://yenpress.com/" || url === "https://yenpress.com")
+    return { publisherId: "yenpress", url: "https://yenpress.com/" };
+  throw new Error(
+    "Use a Phoenix Next, First Page Pro, Yaakz or Yen Press category or series URL.",
+  );
 }
 
 export function safePublisherTitleUrl(raw, id) {
@@ -134,6 +143,7 @@ export function publisherKey(name) {
   if (/firstpage|เฟิร์สเพจ/.test(key)) return "firstpage";
   if (/luckpim|รักพิมพ์/.test(key)) return "luckpim";
   if (/yaakz|siaminter|สยามอินเตอร์|^sic$/.test(key)) return "yaakz";
+  if (/^(?:yenpress|yenon|izepress|jy)$/.test(key)) return "yenpress";
   return key;
 }
 
@@ -147,6 +157,7 @@ export function safePublisherUrl(raw, publisher) {
       firstpage: "www.firstpagepro.com",
       luckpim: "www.luckpim.com",
       yaakz: "www.yaakz.com",
+      yenpress: "yenpress.com",
     };
     if (
       url.protocol !== "https:" ||

@@ -49,6 +49,9 @@ export default function DiscoveryPanel() {
               First Page Pro · Manga (20+)
             </option>
             <option value="https://www.yaakz.com/">Yaakz · New arrivals</option>
+            <option value="https://yenpress.com/">
+              Yen Press · All titles
+            </option>
             <option value="">Another category URL</option>
           </select>
         </label>
@@ -59,7 +62,7 @@ export default function DiscoveryPanel() {
             type="url"
             required
             defaultValue="https://www.phoenixnext.com/gl.html"
-            placeholder="Phoenix Next, First Page Pro or Yaakz category URL"
+            placeholder="Publisher catalog or series URL"
           />
         </label>
         <button id="loadDiscovery" className="btn primary" type="submit">
@@ -67,7 +70,7 @@ export default function DiscoveryPanel() {
         </button>
       </form>
       <p className="release-note">
-        Titles come from the publisher’s navigation. Any series already on your
+        Titles come from the publisher’s catalog. Any series already on your
         shelf is hidden.
       </p>
       <div id="discoveryError" className="banner" role="alert" hidden></div>

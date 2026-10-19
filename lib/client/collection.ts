@@ -987,7 +987,7 @@ export function mountCollection({
       pending || state.catalogRefreshing ? "Checking…" : "Refresh catalog";
     renderSeriesCatalogSources(specs);
     $("seriesReleaseStatus").textContent = !specs.length
-      ? "Catalog checks are available for Phoenix Next, First Page Pro and Luckpim."
+      ? "Catalog checks are available for Phoenix Next, First Page Pro, Luckpim, Yaakz and Yen Press."
       : pending
         ? "Checking the publisher’s series catalog…"
         : choose
@@ -1201,7 +1201,9 @@ export function mountCollection({
       manual.placeholder =
         spec.publisherId === "phoenix"
           ? "https://www.phoenixnext.com/book-series/…"
-          : "https://www.firstpagepro.com/category/…";
+          : spec.publisherId === "yenpress"
+            ? "https://yenpress.com/series/…"
+            : "https://www.firstpagepro.com/category/…";
       manual.value = editor.url || "";
       field("Or paste the series category URL", manual);
       manual.addEventListener(
@@ -1987,7 +1989,7 @@ export function mountCollection({
                     ),
                   ).size,
               ) +
-              " titles from publisher navigation",
+              " titles from the publisher catalog",
           ),
         );
       if (feed.error) source.append(node("p", "source-error", feed.error));
@@ -2005,7 +2007,7 @@ export function mountCollection({
           discoveryTitleKey(entry),
         );
         if (
-          ["phoenix", "firstpage"].includes(entry.publisherId) &&
+          ["phoenix", "firstpage", "yenpress"].includes(entry.publisherId) &&
           result?.complete &&
           !result.stale &&
           result.item === null
