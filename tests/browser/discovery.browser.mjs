@@ -96,6 +96,10 @@ let firstpageResult = { ...upcomingResult };
 let fail = false,
   calls = 0;
 const titleCalls = [];
+let releaseDelayedTitle;
+const delayedTitle = new Promise((resolve) => {
+  releaseDelayedTitle = resolve;
+});
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } }),
     errors = [],
@@ -144,6 +148,7 @@ try {
       if (category === firstpageUpcoming.url)
         return route.fulfill({ json: firstpageResult });
       const title = titles.find((item) => item.categories[0].url === category);
+      if (title.series === "Discovery later") await delayedTitle;
       const item =
         items.find(
           (item) =>
@@ -235,6 +240,55 @@ try {
       .count(),
     0,
   );
+  const fresh = () =>
+    page.locator(".discovery-card").filter({
+      has: page.getByRole("heading", {
+        name: "Discovery fresh",
+        exact: true,
+      }),
+    });
+  await fresh().scrollIntoViewIfNeeded();
+  await fresh().locator("img").waitFor();
+  await fresh()
+    .locator("img")
+    .evaluate((img) => img.decode());
+  const freshCard = await fresh().elementHandle();
+  const freshCover = await fresh().locator("img").elementHandle();
+  const later = page
+    .locator(".discovery-card")
+    .filter({ hasText: "Discovery later" });
+  await later.scrollIntoViewIfNeeded();
+  const laterCard = await later.elementHandle();
+  releaseDelayedTitle();
+  await later.getByText(/Volume 1 not listed/).waitFor();
+  assert.equal(
+    await freshCard.evaluate((card) => card.isConnected),
+    true,
+    "Loading another title must keep existing cards mounted",
+  );
+  assert.equal(
+    await freshCover.evaluate((img) => img.isConnected && img.complete),
+    true,
+    "Loading another title must preserve the already-loaded cover image",
+  );
+  assert.equal(
+    await laterCard.evaluate((card) => card.isConnected),
+    true,
+    "First-volume metadata must update the existing card",
+  );
+  await page.locator("#refreshDiscovery").click();
+  await page.waitForFunction(
+    () => !window.bookCollection?.state.discoveryLoading,
+  );
+  await fresh().scrollIntoViewIfNeeded();
+  await fresh()
+    .getByText(/Volume 1/)
+    .waitFor();
+  assert.equal(
+    await freshCover.evaluate((img) => img.isConnected && img.complete),
+    true,
+    "Refreshing unchanged titles must preserve the loaded cover image",
+  );
   const upcomingCard = page
     .locator(".discovery-card")
     .filter({ hasText: upcoming.series });
@@ -265,13 +319,6 @@ try {
   assert.equal(await page.locator(".discovery-card").count(), 0);
   assert.match(await page.locator("#discoveryCount").textContent(), /0 titles/);
   await page.locator("#discoverySearch").fill("");
-  const fresh = () =>
-    page.locator(".discovery-card").filter({
-      has: page.getByRole("heading", {
-        name: "Discovery fresh",
-        exact: true,
-      }),
-    });
   await fresh().locator("img").waitFor();
   assert.equal(
     await fresh().locator("img").getAttribute("src"),
@@ -286,9 +333,6 @@ try {
     /Special/,
   );
   // First-volume metadata loads when each compact row approaches the viewport.
-  const later = page
-    .locator(".discovery-card")
-    .filter({ hasText: "Discovery later" });
   await later.scrollIntoViewIfNeeded();
   await later.getByText(/Volume 1 not listed/).waitFor();
   assert.match(await later.textContent(), /Volume 1 not listed/);
@@ -330,8 +374,14 @@ try {
   await page.locator("#discoverySearch").fill("");
   await page.locator("#discoveryType").selectOption("");
   assert.equal(await page.locator(".discovery-card").count(), 4);
+  const savedCover = await fresh().locator("img").elementHandle();
   await fresh().getByRole("button", { name: "Save for later" }).click();
   await fresh().getByRole("button", { name: "Saved · Unsave" }).waitFor();
+  assert.equal(
+    await savedCover.evaluate((img) => img.isConnected),
+    true,
+    "Saving a title must preserve its cover image",
+  );
   const backup = await (await page.request.get(url + "/api/backup")).json();
   assert.equal(
     backup.savedReleases.find((item) => item.id === items[3].id).coverUrl,
@@ -542,8 +592,9 @@ try {
   assert.deepEqual(errors, []);
   assert.deepEqual(externalImages, []);
   console.log(
-    "PASS discovery deduplication, ownership, first-volume covers, filters, First Page rating presets and persistence, cached outage, save/add, image fallback and phone/desktop layout",
+    "PASS discovery deduplication, ownership, stable covers during title loads/refresh/save, filters, First Page rating presets and persistence, cached outage, save/add, image fallback and phone/desktop layout",
   );
 } finally {
+  releaseDelayedTitle();
   await browser.close();
 }

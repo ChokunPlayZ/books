@@ -16,6 +16,7 @@ export function createInfiniteList(
   let frame = 0;
   let disposed = false;
   let appendMore: (() => void) | undefined;
+  let rows = new Map<string, Node>();
   const observer = new IntersectionObserver(
     (entries) => {
       if (disposed || frame || !entries.some((entry) => entry.isIntersecting))
@@ -32,14 +33,23 @@ export function createInfiniteList(
     render<T>(
       items: readonly T[],
       renderItem: (item: T) => Node,
-      { key, label }: { key: string; label: string },
+      {
+        key,
+        label,
+        itemKey,
+        updateItem,
+      }: {
+        key: string;
+        label: string;
+        itemKey?: (item: T) => string;
+        updateItem?: (row: Node, item: T) => void;
+      },
     ) {
       if (disposed) return;
       cancelAnimationFrame(frame);
       frame = 0;
       observer.disconnect();
       beforeReset?.();
-      list.replaceChildren();
       const initialCount =
         key === activeKey
           ? Math.max(LIST_BATCH_SIZE, visibleCount)
@@ -47,12 +57,37 @@ export function createInfiniteList(
       activeKey = key;
       visibleCount = 0;
 
+      // Reconcile keyed rows without detaching covers that are already loaded.
+      const previousRows = rows;
+      rows = new Map();
+      if (itemKey) {
+        const retained = new Set(
+          items
+            .slice(0, initialCount)
+            .map((item) => previousRows.get(itemKey(item))),
+        );
+        for (const child of [...list.childNodes])
+          if (!retained.has(child)) list.removeChild(child);
+      } else list.replaceChildren();
+      let cursor = list.firstChild;
+
       function append(count: number) {
         const end = Math.min(visibleCount + count, items.length);
-        const batch = document.createDocumentFragment();
-        for (; visibleCount < end; visibleCount++)
-          batch.append(renderItem(items[visibleCount]));
-        list.append(batch);
+        for (; visibleCount < end; visibleCount++) {
+          const item = items[visibleCount];
+          const id = itemKey?.(item);
+          let row = id === undefined ? undefined : previousRows.get(id);
+          if (row) updateItem?.(row, item);
+          else row = renderItem(item);
+          if (id !== undefined) rows.set(id, row);
+          if (row !== cursor) list.insertBefore(row, cursor);
+          cursor = row.nextSibling;
+        }
+        while (cursor) {
+          const next = cursor.nextSibling;
+          list.removeChild(cursor);
+          cursor = next;
+        }
         status.hidden = !items.length;
         status.textContent =
           visibleCount < items.length
@@ -71,6 +106,7 @@ export function createInfiniteList(
       observer.disconnect();
       cancelAnimationFrame(frame);
       appendMore = undefined;
+      rows.clear();
       status.remove();
     },
   };

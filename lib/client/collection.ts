@@ -100,6 +100,10 @@ export function mountCollection({
           .forEach((card) => titleObserver.unobserve(card)),
       )
     : null;
+  const discoveryCardUpdates = new WeakMap<
+    Node,
+    (item, saved: Set<string>) => void
+  >();
   const bulkSelection = createBulkSelection({
     signal: events.signal,
     removed: view === "trash",
@@ -1941,6 +1945,7 @@ export function mountCollection({
   }
   function discoveryTitles(
     items: (import("../types").Release & {
+      discoveryId: string;
       resolved?: boolean;
       categories?: { url: string }[];
     })[],
@@ -2077,17 +2082,20 @@ export function mountCollection({
         )
           return [];
         return [
-          result?.item
-            ? {
-                ...result.item,
-                categories: entry.categories,
-                series: entry.series,
-                catalogSeries: entry.series,
-                directory: true,
-                resolved: true,
-                categoryUrl: entry.url,
-              }
-            : entry,
+          {
+            ...(result?.item
+              ? {
+                  ...result.item,
+                  categories: entry.categories,
+                  series: entry.series,
+                  catalogSeries: entry.series,
+                  directory: true,
+                  resolved: true,
+                  categoryUrl: entry.url,
+                }
+              : entry),
+            discoveryId: entry.id,
+          },
         ];
       }),
     );
@@ -2113,6 +2121,8 @@ export function mountCollection({
     discoveryList.render(items, (item) => discoveryCard(item, saved), {
       key: JSON.stringify([state.discoveryUrl, query, type]),
       label: "titles",
+      itemKey: (item) => item.discoveryId,
+      updateItem: (card, item) => discoveryCardUpdates.get(card)(item, saved),
     });
     if (!items.length) {
       const empty = node(
@@ -2198,74 +2208,87 @@ export function mountCollection({
   }
   function discoveryCard(item, saved: Set<string>) {
     const card = node("article", "discovery-card");
-    const result = state.discoveryTitleResults.get(discoveryTitleKey(item));
-    card._title = item;
-    if (!item.resolved) titleObserver.observe(card);
     const coverLink = releaseLink("", item.url);
-    coverLink.setAttribute(
-      "aria-label",
-      "Open " + item.series + " on the publisher website",
-    );
-    coverLink.append(coverImage(item.coverId, item.title, "discovery-cover"));
+    const cover = coverImage(item.coverId, item.title, "discovery-cover");
+    coverLink.append(cover);
     const copy = node("div", "publisher-copy");
-    copy.append(
-      node("p", "eyebrow", item.publisher),
-      node("h2", "book-title", item.series),
-      node(
-        "p",
-        "release-meta",
-        !item.resolved
-          ? result && !result.loading
-            ? result.complete && !result.item
-              ? "No current book listing"
-              : "Cover unavailable"
-            : "Loading first-volume cover…"
-          : [
-              item.type,
-              item.bundle
-                ? "Set listing"
-                : item.volume === ""
-                  ? "Single book / unnumbered"
-                  : "Volume " + item.volume,
-              item.volume !== 1 && item.volume !== ""
-                ? "Volume 1 not listed"
-                : "",
-              item.special ? "Special edition" : "",
-            ]
-              .filter(Boolean)
-              .join(" · "),
-      ),
-    );
-    if (result?.error) copy.append(node("p", "source-error", result.error));
+    const publisher = node("p", "eyebrow");
+    const title = node("h2", "book-title");
+    const meta = node("p", "release-meta");
+    const error = node("p", "source-error");
+    const publisherLink = releaseLink("", item.url);
+    copy.append(publisher, title, meta, error, publisherLink);
     const actions = node("div", "buttons");
-    const saveButton = node(
-      "button",
-      "btn" + (saved.has(item.id) ? " saved" : ""),
-      saved.has(item.id) ? "Saved · Unsave" : "Save for later",
-    );
-    saveButton.disabled = !item.resolved || state.savingReleases.size > 0;
-    saveButton.setAttribute("aria-pressed", String(saved.has(item.id)));
+    const saveButton = node("button", "btn");
+    let currentItem = item;
+    let currentSaved = saved;
     saveButton.addEventListener(
       "click",
-      () => void saveRelease(item, !saved.has(item.id)),
+      () => void saveRelease(currentItem, !currentSaved.has(currentItem.id)),
       { signal: events.signal },
     );
-    actions.append(saveButton);
     const add = node("button", "btn", "Add to shelf");
-    add.disabled = !item.resolved || state.busy;
     add.addEventListener(
       "click",
-      () => openRelease(item, releaseMatches(item)),
+      () => openRelease(currentItem, releaseMatches(currentItem)),
       { signal: events.signal },
     );
-    actions.append(add);
-    copy.append(
-      releaseLink(
-        item.resolved ? "Publisher book page ↗" : "Publisher title category ↗",
-        item.url,
-      ),
-    );
+    actions.append(saveButton, add);
     card.append(coverLink, copy, actions);
+
+    const update = (nextItem, nextSaved: Set<string>) => {
+      currentItem = nextItem;
+      currentSaved = nextSaved;
+      const result = state.discoveryTitleResults.get(
+        discoveryTitleKey(nextItem),
+      );
+      card._title = nextItem;
+      if (!nextItem.resolved && !result) titleObserver.observe(card);
+      else titleObserver.unobserve(card);
+      coverLink.href = publisherLink.href = nextItem.url;
+      coverLink.setAttribute(
+        "aria-label",
+        "Open " + nextItem.series + " on the publisher website",
+      );
+      // Keep the previous cover while refreshed title metadata is loading.
+      if (nextItem.resolved || nextItem.coverId)
+        setCoverImage(cover, nextItem.coverId, nextItem.title);
+      publisher.textContent = nextItem.publisher;
+      title.textContent = nextItem.series;
+      meta.textContent = !nextItem.resolved
+        ? result && !result.loading
+          ? result.complete && !result.item
+            ? "No current book listing"
+            : "Cover unavailable"
+          : "Loading first-volume cover…"
+        : [
+            nextItem.type,
+            nextItem.bundle
+              ? "Set listing"
+              : nextItem.volume === ""
+                ? "Single book / unnumbered"
+                : "Volume " + nextItem.volume,
+            nextItem.volume !== 1 && nextItem.volume !== ""
+              ? "Volume 1 not listed"
+              : "",
+            nextItem.special ? "Special edition" : "",
+          ]
+            .filter(Boolean)
+            .join(" · ");
+      error.hidden = !result?.error;
+      error.textContent = result?.error || "";
+      const isSaved = nextSaved.has(nextItem.id);
+      saveButton.classList.toggle("saved", isSaved);
+      saveButton.textContent = isSaved ? "Saved · Unsave" : "Save for later";
+      saveButton.disabled = !nextItem.resolved || state.savingReleases.size > 0;
+      saveButton.setAttribute("aria-pressed", String(isSaved));
+      add.disabled = !nextItem.resolved || state.busy;
+      publisherLink.textContent = nextItem.resolved
+        ? "Publisher book page ↗"
+        : "Publisher title category ↗";
+    };
+    discoveryCardUpdates.set(card, update);
+    update(item, saved);
     return card;
   }
   function publisherSource(p) {
