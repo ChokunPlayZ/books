@@ -1,5 +1,6 @@
 import type { Store } from "../../lib/server/store.ts";
 import ShelfEntries from "./ShelfEntries";
+import BulkActions, { SelectionToggle } from "./BulkActions";
 
 export default function ShelfBrowser({
   data,
@@ -156,14 +157,18 @@ export default function ShelfBrowser({
             Clear filters
           </button>
         </div>
-        <span id={"listRight"}>
-          {removed
-            ? "Ready to restore"
-            : series === null
-              ? "Open a cover for details"
-              : "Ordered by volume"}
-        </span>
+        <div className="selection-tools">
+          <span id={"listRight"}>
+            {removed
+              ? "Ready to restore"
+              : series === null
+                ? "Open a cover for details"
+                : "Ordered by volume"}
+          </span>
+          <SelectionToggle grouped={!removed && series === null} />
+        </div>
       </div>
+      <BulkActions removed={removed} />
       <section
         id={"bookList"}
         className={"collection" + (gallery ? " cover-grid" : "")}

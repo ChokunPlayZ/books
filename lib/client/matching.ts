@@ -178,7 +178,7 @@ export function discoverTitles<T extends Release>(
       item.publisherId +
       ":" +
       releaseSeriesKey(item.series) +
-      (item.publisherId === "yenpress"
+      (["yenpress", "firstpage"].includes(item.publisherId)
         ? ":" + matchingBookType(item.type)
         : "");
     if (!groups.has(key)) groups.set(key, []);
@@ -203,6 +203,10 @@ export function discoverTitles<T extends Release>(
               (canonical(item.isbn) &&
                 canonical(item.isbn) === canonical(book.isbn)) ||
               (publisherKey(book.publisher) === item.publisherId &&
+                (item.publisherId !== "firstpage" ||
+                  !item.type ||
+                  matchingBookType(book.type) ===
+                    matchingBookType(item.type)) &&
                 (releaseSeriesKey(book.series) ===
                   releaseSeriesKey(item.series) ||
                   aliases.some(

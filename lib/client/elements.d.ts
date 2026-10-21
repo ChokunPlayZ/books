@@ -1,4 +1,17 @@
 interface LibraryElements {
+  toggleSelection: HTMLButtonElement;
+  bulkActions: HTMLDivElement;
+  selectionCount: HTMLSpanElement;
+  selectAllBooks: HTMLButtonElement;
+  clearSelection: HTMLButtonElement;
+  bulkStatus: HTMLSelectElement;
+  applyBulkStatus: HTMLButtonElement;
+  bulkMoveBooks: HTMLButtonElement;
+  bulkRemoveDialog: HTMLDialogElement;
+  bulkRemoveSummary: HTMLParagraphElement;
+  bulkRemoveError: HTMLDivElement;
+  cancelBulkRemove: HTMLButtonElement;
+  confirmBulkRemove: HTMLButtonElement;
   activeCount: HTMLSpanElement;
   addButton: HTMLButtonElement;
   allowDuplicate: HTMLInputElement;

@@ -20,6 +20,7 @@ import {
   bookMetadata,
   publisherKey,
   safePublisherUrl,
+  splitFirstPageTitle,
 } from "../domain.ts";
 
 const columns = [
@@ -311,7 +312,12 @@ export function openStore(
   function savedReleases() {
     return all(
       "SELECT data FROM saved_releases ORDER BY updated_at DESC,id",
-    ).map((row) => JSON.parse(row.data));
+    ).map((row) => {
+      const item = JSON.parse(row.data);
+      if (item.publisherId === "firstpage")
+        item.type = splitFirstPageTitle(item.title).type || item.type;
+      return item;
+    });
   }
   function titleToken(series, rows) {
     return digest(
@@ -320,6 +326,80 @@ export function openStore(
   }
   const api = {
     getCollection: collection,
+    updateBooks(request: {
+      requestId: string;
+      action: "status" | "remove" | "restore";
+      status?: string;
+      books: { row: number; token: string; trashId?: string }[];
+    }) {
+      return receipt("batch-books", request, () => {
+        if (
+          !["status", "remove", "restore"].includes(request.action) ||
+          !Array.isArray(request.books) ||
+          !request.books.length
+        )
+          throw new AppError("Choose books and a batch action.");
+        const status =
+          typeof request.status === "string" ? request.status.trim() : "";
+        if (request.action === "status" && (!status || status.length > 500))
+          throw new AppError(
+            "Choose a reading status of up to 500 characters.",
+          );
+        const seen = new Set<number>();
+        const removedAt = new Date().toISOString();
+        for (const selected of request.books) {
+          if (
+            !selected ||
+            typeof selected !== "object" ||
+            seen.has(selected.row)
+          )
+            throw new AppError("Include each book only once.");
+          seen.add(selected.row);
+          if (request.action === "restore") {
+            if (
+              !Number.isSafeInteger(selected.row) ||
+              typeof selected.trashId !== "string"
+            )
+              throw new AppError("Choose removed books to restore.");
+            const row = get(
+              "SELECT * FROM books WHERE id=? AND trash_id=? AND removed_at IS NOT NULL",
+              selected.row,
+              selected.trashId,
+            );
+            if (!row || book(row).token !== selected.token)
+              throw new AppError(
+                "A selected book changed. Refresh and select the books again.",
+                409,
+              );
+            run(
+              "UPDATE books SET removed_at=NULL,trash_id=NULL,revision=revision+1 WHERE id=?",
+              row.id,
+            );
+          } else {
+            const row = current(selected);
+            if (request.action === "status")
+              run(
+                "UPDATE books SET status=?,revision=revision+1 WHERE id=?",
+                status,
+                row.id,
+              );
+            else
+              run(
+                "UPDATE books SET trash_id=?,removed_at=?,revision=revision+1 WHERE id=?",
+                randomUUID(),
+                removedAt,
+                row.id,
+              );
+          }
+        }
+        if (request.action === "status") rememberOptions({ status });
+        return {
+          books: seen.size,
+          action: request.action,
+          ...(request.action === "status" ? { status } : {}),
+        };
+      });
+    },
     saveTitle(request) {
       return receipt("title", request, () => {
         const original = String(request.series || "");

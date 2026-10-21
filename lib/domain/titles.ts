@@ -152,3 +152,23 @@ export function splitBookTitle(raw): {
   series = bookSeriesTitle(series.replace(/\s*[-–:]\s*$/, ""));
   return { series: series, volume: match ? Number(match[1]) : "", type: type };
 }
+
+export function splitFirstPageTitle(raw: string) {
+  let title = decodeHtml(String(raw || ""))
+    .replace(/\s+/g, " ")
+    .trim();
+  // Promotions precede the actual format label on special/pre-order editions.
+  const promotion =
+    /^(?:\[PRE[- ]ORDER\]\s*|(?:(?:special|complete|ultimate|limited)(?:\s+combo)?\s+(?:set|edition)|box\s+set)\s+(?:[AB]\s+)?(?:\(Exclusive Pre-order Period\)\s*)?)/i;
+  while (promotion.test(title)) title = title.replace(promotion, "").trim();
+  const parsed = splitBookTitle(title);
+  // A leading publisher label is stronger evidence than words inside a name.
+  const type = /^(?:\(LN\)|\(นิยาย\)|นิยาย|light\s*novel\b|ไลท์โนเวล)/i.test(
+    title,
+  )
+    ? "LN (TH)"
+    : /^(?:\(มังงะ\)|มังงะ|การ์ตูน|\(Mg\)|manga\b|@comic\b)/i.test(title)
+      ? "Manga (TH)"
+      : parsed.type;
+  return { ...parsed, type };
+}

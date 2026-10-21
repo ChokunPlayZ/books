@@ -23,6 +23,8 @@ import {
   safeCoverUrl,
   volumeCoverKey,
   parsePublisherTitles,
+  splitFirstPageTitles,
+  splitFirstPageTitle,
   safePublisherTitleUrl,
   safeProductUrl,
   safePublisherUrl,
@@ -33,6 +35,7 @@ import {
 import { yaakzProducts, yaakzItems } from "./yaakz.ts";
 import { publisherCovers } from "./publisher-covers.ts";
 import { kinokuniyaBook } from "../domain/kinokuniya.ts";
+import { phoenixBook } from "../domain/phoenix.ts";
 import {
   yenPressBook,
   yenPressCandidates,
@@ -617,6 +620,92 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     };
   }
 
+  async function searchPublisherIsbn(request: {
+    publisherId: string;
+    isbn: string;
+    refresh?: boolean;
+  }) {
+    const id = request?.publisherId;
+    if (id !== "phoenix" && id !== "firstpage")
+      throw new Error("Choose Phoenix Next or First Page Pro for ISBN search.");
+    const isbn = canonicalIsbn(normalizeIsbn(request.isbn));
+    if (!isbn) throw new Error("Enter a valid ISBN first.");
+    const url =
+      id === "phoenix"
+        ? "https://www.phoenixnext.com/catalogsearch/result/?q=" + isbn
+        : "https://www.firstpagepro.com/search?q=" + isbn;
+    const result = await scrapeCache.get(
+      "publisher-isbn:v1:" + id + ":" + isbn,
+      { maxAge: SCRAPE_TTL.isbn, refresh: request.refresh },
+      async () => {
+        const html = await fetchText_(url, request.refresh, SCRAPE_TTL.isbn);
+        const candidates = [
+          ...new Map(
+            parseCatalog(id, html).map((item) => [item.url, item]),
+          ).values(),
+        ];
+        const total = catalogTotal(id, html);
+        if (
+          !candidates.length &&
+          total !== 0 &&
+          !/search found no results|ไม่พบสินค้า|ไม่พบข้อมูล/i.test(
+            textHtml(html),
+          )
+        )
+          throw new Error(
+            "The publisher’s search could not be read. Try again later.",
+          );
+        const items: Release[] = [];
+        const warnings: string[] = [];
+        if (id === "phoenix") {
+          candidates.sort(
+            (a, b) => Number(b.isbn === isbn) - Number(a.isbn === isbn),
+          );
+          for (const candidate of candidates.slice(0, 4)) {
+            const page = await fetchText_(
+              candidate.url,
+              request.refresh,
+              SCRAPE_TTL.product,
+            );
+            const item = phoenixBook(page, isbn, candidate.url);
+            if (item) {
+              items.push({
+                ...candidate,
+                ...item,
+                coverUrl: item.coverUrl || candidate.coverUrl,
+              });
+              break;
+            }
+          }
+        } else {
+          // First Page Pro indexes ISBNs but omits them from public product details.
+          // Keep the ISBN blank so a search hit cannot become an exact ownership match.
+          items.push(...candidates.slice(0, 24));
+          if (items.length)
+            warnings.push(
+              "First Page Pro returned these books for ISBN " +
+                isbn +
+                ". Its product pages do not publish an ISBN; check the book’s barcode before adding it.",
+            );
+          if (total !== null && total > items.length)
+            warnings.push(
+              "Showing the first " +
+                items.length +
+                " search results. Open the publisher search to see all results.",
+            );
+        }
+        rememberCovers(items);
+        return { publisherId: id, isbn, url, items, warnings };
+      },
+    );
+    if (id === "firstpage")
+      result.items = result.items.map((item) => {
+        const parsed = splitFirstPageTitle(item.title);
+        return { ...item, ...parsed, type: parsed.type || item.type };
+      });
+    return result;
+  }
+
   async function getPublisherCatalog(request: CatalogRequest = {}) {
     const source = publisherCatalogSource(
       request.url || "https://www.phoenixnext.com/gl.html",
@@ -687,6 +776,8 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       return getPublisherCatalog({ ...request, url: source.url });
     const key = "publisher-directory:v1:" + digest(source.url),
       previous = cachedJson_(cache, key);
+    if (source.publisherId === "firstpage" && previous?.titles)
+      previous.titles = splitFirstPageTitles(previous.titles);
     if (
       previous &&
       !request.refresh &&
@@ -1697,6 +1788,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
   }
   return {
     lookupIsbn,
+    searchPublisherIsbn,
     getBookCover,
     getBookCoverOptions,
     getPublisherCatalog,

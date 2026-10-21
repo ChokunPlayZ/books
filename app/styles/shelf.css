@@ -1,4 +1,89 @@
 /* Series and owned volumes share the same cover-only gallery. */
+.bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-bottom: 18px;
+}
+
+.selection-tools {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.selection-tools .text-btn {
+  position: relative;
+  padding: 0;
+  font-size: inherit;
+  line-height: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.selection-tools .text-btn::after {
+  content: "";
+  position: absolute;
+  inset: -14px -4px;
+}
+.selection-hint {
+  flex-basis: 100%;
+  font-size: 11px;
+}
+@media (max-width: 560px) {
+  .selection-tools #listRight {
+    display: none;
+  }
+}
+
+.bulk-actions {
+  padding: 14px;
+  background: var(--surface-inset);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.bulk-actions select {
+  width: auto;
+  max-width: 100%;
+}
+#selectionCount {
+  font-size: 13px;
+  font-weight: 600;
+}
+[data-selection-key] {
+  position: relative;
+}
+.selection-check {
+  display: none;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--green);
+  border-radius: 50%;
+  background: var(--paper);
+  color: transparent;
+  font-size: 15px;
+  pointer-events: none;
+}
+.is-selecting [data-selection-key] {
+  user-select: none;
+}
+.is-selecting .selection-check {
+  display: inline-flex;
+}
+[data-selection-key].is-selected {
+  outline: 3px solid var(--green);
+  outline-offset: 3px;
+}
+.is-selected .selection-check {
+  background: var(--green);
+  color: var(--paper);
+}
+
 .collection.cover-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(144px, 1fr));

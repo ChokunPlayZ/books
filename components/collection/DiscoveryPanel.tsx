@@ -81,12 +81,12 @@ export default function DiscoveryPanel() {
             <use href="#i-search" />
           </svg>
           <label htmlFor="discoverySearch" className="sr-only">
-            Search discovered titles
+            Search titles or look up a publisher ISBN
           </label>
           <input
             id="discoverySearch"
             type="search"
-            placeholder="Search titles…"
+            placeholder="Search titles or enter an ISBN…"
           />
         </div>
         <label htmlFor="discoveryType" className="sr-only">
@@ -98,6 +98,10 @@ export default function DiscoveryPanel() {
           <option value="LN">Light novels (LN)</option>
         </select>
       </div>
+      <p className="hint">
+        Enter an ISBN to search the full Phoenix Next or First Page Pro catalog.
+        ISBN searches also include series already on your shelf.
+      </p>
       <p id="discoveryCount" className="release-note" role="status"></p>
       <div id="discoveryList" className="discovery-grid"></div>
     </section>

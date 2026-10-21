@@ -1,7 +1,12 @@
 import type { Release } from "../types.ts";
 import { attr, textHtml, decodeHtml } from "./html.ts";
 import { safePublisherTitleUrl, safeCoverUrl, safeProductUrl } from "./urls.ts";
-import { catalogSeriesKey, splitBookTitle, releaseBundle } from "./titles.ts";
+import {
+  catalogSeriesKey,
+  splitBookTitle,
+  splitFirstPageTitle,
+  releaseBundle,
+} from "./titles.ts";
 import { digest } from "./hash.ts";
 import { PUBLISHERS } from "./constants.ts";
 import { canonicalIsbn } from "./isbn.ts";
@@ -83,7 +88,41 @@ export function parsePublisherTitles(id, html, sourceUrl) {
         directory: true,
       });
   }
-  return [...titles.values()].sort((a, b) => a.series.localeCompare(b.series));
+  const entriesByTitle = [...titles.values()];
+  return (
+    id === "firstpage" ? splitFirstPageTitles(entriesByTitle) : entriesByTitle
+  ).sort((a, b) => a.series.localeCompare(b.series));
+}
+
+// Also upgrades older cached directories that merged manga and novels by name.
+export function splitFirstPageTitles<
+  T extends {
+    id: string;
+    series: string;
+    type: string;
+    url: string;
+    categories: { url: string; type?: string }[];
+  },
+>(titles: T[]): T[] {
+  const entries = new Map<string, T>();
+  for (const title of titles) {
+    for (const category of title.categories) {
+      const type = category.type || title.type || "";
+      const key = catalogSeriesKey(title.series) + "\n" + type;
+      if (!entries.has(key))
+        entries.set(key, {
+          ...title,
+          id: "firstpage:title:" + digest(key),
+          type,
+          url: category.url,
+          categories: [],
+        });
+      const entry = entries.get(key);
+      if (!entry.categories.some((existing) => existing.url === category.url))
+        entry.categories.push({ ...category, type });
+    }
+  }
+  return [...entries.values()];
 }
 
 export function catalogTotal(id, html) {
@@ -190,7 +229,8 @@ export function releaseItem(
   isbn,
   type?: string,
 ): Release {
-  const parsed = splitBookTitle(title);
+  const parsed =
+    id === "firstpage" ? splitFirstPageTitle(title) : splitBookTitle(title);
   const special =
     /(?:special|complete|ultimate)(?:\s+combo)?\s*(?:set|edition)|box\s*set|limited|เซต|ชุด|ฉบับพิเศษ|ปกพิเศษ/i.test(
       title,
@@ -205,7 +245,7 @@ export function releaseItem(
     title: decodeHtml(title),
     series: parsed.series,
     volume: parsed.volume,
-    type: type || parsed.type,
+    type: id === "firstpage" ? parsed.type || type || "" : type || parsed.type,
     url: url,
     isbn: special ? "" : canonicalIsbn(isbn) || "",
     price:

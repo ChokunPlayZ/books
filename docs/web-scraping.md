@@ -19,6 +19,12 @@ Successful catalog and page/API responses are retained for 30 days and survive r
 
 Explicit `refresh: true` bypasses fresh catalog and page/API entries. Failed requests impose a durable 15-minute cooldown on that resource, including explicit refreshes, so repeated views or restarts cannot hammer an unavailable source. HTTP errors and invalid JSON are not cached as successful responses. Failed catalog refreshes keep previous records and their original check time with a stale warning. Saved releases and explicit series links are independent database records, so cache expiry does not remove them. SQLite owns this cache; outgoing `fetch` still uses `no-store` to avoid an additional framework cache overriding refresh behavior.
 
+## Publisher ISBN search
+
+`searchPublisherIsbn({ publisherId, isbn, refresh })` supports Phoenix Next and First Page Pro independently of loaded discovery categories and recent releases. ISBN-10, ISBN-13, prefixes and hyphens share a canonical ISBN-13 cache entry for 24 hours. Requests use the same source allowlists, retry cooldown and stored-cover service as other catalog features.
+
+Phoenix requests `/catalogsearch/result/?q=<isbn>`, then checks at most four product candidates. `lib/domain/phoenix.ts` requires the main product’s labeled Barcode/ISBN attribute or `book:isbn` metadata to match; preview and recommendation links cannot confirm the ISBN. First Page Pro requests `/search?q=<isbn>` and returns up to 24 search candidates with blank ISBN fields and a review note, because product details omit ISBNs. The browser carries the user’s search ISBN into the add form explicitly as unconfirmed input. A First Page Pro search result never becomes an automatic exact-ISBN ownership match. Confirmed empty searches are cached; unavailable sources and unrecognized result markup remain errors.
+
 ## Dedicated series catalogs
 
 Opening a series immediately renders gaps from the recorded shelf and calls `getSeriesCatalog({ series, publisherId, type, refresh })` for each supported publisher/type owned in that series. It does not call the recent-release feeds. Returning to a series reuses its loaded result. **Refresh catalog** reloads the shelf first, then bypasses catalog reuse and refreshes the category directory when finding an automatic match. Each response is stored under the requesting series and edition, so navigation during a fetch cannot show another series' result.
@@ -68,7 +74,7 @@ Phoenix availability and release dates are left blank by this scraper. A missing
 
 Product URLs are reduced to `https://www.firstpagepro.com/product/<numeric-id>`. Removing the descriptive slug gives the same book a stable URL if its title spelling changes. The short URL was checked during the live inspection.
 
-The current First Page Pro listing scraper does not extract an ISBN, availability, or release date. Series, volume, and type are derived from the title as described below.
+The First Page Pro listing scraper does not extract an ISBN, availability, or release date. Explicit leading publisher labels identify the format: `นิยาย` means `LN (TH)` and `การ์ตูน` means `Manga (TH)`. Pre-order and special-edition labels are removed before checking the format. These explicit labels take precedence over cached type hints and format words inside a series name. Discovery keeps same-name manga and novel categories separate. Older merged directories and incorrect catalog, ISBN-search and saved-release type hints are corrected when read; recorded owned-book details remain editable by the user.
 
 ### Luckpim
 

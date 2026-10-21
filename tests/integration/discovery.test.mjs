@@ -302,7 +302,7 @@ test("owned covers use matching catalog volumes before ISBN lookup, and ISBN cov
   }
 });
 
-test("navigation supplies the title directory, excludes parent categories and merges format links", () => {
+test("navigation supplies the title directory, excludes parents and keeps First Page formats separate", () => {
   const html =
     '<a href="https://www.phoenixnext.com/book-series/one.html">เรื่องหนึ่ง</a>' +
     '<a href="https://www.phoenixnext.com/gl/one.html">เรื่องหนึ่ง (4) รายการ</a>' +
@@ -330,10 +330,17 @@ test("navigation supplies the title directory, excludes parent categories and me
     firstpage,
     "https://www.firstpagepro.com/",
   );
-  assert.equal(first.length, 1);
-  assert.equal(first[0].categories.length, 2);
-  assert.equal(first[0].series, "เรื่องหนึ่ง");
-  assert.equal(first[0].type, "");
+  assert.equal(first.length, 2);
+  assert.ok(
+    first.every(
+      (item) => item.categories.length === 1 && item.series === "เรื่องหนึ่ง",
+    ),
+  );
+  assert.deepEqual(first.map((item) => item.type).sort(), [
+    "LN (TH)",
+    "Manga (TH)",
+  ]);
+  assert.notEqual(first[0].id, first[1].id);
 });
 
 test("First Page manga rating directories contain only titles from the selected rating and cache separately", async () => {

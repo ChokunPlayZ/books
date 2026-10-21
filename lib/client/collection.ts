@@ -2,6 +2,8 @@ import { $, node, icon, fillOptions, number, requestId } from "./dom.ts";
 import { createCollectionState } from "./state.ts";
 import { restorePagePreferences } from "./page-preferences.ts";
 import { createInfiniteList } from "./infinite-list.ts";
+import { createBulkSelection } from "./bulk-selection.ts";
+import { createPublisherIsbnSearch } from "./publisher-isbn-search.ts";
 import { createSeriesEditor } from "./series-editor.ts";
 import { createMissingBrowser } from "./missing.ts";
 import { shelfCoverBook, coverTint } from "../domain/shelf.ts";
@@ -98,6 +100,24 @@ export function mountCollection({
           .forEach((card) => titleObserver.unobserve(card)),
       )
     : null;
+  const bulkSelection = createBulkSelection({
+    signal: events.signal,
+    removed: view === "trash",
+    isBusy: () => state.busy,
+    setBusy,
+    rpc,
+    load,
+    notify,
+    errorAt,
+  });
+  const publisherIsbnSearch = createPublisherIsbnSearch({
+    rpc,
+    signal: events.signal,
+    onChange: () => {
+      renderDiscovery();
+      renderReleases();
+    },
+  });
 
   function errorAt(id, error) {
     const e = $(id);
@@ -525,6 +545,21 @@ export function mountCollection({
     $("search").placeholder = grouped
       ? "Search series, ISBN, publisher or notes…"
       : "Search volumes, ISBN, publisher or notes…";
+    const selectionKey = JSON.stringify([
+      state.view,
+      state.selectedSeries,
+      filters,
+      sort,
+    ]);
+    bulkSelection.refresh(
+      entries.map((entry) => ({
+        key: grouped ? entry.series : String(entry.book.row),
+        books: grouped ? entry.books : [entry.book],
+        ...(entry.id ? { trashId: entry.id } : {}),
+      })),
+      selectionKey,
+      state.data.options.status,
+    );
     shelfList.render(
       entries,
       (entry) => (grouped ? seriesRow(entry) : bookRow(entry)),
@@ -537,6 +572,7 @@ export function mountCollection({
             : "removed books",
       },
     );
+    bulkSelection.syncControls();
     if (!entries.length) {
       const empty = node("div", "empty");
       const illustration = node("span", "empty-icon");
@@ -612,7 +648,7 @@ export function mountCollection({
     button.append(
       bookCover(shelfCoverBook(group.books), "shelf-cover series-cover"),
     );
-    return button;
+    return bulkSelection.decorate(button, group.series);
   }
   function openSeries(series: string) {
     window.location.assign(seriesPath(series));
@@ -1523,6 +1559,7 @@ export function mountCollection({
       button.setAttribute("aria-haspopup", "dialog");
       button.disabled = state.busy;
       button.append(bookCover(book, "shelf-cover volume-cover"));
+      bulkSelection.decorate(button, String(book.row));
       button.addEventListener("click", () => openBook(book), {
         signal: events.signal,
       });
@@ -1530,6 +1567,10 @@ export function mountCollection({
     }
     const b = entry.book,
       row = node("article", "book-row");
+    row.title = b.series + (b.volume !== "" ? ", volume " + b.volume : "");
+    row.tabIndex = 0;
+    row.setAttribute("aria-label", row.title);
+    bulkSelection.decorate(row, String(b.row));
     const details = node("div", "book-info"),
       info = node("div", "book-copy");
     info.append(node("h2", "book-title", b.series || "Untitled book"));
@@ -1573,6 +1614,7 @@ export function mountCollection({
   async function loadReleases(refresh = false) {
     if (!state.data || state.releasesLoading) return;
     state.releasesLoading = true;
+    if (refresh) publisherIsbnSearch.clear();
     if ($("releaseError")) $("releaseError").hidden = true;
     if ($("seriesReleaseError")) $("seriesReleaseError").hidden = true;
     renderReleases();
@@ -1876,6 +1918,7 @@ export function mountCollection({
     const url = $("discoveryUrl").value.trim();
     state.discoveryUrl = url;
     state.discoveryLoading = true;
+    if (refresh) publisherIsbnSearch.clear();
     if ($("discoveryError")) $("discoveryError").hidden = true;
     renderDiscovery();
     try {
@@ -1995,6 +2038,25 @@ export function mountCollection({
         );
       if (feed.error) source.append(node("p", "source-error", feed.error));
     }
+    const publisherId = state.discoveryUrl.startsWith(
+      "https://www.phoenixnext.com/",
+    )
+      ? "phoenix"
+      : state.discoveryUrl.startsWith("https://www.firstpagepro.com/")
+        ? "firstpage"
+        : "";
+    const isbnSearch = publisherIsbnSearch.get(
+      publisherId,
+      $("discoverySearch").value,
+    );
+    if (isbnSearch) {
+      renderPublisherIsbnResults(
+        isbnSearch,
+        "discovery",
+        $("discoveryType").value,
+      );
+      return;
+    }
     const all = discoveryTitles(
       (
         feed?.titles ||
@@ -2079,6 +2141,60 @@ export function mountCollection({
       );
       list.append(empty);
     }
+  }
+  function renderPublisherIsbnResults(
+    result: ReturnType<typeof publisherIsbnSearch.get>,
+    panel: "discovery" | "release",
+    type: string,
+  ) {
+    const list = panel === "discovery" ? discoveryList : releaseList;
+    const element =
+      panel === "discovery" ? $("discoveryList") : $("releaseList");
+    const count =
+      panel === "discovery" ? $("discoveryCount") : $("releaseResultCount");
+    const items = result.items.filter(
+      (item) => !type || item.type.startsWith(type),
+    );
+    const saved = new Set(state.data.savedReleases.map((item) => item.id));
+    count.textContent = result.loading
+      ? "Searching the publisher for ISBN " + result.isbn + "…"
+      : `${number(items.length)} ${items.length === 1 ? "book" : "books"} for ISBN ${result.isbn}`;
+    list.render(
+      items,
+      (item) =>
+        releaseCard(
+          {
+            ...item,
+            ...(result.publisherId === "firstpage"
+              ? { searchedIsbn: result.isbn }
+              : {}),
+          },
+          saved.has(item.id),
+        ),
+      {
+        key: "isbn:" + result.publisherId + ":" + result.isbn + ":" + type,
+        label: "books",
+      },
+    );
+    const status = node("div", "publisher-isbn-status");
+    if (result.error) {
+      const error = node("p", "source-error", result.error);
+      error.setAttribute("role", "alert");
+      status.append(error);
+    }
+    for (const warning of result.warnings || [])
+      status.append(node("p", "hint", warning));
+    if (!result.loading && !result.error && !items.length)
+      status.append(
+        node(
+          "p",
+          "hint",
+          "No matching books found. Try another ISBN or change the type filter.",
+        ),
+      );
+    if (result.url)
+      status.append(releaseLink("Open publisher ISBN search ↗", result.url));
+    element.prepend(status);
   }
   function discoveryCard(item, saved: Set<string>) {
     const card = node("article", "discovery-card");
@@ -2220,16 +2336,9 @@ export function mountCollection({
       " on your shelf · " +
       number(totals.review) +
       " to check by edition";
-    const items = allItems.filter((item) => {
+    const matchesScope = (item) => {
       const match = releaseMatches(item);
       return (
-        (!publisher || item.publisherId === publisher) &&
-        (!query ||
-          [item.title, item.publisher, item.isbn]
-            .join(" ")
-            .toLocaleLowerCase()
-            .includes(query)) &&
-        (!type || String(item.type || "").startsWith(type)) &&
         (!hideSpecial || !item.special) &&
         (scope !== "saved" || saved.has(item.id)) &&
         (scope !== "series" || match.series.length > 0) &&
@@ -2238,6 +2347,28 @@ export function mountCollection({
         (scope !== "review" ||
           (!match.owned.length && match.possible.length > 0)) &&
         (scope !== "owned" || match.owned.length > 0)
+      );
+    };
+    const isbnSearch = publisherIsbnSearch.get(publisher, query);
+    if (isbnSearch) {
+      const matching = isbnSearch.items.filter(matchesScope);
+      renderPublisherIsbnResults(
+        { ...isbnSearch, items: matching },
+        "release",
+        type,
+      );
+      return;
+    }
+    const items = allItems.filter((item) => {
+      return (
+        (!publisher || item.publisherId === publisher) &&
+        (!query ||
+          [item.title, item.publisher, item.isbn]
+            .join(" ")
+            .toLocaleLowerCase()
+            .includes(query)) &&
+        (!type || String(item.type || "").startsWith(type)) &&
+        matchesScope(item)
       );
     });
     $("releaseResultCount").textContent =
@@ -2471,7 +2602,7 @@ export function mountCollection({
     openBook(null, {
       series,
       volume: item.volume,
-      isbn: item.isbn,
+      isbn: item.isbn || item.searchedIsbn,
       type: item.type || "Other",
       publisher: item.publisher,
       source: item.publisher,
@@ -2488,6 +2619,11 @@ export function mountCollection({
       node("strong", "", item.title),
       document.createTextNode(
         "Review this edition and enter the amount you paid before saving. " +
+          (item.searchedIsbn
+            ? "ISBN " +
+              item.searchedIsbn +
+              " comes from your search. First Page Pro does not publish it on the product page; check the book’s barcode before saving. "
+            : "") +
           (item.special
             ? "This is a special edition or set; check the series and volume carefully."
             : ""),
@@ -3030,6 +3166,7 @@ export function mountCollection({
       .querySelectorAll<HTMLInputElement | HTMLSelectElement>("input,select")
       .forEach((e) => (e.disabled = busy));
     seriesEditor.syncControls();
+    bulkSelection.syncControls();
   }
   async function save(event) {
     event.preventDefault();

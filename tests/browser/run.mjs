@@ -365,6 +365,16 @@ try {
     await start("missing", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
   );
   await runBrowserScenario(
+    "bulk-selection.browser.mjs",
+    await start("bulk-selection", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
+  );
+  await runBrowserScenario(
+    "publisher-isbn-search.browser.mjs",
+    await start("publisher-isbn-search", {
+      BOOKS_ALLOW_UNAUTHENTICATED: "true",
+    }),
+  );
+  await runBrowserScenario(
     "missing-catalogs.browser.mjs",
     await start("missing-catalogs", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
   );
@@ -378,6 +388,7 @@ try {
     "series-missing.browser.mjs",
     "volume-editions.browser.mjs",
     "firstpage-series.browser.mjs",
+    "firstpage-types.browser.mjs",
     "publishers.browser.mjs",
     "release-filters.browser.mjs",
     "yaakz.browser.mjs",
