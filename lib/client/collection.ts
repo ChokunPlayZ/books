@@ -2655,6 +2655,12 @@ export function mountCollection({
     );
   }
 
+  function setLookupLoading(loading: boolean) {
+    $("isbnLookupStatus").hidden = !loading;
+    $("bookForm").setAttribute("aria-busy", String(loading));
+    $("lookupButton").disabled = loading || state.busy;
+    $("lookupButton").textContent = loading ? "Looking up…" : "Look up";
+  }
   function clearLookup(event?: Event) {
     if (event && state.lookupDetailsExpanded) state.detailsExpanded = true;
     state.lookupGeneration++;
@@ -2662,8 +2668,7 @@ export function mountCollection({
     state.lookupDetailsExpanded = false;
     clearListedPrice();
     $("lookupResult").hidden = true;
-    $("lookupButton").disabled = false;
-    $("lookupButton").textContent = "Look up";
+    setLookupLoading(false);
     renderBookDetails();
   }
   function invalidateCheck() {
@@ -3138,10 +3143,11 @@ export function mountCollection({
     const generation = ++state.lookupGeneration,
       raw = $("isbn").value.trim(),
       initialSeries = $("series").value;
-    $("lookupButton").disabled = true;
-    $("lookupButton").textContent = "Looking…";
-    $("lookupResult").hidden = false;
-    $("lookupResult").textContent = "Looking up this edition…";
+    $("isbnLookupMessage").textContent =
+      "ISBN " + raw + " · Checking publishers and bookshops for book details.";
+    setLookupLoading(true);
+    $("lookupResult").hidden = true;
+    $("lookupResult").replaceChildren();
     state.lookupMatched = false;
     clearListedPrice();
     renderBookDetails();
@@ -3191,6 +3197,7 @@ export function mountCollection({
             .map((b) => b.series + (b.volume !== "" ? " vol. " + b.volume : ""))
             .join(", ") +
           ".";
+      $("lookupResult").hidden = false;
       $("lookupResult").textContent = message;
       const searchLinks = node("div");
       searchLinks.setAttribute("data-lookup-detail", "");
@@ -3225,13 +3232,12 @@ export function mountCollection({
         $("bookDialog").querySelector(".dialog-body").scrollTop = 0;
       }
     } catch (error) {
-      if (generation === state.lookupGeneration)
-        $("lookupResult").textContent = error.message || String(error);
-    } finally {
       if (generation === state.lookupGeneration) {
-        $("lookupButton").disabled = false;
-        $("lookupButton").textContent = "Look up";
+        $("lookupResult").hidden = false;
+        $("lookupResult").textContent = error.message || String(error);
       }
+    } finally {
+      if (generation === state.lookupGeneration) setLookupLoading(false);
     }
   }
   function setBusy(busy) {
@@ -3279,7 +3285,7 @@ export function mountCollection({
     event.preventDefault();
     if (state.busy || !$("bookForm").reportValidity()) return;
     state.lookupGeneration++;
-    $("lookupButton").textContent = "Look up";
+    setLookupLoading(false);
     $("formError").hidden = true;
     const book = Object.fromEntries(FIELDS.map((k) => [k, $(k).value]));
     if (

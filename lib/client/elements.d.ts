@@ -97,6 +97,8 @@ interface LibraryElements {
   "i-search": HTMLElement;
   "i-wallet": HTMLElement;
   isbn: HTMLInputElement;
+  isbnLookupStatus: HTMLDivElement;
+  isbnLookupMessage: HTMLParagraphElement;
   isbnBookDetails: HTMLParagraphElement;
   isbnBookName: HTMLHeadingElement;
   isbnDialog: HTMLDialogElement;

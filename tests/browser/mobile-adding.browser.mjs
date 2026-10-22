@@ -92,6 +92,7 @@ try {
   assert.equal(await page.getByLabel("Take a barcode photo").isVisible(), true);
   await page.locator("#closeScan").click();
   assert.equal(await page.locator("#bookDialog").getAttribute("open"), "");
+  let pendingLookup = null;
   await page.route("**/api/rpc", async (route) => {
     if (route.request().postDataJSON()?.name !== "lookupIsbn")
       return route.continue();
@@ -104,6 +105,7 @@ try {
         json: { message: "Lookup unavailable" },
       });
     const next = isbn === "9786166247404";
+    if (pendingLookup) await pendingLookup.promise;
     await route.fulfill({
       json: {
         isbn,
@@ -134,12 +136,80 @@ try {
     assert.equal(await page.locator("#isbn").isVisible(), true);
     assert.equal(await page.locator("#series").isVisible(), true);
     assert.equal(await page.locator("#toggleLookupDetails").isVisible(), false);
+    assert.equal(await page.locator("#isbnLookupStatus").isVisible(), false);
+    assert.equal(
+      await page.locator("#bookForm").getAttribute("aria-busy"),
+      "false",
+    );
   }
+  pendingLookup = Promise.withResolvers();
   await page.locator("#isbn").fill("9780140328721");
   await page.locator("#isbn").press("Enter");
+  await page.locator("#isbnLookupStatus").waitFor({ state: "visible" });
+  assert.match(
+    await page.locator("#isbnLookupStatus").textContent(),
+    /Looking up ISBN…/,
+  );
+  assert.match(
+    await page.locator("#isbnLookupMessage").textContent(),
+    /9780140328721/,
+  );
+  assert.equal(
+    await page.locator("#bookForm").getAttribute("aria-busy"),
+    "true",
+  );
+  assert.equal(await page.locator("#lookupButton").isEnabled(), false);
+  for (const [width, height] of [
+    [320, 568],
+    [390, 844],
+    [1280, 900],
+  ]) {
+    await page.setViewportSize({ width, height });
+    await page
+      .locator("#bookDialog .dialog-body")
+      .evaluate((body) => (body.scrollTop = body.scrollHeight));
+    const banner = await page.locator("#isbnLookupStatus").boundingBox();
+    assert.ok(banner.y >= 0 && banner.y + banner.height <= height);
+    assert.equal(
+      await page
+        .locator("#isbnLookupStatus")
+        .evaluate((status) => status.scrollWidth <= status.clientWidth),
+      true,
+    );
+    await visibleSave(height);
+    if (width !== 320)
+      await page.screenshot({
+        path: fileURLToPath(
+          new URL(
+            `../../outputs/browser-isbn-loading-${width}.png`,
+            import.meta.url,
+          ),
+        ),
+      });
+  }
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  assert.ok(
+    await page
+      .locator(".isbn-lookup-spinner")
+      .evaluate(
+        (spinner) =>
+          parseFloat(getComputedStyle(spinner).animationDuration) <= 0.01,
+      ),
+  );
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  pendingLookup.resolve();
+  pendingLookup = null;
   await page.waitForFunction(
     (marker) => document.getElementById("series").value === marker,
     marker,
+  );
+  assert.equal(await page.locator("#isbnLookupStatus").isVisible(), false);
+  assert.equal(
+    await page.locator("#bookForm").getAttribute("aria-busy"),
+    "false",
+  );
+  console.log(
+    "PASS prominent ISBN loading banner stays visible while scrolling on phone/desktop, respects reduced motion and clears on completion or failure",
   );
   assert.equal(await page.locator("#volume").inputValue(), "1");
   assert.equal(await page.locator("#publisher").inputValue(), "Mobile press");

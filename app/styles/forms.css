@@ -115,6 +115,39 @@ textarea {
   @apply block;
 }
 
+.isbn-lookup-status {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 14px;
+  padding: 18px 20px;
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.isbn-lookup-status strong {
+  display: block;
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+.isbn-lookup-status p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.isbn-lookup-spinner {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border: 3px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: turn 900ms linear infinite;
+}
+
 #bookForm.lookup-complete [data-lookup-detail] {
   display: none;
 }

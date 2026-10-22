@@ -20,6 +20,20 @@ export default function BookDialog() {
           </svg>
         </button>
       </div>
+      <div
+        id="isbnLookupStatus"
+        className="isbn-lookup-status"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        hidden
+      >
+        <span className="isbn-lookup-spinner" aria-hidden="true" />
+        <div>
+          <strong>Looking up ISBN…</strong>
+          <p id="isbnLookupMessage" />
+        </div>
+      </div>
       <form id={"bookForm"}>
         <div className={"dialog-body"}>
           <div
