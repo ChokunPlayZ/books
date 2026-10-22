@@ -83,6 +83,11 @@ try {
   assert.equal(await page.locator("#volume").inputValue(), "3");
   assert.equal(await page.locator("#type").inputValue(), "Manga (TH)");
   assert.equal(await page.locator("#publisher").inputValue(), "First Page Pro");
+  assert.equal(await page.locator("#source").inputValue(), "");
+  assert.equal(await page.locator("#isbn").isVisible(), false);
+  assert.equal(await page.locator("#volume").isVisible(), false);
+  assert.equal(await page.locator("#regularPrice").inputValue(), "180");
+  await page.locator("#toggleLookupDetails").click();
   assert.equal(
     await page
       .getByRole("link", { name: "Search this ISBN at First Page Pro ↗" })
@@ -94,6 +99,7 @@ try {
     "",
     "A listing price must not become the amount paid",
   );
+  await page.locator("#toggleLookupDetails").click();
   await page.locator("#saveButton").click();
   await page.waitForFunction(
     () =>
@@ -111,6 +117,8 @@ try {
   assert.equal(saved.volume, 3);
   assert.equal(saved.type, "Manga (TH)");
   assert.equal(saved.publisher, "First Page Pro");
+  assert.equal(saved.source, "");
+  assert.equal(saved.price, "");
   assert.deepEqual(errors, []);
   console.log(
     "PASS scanned ISBN 9786164897397 uses verified First Page Pro metadata, fills the correct edition and persists after saving",
@@ -141,12 +149,15 @@ try {
   assert.equal(await page.locator("#publisher").inputValue(), "Phoenix Next");
   assert.equal(await page.locator("#volume").inputValue(), "");
   assert.equal(await page.locator("#price").inputValue(), "");
+  assert.equal(await page.locator("#source").inputValue(), "");
+  await page.locator("#toggleLookupDetails").click();
   assert.equal(
     await page
       .getByRole("link", { name: "Search this ISBN at Phoenix Next ↗" })
       .getAttribute("href"),
     "https://www.phoenixnext.com/catalogsearch/result/?q=" + phoenixIsbn,
   );
+  await page.locator("#toggleLookupDetails").click();
   await page.locator("#saveButton").click();
   await page.waitForFunction(
     () =>

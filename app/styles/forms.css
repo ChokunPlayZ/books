@@ -115,6 +115,18 @@ textarea {
   @apply block;
 }
 
+#bookForm.lookup-complete [data-lookup-detail] {
+  display: none;
+}
+
+#toggleLookupDetails {
+  justify-self: start;
+}
+
+#bookForm.lookup-complete .purchase-field {
+  grid-column: 1 / -1;
+}
+
 .dialog-foot {
   @apply flex;
   @apply justify-between;

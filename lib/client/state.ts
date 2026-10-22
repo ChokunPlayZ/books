@@ -11,6 +11,9 @@ export function createCollectionState() {
     editing: null as import("../types").StoredBook | null,
     busy: false,
     lookupGeneration: 0,
+    lookupMatched: false,
+    lookupDetailsExpanded: false,
+    listedPrice: null as string | null,
     scanGeneration: 0,
     scanPurpose: "add",
     cameraStart: null as Promise<MediaStream> | null,
@@ -51,6 +54,7 @@ export function createCollectionState() {
     detailsExpanded: false,
     titleLocked: false,
     typeTouched: false,
+    publisherTouched: false,
     calculatedPrice: null as string | null,
   };
 }

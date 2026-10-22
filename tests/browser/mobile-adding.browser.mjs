@@ -95,21 +95,46 @@ try {
   await page.route("**/api/rpc", async (route) => {
     if (route.request().postDataJSON()?.name !== "lookupIsbn")
       return route.continue();
+    const isbn = route.request().postDataJSON().arg;
+    if (isbn === "9781975319434")
+      return route.fulfill({ json: { isbn, found: false, warnings: [] } });
+    if (isbn === "9780385496490")
+      return route.fulfill({
+        status: 503,
+        json: { message: "Lookup unavailable" },
+      });
+    const next = isbn === "9786166247404";
     await route.fulfill({
       json: {
-        isbn: "9780140328721",
+        isbn,
         found: true,
         details: {
-          title: marker,
-          series: marker,
+          title: next ? marker + " next" : marker,
+          series: next ? marker + " next" : marker,
           volume: "1",
-          publisher: "Mobile press",
+          publisher: next ? "Next press" : "Mobile press",
           source: "Test lookup",
+          price: 180,
         },
         warnings: [],
       },
     });
   });
+  for (const [isbn, message] of [
+    ["9781975319434", "No book details found"],
+    ["9780385496490", "Lookup unavailable"],
+  ]) {
+    await page.locator("#isbn").fill(isbn);
+    await page.locator("#lookupButton").click();
+    await page.waitForFunction(
+      (message) =>
+        document.getElementById("lookupResult").textContent.includes(message),
+      message,
+    );
+    assert.equal(await page.locator("#isbn").isVisible(), true);
+    assert.equal(await page.locator("#series").isVisible(), true);
+    assert.equal(await page.locator("#toggleLookupDetails").isVisible(), false);
+  }
   await page.locator("#isbn").fill("9780140328721");
   await page.locator("#isbn").press("Enter");
   await page.waitForFunction(
@@ -118,12 +143,53 @@ try {
   );
   assert.equal(await page.locator("#volume").inputValue(), "1");
   assert.equal(await page.locator("#publisher").inputValue(), "Mobile press");
+  assert.equal(await page.locator("#source").inputValue(), "");
+  assert.equal(await page.locator("#price").inputValue(), "");
+  assert.equal(await page.locator("#regularPrice").inputValue(), "180");
+  assert.match(
+    await page.locator("#listedPriceHint").textContent(),
+    /180.*Test lookup/,
+  );
+  for (const [width, height] of [
+    [320, 568],
+    [390, 844],
+    [1280, 900],
+  ]) {
+    await page.setViewportSize({ width, height });
+    assert.deepEqual(
+      await page
+        .locator(
+          "#bookForm input:not([type=checkbox]):visible, #bookForm select:visible, #bookForm textarea:visible",
+        )
+        .evaluateAll((fields) => fields.map((field) => field.id)),
+      ["source", "price"],
+    );
+    await visibleSave(height);
+    assert.equal(
+      await page
+        .locator("#bookDialog")
+        .evaluate((dialog) => dialog.scrollWidth <= dialog.clientWidth),
+      true,
+    );
+    if (width !== 320)
+      await page.screenshot({
+        path: fileURLToPath(
+          new URL(
+            `../../outputs/browser-isbn-adding-${width}.png`,
+            import.meta.url,
+          ),
+        ),
+      });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.locator("#price").fill("120");
   await page.locator("#source").fill("Mobile shop");
-  await page.locator("#bookExtras > summary").click();
+  await page.locator("#toggleLookupDetails").click();
+  assert.equal(await page.locator("#isbn").isVisible(), true);
+  assert.equal(await page.locator("#volume").isVisible(), true);
   await page.locator("#note").fill("Added on a small screen");
   await page.locator("#publisherUrl").fill("invalid-url");
-  await page.locator("#bookExtras > summary").click();
+  await page.locator("#toggleLookupDetails").click();
   await page.locator("#saveButton").click();
   assert.equal(await page.locator("#publisherUrl").isVisible(), true);
   assert.equal(
@@ -131,7 +197,7 @@ try {
     "publisherUrl",
   );
   await page.locator("#publisherUrl").fill("");
-  await page.locator("#bookExtras > summary").click();
+  await page.locator("#toggleLookupDetails").click();
   await page.locator("#keepAdding").check();
   await page.setViewportSize({ width: 390, height: 430 });
   await visibleSave(430);
@@ -142,13 +208,25 @@ try {
       document.getElementById("series").value === "" &&
       !window.bookCollection?.state.busy,
   );
-  assert.equal(await page.locator("#source").inputValue(), "Mobile shop");
+  assert.equal(await page.locator("#source").inputValue(), "");
   assert.equal(await page.locator("#publisher").inputValue(), "Mobile press");
   assert.equal(await page.locator("#isbn").inputValue(), "");
   assert.equal(await page.locator("#note").inputValue(), "");
   assert.equal(await page.locator("#price").inputValue(), "");
   assert.equal(await page.locator("#bookExtras").getAttribute("open"), null);
+  assert.equal(await page.locator("#toggleLookupDetails").isVisible(), false);
+  assert.equal(await page.locator("#isbn").isVisible(), true);
   await visibleSave(430);
+  await page.locator("#isbn").fill("9786166247404");
+  await page.locator("#isbn").press("Enter");
+  await page.waitForFunction(
+    (marker) => document.getElementById("series").value === marker + " next",
+    marker,
+  );
+  assert.equal(await page.locator("#publisher").inputValue(), "Next press");
+  assert.equal(await page.locator("#source").inputValue(), "");
+  assert.equal(await page.locator("#price").inputValue(), "");
+  assert.equal(await page.locator("#isbn").isVisible(), false);
   await page.locator("#cancelBook").click();
   const saved = await page.evaluate(
     async (marker) =>
@@ -160,6 +238,8 @@ try {
   assert.equal(saved.price, 120);
   assert.equal(saved.note, "Added on a small screen");
   assert.equal(saved.isbn, "9780140328721");
+  assert.equal(saved.source, "Mobile shop");
+  assert.equal(saved.volume, 1);
   console.log(
     "PASS scan return, ISBN lookup, hidden-field validation, saved details and repeated adding",
   );
@@ -170,6 +250,7 @@ try {
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#addButton").click();
   assert.equal(await page.locator("#series").inputValue(), marker);
+  assert.equal(await page.locator("#source").inputValue(), "");
   await page.locator("#volume").fill("2");
   await page.locator("#keepAdding").check();
   await page.locator("#saveButton").click();

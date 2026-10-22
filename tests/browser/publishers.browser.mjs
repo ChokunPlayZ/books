@@ -234,7 +234,7 @@ try {
   assert.equal(await page.locator("#series").inputValue(), marker + " known");
   assert.equal(await page.locator("#volume").inputValue(), "3");
   assert.equal(await page.locator("#type").inputValue(), "LN (TH)");
-  assert.equal(await page.locator("#source").inputValue(), "Phoenix Next");
+  assert.equal(await page.locator("#source").inputValue(), "");
   assert.equal(await page.locator("#price").inputValue(), "");
   assert.equal(await page.locator("#isbn").isVisible(), true);
   await page.locator("#cancelBook").click();
@@ -289,6 +289,7 @@ try {
   );
   assert.equal(await page.locator("#volume").inputValue(), "22");
   assert.equal(await page.locator("#publisher").inputValue(), "PHOENIX Next");
+  await page.locator("#toggleLookupDetails").click();
   assert.equal(
     await page
       .getByRole("link", { name: "Search this ISBN at Naiin ↗" })

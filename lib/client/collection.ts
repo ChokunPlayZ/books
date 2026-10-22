@@ -70,16 +70,11 @@ export function mountCollection({
     },
     addVolume: (series, edition, volume) => {
       if (state.busy) return;
-      const source =
-        [...edition.books]
-          .sort((a, b) => b.date.localeCompare(a.date) || b.row - a.row)
-          .find((book) => book.source)?.source || "";
       openBook(null, {
         series,
         volume,
         type: edition.type || "Other",
         publisher: edition.publisher,
-        source,
       });
     },
   });
@@ -990,19 +985,9 @@ export function mountCollection({
           add.addEventListener(
             "click",
             () => {
-              const source =
-                [...edition.books]
-                  .sort(
-                    (a, b) =>
-                      String(b.date || "").localeCompare(
-                        String(a.date || ""),
-                      ) || b.row - a.row,
-                  )
-                  .find((b) => b.source)?.source || "";
               openBook(null, { series: state.selectedSeries, volume: from });
               $("type").value = edition.type || "Other";
               $("publisher").value = edition.publisher || "";
-              $("source").value = source;
               renderBookDetails();
             },
             { signal: events.signal },
@@ -1307,10 +1292,9 @@ export function mountCollection({
     if (!owned.length) return undefined;
     const defaults = { series: seriesKey(owned[0]) };
     let edition = owned;
-    (["type", "publisher", "source"] as const).forEach((k) => {
+    (["type", "publisher"] as const).forEach((k) => {
       defaults[k] = edition.find((b) => String(b[k] ?? "").trim())?.[k] || "";
-      if (defaults[k] && k !== "source")
-        edition = edition.filter((b) => b[k] === defaults[k]);
+      if (defaults[k]) edition = edition.filter((b) => b[k] === defaults[k]);
     });
     return defaults;
   }
@@ -1471,12 +1455,9 @@ export function mountCollection({
     if (series !== state.formSeries) {
       if (!state.formSeries)
         state.sharedDraft = Object.fromEntries(
-          (["type", "publisher", "source"] as const).map((k) => [
-            k,
-            $(k).value,
-          ]),
+          (["type", "publisher"] as const).map((k) => [k, $(k).value]),
         );
-      (["type", "publisher", "source"] as const).forEach(
+      (["type", "publisher"] as const).forEach(
         (k) =>
           ($(k).value = series
             ? defaults[k] || (k === "type" ? "Manga (TH)" : "")
@@ -1494,6 +1475,19 @@ export function mountCollection({
   }
   function renderBookDetails() {
     const quick = !!state.formSeries && !state.editing;
+    const matched = state.lookupMatched && !state.editing;
+    $("bookForm").classList.toggle(
+      "lookup-complete",
+      matched && !state.lookupDetailsExpanded,
+    );
+    $("toggleLookupDetails").hidden = !matched;
+    $("toggleLookupDetails").textContent = state.lookupDetailsExpanded
+      ? "Hide book details"
+      : "Edit book details";
+    $("toggleLookupDetails").setAttribute(
+      "aria-expanded",
+      String(state.lookupDetailsExpanded),
+    );
     const editions = state.formSeries ? titleEditions(state.formSeries) : [];
     const editionKey = JSON.stringify([$("type").value, $("publisher").value]);
     const inherited =
@@ -1525,7 +1519,11 @@ export function mountCollection({
       !state.formSeries || (state.editing && editions.length < 2);
     $("bookForm")
       .querySelectorAll<HTMLElement>("[data-series-detail]")
-      .forEach((e) => (e.hidden = quick && !state.detailsExpanded));
+      .forEach(
+        (e) =>
+          (e.hidden =
+            quick && !state.detailsExpanded && !state.lookupDetailsExpanded),
+      );
     $("seriesDefaults").hidden = !state.formSeries;
     $("seriesDefaultsText").textContent =
       state.formSeries +
@@ -1534,16 +1532,18 @@ export function mountCollection({
     $("toggleBookDetails").textContent = state.detailsExpanded
       ? "Hide other volume details"
       : "Edit other volume details";
-    $("toggleBookDetails").hidden = !!state.editing;
+    $("toggleBookDetails").hidden = !!state.editing || matched;
     $("toggleBookDetails").setAttribute(
       "aria-expanded",
       String(!!state.detailsExpanded),
     );
     $("bookDialogSubtitle").textContent = state.editing
       ? "Edit this volume’s ISBN, reading status and purchase details."
-      : quick
-        ? "Title details are filled in. Add your volume below."
-        : "Scan a book or enter the details below.";
+      : matched
+        ? "Book found. Add where you bought it and what you paid."
+        : quick
+          ? "Title details are filled in. Add your volume below."
+          : "Scan a book or enter the details below.";
     $("keepAddingText").textContent = quick
       ? "Add another volume after saving"
       : "Add another book after saving";
@@ -2630,13 +2630,12 @@ export function mountCollection({
       isbn: item.isbn || item.searchedIsbn,
       type: item.type || "Other",
       publisher: item.publisher,
-      source: item.publisher,
     });
-    // A publisher listing identifies this edition; do not inherit another language or shop.
+    // A publisher listing identifies this edition, including its language.
     $("type").value = item.type || "Other";
     state.typeTouched = true;
     $("publisher").value = item.publisher;
-    $("source").value = item.publisher;
+    fillListedPrice(item);
     state.detailsExpanded = true;
     renderBookDetails();
     $("lookupResult").hidden = false;
@@ -2656,11 +2655,16 @@ export function mountCollection({
     );
   }
 
-  function clearLookup() {
+  function clearLookup(event?: Event) {
+    if (event && state.lookupDetailsExpanded) state.detailsExpanded = true;
     state.lookupGeneration++;
+    state.lookupMatched = false;
+    state.lookupDetailsExpanded = false;
+    clearListedPrice();
     $("lookupResult").hidden = true;
     $("lookupButton").disabled = false;
     $("lookupButton").textContent = "Look up";
+    renderBookDetails();
   }
   function invalidateCheck() {
     state.checkGeneration++;
@@ -2945,6 +2949,7 @@ export function mountCollection({
     if (state.busy || !state.data) return;
     state.editing = book || null;
     state.typeTouched = false;
+    state.publisherTouched = false;
     state.pendingSave = null;
     state.pendingRemove = null;
     state.formSeries = book ? seriesKey(book) : null;
@@ -2962,6 +2967,7 @@ export function mountCollection({
       fillOptions(k, state.data.options[k]),
     );
     FIELDS.forEach((k) => ($(k).value = book?.[k] ?? defaults?.[k] ?? ""));
+    if (!book) $("source").value = "";
     state.coverPickerGeneration++;
     state.selectedCoverId = book?.coverId || "";
     $("coverUrl").value = book?.coverUrl || "";
@@ -3020,11 +3026,47 @@ export function mountCollection({
   }
   function resetPricing() {
     state.calculatedPrice = null;
+    state.listedPrice = null;
     $("regularPrice").setCustomValidity("");
     $("discount").setCustomValidity("");
     $("discount").max = "100";
     $("discountHint").textContent = "Enter a percentage from 0 to 100.";
     $("priceSummary").hidden = true;
+    $("listedPriceHint").hidden = true;
+    $("listedPriceHint").textContent = "";
+  }
+  function clearListedPrice() {
+    if (
+      state.listedPrice !== null &&
+      $("regularPrice").value === state.listedPrice
+    )
+      $("regularPrice").value = "";
+    state.listedPrice = null;
+    $("listedPriceHint").hidden = true;
+    $("listedPriceHint").textContent = "";
+  }
+  function fillListedPrice(details) {
+    const original =
+      details.regularPrice !== "" && details.regularPrice != null;
+    const price = original ? details.regularPrice : details.price;
+    if (
+      price === "" ||
+      price == null ||
+      !Number.isFinite(Number(price)) ||
+      Number(price) < 0
+    )
+      return;
+    if (!$("regularPrice").value) {
+      $("regularPrice").value = String(price);
+      state.listedPrice = $("regularPrice").value;
+    }
+    $("listedPriceHint").textContent =
+      (original ? "Original price: " : "Listed price: ") +
+      number(Number(price)) +
+      (details.source || details.publisher
+        ? " · " + (details.source || details.publisher)
+        : "");
+    $("listedPriceHint").hidden = false;
   }
   function calculateSalePrice() {
     const regular = $("regularPrice"),
@@ -3095,11 +3137,14 @@ export function mountCollection({
     if (state.busy) return;
     const generation = ++state.lookupGeneration,
       raw = $("isbn").value.trim(),
-      initial = { series: $("series").value, publisher: $("publisher").value };
+      initialSeries = $("series").value;
     $("lookupButton").disabled = true;
     $("lookupButton").textContent = "Looking…";
     $("lookupResult").hidden = false;
     $("lookupResult").textContent = "Looking up this edition…";
+    state.lookupMatched = false;
+    clearListedPrice();
+    renderBookDetails();
     try {
       const result = await rpc("lookupIsbn", raw);
       if (
@@ -3122,21 +3167,19 @@ export function mountCollection({
           (d.authors ? "\n" + d.authors : "") +
           "\nSuggested by " +
           d.source +
-          ". Review the series name and volume before saving.";
-        if (!initial.series && !$("series").value)
+          ".";
+        if (!initialSeries && !$("series").value)
           $("series").value = d.series || d.title;
-        if (
-          !state.formSeries &&
-          !state.editing &&
-          !initial.publisher &&
-          !$("publisher").value
-        )
+        if (!state.formSeries && !state.editing && !state.publisherTouched)
           $("publisher").value = d.publisher;
         syncSeriesSelection();
         if (d.volume !== undefined && d.volume !== "" && !$("volume").value)
           $("volume").value = d.volume;
         if (d.type && !state.formSeries && !state.editing && !state.typeTouched)
           $("type").value = d.type;
+        fillListedPrice(d);
+        state.lookupMatched = !!$("series").value.trim();
+        state.lookupDetailsExpanded = false;
       } else
         message =
           "No book details found. The ISBN is ready. Fill in the series, volume and publisher yourself.";
@@ -3149,13 +3192,15 @@ export function mountCollection({
             .join(", ") +
           ".";
       $("lookupResult").textContent = message;
+      const searchLinks = node("div");
+      searchLinks.setAttribute("data-lookup-detail", "");
       if (result.searchUrl) {
-        $("lookupResult").append(
+        searchLinks.append(
           document.createTextNode("\n"),
           releaseLink("Search this ISBN at Naiin ↗", result.searchUrl),
         );
       }
-      $("lookupResult").append(
+      searchLinks.append(
         document.createTextNode("\n"),
         releaseLink(
           "Search this ISBN at Phoenix Next ↗",
@@ -3173,6 +3218,12 @@ export function mountCollection({
           kinokuniyaSearchUrl(canonical(result.isbn)),
         ),
       );
+      $("lookupResult").append(searchLinks);
+      renderBookDetails();
+      if (state.lookupMatched && !state.editing) {
+        $("source").focus({ preventScroll: true });
+        $("bookDialog").querySelector(".dialog-body").scrollTop = 0;
+      }
     } catch (error) {
       if (generation === state.lookupGeneration)
         $("lookupResult").textContent = error.message || String(error);
@@ -3227,7 +3278,8 @@ export function mountCollection({
   async function save(event) {
     event.preventDefault();
     if (state.busy || !$("bookForm").reportValidity()) return;
-    clearLookup();
+    state.lookupGeneration++;
+    $("lookupButton").textContent = "Look up";
     $("formError").hidden = true;
     const book = Object.fromEntries(FIELDS.map((k) => [k, $(k).value]));
     if (
@@ -3257,9 +3309,10 @@ export function mountCollection({
       defaults = keep
         ? {
             ...Object.fromEntries(
-              (["type", "publisher", "source", "status", "date"] as const).map(
-                (k) => [k, $(k).value],
-              ),
+              (["type", "publisher", "status", "date"] as const).map((k) => [
+                k,
+                $(k).value,
+              ]),
             ),
             ...(state.formSeries ? { series: state.formSeries } : {}),
           }
@@ -3414,6 +3467,11 @@ export function mountCollection({
     "invalid",
     (event) => {
       const field = event.target as HTMLElement;
+      if (field.closest("[data-lookup-detail]")) {
+        state.lookupDetailsExpanded = true;
+        state.detailsExpanded = true;
+        renderBookDetails();
+      }
       for (
         let parent = field.parentElement;
         parent;
@@ -3472,6 +3530,16 @@ export function mountCollection({
     },
     { signal: events.signal },
   );
+  $("toggleLookupDetails")?.addEventListener(
+    "click",
+    () => {
+      if (state.busy) return;
+      state.lookupDetailsExpanded = !state.lookupDetailsExpanded;
+      if (state.lookupDetailsExpanded) $("bookExtras").open = true;
+      renderBookDetails();
+    },
+    { signal: events.signal },
+  );
   $("type")?.addEventListener(
     "change",
     () => {
@@ -3482,7 +3550,10 @@ export function mountCollection({
   (["type", "publisher", "source"] as const).forEach((id) =>
     $(id)?.addEventListener(
       id === "type" ? "change" : "input",
-      renderBookDetails,
+      () => {
+        if (id === "publisher") state.publisherTouched = true;
+        renderBookDetails();
+      },
       { signal: events.signal },
     ),
   );

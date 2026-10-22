@@ -116,6 +116,8 @@ interface LibraryElements {
   loadDiscovery: HTMLButtonElement;
   lookupButton: HTMLButtonElement;
   lookupResult: HTMLDivElement;
+  listedPriceHint: HTMLParagraphElement;
+  toggleLookupDetails: HTMLButtonElement;
   maxPriceFilter: HTMLInputElement;
   metadataCoverPreview: HTMLDivElement;
   metadataManager: HTMLElement;

@@ -61,6 +61,7 @@ test("Kinokuniya reads the verified book, publisher, authors and cover from curr
   assert.equal(details.authors, "Albom, Mitch");
   assert.equal(details.releaseDate, "Dec 1998");
   assert.equal(details.source, "Kinokuniya");
+  assert.equal(details.price, 355);
   assert.equal(details.url, productUrl);
   assert.equal(details.volume, "");
   assert.equal(

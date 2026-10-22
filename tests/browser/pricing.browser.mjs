@@ -114,10 +114,7 @@ try {
   for (const field of [base, discount, sale])
     assert.equal(await field.inputValue(), "");
   assert.equal(await type.inputValue(), "percent");
-  assert.equal(
-    await page.locator("#source").inputValue(),
-    "Discount test shop",
-  );
+  assert.equal(await page.locator("#source").inputValue(), "");
   assert.ok(Math.abs(spend(await collection()) - before - 170) < 0.000001);
   console.log(
     "PASS percent/amount discounts, rounding, validation, stored sale price and keep-adding reset",

@@ -255,6 +255,7 @@ test("Naiin verifies the exact edition; Google Books fallback checks ISBN equiva
     const exact = await service.lookupIsbn("9786166247275");
     assert.equal(exact.details.source, "Naiin");
     assert.equal(exact.details.volume, 22);
+    assert.equal(exact.details.regularPrice, 175);
     const count = calls.length;
     await service.lookupIsbn("9786166247275");
     assert.equal(calls.length, count);

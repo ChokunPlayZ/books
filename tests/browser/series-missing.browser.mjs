@@ -389,14 +389,14 @@ try {
   await page.locator("#cancelBook").click();
   await page.locator("#seriesReleaseReview summary").click();
 
-  // The most recent owned edition is Japanese; a Thai gap must retain the Thai edition and shop.
+  // The most recent owned edition is Japanese; a Thai gap must retain the Thai edition.
   await edition("Manga (TH)")
     .getByRole("button", { name: /Add missing volume 1/ })
     .click();
   assert.equal(await page.locator("#volume").inputValue(), "1");
   assert.equal(await page.locator("#type").inputValue(), "Manga (TH)");
   assert.equal(await page.locator("#publisher").inputValue(), "PHOENIX Next");
-  assert.equal(await page.locator("#source").inputValue(), "Thai shop");
+  assert.equal(await page.locator("#source").inputValue(), "");
   assert.equal(await page.locator("#isbn").inputValue(), "");
   await page.locator("#saveButton").click();
   await page.waitForFunction(
@@ -420,7 +420,7 @@ try {
     1,
   );
   console.log(
-    "PASS filling a gap preserves its edition and shop, saves once, and immediately updates the missing summary",
+    "PASS filling a gap preserves its edition, leaves the shop blank, saves once, and immediately updates the missing summary",
   );
 
   failSave = true;

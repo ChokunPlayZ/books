@@ -38,6 +38,10 @@ export function kinokuniyaBook(html: string, isbn: string) {
   }
   const title = textHtml(product.name);
   const { series, volume } = splitBookTitle(title);
+  const offer = Array.isArray(product.offers)
+    ? product.offers[0]
+    : product.offers;
+  const price = offer?.price === "" ? NaN : Number(offer?.price ?? NaN);
   return {
     isbn,
     title,
@@ -49,6 +53,7 @@ export function kinokuniyaBook(html: string, isbn: string) {
     authors: [...authors].filter(Boolean).join(", "),
     releaseDate: fields.get("publication date") || "",
     source: "Kinokuniya",
+    price: Number.isFinite(price) && price >= 0 ? price : "",
     url,
     coverUrl: safeCoverUrl(product.image, url),
   };

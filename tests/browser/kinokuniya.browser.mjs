@@ -88,6 +88,10 @@ try {
     "Bantam Doubleday Dell",
   );
   assert.equal(await page.locator("#type").inputValue(), "Other");
+  assert.equal(await page.locator("#source").inputValue(), "");
+  assert.equal(await page.locator("#regularPrice").inputValue(), "355");
+  assert.equal(await page.locator("#price").inputValue(), "");
+  await page.locator("#toggleLookupDetails").click();
   assert.equal(
     await page
       .getByRole("link", { name: "Search this ISBN at Kinokuniya ↗" })

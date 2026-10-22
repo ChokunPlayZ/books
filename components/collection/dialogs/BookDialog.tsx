@@ -29,7 +29,11 @@ export default function BookDialog() {
             hidden
           ></div>
           <div className={"form-grid"}>
-            <div className={"field isbn-entry span-2"} data-series-detail>
+            <div
+              className={"field isbn-entry span-2"}
+              data-series-detail
+              data-lookup-detail
+            >
               <label htmlFor={"isbn"}>
                 {"ISBN "}
                 <span className={"hint"}>{"optional"}</span>
@@ -65,7 +69,20 @@ export default function BookDialog() {
               role={"status"}
               hidden
             ></div>
-            <fieldset id="titleEntry" className="title-entry span-2">
+            <button
+              id="toggleLookupDetails"
+              className="text-btn span-2"
+              type="button"
+              aria-expanded="false"
+              hidden
+            >
+              Edit book details
+            </button>
+            <fieldset
+              id="titleEntry"
+              className="title-entry span-2"
+              data-lookup-detail
+            >
               <legend>Title details</legend>
               <div className="form-grid">
                 <div id="titleNameField" className="field span-2">
@@ -97,7 +114,12 @@ export default function BookDialog() {
                 </div>
               </div>
             </fieldset>
-            <div id="seriesDefaults" className="series-defaults span-2" hidden>
+            <div
+              id="seriesDefaults"
+              className="series-defaults span-2"
+              data-lookup-detail
+              hidden
+            >
               <p id="seriesDefaultsText" role="status" />
               <div id="editionField" className="field">
                 <label htmlFor="bookEdition">Edition</label>
@@ -113,7 +135,7 @@ export default function BookDialog() {
                 Edit other volume details
               </button>
             </div>
-            <div className={"field"}>
+            <div className={"field"} data-lookup-detail>
               <label htmlFor={"volume"}>{"Volume"}</label>
               <input
                 id={"volume"}
@@ -125,7 +147,7 @@ export default function BookDialog() {
                 placeholder={"e.g. 1 or 4.5"}
               />
             </div>
-            <div className={"field"}>
+            <div className={"field"} data-lookup-detail>
               <label htmlFor={"status"}>{"Reading status *"}</label>
               <select id={"status"} name={"status"} required></select>
             </div>
@@ -136,15 +158,16 @@ export default function BookDialog() {
                 name={"source"}
                 list={"sourceOptions"}
                 maxLength={500}
+                autoComplete="off"
                 placeholder={"Shop, book fair, or gift"}
                 aria-describedby="sourceHint"
               />
               <datalist id={"sourceOptions"}></datalist>
               <p id="sourceHint" className="hint">
-                Choose the store for this volume.
+                Enter where you bought this copy.
               </p>
             </div>
-            <div className={"field purchase-field"}>
+            <div className={"field purchase-field"} data-lookup-detail>
               <label htmlFor={"date"}>{"Date bought"}</label>
               <input id={"date"} name={"date"} type={"date"} />
             </div>
@@ -152,7 +175,7 @@ export default function BookDialog() {
               <legend>{"Purchase price"}</legend>
               <div className={"form-grid"}>
                 <div className={"field span-2"}>
-                  <label htmlFor={"price"}>{"Sale price / amount paid"}</label>
+                  <label htmlFor={"price"}>{"Price paid"}</label>
                   <input
                     id={"price"}
                     name={"price"}
@@ -163,11 +186,13 @@ export default function BookDialog() {
                     placeholder={"0.00"}
                   />
                   <p className={"hint"}>{"Use your collection’s currency."}</p>
+                  <p id="listedPriceHint" className="hint" hidden />
                 </div>
                 <details
                   id={"priceCalculator"}
                   className={"price-calculator span-2"}
                   open
+                  data-lookup-detail
                 >
                   <summary>{"Calculate a discounted price"}</summary>
                   <div className={"form-grid"}>
@@ -225,6 +250,7 @@ export default function BookDialog() {
                   className={"hint span-2"}
                   role={"status"}
                   hidden
+                  data-lookup-detail
                 ></p>
               </div>
             </fieldset>
@@ -232,6 +258,7 @@ export default function BookDialog() {
               id="bookExtras"
               className="book-extras span-2"
               data-series-detail
+              data-lookup-detail
               open
             >
               <summary>Cover, notes &amp; duplicate copy</summary>
@@ -316,9 +343,7 @@ export default function BookDialog() {
         <div className={"dialog-foot book-dialog-foot"}>
           <label className={"check span-2"} id={"keepAddingLabel"}>
             <input type={"checkbox"} id={"keepAdding"} />
-            <span id={"keepAddingText"}>
-              {"Keep adding books with the same type, publisher and shop"}
-            </span>
+            <span id={"keepAddingText"}>{"Add another book after saving"}</span>
           </label>
           <button
             id={"removeButton"}

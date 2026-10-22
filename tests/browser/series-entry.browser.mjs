@@ -123,7 +123,7 @@ try {
     assert.equal(await page.locator("#" + id).isVisible(), false);
   assert.equal(await value("type"), "Manga (JP)");
   assert.equal(await value("publisher"), "Japanese press");
-  assert.equal(await value("source"), "Latest shop");
+  assert.equal(await value("source"), "Manual shop");
   assert.equal(await value("isbn"), "");
   assert.equal(await value("note"), "");
   assert.equal(await value("volume"), "14.5");
@@ -141,7 +141,7 @@ try {
   await page.locator("#series").fill(other);
   assert.equal(await value("type"), "LN (TH)");
   assert.equal(await value("publisher"), "Other press");
-  assert.equal(await value("source"), "Other shop");
+  assert.equal(await value("source"), "Manual shop");
   await page.locator("#series").fill(marker + " new title");
   assert.equal(await page.locator("#seriesDefaults").isVisible(), false);
   assert.equal(await page.locator("#isbn").isVisible(), true);
@@ -150,7 +150,7 @@ try {
   assert.equal(await value("source"), "Manual shop");
   await page.locator("#series").fill(sparse);
   assert.equal(await value("publisher"), "");
-  assert.equal(await value("source"), "");
+  assert.equal(await value("source"), "Manual shop");
   assert.equal(
     await page.locator("#bookForm").evaluate((form) => form.checkValidity()),
     true,
@@ -171,7 +171,7 @@ try {
   assert.ok(added);
   assert.equal(added.type, "Manga (JP)");
   assert.equal(added.publisher, "Japanese press");
-  assert.equal(added.source, "Latest shop");
+  assert.equal(added.source, "Manual shop");
   assert.equal(added.isbn, "");
   assert.equal(added.note, "");
   assert.equal(added.status, "Reading");
@@ -189,6 +189,7 @@ try {
     assert.equal(await value(id), "");
   assert.equal(await value("status"), "Reading");
   assert.equal(await value("date"), "2026-10-02");
+  assert.equal(await value("source"), "");
   assert.equal(await page.locator("#type").isVisible(), false);
   console.log(
     "PASS switching titles without leaked defaults, canonical title save, zero price and keep-adding reset",
@@ -311,6 +312,13 @@ try {
   assert.equal(await value("publisher"), "Japanese press");
   assert.equal(await value("isbn"), "9780140328721");
   assert.equal(await page.locator("#lookupResult").isVisible(), true);
+  assert.equal(await page.locator("#isbn").isVisible(), false);
+  assert.equal(await page.locator("#source").inputValue(), "");
+  await page.locator("#toggleLookupDetails").click();
+  await page.locator("#isbn").fill("9780385496490");
+  assert.equal(await page.locator("#isbn").isVisible(), true);
+  assert.equal(await page.locator("#toggleLookupDetails").isVisible(), false);
+  assert.equal(await page.locator("#volume").isVisible(), true);
   console.log(
     "PASS ISBN retained and lookup-detected existing title uses series defaults",
   );

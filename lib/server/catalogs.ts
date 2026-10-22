@@ -235,7 +235,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     if (!isbn) throw new Error("Enter or scan an ISBN first.");
     const canonical = canonicalIsbn(isbn);
 
-    const cached = cache.get("isbn:v7:" + canonical);
+    const cached = cache.get("isbn:v8:" + canonical);
     if (cached) return JSON.parse(cached);
     const providers = [
       {
@@ -364,7 +364,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     };
     // Cache confirmed misses too; transient provider failures get a shorter TTL.
     cache.put(
-      "isbn:v7:" + canonical,
+      "isbn:v8:" + canonical,
       JSON.stringify(result),
       warnings.length ? SCRAPE_TTL.retry : SCRAPE_TTL.isbn,
     );
@@ -1654,7 +1654,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
 
   async function lookupKinokuniya_(canonical: string, refresh = false) {
     return scrapeCache.get(
-      "kinokuniya-isbn:v1:" + canonical,
+      "kinokuniya-isbn:v2:" + canonical,
       { maxAge: SCRAPE_TTL.isbn, refresh },
       async () => {
         const response = await requestRemote(
@@ -1726,6 +1726,8 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
         title = book.name || candidate.ProductName || "";
       if (!title) continue;
       const parsed = splitBookTitle(title);
+      const regularPrice =
+        candidate.PriceFull === "" ? NaN : Number(candidate.PriceFull ?? NaN);
       return {
         title: title,
         series: parsed.series,
@@ -1736,6 +1738,10 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
         source: "Naiin",
         url: url,
         releaseDate: meta(page, "book:release_date"),
+        regularPrice:
+          Number.isFinite(regularPrice) && regularPrice >= 0
+            ? regularPrice
+            : "",
         coverUrl: safeCoverUrl(book.image || meta(page, "og:image")),
       };
     }

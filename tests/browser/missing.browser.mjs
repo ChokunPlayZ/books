@@ -170,7 +170,7 @@ try {
   assert.equal(await page.locator("#volume").inputValue(), "3");
   assert.equal(await page.locator("#type").inputValue(), "Manga (TH)");
   assert.equal(await page.locator("#publisher").inputValue(), base.publisher);
-  assert.equal(await page.locator("#source").inputValue(), base.source);
+  assert.equal(await page.locator("#source").inputValue(), "");
   await page.locator("#saveButton").click();
   await page.waitForFunction(
     () =>
