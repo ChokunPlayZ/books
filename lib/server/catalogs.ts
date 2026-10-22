@@ -237,75 +237,66 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
 
     const cached = cache.get("isbn:v7:" + canonical);
     if (cached) return JSON.parse(cached);
-    const warnings = [];
-    let details = null;
-    try {
-      details = await lookupNaiin_(canonical);
-    } catch (e) {
-      warnings.push(
-        "Naiin is unavailable right now. You can still search it using the link below.",
-      );
-    }
-    if (!details)
-      try {
-        const catalog = await fetchYaakzCatalog_(
-          "https://www.yaakz.com/search?q=" + encodeURIComponent(canonical),
-        );
-        const item = catalog.items.find(
-          (item) => canonicalIsbn(item.isbn) === canonical,
-        );
-        if (item) details = { ...item, source: "Yaakz" };
-      } catch {
-        warnings.push("Yaakz is unavailable right now.");
-      }
-    if (!details)
-      try {
-        details = await lookupFirstPage_(canonical);
-      } catch {
-        warnings.push("First Page Pro is unavailable right now.");
-      }
-    if (!details)
-      try {
-        const result = await searchPublisherIsbn({
-          publisherId: "phoenix",
-          isbn: canonical,
-        });
-        const item = result.items.find(
-          (item) => canonicalIsbn(item.isbn) === canonical,
-        );
-        if (item) details = { ...item, source: "Phoenix Next" };
-      } catch {
-        warnings.push("Phoenix Next is unavailable right now.");
-      }
-    if (!details)
-      try {
-        details = await lookupYenPress_(canonical);
-      } catch {
-        warnings.push("Yen Press is unavailable right now.");
-      }
-    if (!details)
-      try {
-        details = await lookupKinokuniya_(canonical);
-      } catch {
-        warnings.push("Kinokuniya is unavailable right now.");
-      }
-    if (!details)
-      try {
-        const data = await fetchJson_(
-          "https://www.googleapis.com/books/v1/volumes?q=isbn:" +
-            encodeURIComponent(canonical) +
-            "&maxResults=5",
-        );
-        const found = (data.items || []).find(function (item) {
-          return ((item.volumeInfo || {}).industryIdentifiers || []).some(
-            function (id) {
-              return canonicalIsbn(id.identifier) === canonical;
-            },
+    const providers = [
+      {
+        lookup: () => lookupNaiin_(canonical),
+        warning:
+          "Naiin is unavailable right now. You can still search it using the link below.",
+      },
+      {
+        lookup: async () => {
+          const catalog = await fetchYaakzCatalog_(
+            "https://www.yaakz.com/search?q=" + encodeURIComponent(canonical),
           );
-        });
-        if (found) {
+          const item = catalog.items.find(
+            (item) => canonicalIsbn(item.isbn) === canonical,
+          );
+          return item ? { ...item, source: "Yaakz" } : null;
+        },
+        warning: "Yaakz is unavailable right now.",
+      },
+      {
+        lookup: () => lookupFirstPage_(canonical),
+        warning: "First Page Pro is unavailable right now.",
+      },
+      {
+        lookup: async () => {
+          const result = await searchPublisherIsbn({
+            publisherId: "phoenix",
+            isbn: canonical,
+          });
+          const item = result.items.find(
+            (item) => canonicalIsbn(item.isbn) === canonical,
+          );
+          return item ? { ...item, source: "Phoenix Next" } : null;
+        },
+        warning: "Phoenix Next is unavailable right now.",
+      },
+      {
+        lookup: () => lookupYenPress_(canonical),
+        warning: "Yen Press is unavailable right now.",
+      },
+      {
+        lookup: () => lookupKinokuniya_(canonical),
+        warning: "Kinokuniya is unavailable right now.",
+      },
+      {
+        lookup: async () => {
+          const data = await fetchJson_(
+            "https://www.googleapis.com/books/v1/volumes?q=isbn:" +
+              encodeURIComponent(canonical) +
+              "&maxResults=5",
+          );
+          const found = (data.items || []).find(function (item) {
+            return ((item.volumeInfo || {}).industryIdentifiers || []).some(
+              function (id) {
+                return canonicalIsbn(id.identifier) === canonical;
+              },
+            );
+          });
+          if (!found) return null;
           const v = found.volumeInfo;
-          details = {
+          return {
             title: v.title || "",
             publisher: v.publisher || "",
             authors: (v.authors || []).join(", "),
@@ -314,21 +305,20 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
               v.imageLinks?.thumbnail || v.imageLinks?.smallThumbnail,
             ),
           };
-        }
-      } catch (e) {
-        warnings.push("Google Books is unavailable right now.");
-      }
-    if (!details) {
-      try {
-        const key = "ISBN:" + canonical;
-        const data = await fetchJson_(
-          "https://openlibrary.org/api/books?bibkeys=" +
-            encodeURIComponent(key) +
-            "&jscmd=data&format=json",
-        );
-        const v = data[key];
-        if (v)
-          details = {
+        },
+        warning: "Google Books is unavailable right now.",
+      },
+      {
+        lookup: async () => {
+          const key = "ISBN:" + canonical;
+          const data = await fetchJson_(
+            "https://openlibrary.org/api/books?bibkeys=" +
+              encodeURIComponent(key) +
+              "&jscmd=data&format=json",
+          );
+          const v = data[key];
+          if (!v) return null;
+          return {
             title: v.title || "",
             publisher: (v.publishers || [])
               .map(function (p) {
@@ -345,8 +335,22 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
               v.cover?.medium || v.cover?.large || v.cover?.small,
             ),
           };
-      } catch (e) {
-        warnings.push("Open Library is unavailable right now.");
+        },
+        warning: "Open Library is unavailable right now.",
+      },
+    ];
+    // Start independent sources together, then keep the existing source preference
+    // and warnings regardless of the order in which requests finish.
+    const results = await Promise.allSettled(
+      providers.map((provider) => provider.lookup()),
+    );
+    const warnings = [];
+    let details = null;
+    for (const [index, result] of results.entries()) {
+      if (result.status === "rejected") warnings.push(providers[index].warning);
+      else if (result.value) {
+        details = result.value;
+        break;
       }
     }
     const result = {

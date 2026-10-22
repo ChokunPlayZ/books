@@ -152,7 +152,8 @@ test("ISBN lookup and automatic covers use Kinokuniya before generic providers a
   assert.ok(results.every((result) => result.details?.source === "Kinokuniya"));
   assert.deepEqual(results[0].warnings, []);
   assert.equal(calls.filter((url) => url === productUrl).length, 1);
-  assert.ok(!calls.some((url) => /googleapis|openlibrary/.test(url)));
+  for (const source of ["googleapis", "openlibrary"])
+    assert.equal(calls.filter((url) => url.includes(source)).length, 1);
   assert.equal(
     (await service.getBookCover({ row: 1 })).coverUrl,
     results[0].details.coverUrl,

@@ -118,11 +118,8 @@ test("scan lookup uses verified First Page Pro metadata, bypasses old misses and
       .length,
     1,
   );
-  assert.ok(
-    !calls.some((address) =>
-      /yenpress|kinokuniya|googleapis|openlibrary/.test(address),
-    ),
-  );
+  for (const source of ["yenpress", "kinokuniya", "googleapis", "openlibrary"])
+    assert.ok(calls.some((address) => address.includes(source)));
   assert.equal(
     (await service.getBookCover({ row: 1 })).coverUrl,
     results[0].details.coverUrl,
