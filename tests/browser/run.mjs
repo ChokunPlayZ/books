@@ -375,6 +375,12 @@ try {
     }),
   );
   await runBrowserScenario(
+    "firstpage-lookup.browser.mjs",
+    await start("firstpage-lookup", {
+      BOOKS_ALLOW_UNAUTHENTICATED: "true",
+    }),
+  );
+  await runBrowserScenario(
     "missing-catalogs.browser.mjs",
     await start("missing-catalogs", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
   );

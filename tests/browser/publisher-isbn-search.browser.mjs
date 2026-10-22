@@ -63,7 +63,7 @@ try {
           warnings:
             request.arg.publisherId === "firstpage"
               ? [
-                  "First Page Pro returned this book for the ISBN. Its product pages do not publish an ISBN; check the book’s barcode before adding it.",
+                  "First Page Pro returned this book for the ISBN. These search results have not been checked against the product ISBN; check the book’s barcode before adding it.",
                 ]
               : [],
         },
@@ -106,7 +106,7 @@ try {
   assert.equal(calls.at(-1).publisherId, "firstpage");
   assert.match(
     await page.locator("#discoveryList .publisher-isbn-status").textContent(),
-    /do not publish an ISBN/,
+    /not been checked/,
   );
   assert.doesNotMatch(
     await page.locator("#discoveryList .release-match").textContent(),

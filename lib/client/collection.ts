@@ -2645,7 +2645,7 @@ export function mountCollection({
           (item.searchedIsbn
             ? "ISBN " +
               item.searchedIsbn +
-              " comes from your search. First Page Pro does not publish it on the product page; check the book’s barcode before saving. "
+              " comes from your search and has not been checked against the product ISBN; check the book’s barcode before saving. "
             : "") +
           (item.special
             ? "This is a special edition or set; check the series and volume carefully."
@@ -3134,6 +3134,17 @@ export function mountCollection({
         );
       }
       $("lookupResult").append(
+        document.createTextNode("\n"),
+        releaseLink(
+          "Search this ISBN at Phoenix Next ↗",
+          "https://www.phoenixnext.com/catalogsearch/result/?q=" +
+            canonical(result.isbn),
+        ),
+        document.createTextNode("\n"),
+        releaseLink(
+          "Search this ISBN at First Page Pro ↗",
+          "https://www.firstpagepro.com/search?q=" + canonical(result.isbn),
+        ),
         document.createTextNode("\n"),
         releaseLink(
           "Search this ISBN at Kinokuniya ↗",

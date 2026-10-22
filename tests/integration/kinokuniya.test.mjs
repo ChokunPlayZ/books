@@ -32,6 +32,10 @@ function remote(calls, overrides = {}) {
     if (url.includes("naiin.com"))
       return new Response('<product-list :items="[]">');
     if (url.includes("yaakz.com")) return new Response('{"data":[],"total":0}');
+    if (url.includes("firstpagepro.com/search"))
+      return new Response('<span class="tsk-all">0</span>');
+    if (url.includes("phoenixnext.com/catalogsearch"))
+      return new Response('<div class="message info empty">Empty</div>');
     if (url === "https://yenpress.com/search")
       return new Response(fixture("yenpress-search.html"));
     if (url.includes("enterprise-search.yenpress.com"))

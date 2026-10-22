@@ -36,6 +36,7 @@ import { yaakzProducts, yaakzItems } from "./yaakz.ts";
 import { publisherCovers } from "./publisher-covers.ts";
 import { kinokuniyaBook } from "../domain/kinokuniya.ts";
 import { phoenixBook } from "../domain/phoenix.ts";
+import { firstPageBook } from "../domain/firstpage.ts";
 import {
   yenPressBook,
   yenPressCandidates,
@@ -234,7 +235,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     if (!isbn) throw new Error("Enter or scan an ISBN first.");
     const canonical = canonicalIsbn(isbn);
 
-    const cached = cache.get("isbn:v5:" + canonical);
+    const cached = cache.get("isbn:v7:" + canonical);
     if (cached) return JSON.parse(cached);
     const warnings = [];
     let details = null;
@@ -256,6 +257,25 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
         if (item) details = { ...item, source: "Yaakz" };
       } catch {
         warnings.push("Yaakz is unavailable right now.");
+      }
+    if (!details)
+      try {
+        details = await lookupFirstPage_(canonical);
+      } catch {
+        warnings.push("First Page Pro is unavailable right now.");
+      }
+    if (!details)
+      try {
+        const result = await searchPublisherIsbn({
+          publisherId: "phoenix",
+          isbn: canonical,
+        });
+        const item = result.items.find(
+          (item) => canonicalIsbn(item.isbn) === canonical,
+        );
+        if (item) details = { ...item, source: "Phoenix Next" };
+      } catch {
+        warnings.push("Phoenix Next is unavailable right now.");
       }
     if (!details)
       try {
@@ -340,7 +360,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     };
     // Cache confirmed misses too; transient provider failures get a shorter TTL.
     cache.put(
-      "isbn:v5:" + canonical,
+      "isbn:v7:" + canonical,
       JSON.stringify(result),
       warnings.length ? SCRAPE_TTL.retry : SCRAPE_TTL.isbn,
     );
@@ -390,7 +410,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       );
       return { row, token: book.token, coverUrl: match?.coverUrl || "" };
     }
-    if (!isbn || cache.get("cover:miss:v3:" + isbn))
+    if (!isbn || cache.get("cover:miss:v5:" + isbn))
       return { row, token: book.token, coverUrl: "" };
     if (!pendingCovers.has(isbn)) {
       const pending = lookupIsbn(isbn)
@@ -398,7 +418,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
           const cover = safeCoverUrl(result.details?.coverUrl);
           if (cover) cache.put(key, cover, 2592000);
           else if (!result.warnings.length)
-            cache.put("cover:miss:v3:" + isbn, "1", 86400);
+            cache.put("cover:miss:v5:" + isbn, "1", 86400);
           return cover;
         })
         .finally(() => pendingCovers.delete(isbn));
@@ -678,14 +698,14 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
             }
           }
         } else {
-          // First Page Pro indexes ISBNs but omits them from public product details.
+          // Search listings alone do not verify a product's barcode.
           // Keep the ISBN blank so a search hit cannot become an exact ownership match.
           items.push(...candidates.slice(0, 24));
           if (items.length)
             warnings.push(
               "First Page Pro returned these books for ISBN " +
                 isbn +
-                ". Its product pages do not publish an ISBN; check the book’s barcode before adding it.",
+                ". These search results have not been checked against the product ISBN; check the book’s barcode before adding it.",
             );
           if (total !== null && total > items.length)
             warnings.push(
@@ -1641,6 +1661,26 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
         return kinokuniyaBook(response.body, canonical);
       },
     );
+  }
+
+  async function lookupFirstPage_(canonical) {
+    const result = await searchPublisherIsbn({
+      publisherId: "firstpage",
+      isbn: canonical,
+    });
+    let unavailable = false;
+    for (const candidate of result.items.slice(0, 4)) {
+      try {
+        const html = await fetchText_(candidate.url, false, SCRAPE_TTL.product);
+        const book = firstPageBook(html, canonical, candidate.url);
+        if (book) return book;
+      } catch {
+        unavailable = true;
+      }
+    }
+    if (unavailable)
+      throw new Error("First Page Pro product details are unavailable.");
+    return null;
   }
 
   async function lookupNaiin_(canonical, refresh = false) {

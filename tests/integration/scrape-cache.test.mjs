@@ -238,6 +238,10 @@ test("equivalent ISBN lookups share requests and cache confirmed misses for a da
     calls.push(url);
     if (url.startsWith("https://kinokuniya.co.th/products/"))
       return new Response("Not found", { status: 404 });
+    if (url.includes("firstpagepro.com/search"))
+      return new Response('<span class="tsk-all">0</span>');
+    if (url.includes("phoenixnext.com/catalogsearch"))
+      return new Response('<div class="message info empty">Empty</div>');
     return new Response(
       url.includes("naiin")
         ? '<product-list :items="[]">'
@@ -257,12 +261,12 @@ test("equivalent ISBN lookups share requests and cache confirmed misses for a da
   assert.ok(
     results.every((result) => !result.found && !result.warnings.length),
   );
-  assert.equal(calls.length, 7);
+  assert.equal(calls.length, 9);
   service = createCatalogService(db.restart(), remote);
   t.mock.timers.tick(day - 1);
   await service.lookupIsbn("9780140328721");
-  assert.equal(calls.length, 7);
+  assert.equal(calls.length, 9);
   t.mock.timers.tick(1);
   await service.lookupIsbn("9780140328721");
-  assert.equal(calls.length, 14);
+  assert.equal(calls.length, 18);
 });

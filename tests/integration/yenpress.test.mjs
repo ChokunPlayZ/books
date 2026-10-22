@@ -37,6 +37,10 @@ function remote(calls, overrides = {}) {
     if (url.includes("naiin.com"))
       return new Response('<product-list :items="[]">');
     if (url.includes("yaakz.com")) return new Response('{"data":[],"total":0}');
+    if (url.includes("firstpagepro.com/search"))
+      return new Response('<span class="tsk-all">0</span>');
+    if (url.includes("phoenixnext.com/catalogsearch"))
+      return new Response('<div class="message info empty">Empty</div>');
     if (url.startsWith("https://kinokuniya.co.th/products/"))
       return new Response("Not found", { status: 404 });
     if (url === "https://yenpress.com/search")
@@ -183,7 +187,7 @@ test("ISBN lookup uses Yen Press before generic providers and shares cached requ
   assert.ok(results.every((result) => result.details?.source === "Yen Press"));
   assert.deepEqual(results[0].warnings, []);
   assert.equal(results[0].details.publisher, "Ize Press");
-  assert.equal(calls.length, 5);
+  assert.equal(calls.length, 7);
   const apiRequest = calls.find((call) =>
     call.url.includes("enterprise-search"),
   );
@@ -197,7 +201,7 @@ test("ISBN lookup uses Yen Press before generic providers and shares cached requ
   assert.equal(JSON.parse(apiRequest.options.body).query, printIsbn);
   service = createCatalogService(store, fetchImpl);
   await service.lookupIsbn(printIsbn);
-  assert.equal(calls.length, 5);
+  assert.equal(calls.length, 7);
   assert.ok(
     !JSON.stringify(store.db.prepare("SELECT value FROM cache").all()).includes(
       "search-publicfixture",
