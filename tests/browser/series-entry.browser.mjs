@@ -253,7 +253,10 @@ try {
   await page.locator("#addButton").click();
   assert.equal(await value("series"), title);
   assert.equal(await page.locator("#type").isVisible(), false);
-  assert.equal(await page.evaluate(() => document.activeElement.id), "volume");
+  assert.equal(
+    await page.evaluate(() => document.activeElement.id),
+    "bookDialogTitle",
+  );
   await page.locator("#cancelBook").click();
   await page
     .getByRole("button", { name: "Edit " + title + ", volume 4", exact: true })

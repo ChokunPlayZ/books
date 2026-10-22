@@ -1486,7 +1486,9 @@ export function mountCollection({
       state.newEdition = false;
       state.detailsExpanded = false;
       $("priceCalculator").open =
-        !series || $("regularPrice").value !== "" || $("discount").value !== "";
+        (!series && !window.matchMedia("(max-width: 560px)").matches) ||
+        $("regularPrice").value !== "" ||
+        $("discount").value !== "";
     }
     renderBookDetails();
   }
@@ -1540,11 +1542,11 @@ export function mountCollection({
     $("bookDialogSubtitle").textContent = state.editing
       ? "Edit this volume’s ISBN, reading status and purchase details."
       : quick
-        ? "Enter the volume, store, reading status, price and date bought."
-        : "Scan an ISBN or fill in the details yourself.";
+        ? "Title details are filled in. Add your volume below."
+        : "Scan a book or enter the details below.";
     $("keepAddingText").textContent = quick
-      ? "Keep adding volumes to this series"
-      : "Keep adding books with the same type, publisher and shop";
+      ? "Add another volume after saving"
+      : "Add another book after saving";
     $("saveButton").textContent = state.editing
       ? "Save changes"
       : quick
@@ -2984,7 +2986,9 @@ export function mountCollection({
     $("saveButton").textContent = book ? "Save changes" : "Add book";
     $("removeButton").hidden = !book;
     $("keepAddingLabel").hidden = !!book;
-    $("priceCalculator").open = true;
+    const mobile = window.matchMedia("(max-width: 560px)").matches;
+    $("priceCalculator").open = !!book || !mobile;
+    $("bookExtras").open = !!book || !mobile;
     syncSeriesSelection();
     if (!book && defaults?.type && defaults.publisher !== undefined) {
       $("type").value = defaults.type;
@@ -2993,8 +2997,26 @@ export function mountCollection({
     }
     $("saveButton").disabled = false;
     $("removeButton").disabled = false;
+    syncBookViewport();
     $("bookDialog").showModal();
-    (state.formSeries ? $("volume") : $("isbn")).focus();
+    (mobile
+      ? $("bookDialogTitle")
+      : state.formSeries
+        ? $("volume")
+        : $("isbn")
+    ).focus({ preventScroll: true });
+    $("bookDialog").querySelector(".dialog-body").scrollTop = 0;
+  }
+  function syncBookViewport() {
+    const viewport = window.visualViewport;
+    $("bookDialog").style.setProperty(
+      "--book-dialog-height",
+      (viewport?.height ?? window.innerHeight) + "px",
+    );
+    $("bookDialog").style.setProperty(
+      "--book-dialog-top",
+      (viewport?.offsetTop ?? 0) + "px",
+    );
   }
   function resetPricing() {
     state.calculatedPrice = null;
@@ -3269,6 +3291,7 @@ export function mountCollection({
       }
     } catch (error) {
       errorAt("formError", error);
+      $("formError").scrollIntoView({ block: "nearest" });
     } finally {
       setBusy(false);
       renderBookDetails();
@@ -3377,6 +3400,29 @@ export function mountCollection({
     { signal: events.signal },
   );
   $("bookForm")?.addEventListener("submit", save, { signal: events.signal });
+  window.visualViewport?.addEventListener("resize", syncBookViewport, {
+    signal: events.signal,
+  });
+  window.visualViewport?.addEventListener("scroll", syncBookViewport, {
+    signal: events.signal,
+  });
+  window.addEventListener("resize", syncBookViewport, {
+    signal: events.signal,
+  });
+  // Reveal invalid optional fields before the browser tries to focus them.
+  $("bookForm")?.addEventListener(
+    "invalid",
+    (event) => {
+      const field = event.target as HTMLElement;
+      for (
+        let parent = field.parentElement;
+        parent;
+        parent = parent.parentElement
+      )
+        if (parent instanceof HTMLDetailsElement) parent.open = true;
+    },
+    { capture: true, signal: events.signal },
+  );
   $("editTitleButton")?.addEventListener("click", openTitle, {
     signal: events.signal,
   });
@@ -3421,6 +3467,7 @@ export function mountCollection({
     () => {
       if (state.busy) return;
       state.detailsExpanded = !state.detailsExpanded;
+      if (state.detailsExpanded) $("bookExtras").open = true;
       renderBookDetails();
     },
     { signal: events.signal },

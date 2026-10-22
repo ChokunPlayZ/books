@@ -3,7 +3,9 @@ export default function BookDialog() {
     <dialog id={"bookDialog"} aria-labelledby={"bookDialogTitle"}>
       <div className={"dialog-head"}>
         <div>
-          <h2 id={"bookDialogTitle"}>{"Add to your shelf"}</h2>
+          <h2 id={"bookDialogTitle"} tabIndex={-1}>
+            {"Add to your shelf"}
+          </h2>
           <p id={"bookDialogSubtitle"}>
             {"Scan an ISBN or fill in the details yourself."}
           </p>
@@ -27,6 +29,42 @@ export default function BookDialog() {
             hidden
           ></div>
           <div className={"form-grid"}>
+            <div className={"field isbn-entry span-2"} data-series-detail>
+              <label htmlFor={"isbn"}>
+                {"ISBN "}
+                <span className={"hint"}>{"optional"}</span>
+              </label>
+              <div className={"isbn-line"}>
+                <input
+                  id={"isbn"}
+                  name={"isbn"}
+                  type={"text"}
+                  inputMode={"text"}
+                  enterKeyHint={"search"}
+                  placeholder={"978… or ISBN-10"}
+                  maxLength={40}
+                  autoComplete={"off"}
+                />
+                <button id={"lookupButton"} className={"btn"} type={"button"}>
+                  {"Look up"}
+                </button>
+                <button id={"scanButton"} className={"btn"} type={"button"}>
+                  <svg aria-hidden={"true"}>
+                    <use href={"#i-scan"} />
+                  </svg>
+                  {"Scan"}
+                </button>
+              </div>
+              <p className={"hint"}>
+                {"Scan a barcode or enter its ISBN to fill in book details."}
+              </p>
+            </div>
+            <div
+              id={"lookupResult"}
+              className={"lookup span-2"}
+              role={"status"}
+              hidden
+            ></div>
             <fieldset id="titleEntry" className="title-entry span-2">
               <legend>Title details</legend>
               <div className="form-grid">
@@ -75,49 +113,13 @@ export default function BookDialog() {
                 Edit other volume details
               </button>
             </div>
-            <div className={"field span-2"} data-series-detail>
-              <label htmlFor={"isbn"}>
-                {"ISBN "}
-                <span className={"hint"}>{"optional"}</span>
-              </label>
-              <div className={"isbn-line"}>
-                <input
-                  id={"isbn"}
-                  name={"isbn"}
-                  type={"text"}
-                  inputMode={"text"}
-                  placeholder={"978… or ISBN-10"}
-                  maxLength={40}
-                  autoComplete={"off"}
-                />
-                <button id={"lookupButton"} className={"btn"} type={"button"}>
-                  {"Look up"}
-                </button>
-                <button id={"scanButton"} className={"btn"} type={"button"}>
-                  <svg aria-hidden={"true"}>
-                    <use href={"#i-scan"} />
-                  </svg>
-                  {"Scan"}
-                </button>
-              </div>
-              <p className={"hint"}>
-                {
-                  "A USB or Bluetooth scanner can type here. Press Enter to look up."
-                }
-              </p>
-            </div>
-            <div
-              id={"lookupResult"}
-              className={"lookup span-2"}
-              role={"status"}
-              hidden
-            ></div>
             <div className={"field"}>
               <label htmlFor={"volume"}>{"Volume"}</label>
               <input
                 id={"volume"}
                 name={"volume"}
                 type={"number"}
+                inputMode={"decimal"}
                 min={"0"}
                 step={"any"}
                 placeholder={"e.g. 1 or 4.5"}
@@ -127,65 +129,7 @@ export default function BookDialog() {
               <label htmlFor={"status"}>{"Reading status *"}</label>
               <select id={"status"} name={"status"} required></select>
             </div>
-            <fieldset
-              id="metadataManager"
-              className="metadata-manager span-2"
-              data-series-detail
-            >
-              <legend>Cover &amp; publisher</legend>
-              <div className="field">
-                <label htmlFor="publisherUrl">Publisher page</label>
-                <input
-                  id="publisherUrl"
-                  type="url"
-                  maxLength={2000}
-                  placeholder="https://…"
-                />
-                <a
-                  id="metadataPublisherLink"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  hidden
-                >
-                  Open publisher site ↗
-                </a>
-              </div>
-              <div className="cover-editor">
-                <div id="metadataCoverPreview" />
-                <div className="field">
-                  <label htmlFor="coverUrl">Cover image URL</label>
-                  <input
-                    id="coverUrl"
-                    type="url"
-                    maxLength={2000}
-                    placeholder="Use automatic cover, or enter an image URL"
-                  />
-                  <p className="hint">
-                    Leave blank to use the automatic cover. New image URLs are
-                    downloaded when you save.
-                  </p>
-                  <button
-                    id="pullPublisherCovers"
-                    className="btn"
-                    type="button"
-                  >
-                    Pull covers
-                  </button>
-                  <p
-                    id="publisherCoversStatus"
-                    className="hint"
-                    role="status"
-                  />
-                </div>
-              </div>
-              <div
-                id="publisherCoverChoices"
-                className="cover-choices"
-                aria-label="Publisher and bookstore cover choices"
-              />
-              <p className="hint">Choose a cover, then save your changes.</p>
-            </fieldset>
-            <div className={"field"}>
+            <div className={"field purchase-field"}>
               <label htmlFor={"source"}>{"Bought from"}</label>
               <input
                 id={"source"}
@@ -200,7 +144,7 @@ export default function BookDialog() {
                 Choose the store for this volume.
               </p>
             </div>
-            <div className={"field"}>
+            <div className={"field purchase-field"}>
               <label htmlFor={"date"}>{"Date bought"}</label>
               <input id={"date"} name={"date"} type={"date"} />
             </div>
@@ -284,28 +228,98 @@ export default function BookDialog() {
                 ></p>
               </div>
             </fieldset>
-            <div className={"field span-2"} data-series-detail>
-              <label htmlFor={"note"}>{"Notes"}</label>
-              <textarea
-                id={"note"}
-                name={"note"}
-                maxLength={2000}
-                placeholder={"Special edition, a gift, a good find…"}
-              ></textarea>
-            </div>
-            <label className={"check span-2"} data-series-detail>
-              <input type={"checkbox"} id={"allowDuplicate"} />
-              {"Another copy of an ISBN already on my shelf"}
-            </label>
-            <label className={"check span-2"} id={"keepAddingLabel"}>
-              <input type={"checkbox"} id={"keepAdding"} />
-              <span id={"keepAddingText"}>
-                {"Keep adding books with the same type, publisher and shop"}
-              </span>
-            </label>
+            <details
+              id="bookExtras"
+              className="book-extras span-2"
+              data-series-detail
+              open
+            >
+              <summary>Cover, notes &amp; duplicate copy</summary>
+              <div className="form-grid">
+                <fieldset
+                  id="metadataManager"
+                  className="metadata-manager span-2"
+                  data-series-detail
+                >
+                  <legend>Cover &amp; publisher</legend>
+                  <div className="field">
+                    <label htmlFor="publisherUrl">Publisher page</label>
+                    <input
+                      id="publisherUrl"
+                      type="url"
+                      maxLength={2000}
+                      placeholder="https://…"
+                    />
+                    <a
+                      id="metadataPublisherLink"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      hidden
+                    >
+                      Open publisher site ↗
+                    </a>
+                  </div>
+                  <div className="cover-editor">
+                    <div id="metadataCoverPreview" />
+                    <div className="field">
+                      <label htmlFor="coverUrl">Cover image URL</label>
+                      <input
+                        id="coverUrl"
+                        type="url"
+                        maxLength={2000}
+                        placeholder="Use automatic cover, or enter an image URL"
+                      />
+                      <p className="hint">
+                        Leave blank to use the automatic cover. New image URLs
+                        are downloaded when you save.
+                      </p>
+                      <button
+                        id="pullPublisherCovers"
+                        className="btn"
+                        type="button"
+                      >
+                        Pull covers
+                      </button>
+                      <p
+                        id="publisherCoversStatus"
+                        className="hint"
+                        role="status"
+                      />
+                    </div>
+                  </div>
+                  <div
+                    id="publisherCoverChoices"
+                    className="cover-choices"
+                    aria-label="Publisher and bookstore cover choices"
+                  />
+                  <p className="hint">
+                    Choose a cover, then save your changes.
+                  </p>
+                </fieldset>
+                <div className={"field span-2"} data-series-detail>
+                  <label htmlFor={"note"}>{"Notes"}</label>
+                  <textarea
+                    id={"note"}
+                    name={"note"}
+                    maxLength={2000}
+                    placeholder={"Special edition, a gift, a good find…"}
+                  ></textarea>
+                </div>
+                <label className={"check span-2"} data-series-detail>
+                  <input type={"checkbox"} id={"allowDuplicate"} />
+                  {"Another copy of an ISBN already on my shelf"}
+                </label>
+              </div>
+            </details>
           </div>
         </div>
-        <div className={"dialog-foot"}>
+        <div className={"dialog-foot book-dialog-foot"}>
+          <label className={"check span-2"} id={"keepAddingLabel"}>
+            <input type={"checkbox"} id={"keepAdding"} />
+            <span id={"keepAddingText"}>
+              {"Keep adding books with the same type, publisher and shop"}
+            </span>
+          </label>
           <button
             id={"removeButton"}
             className={"btn danger"}
@@ -314,7 +328,7 @@ export default function BookDialog() {
           >
             {"Remove book"}
           </button>
-          <div className={"buttons"}>
+          <div className={"buttons book-save-actions"}>
             <button id={"cancelBook"} className={"btn"} type={"button"}>
               {"Cancel"}
             </button>

@@ -22,6 +22,7 @@ interface LibraryElements {
   bookDialogSubtitle: HTMLParagraphElement;
   bookDialogTitle: HTMLHeadingElement;
   bookEdition: HTMLSelectElement;
+  bookExtras: HTMLDetailsElement;
   bookForm: HTMLFormElement;
   bookList: HTMLElement;
   cancelBook: HTMLButtonElement;

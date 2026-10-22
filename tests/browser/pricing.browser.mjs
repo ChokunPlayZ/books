@@ -39,6 +39,7 @@ try {
   await page.locator("#addButton").click();
   await page.locator("#series").fill(marker + " calculated");
   await page.locator("#source").fill("Discount test shop");
+  await page.locator("#priceCalculator > summary").click();
   const base = page.locator("#regularPrice"),
     discount = page.locator("#discount"),
     type = page.locator("#discountType"),
@@ -124,6 +125,7 @@ try {
 
   await page.locator("#keepAdding").uncheck();
   await page.locator("#series").fill(marker + " direct");
+  await page.locator("#priceCalculator > summary").click();
   await base.fill("30");
   await discount.fill("10");
   assert.equal(await sale.inputValue(), "27");
@@ -210,6 +212,7 @@ try {
     () => !document.getElementById("refreshButton").disabled,
   );
   await page.locator("#addButton").click();
+  await page.locator("#priceCalculator > summary").click();
   await base.fill("200");
   await discount.fill("15");
   await page.locator(".purchase-price").scrollIntoViewIfNeeded();
