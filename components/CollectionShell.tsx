@@ -10,6 +10,7 @@ import SeriesCatalogPanel from "./collection/SeriesCatalogPanel";
 import ShelfBrowser from "./collection/ShelfBrowser";
 import ReleasesPanel from "./collection/ReleasesPanel";
 import DiscoveryPanel from "./collection/DiscoveryPanel";
+import AdaptationPanel from "./collection/AdaptationPanel";
 import MissingPanel from "./collection/MissingPanel";
 import StatisticsPanel from "./collection/StatisticsPanel";
 import TitleDialog from "./collection/dialogs/TitleDialog";
@@ -58,6 +59,7 @@ export default function CollectionShell({
             removed={view === "trash"}
           />
         )}
+        {series !== null && <AdaptationPanel series={series} />}
         {series !== null && <SeriesCatalogPanel />}
         {view === "releases" && <ReleasesPanel />}
         {view === "discover" && <DiscoveryPanel />}

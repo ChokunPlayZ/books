@@ -13,6 +13,10 @@ export function restorePagePreferences(view: CollectionView) {
         ] as const)
       : view === "discover"
         ? ([
+            "discoveryMode",
+            "animeBookType",
+            "animeAiring",
+            "animeSeasonSearch",
             "discoveryPreset",
             "discoveryUrl",
             "discoverySearch",

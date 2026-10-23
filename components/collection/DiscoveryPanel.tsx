@@ -1,109 +1,127 @@
+import AnimeSeasonPanel from "./AnimeSeasonPanel";
+
 export default function DiscoveryPanel() {
   return (
-    <section id="discoverPanel" aria-label="Discover publisher titles">
+    <section id="discoverPanel" aria-label="Discover titles">
       <div className="release-heading">
         <div>
           <p className="eyebrow">Something new to love</p>
           <h1>Discover titles</h1>
           <p className="release-note">
-            Find series you haven’t started. One book per title, preferably
-            volume 1.
+            Find your next read in publisher catalogs or this season’s anime.
           </p>
         </div>
         <button id="refreshDiscovery" className="btn">
           Refresh titles
         </button>
       </div>
-      <form id="discoveryForm" className="discovery-source">
-        <label className="field" htmlFor="discoveryPreset">
-          <span>Browse a publisher category</span>
-          <select
-            id="discoveryPreset"
-            defaultValue="https://www.phoenixnext.com/gl.html"
-          >
-            <option value="https://www.phoenixnext.com/book-series.html">
-              Phoenix Next · All titles
-            </option>
-            <option value="https://www.phoenixnext.com/gl.html">
-              Phoenix Next · Girl’s Love
-            </option>
-            <option value="https://www.phoenixnext.com/bl.html">
-              Phoenix Next · Boy’s Love
-            </option>
-            <option value="https://www.phoenixnext.com/manga.html">
-              Phoenix Next · Manga
-            </option>
-            <option value="https://www.phoenixnext.com/light-novel.html">
-              Phoenix Next · Light novels
-            </option>
-            <option value="https://www.firstpagepro.com/">
-              First Page Pro · All titles
-            </option>
-            <option value="https://www.firstpagepro.com/category/22">
-              First Page Pro · Manga (General)
-            </option>
-            <option value="https://www.firstpagepro.com/category/7">
-              First Page Pro · Manga (18+)
-            </option>
-            <option value="https://www.firstpagepro.com/category/63">
-              First Page Pro · Manga (20+)
-            </option>
-            <option value="https://www.yaakz.com/">Yaakz · New arrivals</option>
-            <option value="https://yenpress.com/">
-              Yen Press · All titles
-            </option>
-            <option value="">Another category URL</option>
-          </select>
-        </label>
-        <label className="field discovery-url" htmlFor="discoveryUrl">
-          <span>Publisher category URL</span>
-          <input
-            id="discoveryUrl"
-            type="url"
-            required
-            defaultValue="https://www.phoenixnext.com/gl.html"
-            placeholder="Publisher catalog or series URL"
-          />
-        </label>
-        <button id="loadDiscovery" className="btn primary" type="submit">
-          Load titles
-        </button>
-      </form>
-      <p className="release-note">
-        Titles come from the publisher’s catalog. Any series already on your
-        shelf is hidden.
-      </p>
-      <div id="discoveryError" className="banner" role="alert" hidden></div>
-      <div id="discoverySource" className="discovery-status"></div>
-      <div className="toolbar release-filters">
-        <div className="search">
-          <svg aria-hidden="true">
-            <use href="#i-search" />
-          </svg>
-          <label htmlFor="discoverySearch" className="sr-only">
-            Search titles or look up a publisher ISBN
-          </label>
-          <input
-            id="discoverySearch"
-            type="search"
-            placeholder="Search titles or enter an ISBN…"
-          />
-        </div>
-        <label htmlFor="discoveryType" className="sr-only">
-          Title type
-        </label>
-        <select id="discoveryType">
-          <option value="">All types</option>
-          <option value="Manga">Manga</option>
-          <option value="LN">Light novels (LN)</option>
+      <label className="field discovery-mode" htmlFor="discoveryMode">
+        <span>Browse</span>
+        <select
+          id="discoveryMode"
+          aria-controls="publisherDiscovery seasonalDiscovery"
+        >
+          <option value="publisher">Publisher catalogs</option>
+          <option value="anime">
+            Current anime season · Manga & light novels
+          </option>
         </select>
+      </label>
+      <AnimeSeasonPanel />
+      <div id="publisherDiscovery">
+        <form id="discoveryForm" className="discovery-source">
+          <label className="field" htmlFor="discoveryPreset">
+            <span>Browse a publisher category</span>
+            <select
+              id="discoveryPreset"
+              defaultValue="https://www.phoenixnext.com/gl.html"
+            >
+              <option value="https://www.phoenixnext.com/book-series.html">
+                Phoenix Next · All titles
+              </option>
+              <option value="https://www.phoenixnext.com/gl.html">
+                Phoenix Next · Girl’s Love
+              </option>
+              <option value="https://www.phoenixnext.com/bl.html">
+                Phoenix Next · Boy’s Love
+              </option>
+              <option value="https://www.phoenixnext.com/manga.html">
+                Phoenix Next · Manga
+              </option>
+              <option value="https://www.phoenixnext.com/light-novel.html">
+                Phoenix Next · Light novels
+              </option>
+              <option value="https://www.firstpagepro.com/">
+                First Page Pro · All titles
+              </option>
+              <option value="https://www.firstpagepro.com/category/22">
+                First Page Pro · Manga (General)
+              </option>
+              <option value="https://www.firstpagepro.com/category/7">
+                First Page Pro · Manga (18+)
+              </option>
+              <option value="https://www.firstpagepro.com/category/63">
+                First Page Pro · Manga (20+)
+              </option>
+              <option value="https://www.yaakz.com/">
+                Yaakz · New arrivals
+              </option>
+              <option value="https://yenpress.com/">
+                Yen Press · All titles
+              </option>
+              <option value="">Another category URL</option>
+            </select>
+          </label>
+          <label className="field discovery-url" htmlFor="discoveryUrl">
+            <span>Publisher category URL</span>
+            <input
+              id="discoveryUrl"
+              type="url"
+              required
+              defaultValue="https://www.phoenixnext.com/gl.html"
+              placeholder="Publisher catalog or series URL"
+            />
+          </label>
+          <button id="loadDiscovery" className="btn primary" type="submit">
+            Load titles
+          </button>
+        </form>
+        <p className="release-note">
+          Titles come from the publisher’s catalog. Any series already on your
+          shelf is hidden.
+        </p>
+        <div id="discoveryError" className="banner" role="alert" hidden></div>
+        <div id="discoverySource" className="discovery-status"></div>
+        <div className="toolbar release-filters">
+          <div className="search">
+            <svg aria-hidden="true">
+              <use href="#i-search" />
+            </svg>
+            <label htmlFor="discoverySearch" className="sr-only">
+              Search titles or look up a publisher ISBN
+            </label>
+            <input
+              id="discoverySearch"
+              type="search"
+              placeholder="Search titles or enter an ISBN…"
+            />
+          </div>
+          <label htmlFor="discoveryType" className="sr-only">
+            Title type
+          </label>
+          <select id="discoveryType">
+            <option value="">All types</option>
+            <option value="Manga">Manga</option>
+            <option value="LN">Light novels (LN)</option>
+          </select>
+        </div>
+        <p className="hint">
+          Enter an ISBN to search the full Phoenix Next or First Page Pro
+          catalog. ISBN searches also include series already on your shelf.
+        </p>
+        <p id="discoveryCount" className="release-note" role="status"></p>
+        <div id="discoveryList" className="discovery-grid"></div>
       </div>
-      <p className="hint">
-        Enter an ISBN to search the full Phoenix Next or First Page Pro catalog.
-        ISBN searches also include series already on your shelf.
-      </p>
-      <p id="discoveryCount" className="release-note" role="status"></p>
-      <div id="discoveryList" className="discovery-grid"></div>
     </section>
   );
 }

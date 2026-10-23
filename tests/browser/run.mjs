@@ -203,7 +203,7 @@ try {
   await page.getByRole("status").waitFor();
   await page.getByRole("link", { name: "Open your shelf" }).click();
   await page.waitForFunction(
-    () => !document.getElementById("addButton").disabled,
+    () => document.getElementById("addButton")?.disabled === false,
   );
   assert.equal(await page.locator("#bookCount").textContent(), "150");
   await page.locator("#search").fill("Bocchi");
@@ -425,6 +425,10 @@ try {
     await start("infinite-scroll", {
       BOOKS_ALLOW_UNAUTHENTICATED: "true",
     }),
+  );
+  await runBrowserScenario(
+    "anime.browser.mjs",
+    await start("anime", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
   );
   await runBrowserScenario(
     "discovery.browser.mjs",

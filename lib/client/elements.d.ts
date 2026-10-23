@@ -1,4 +1,25 @@
 interface LibraryElements {
+  discoveryMode: HTMLSelectElement;
+  publisherDiscovery: HTMLDivElement;
+  seasonalDiscovery: HTMLElement;
+  refreshAnimeSeason: HTMLButtonElement;
+  animeSeason: HTMLSelectElement;
+  animeYear: HTMLInputElement;
+  animeBookType: HTMLSelectElement;
+  animeAiring: HTMLSelectElement;
+  animeSeasonSearch: HTMLInputElement;
+  animeSeasonError: HTMLDivElement;
+  animeSeasonStatus: HTMLParagraphElement;
+  animeSeasonList: HTMLDivElement;
+  adaptationPanel: HTMLDetailsElement;
+  adaptationSummary: HTMLSpanElement;
+  adaptationForm: HTMLFormElement;
+  adaptationSearch: HTMLInputElement;
+  adaptationType: HTMLSelectElement;
+  findAdaptations: HTMLButtonElement;
+  adaptationError: HTMLDivElement;
+  adaptationStatus: HTMLParagraphElement;
+  adaptationList: HTMLDivElement;
   toggleSelection: HTMLButtonElement;
   bulkActions: HTMLDivElement;
   selectionCount: HTMLSpanElement;

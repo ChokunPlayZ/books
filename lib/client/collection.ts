@@ -6,6 +6,7 @@ import { createBulkSelection } from "./bulk-selection.ts";
 import { createPublisherIsbnSearch } from "./publisher-isbn-search.ts";
 import { createSeriesEditor } from "./series-editor.ts";
 import { createMissingBrowser } from "./missing.ts";
+import { createAnimeBrowser } from "./anime.ts";
 import { shelfCoverBook, coverTint } from "../domain/shelf.ts";
 import { seriesPath, type CollectionView } from "../domain/navigation.ts";
 import type { StoredBook } from "../types.ts";
@@ -120,6 +121,14 @@ export function mountCollection({
       renderReleases();
     },
   });
+  const animeBrowser = createAnimeBrowser({
+    rpc,
+    signal: events.signal,
+    books: () => state.data?.books || [],
+    addBook: (defaults) => openBook(null, defaults),
+    loadPublisher: () => void loadDiscovery(),
+    savePreferences: savePagePreferences,
+  });
 
   function errorAt(id, error) {
     const e = $(id);
@@ -196,6 +205,7 @@ export function mountCollection({
         }) +
         " · Saved in your library";
       render();
+      animeBrowser.update();
       if (state.view === "missing") {
         const catalogs = missingBrowser.loadCatalogs(refreshMissingCatalogs);
         if (refreshMissingCatalogs) await catalogs;
@@ -3952,7 +3962,7 @@ export function mountCollection({
   void load()
     .then(() => {
       if (view === "releases") void loadReleases();
-      if (view === "discover") void loadDiscovery();
+      animeBrowser.start();
     })
     .catch(() => {});
 
@@ -3966,6 +3976,7 @@ export function mountCollection({
     releaseList?.dispose();
     discoveryList?.dispose();
     missingBrowser?.dispose();
+    animeBrowser.dispose();
     stopScanner();
     coverObserver.disconnect();
     titleObserver.disconnect();
