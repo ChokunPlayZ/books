@@ -8,6 +8,7 @@ import { createSeriesEditor } from "./series-editor.ts";
 import { createMissingBrowser } from "./missing.ts";
 import { shelfCoverBook, coverTint } from "../domain/shelf.ts";
 import { seriesPath, type CollectionView } from "../domain/navigation.ts";
+import type { StoredBook } from "../types.ts";
 import { createScanner } from "./scanner.ts";
 import { canonicalIsbn as canonical } from "../domain/isbn.ts";
 import { kinokuniyaSearchUrl } from "../domain/urls.ts";
@@ -25,9 +26,11 @@ import {
 export function mountCollection({
   view,
   series,
+  onBooksChange,
 }: {
   view: CollectionView;
   series: string | null;
+  onBooksChange?: (books: StoredBook[]) => void;
 }) {
   const events = new AbortController();
   const FIELDS = [
@@ -394,6 +397,10 @@ export function mountCollection({
     $("activeCount").textContent = number(books.length);
     $("trashCount").textContent = number(trash.length);
     $("trashCount").hidden = !trash.length;
+    if (state.view === "stats") {
+      onBooksChange?.(books);
+      return;
+    }
     if ($("collectionStats")) {
       $("bookCount").textContent = number(books.length);
       $("seriesCount").textContent = number(

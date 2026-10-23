@@ -7,6 +7,7 @@ const paths = {
   missing: "M4 4h6v16H4zM14 4h6v4M20 12v4M20 20h-6v-4M14 12V8",
   check: "m5 12 4 4L19 6",
   wallet: "M20 7H4V4h14v3M4 7v13h16V7M20 11h-6v5h6",
+  chart: "M4 3v17h17M8 16v-5M13 16V7M18 16V4",
   spark: "m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z",
   compass: "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM16 8l-2 6-6 2 2-6Z",
   archive: "M4 4h16v4H4zM5 8v12h14V8M10 12h4",

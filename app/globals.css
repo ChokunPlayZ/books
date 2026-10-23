@@ -15,6 +15,7 @@
 @import "./styles/responsive.css" layer(components);
 @import "./styles/shelf.css" layer(components);
 @import "./styles/missing.css" layer(components);
+@import "./styles/statistics.css" layer(components);
 @source "../components";
 @source "../lib/client";
 

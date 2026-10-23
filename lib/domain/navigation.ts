@@ -1,11 +1,12 @@
 export type CollectionView =
-  "collection" | "missing" | "releases" | "discover" | "trash";
+  "collection" | "missing" | "releases" | "discover" | "stats" | "trash";
 
 export const collectionPaths: Record<CollectionView, string> = {
   collection: "/",
   missing: "/missing",
   releases: "/releases",
   discover: "/discover",
+  stats: "/stats",
   trash: "/removed",
 };
 

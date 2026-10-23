@@ -57,6 +57,15 @@ export default function CollectionTabs({
         <span className="tab-label">Discover titles</span>
       </a>
       <a
+        id="statsTab"
+        className={"tab" + (view === "stats" ? " active" : "")}
+        href={collectionPaths.stats}
+        aria-current={view === "stats" ? "page" : undefined}
+      >
+        <Icon name="chart" />
+        <span className="tab-label">Statistics</span>
+      </a>
+      <a
         id="trashTab"
         className={"tab" + (view === "trash" ? " active" : "")}
         href={collectionPaths.trash}

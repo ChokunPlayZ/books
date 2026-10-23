@@ -120,6 +120,7 @@
 }
 
 .tabs {
+  flex-wrap: wrap;
   gap: 6px;
   padding: 0 0 14px;
   margin: 0 0 24px;

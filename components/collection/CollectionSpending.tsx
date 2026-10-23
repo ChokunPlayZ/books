@@ -44,6 +44,10 @@ export default function CollectionSpending() {
           </div>
         </div>
       </details>
+      <a className="btn spending-stats-link" href="/stats">
+        <Icon name="chart" />
+        Explore spending trends
+      </a>
       <div className="shelf-note">
         <Icon name="book" />
         <p>One volume at a time.</p>

@@ -133,6 +133,9 @@ try {
   const bookmarkContext = await browser.newContext();
   const bookmark = await bookmarkContext.newPage();
   const bookmarkedPath = seriesPath("Bookmarked title");
+  await bookmark.goto(url + "/stats");
+  await bookmark.waitForURL("**/login?returnTo=*");
+  assert.equal(new URL(bookmark.url()).searchParams.get("returnTo"), "/stats");
   await bookmark.goto(url + "/missing");
   await bookmark.waitForURL("**/login?returnTo=*");
   assert.equal(
@@ -359,6 +362,10 @@ try {
   );
   console.log(
     "PASS protected cover endpoint, private caching, ETags and image persistence across server processes",
+  );
+  await runBrowserScenario(
+    "statistics.browser.mjs",
+    await start("statistics", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
   );
   await runBrowserScenario(
     "missing.browser.mjs",

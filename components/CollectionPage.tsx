@@ -31,7 +31,7 @@ export default async function CollectionPage({
   return (
     <>
       <CollectionShell view={view} series={series} data={data} />
-      <CollectionController view={view} series={series} />
+      {view !== "stats" && <CollectionController view={view} series={series} />}
     </>
   );
 }
