@@ -115,6 +115,43 @@ textarea {
   @apply block;
 }
 
+.book-preview {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  white-space: normal;
+}
+
+.preview-cover {
+  width: 80px;
+  height: 112px;
+  flex-shrink: 0;
+}
+
+.book-preview-info {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.book-preview-name {
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.book-preview-volume {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.lookup-message {
+  margin: 12px 0 0;
+}
+
+.lookup-message:first-child {
+  margin-top: 0;
+}
+
 .isbn-lookup-status {
   display: flex;
   align-items: center;

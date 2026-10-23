@@ -360,10 +360,15 @@
   border-radius: 8px;
   padding: 13px 14px;
   margin-top: 10px;
-  @apply flex;
-  @apply justify-between;
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
   @apply items-center;
   gap: 12px;
+}
+
+.ownership-book .ownership-cover {
+  width: 54px;
+  height: 76px;
 }
 
 .ownership-book h3 {
@@ -480,9 +485,10 @@
     flex: 1;
   }
   .ownership-book {
-    @apply flex-wrap;
+    grid-template-columns: 54px minmax(0, 1fr);
   }
   .ownership-book .btn {
+    grid-column: 1 / -1;
     @apply w-full;
   }
   .store-foot {

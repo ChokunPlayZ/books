@@ -207,7 +207,9 @@ try {
   await page.waitForFunction(
     () =>
       !document.getElementById("bookDialog").open &&
-      !window.bookCollection?.state.busy,
+      !window.bookCollection?.state.busy &&
+      document.querySelectorAll("#seriesReleaseList .release-card").length ===
+        1,
   );
   assert.equal(await missing.count(), 1);
   assert.match(await missing.textContent(), /Volume 7/);

@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { testUrl } from "../helpers/browser.mjs";
 import { openStore } from "../../lib/server/store.ts";
-import { createCatalogService } from "../../lib/server/catalogs.ts";
+import { createApplicationApi } from "../../lib/server/api.ts";
+import { createCoverService, coverDigest } from "../../lib/server/covers.ts";
 
 const isbn = "9786164897397";
 const series = "พาร์เฟ่ต์แลกรัก ของคุณซัคคิวบัสเกินต้าน";
@@ -14,7 +15,15 @@ const fixture = (name) =>
     "utf8",
   );
 const store = openStore(":memory:");
-const service = createCatalogService(store, async (url) => {
+const coverBytes = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
+  "base64",
+);
+const coverId = coverDigest(coverBytes);
+const covers = createCoverService(store, {
+  fetchImpl: async () => new Response(coverBytes),
+});
+const service = createApplicationApi(store, covers, async (url) => {
   if (url.includes("naiin.com"))
     return new Response('<product-list :items="[]">');
   if (url.includes("yaakz.com")) return new Response('{"data":[],"total":0}');
@@ -49,10 +58,13 @@ try {
     window.ZXingWASM = { readBarcodes: async () => [{ text: isbn }] };
   }, isbn);
   await page.route("https://cdn.jsdelivr.net/**", (route) => route.abort());
+  await page.route("**/api/covers/" + coverId, (route) =>
+    route.fulfill({ body: coverBytes, contentType: "image/png" }),
+  );
   await page.route("**/api/rpc", async (route) => {
     const request = route.request().postDataJSON();
     if (request.name === "getBookCover")
-      return route.fulfill({ json: { row: request.arg.row, coverUrl: "" } });
+      return route.fulfill({ json: { row: request.arg.row, coverId } });
     if (request.name === "lookupIsbn") {
       lookups.push(request.arg);
       return route.fulfill({ json: await service.lookupIsbn(request.arg) });
@@ -61,6 +73,31 @@ try {
   });
   await page.goto(testUrl);
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
+  await page.locator("#checkBookButton").click();
+  await page.locator("#checkScanButton").click();
+  await page
+    .locator("#chooseBarcodePhoto")
+    .setInputFiles(
+      fileURLToPath(new URL("../isbn-photo.png", import.meta.url)),
+    );
+  await page.locator("#ownershipResult .book-preview").waitFor();
+  assert.match(
+    await page.locator("#ownershipResult .book-preview-name").textContent(),
+    new RegExp(series),
+  );
+  assert.equal(
+    await page.locator("#ownershipResult .book-preview-volume").textContent(),
+    "Volume 3",
+  );
+  assert.equal(
+    await page.locator("#ownershipResult img").getAttribute("src"),
+    "/api/covers/" + coverId,
+  );
+  assert.match(
+    await page.locator("#ownershipResult .ownership-status").textContent(),
+    /No ISBN match/,
+  );
+  await page.locator("#doneCheck").click();
   await page.locator("#addButton").click();
   await page.locator("#scanButton").click();
   await page
@@ -73,7 +110,7 @@ try {
       .getElementById("lookupResult")
       .textContent.includes("Suggested by First Page Pro"),
   );
-  assert.deepEqual(lookups, [isbn]);
+  assert.deepEqual(lookups, [isbn, isbn]);
   assert.equal(
     await page.locator("#scanDialog").evaluate((dialog) => dialog.open),
     false,
@@ -86,6 +123,38 @@ try {
   assert.equal(await page.locator("#source").inputValue(), "");
   assert.equal(await page.locator("#isbn").isVisible(), false);
   assert.equal(await page.locator("#volume").isVisible(), false);
+  assert.equal(
+    await page.locator("#lookupResult .book-preview-volume").textContent(),
+    "Volume 3",
+  );
+  assert.equal(
+    await page.locator("#lookupResult .book-preview-volume").isVisible(),
+    true,
+  );
+  assert.match(
+    await page.locator("#lookupResult .book-preview-name").textContent(),
+    new RegExp(series),
+  );
+  await page.waitForFunction(() => {
+    const image = document.querySelector("#lookupResult img");
+    return image?.complete && image.naturalWidth > 0;
+  });
+  assert.equal(
+    await page.locator("#lookupResult img").getAttribute("src"),
+    "/api/covers/" + coverId,
+  );
+  assert.equal(await page.locator("#lookupResult img").isVisible(), true);
+  assert.equal(
+    await page
+      .locator("#bookDialog")
+      .evaluate((dialog) => dialog.scrollWidth <= dialog.clientWidth),
+    true,
+  );
+  await page.screenshot({
+    path: fileURLToPath(
+      new URL("../../outputs/next-scan-result-phone.png", import.meta.url),
+    ),
+  });
   assert.equal(await page.locator("#regularPrice").inputValue(), "180");
   await page.locator("#toggleLookupDetails").click();
   assert.equal(
@@ -119,6 +188,24 @@ try {
   assert.equal(saved.publisher, "First Page Pro");
   assert.equal(saved.source, "");
   assert.equal(saved.price, "");
+  await page.locator("#checkBookButton").click();
+  await page.locator("#checkScanButton").click();
+  await page
+    .locator("#chooseBarcodePhoto")
+    .setInputFiles(
+      fileURLToPath(new URL("../isbn-photo.png", import.meta.url)),
+    );
+  await page.locator("#ownershipResult .ownership-book img").waitFor();
+  assert.match(
+    await page.locator("#ownershipResult .ownership-book").textContent(),
+    /Volume 3/,
+  );
+  assert.equal(
+    await page.locator("#ownershipResult img").getAttribute("src"),
+    "/api/covers/" + coverId,
+  );
+  assert.deepEqual(lookups, [isbn, isbn]);
+  await page.locator("#doneCheck").click();
   assert.deepEqual(errors, []);
   console.log(
     "PASS scanned ISBN 9786164897397 uses verified First Page Pro metadata, fills the correct edition and persists after saving",
@@ -139,7 +226,7 @@ try {
       .getElementById("lookupResult")
       .textContent.includes("Suggested by Phoenix Next"),
   );
-  assert.deepEqual(lookups, [isbn, phoenixIsbn]);
+  assert.deepEqual(lookups, [isbn, isbn, phoenixIsbn]);
   assert.equal(await page.locator("#isbn").inputValue(), phoenixIsbn);
   assert.equal(
     await page.locator("#series").inputValue(),
@@ -148,6 +235,10 @@ try {
   assert.equal(await page.locator("#type").inputValue(), "LN (TH)");
   assert.equal(await page.locator("#publisher").inputValue(), "Phoenix Next");
   assert.equal(await page.locator("#volume").inputValue(), "");
+  assert.equal(
+    await page.locator("#lookupResult .book-preview-volume").textContent(),
+    "Volume not provided",
+  );
   assert.equal(await page.locator("#price").inputValue(), "");
   assert.equal(await page.locator("#source").inputValue(), "");
   await page.locator("#toggleLookupDetails").click();

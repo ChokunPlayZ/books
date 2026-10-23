@@ -1904,6 +1904,31 @@ export function mountCollection({
     if (!book.coverId) coverObserver.observe(frame);
     return frame;
   }
+  function bookPreview(details: {
+    title?: string;
+    series?: string;
+    volume?: number | string;
+    coverId?: string;
+  }) {
+    const title = details.title || details.series || "Untitled book",
+      preview = node("div", "book-preview"),
+      info = node("div", "book-preview-info"),
+      cover = coverImage(details.coverId, title, "preview-cover");
+    const image = cover.querySelector("img");
+    if (image) image.loading = "eager";
+    info.append(
+      node("strong", "book-preview-name", title),
+      node(
+        "p",
+        "book-preview-volume",
+        details.volume !== "" && details.volume != null
+          ? "Volume " + details.volume
+          : "Volume not provided",
+      ),
+    );
+    preview.append(cover, info);
+    return preview;
+  }
   function refreshVisibleCovers() {
     document.querySelectorAll(".shelf-cover").forEach((frame) => {
       const book = frame._book;
@@ -2640,8 +2665,10 @@ export function mountCollection({
     renderBookDetails();
     $("lookupResult").hidden = false;
     $("lookupResult").replaceChildren(
-      node("strong", "", item.title),
-      document.createTextNode(
+      bookPreview(item),
+      node(
+        "p",
+        "lookup-message",
         "Review this edition and enter the amount you paid before saving. " +
           (item.searchedIsbn
             ? "ISBN " +
@@ -2771,6 +2798,8 @@ export function mountCollection({
       );
       container.hidden = false;
       renderManualCheck();
+      if (!result.matches.length)
+        void loadCheckedBook(result.isbn, generation, container);
     } catch (error) {
       if (generation === state.checkGeneration)
         errorAt(
@@ -2783,6 +2812,29 @@ export function mountCollection({
         $("checkIsbnButton").disabled = false;
         $("checkIsbnButton").textContent = "Check";
       }
+    }
+  }
+  async function loadCheckedBook(
+    isbn: string,
+    generation: number,
+    container: HTMLElement,
+  ) {
+    const preview = node(
+      "div",
+      "lookup ownership-preview",
+      "Looking up book details…",
+    );
+    container.prepend(preview);
+    try {
+      const result = await rpc("lookupIsbn", isbn);
+      if (generation !== state.checkGeneration || !$("checkDialog")?.open)
+        return;
+      if (result.found) preview.replaceChildren(bookPreview(result.details));
+      else preview.textContent = "No book details found for this ISBN.";
+    } catch {
+      if (generation === state.checkGeneration && $("checkDialog")?.open)
+        preview.textContent =
+          "Book details are unavailable. You can still search your shelf below.";
     }
   }
   function ownershipBook(book, canLink) {
@@ -2809,7 +2861,7 @@ export function mountCollection({
           .join(" · "),
       ),
     );
-    card.append(info);
+    card.append(bookCover(book, "shelf-cover ownership-cover"), info);
     const button = node(
       "button",
       "btn",
@@ -3169,9 +3221,8 @@ export function mountCollection({
       if (result.found) {
         const d = result.details;
         message =
-          d.title +
-          (d.authors ? "\n" + d.authors : "") +
-          "\nSuggested by " +
+          (d.authors ? d.authors + "\n" : "") +
+          "Suggested by " +
           d.source +
           ".";
         if (!initialSeries && !$("series").value)
@@ -3198,7 +3249,9 @@ export function mountCollection({
             .join(", ") +
           ".";
       $("lookupResult").hidden = false;
-      $("lookupResult").textContent = message;
+      $("lookupResult").replaceChildren();
+      if (result.found) $("lookupResult").append(bookPreview(result.details));
+      $("lookupResult").append(node("p", "lookup-message", message));
       const searchLinks = node("div");
       searchLinks.setAttribute("data-lookup-detail", "");
       if (result.searchUrl) {
