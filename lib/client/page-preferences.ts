@@ -15,6 +15,7 @@ export function restorePagePreferences(view: CollectionView) {
         ? ([
             "discoveryMode",
             "animeBookType",
+            "animeTranslation",
             "animeAiring",
             "animeSeasonSearch",
             "discoveryPreset",

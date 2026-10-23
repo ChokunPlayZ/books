@@ -5,17 +5,22 @@ import {
   animeSeasonLabel,
   animeStatus,
   animeTitleKey,
+  animeCatalogTitleKeys,
   type AnimeMedia,
   type AdaptationFeed,
-  type SeasonalFeed,
+  type SeasonalThaiFeed,
+  type ThaiAnimeEdition,
 } from "../domain/anime.ts";
-import type { StoredBook } from "../types.ts";
+import { canonicalIsbn } from "../domain/isbn.ts";
+import { publisherKey } from "../domain/urls.ts";
+import type { Release, StoredBook } from "../types.ts";
 
 type Bindings = {
   rpc: (name: string, arg?: unknown) => Promise<unknown>;
   signal: AbortSignal;
   books: () => StoredBook[];
   addBook: (defaults: { series: string; type: string }) => void;
+  addEdition: (item: Release) => void;
   loadPublisher: () => void;
   savePreferences: () => void;
 };
@@ -62,10 +67,11 @@ export function createAnimeBrowser({
   signal,
   books,
   addBook,
+  addEdition,
   loadPublisher,
   savePreferences,
 }: Bindings) {
-  let seasonFeed: SeasonalFeed | null = null;
+  let seasonFeed: SeasonalThaiFeed | null = null;
   let seasonGeneration = 0,
     adaptationGeneration = 0;
   let ready = false;
@@ -82,14 +88,85 @@ export function createAnimeBrowser({
     );
   }
 
+  function thaiOwnership(media: AnimeMedia, edition: Release) {
+    const titles = new Set([
+      ...media.titles.flatMap((title) => [...animeCatalogTitleKeys(title)]),
+      ...animeCatalogTitleKeys(edition.series),
+    ]);
+    const isbn = canonicalIsbn(edition.isbn);
+    return books().find(
+      (book) =>
+        (isbn && canonicalIsbn(book.isbn) === isbn) ||
+        (book.type === edition.type &&
+          publisherKey(book.publisher) === publisherKey(edition.publisher) &&
+          [...animeCatalogTitleKeys(book.series)].some((title) =>
+            titles.has(title),
+          )),
+    );
+  }
+
+  function thaiEdition(media: AnimeMedia, edition: ThaiAnimeEdition) {
+    const { item } = edition;
+    const row = node("div", "anime-thai-edition");
+    row.append(
+      node("p", "release-match", "Thai edition"),
+      node("h4", "", item.series),
+    );
+    row.append(
+      node(
+        "p",
+        "release-meta",
+        [
+          item.publisher,
+          item.type === "LN (TH)" ? "Light novel · Thai" : "Manga · Thai",
+          item.volume !== "" ? "Volume " + item.volume : "",
+          item.availability,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      ),
+    );
+    row.append(link("Publisher book page ↗", item.url));
+    row.append(
+      node(
+        "p",
+        "hint",
+        `Matched by ${edition.matchedBy}: ${edition.matchedTitle}. ${edition.stale ? "Previous check" : "Checked"} ${new Date(edition.checkedAt).toLocaleDateString()}.`,
+      ),
+    );
+    const actions = node("div", "anime-actions");
+    const owned = thaiOwnership(media, item);
+    if (owned) {
+      const view = node("a", "btn", "On your shelf · View series");
+      view.href = seriesPath(owned.series);
+      actions.append(view);
+    }
+    const add = node(
+      "button",
+      "btn" + (owned ? "" : " primary"),
+      "Add Thai edition",
+    );
+    add.type = "button";
+    add.addEventListener(
+      "click",
+      () => addEdition({ ...item, series: owned?.series || item.series }),
+      { signal },
+    );
+    actions.append(add);
+    row.append(actions);
+    return row;
+  }
+
   function renderSeason() {
     if (!$("animeSeasonList")) return;
     seasonalList ??= createInfiniteList($("animeSeasonList"));
     const query = $("animeSeasonSearch").value.trim().toLocaleLowerCase();
     const type = $("animeBookType").value,
-      status = $("animeAiring").value;
+      status = $("animeAiring").value,
+      translation = $("animeTranslation").value;
     const items = (seasonFeed?.items || []).flatMap((item) => {
       if (type && item.book.kind !== type) return [];
+      if (translation === "available" && !item.thaiEditions.length) return [];
       const appearances = item.appearances.filter(
         (entry) => !status || entry.anime.status === status,
       );
@@ -97,6 +174,11 @@ export function createAnimeBrowser({
       const titles = [
         ...item.book.titles,
         ...appearances.flatMap((entry) => entry.anime.titles),
+        ...item.thaiEditions.flatMap((edition) => [
+          edition.item.series,
+          edition.item.title,
+          edition.item.publisher,
+        ]),
       ]
         .join(" ")
         .toLocaleLowerCase();
@@ -132,6 +214,19 @@ export function createAnimeBrowser({
           appearances.append(row);
         }
         card.append(appearances);
+        if (item.thaiEditions.length) {
+          item.thaiEditions.forEach((edition) =>
+            card.append(thaiEdition(item.book, edition)),
+          );
+          return card;
+        }
+        card.append(
+          node(
+            "p",
+            "hint",
+            "No Thai edition matched in the checked catalogs. Try the publisher’s site or choose your edition manually.",
+          ),
+        );
         const actions = node("div", "anime-actions"),
           owned = ownership(item.book);
         if (owned) {
@@ -174,20 +269,23 @@ export function createAnimeBrowser({
           query,
           type,
           status,
+          translation,
         ]),
         label: "books",
       },
     );
     if (!seasonFeed) return;
     $("animeSeasonStatus").textContent =
-      `${animeSeasonLabel(seasonFeed.season, seasonFeed.year)} · ${items.length} books · ${seasonFeed.stale ? "Previous check" : "Checked"} ${new Date(seasonFeed.checkedAt).toLocaleString()}` +
+      `${animeSeasonLabel(seasonFeed.season, seasonFeed.year)} · ${items.length} ${items.length === 1 ? "book" : "books"} · ${items.filter((item) => item.thaiEditions.length).length} with Thai editions · AniList ${seasonFeed.stale ? "Previous check" : "checked"} ${new Date(seasonFeed.checkedAt).toLocaleString()}` +
       (seasonFeed.warning ? " · " + seasonFeed.warning : "");
     if (!items.length)
       $("animeSeasonList").append(
         node(
           "p",
           "empty",
-          "No linked books match these filters. Try another type, status, search or season.",
+          translation === "available"
+            ? "No matched Thai editions for these filters. Try All linked books, another search or season. Check catalog coverage above for unavailable sources."
+            : "No linked books match these filters. Try another type, status, search or season.",
         ),
       );
   }
@@ -200,17 +298,38 @@ export function createAnimeBrowser({
     seasonFeed = null;
     renderSeason();
     $("animeSeasonError").hidden = true;
-    $("animeSeasonStatus").textContent = "Checking this season on AniList…";
+    $("animeThaiSources").replaceChildren();
+    $("animeSeasonStatus").textContent =
+      "Checking seasonal anime and matching Thai publisher catalogs…";
     $("animeSeasonList").setAttribute("aria-busy", "true");
     $("refreshAnimeSeason").disabled = true;
     try {
-      const result = (await rpc("getSeasonalAnimeBooks", {
+      const result = (await rpc("getSeasonalThaiBooks", {
         season,
         year,
         refresh,
-      })) as SeasonalFeed;
+      })) as SeasonalThaiFeed;
       if (signal.aborted || generation !== seasonGeneration) return;
       seasonFeed = result;
+      for (const source of result.thaiSources) {
+        const row = node("p", "hint");
+        row.append(link(source.publisher + " ↗", source.url));
+        row.append(
+          document.createTextNode(
+            " · " +
+              (source.error ||
+                (source.stale
+                  ? "Previous check"
+                  : source.complete
+                    ? "Catalog checked"
+                    : "Incomplete check")) +
+              (source.checkedAt
+                ? " · " + new Date(source.checkedAt).toLocaleString()
+                : ""),
+          ),
+        );
+        $("animeThaiSources").append(row);
+      }
       renderSeason();
     } catch (error) {
       if (signal.aborted || generation !== seasonGeneration) return;
@@ -330,16 +449,22 @@ export function createAnimeBrowser({
       { signal },
     ),
   );
-  (["animeBookType", "animeAiring", "animeSeasonSearch"] as const).forEach(
-    (id) =>
-      $(id)?.addEventListener(
-        id === "animeSeasonSearch" ? "input" : "change",
-        () => {
-          renderSeason();
-          savePreferences();
-        },
-        { signal },
-      ),
+  (
+    [
+      "animeBookType",
+      "animeTranslation",
+      "animeAiring",
+      "animeSeasonSearch",
+    ] as const
+  ).forEach((id) =>
+    $(id)?.addEventListener(
+      id === "animeSeasonSearch" ? "input" : "change",
+      () => {
+        renderSeason();
+        savePreferences();
+      },
+      { signal },
+    ),
   );
   $("refreshAnimeSeason")?.addEventListener(
     "click",

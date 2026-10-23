@@ -126,6 +126,14 @@ export function mountCollection({
     signal: events.signal,
     books: () => state.data?.books || [],
     addBook: (defaults) => openBook(null, defaults),
+    addEdition: (item) => {
+      if (state.busy) return;
+      openRelease(item, releaseMatches(item));
+      $("publisherUrl").value = item.url;
+      $("coverUrl").value = item.coverUrl || "";
+      state.selectedCoverId = item.coverId || "";
+      renderMetadataCover();
+    },
     loadPublisher: () => void loadDiscovery(),
     savePreferences: savePagePreferences,
   });

@@ -1,3 +1,6 @@
+import type { Release } from "../types.ts";
+import { bookSeriesTitle, seriesCategoryTitle } from "./title-normalization.ts";
+
 export const ANIME_SEASONS = ["WINTER", "SPRING", "SUMMER", "FALL"] as const;
 export type AnimeSeason = (typeof ANIME_SEASONS)[number];
 
@@ -33,6 +36,27 @@ export type SeasonalFeed = AnimeFeed<SeasonalBook> & {
   season: AnimeSeason;
   year: number;
 };
+export type ThaiAnimeEdition = {
+  item: Release;
+  matchedTitle: string;
+  matchedBy: "title" | "catalog URL";
+  checkedAt: string;
+  stale: boolean;
+};
+export type SeasonalThaiBook = SeasonalBook & {
+  thaiEditions: ThaiAnimeEdition[];
+};
+export type SeasonalThaiFeed = Omit<SeasonalFeed, "items"> & {
+  items: SeasonalThaiBook[];
+  thaiSources: {
+    publisher: string;
+    url: string;
+    checkedAt: string;
+    stale: boolean;
+    complete: boolean;
+    error: string;
+  }[];
+};
 
 export function currentAnimeSeason(date = new Date()) {
   return {
@@ -56,6 +80,76 @@ export function animeTitleKey(value: string) {
     .normalize("NFKC")
     .toLocaleLowerCase()
     .replace(/[^\p{L}\p{M}\p{N}]/gu, "");
+}
+
+// Compare whole aliases, including bilingual publisher labels. Never use a
+// substring match: sequels, spin-offs and similarly named books stay separate.
+export function animeCatalogTitleKeys(value: string) {
+  const title = seriesCategoryTitle(bookSeriesTitle(value))
+    .replace(/\s*\((?:light\s*novel|novel|manga|comic|LN|Mg)\)\s*$/i, "")
+    .trim();
+  const parts = [title];
+  const brackets = /[（(\[]([^）)\]]+)[）)\]]/g;
+  const scripts = (text: string) =>
+    [
+      /[A-Za-z]/,
+      /\p{Script=Thai}/u,
+      /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u,
+    ].flatMap((pattern, index) => (pattern.test(text) ? [index] : []));
+  const outside = title.replace(brackets, " ");
+  const outsideScripts = scripts(outside);
+  const aliases = [...title.matchAll(brackets)].filter((match) => {
+    const insideScripts = scripts(match[1]);
+    return (
+      insideScripts.length &&
+      outsideScripts.length &&
+      insideScripts.every((script) => !outsideScripts.includes(script))
+    );
+  });
+  if (aliases.length) {
+    parts.push(...aliases.map((match) => match[1]));
+    parts.push(
+      title.replace(brackets, (match, contents) =>
+        aliases.some((alias) => alias[1] === contents) ? " " : match,
+      ),
+    );
+  }
+  // Thai directories often put the English/romaji name beside the Thai name.
+  if (/\p{Script=Thai}/u.test(title))
+    parts.push(
+      ...[...title.matchAll(/[A-Za-z][A-Za-z0-9\s\p{P}]*[A-Za-z0-9]/gu)].map(
+        (match) => match[0],
+      ),
+    );
+  return new Set(parts.map(animeTitleKey).filter((key) => key.length >= 2));
+}
+
+export function matchAnimeCatalogTitle(
+  book: AnimeMedia,
+  entry: { series: string; title?: string; type: string; url: string },
+): { matchedTitle: string; matchedBy: "title" | "catalog URL" } | null {
+  if (
+    entry.type &&
+    entry.type !== (book.kind === "LN" ? "LN (TH)" : "Manga (TH)")
+  )
+    return null;
+  const keys = new Set(
+    book.titles.flatMap((title) => [...animeCatalogTitleKeys(title)]),
+  );
+  for (const title of [entry.series, entry.title || ""]) {
+    if ([...animeCatalogTitleKeys(title)].some((key) => keys.has(key)))
+      return { matchedTitle: title, matchedBy: "title" };
+  }
+  try {
+    const slug = decodeURIComponent(
+      new URL(entry.url).pathname.split("/").pop() || "",
+    )
+      .replace(/\.html$/, "")
+      .replace(/-(?:manga|light-novel|novel|comic|ln)$/i, "");
+    if (/[\p{L}]/u.test(slug) && keys.has(animeTitleKey(slug)))
+      return { matchedTitle: slug, matchedBy: "catalog URL" };
+  } catch {}
+  return null;
 }
 
 export function animeStatus(status: string) {

@@ -1,4 +1,5 @@
 import { bookAdaptations, seasonalBooks } from "../../lib/domain/anime.ts";
+import { releaseItem } from "../../lib/domain/releases.ts";
 
 export const manga = {
   id: 301,
@@ -84,4 +85,50 @@ export const seasonalFeed = {
   checkedAt,
   stale: false,
   complete: true,
+};
+
+export const thaiManga = releaseItem(
+  "phoenix",
+  "(มังงะ) ห้องสมุดใต้แสงจันทร์ เล่ม 2",
+  "https://www.phoenixnext.com/moonlit-02.html",
+  175,
+  "9780140328721",
+  "Manga (TH)",
+);
+thaiManga.availability = "In stock";
+export const seasonalThaiFeed = {
+  ...seasonalFeed,
+  items: seasonalFeed.items.map((item, index) => ({
+    ...item,
+    thaiEditions:
+      index === 0
+        ? [
+            {
+              item: thaiManga,
+              matchedTitle: "ห้องสมุดใต้แสงจันทร์",
+              matchedBy: "title",
+              checkedAt,
+              stale: false,
+            },
+          ]
+        : [],
+  })),
+  thaiSources: [
+    {
+      publisher: "Phoenix Next",
+      url: "https://www.phoenixnext.com/book-series.html",
+      checkedAt,
+      stale: false,
+      complete: true,
+      error: "",
+    },
+    {
+      publisher: "First Page Pro",
+      url: "https://www.firstpagepro.com/",
+      checkedAt: "",
+      stale: false,
+      complete: false,
+      error: "The publisher directory could not be checked.",
+    },
+  ],
 };

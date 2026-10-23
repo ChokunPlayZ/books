@@ -1,6 +1,7 @@
 import { createCatalogService, knownBookCoverUrl } from "./catalogs.ts";
 import { canonicalIsbn, volumeCoverKey } from "../domain.ts";
 import { createAnimeService } from "./anime.ts";
+import { createSeasonalDiscoveryService } from "./seasonal-discovery.ts";
 
 async function eachLimit(items, action, limit = 4) {
   let cursor = 0;
@@ -18,6 +19,7 @@ export function createApplicationApi(
   fetchImpl = globalThis.fetch,
 ) {
   const catalogs = createCatalogService(store, fetchImpl);
+  const anime = createAnimeService(store, fetchImpl);
   async function attachImages(result) {
     const records = [];
     function visit(value) {
@@ -88,7 +90,8 @@ export function createApplicationApi(
   const methods: Record<string, (arg?: unknown) => unknown> = {
     ...store.api,
     ...catalogs,
-    ...createAnimeService(store, fetchImpl),
+    ...anime,
+    ...createSeasonalDiscoveryService(anime, catalogs),
   };
   const api = Object.fromEntries(
     Object.entries(methods).map(([name, method]) => [

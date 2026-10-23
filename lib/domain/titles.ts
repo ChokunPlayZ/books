@@ -1,6 +1,16 @@
 import { decodeHtml, attr, textHtml } from "./html.ts";
 import { digest } from "./hash.ts";
 import { publisherKey, safeSeriesCatalogUrl } from "./urls.ts";
+import {
+  catalogSeriesKey,
+  bookSeriesTitle,
+  seriesCategoryTitle,
+} from "./title-normalization.ts";
+export {
+  catalogSeriesKey,
+  bookSeriesTitle,
+  seriesCategoryTitle,
+} from "./title-normalization.ts";
 
 export function specialSet(title) {
   return /\bspecial[\s_-]*(?:combo[\s_-]*)?set\b|(?:เซต|เซ็[ตท]|ชุด)\s*พิเศษ/i.test(
@@ -21,28 +31,6 @@ export function volumeCoverKey(book) {
       ]),
     )
   );
-}
-
-export function catalogSeriesKey(text) {
-  return bookSeriesTitle(text)
-    .replace(/\s*\((?:light\s*novel|novel|manga|comic)\)\s*$/i, "")
-    .normalize("NFKC")
-    .toLocaleLowerCase()
-    .replace(/@comic/gi, "")
-    .replace(/(?:\s*\(\d+\)\s*รายการ|\s*\[\d+\])\s*$/, "")
-    .replace(/[^\p{L}\p{N}\p{M}]/gu, "");
-}
-
-export function bookSeriesTitle(text) {
-  return String(text || "")
-    .replace(/^\[PRE-ORDER\]\s*/i, "")
-    .replace(/^(?:\(LN\)|\(มังงะ\)|\(นิยาย\)|นิยาย|การ์ตูน)\s*/i, "")
-    .replace(
-      /^(?:(?:special|complete|ultimate|limited)(?:\s+combo)?\s+(?:set|edition)|box\s+set)\s+(?:[AB]\s+)?(?:\(Exclusive Pre-order Period\)\s*)?/i,
-      "",
-    )
-    .replace(/\s*\((?:ฉบับพิเศษ|ปกพิเศษ)\)\s*$/i, "")
-    .trim();
 }
 
 export function releaseBundle(title) {
@@ -113,12 +101,6 @@ export function matchSeriesCategory(series, categories, type) {
     );
   });
   return slug.length === 1 ? slug[0] : null;
-}
-
-export function seriesCategoryTitle(title) {
-  return String(title || "")
-    .replace(/\s+(?:เล่ม(?:ที่)?|vol(?:ume)?\.?)\s*\d+(?:\.\d+)?\s*$/i, "")
-    .trim();
 }
 
 export function splitBookTitle(raw): {

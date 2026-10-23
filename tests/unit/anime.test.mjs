@@ -6,6 +6,7 @@ import {
   parseAnimeMedia,
   bookAdaptations,
   seasonalBooks,
+  matchAnimeCatalogTitle,
 } from "../../lib/domain/anime.ts";
 import {
   manga,
@@ -26,6 +27,59 @@ test("anime seasons roll over on quarter and year boundaries", () => {
     ["2027-01-01", "WINTER", 2027],
   ])
     assert.deepEqual(currentAnimeSeason(new Date(date)), { season, year });
+});
+
+test("Thai catalog matching uses whole multilingual aliases, format and catalog slugs without merging sequels", () => {
+  const book = parseAnimeMedia(manga);
+  const entry = {
+    series: "ห้องสมุดใต้แสงจันทร์",
+    type: "Manga (TH)",
+    url: "https://www.phoenixnext.com/book-series/moonlit-library.html",
+  };
+  assert.equal(matchAnimeCatalogTitle(book, entry).matchedBy, "title");
+  assert.equal(
+    matchAnimeCatalogTitle(book, { ...entry, type: "LN (TH)" }),
+    null,
+  );
+  assert.equal(
+    matchAnimeCatalogTitle(book, { ...entry, type: "Manga (EN)" }),
+    null,
+  );
+  for (const series of [
+    "ห้องสมุด Moonlit Library",
+    "ห้องสมุด (Moonlit Library)",
+    "(มังงะ) Moonlit Library เล่ม 1",
+    "Ｍoonlit: Library!",
+  ])
+    assert.equal(
+      matchAnimeCatalogTitle(book, { ...entry, series }).matchedBy,
+      "title",
+    );
+  assert.equal(
+    matchAnimeCatalogTitle(book, { ...entry, series: "ชื่อไทยที่ต่างออกไป" })
+      .matchedBy,
+    "catalog URL",
+  );
+  for (const series of [
+    "Moonlit Library 2",
+    "Moonlit Library: Side Story",
+    "Moonlit Library (Side Story)",
+    "A Moonlit Library Adventure",
+  ])
+    assert.equal(
+      matchAnimeCatalogTitle(book, {
+        ...entry,
+        series,
+        url: "https://www.firstpagepro.com/category/123",
+      }),
+      null,
+    );
+  assert.ok(
+    matchAnimeCatalogTitle(
+      { ...book, titles: ["86"] },
+      { ...entry, series: "86" },
+    ),
+  );
 });
 
 test("media preserves multilingual aliases and builds safe AniList/MAL URLs", () => {

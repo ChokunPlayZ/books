@@ -13,7 +13,7 @@ type BookApplication = {
 const applicationGlobal = globalThis as typeof globalThis & {
   __bookCollectionApp?: BookApplication;
 };
-const API_VERSION = 1;
+const API_VERSION = 2;
 
 // Next development reloads modules; keep one connection per process.
 export function getApp(): BookApplication {

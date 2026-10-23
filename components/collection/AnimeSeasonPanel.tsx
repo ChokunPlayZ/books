@@ -11,10 +11,10 @@ export default function AnimeSeasonPanel() {
       <div className="anime-heading">
         <div>
           <p className="eyebrow">From screen to shelf</p>
-          <h2 id="seasonalTitle">This season’s manga & light novels</h2>
+          <h2 id="seasonalTitle">This season’s anime, in Thai</h2>
           <p className="release-note">
-            Find the books behind seasonal anime, including manga adaptations.
-            Pick a title to add your edition.
+            Match seasonal anime to Thai manga and light novels. Browse
+            publisher listings and add the Thai edition to your shelf.
           </p>
         </div>
         <button id="refreshAnimeSeason" className="btn" type="button">
@@ -44,10 +44,17 @@ export default function AnimeSeasonPanel() {
         </label>
         <label className="field" htmlFor="animeBookType">
           <span>Book type</span>
-          <select id="animeBookType">
-            <option value="">Manga & light novels</option>
+          <select id="animeBookType" defaultValue="Manga">
+            <option value="">Manga & novels</option>
             <option value="Manga">Manga</option>
             <option value="LN">Light novels</option>
+          </select>
+        </label>
+        <label className="field" htmlFor="animeTranslation">
+          <span>Thai translations</span>
+          <select id="animeTranslation" defaultValue="available">
+            <option value="available">Matched editions</option>
+            <option value="all">All linked books</option>
           </select>
         </label>
         <label className="field" htmlFor="animeAiring">
@@ -64,15 +71,20 @@ export default function AnimeSeasonPanel() {
           <input
             id="animeSeasonSearch"
             type="search"
-            placeholder="Title in English, Japanese or romaji…"
+            placeholder="Thai, English, Japanese or romaji title…"
           />
         </label>
       </div>
       <p className="hint">
-        Relations from AniList. Titles without a linked manga or light novel are
-        omitted. “Source material” and “Manga adaptation” describe different
-        relationships.
+        Anime relations from AniList; Thai editions checked against Phoenix Next
+        and First Page Pro. Matches require a listed Thai book. Stock and
+        pre-orders can change; a missing match does not rule out a Thai edition.
       </p>
+      <div
+        id="animeThaiSources"
+        className="anime-sources"
+        aria-label="Thai catalog coverage"
+      />
       <div id="animeSeasonError" className="banner" role="alert" hidden />
       <p id="animeSeasonStatus" className="release-note" role="status" />
       <div id="animeSeasonList" className="anime-grid" />

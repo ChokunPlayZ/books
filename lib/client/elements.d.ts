@@ -6,6 +6,8 @@ interface LibraryElements {
   animeSeason: HTMLSelectElement;
   animeYear: HTMLInputElement;
   animeBookType: HTMLSelectElement;
+  animeTranslation: HTMLSelectElement;
+  animeThaiSources: HTMLDivElement;
   animeAiring: HTMLSelectElement;
   animeSeasonSearch: HTMLInputElement;
   animeSeasonError: HTMLDivElement;

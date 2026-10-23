@@ -4,7 +4,13 @@ import { mkdirSync } from "node:fs";
 import { chromium } from "playwright";
 import { seriesPath } from "../../lib/domain/navigation.ts";
 import { currentAnimeSeason } from "../../lib/domain/anime.ts";
-import { adaptationFeed, seasonalFeed, novel } from "../helpers/anime.mjs";
+import {
+  adaptationFeed,
+  seasonalFeed,
+  seasonalThaiFeed,
+  thaiManga,
+  novel,
+} from "../helpers/anime.mjs";
 
 const browser = await chromium.launch({
   headless: true,
@@ -23,7 +29,7 @@ try {
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("**/api/rpc", async (route) => {
     const request = route.request().postDataJSON();
-    if (request.name === "getSeasonalAnimeBooks") {
+    if (request.name === "getSeasonalThaiBooks") {
       seasonCalls.push(request.arg);
       if (failSeason)
         return route.fulfill({
@@ -32,7 +38,7 @@ try {
         });
       return route.fulfill({
         json: {
-          ...seasonalFeed,
+          ...seasonalThaiFeed,
           season: request.arg.season,
           year: request.arg.year,
           stale,
@@ -97,7 +103,7 @@ try {
         book: {
           series: "ห้องสมุดใต้แสงจันทร์",
           type: "Manga (TH)",
-          publisher: "Test press",
+          publisher: "PHOENIX Next",
           volume: 1,
           isbn: "",
           status: "Read",
@@ -121,10 +127,92 @@ try {
   await page.locator("#animeSeasonList .anime-card").first().waitFor();
   assert.equal(await page.locator("#publisherDiscovery").isVisible(), false);
   assert.equal(await page.locator("#refreshDiscovery").isVisible(), false);
-  assert.equal(await page.locator("#animeSeasonList .anime-card").count(), 3);
+  assert.equal(await page.locator("#animeSeasonList .anime-card").count(), 1);
   const current = currentAnimeSeason();
   assert.equal(seasonCalls[0].season, current.season);
   assert.equal(seasonCalls[0].year, current.year);
+  assert.equal(await page.locator("#animeBookType").inputValue(), "Manga");
+  assert.equal(
+    await page.locator("#animeTranslation").inputValue(),
+    "available",
+  );
+  assert.match(
+    await page.locator("#animeSeasonList").textContent(),
+    /ห้องสมุดใต้แสงจันทร์/,
+  );
+  assert.match(
+    await page.locator("#animeSeasonList").textContent(),
+    /In stock/,
+  );
+  assert.match(
+    await page.locator("#animeThaiSources").textContent(),
+    /directory could not be checked/,
+  );
+  await page.getByRole("button", { name: "Add Thai edition" }).click();
+  await page.locator("#bookDialog").waitFor();
+  assert.equal(await page.locator("#series").inputValue(), thaiManga.series);
+  assert.equal(await page.locator("#type").inputValue(), "Manga (TH)");
+  assert.equal(
+    await page.locator("#publisher").inputValue(),
+    thaiManga.publisher,
+  );
+  assert.equal(await page.locator("#volume").inputValue(), "2");
+  assert.equal(await page.locator("#isbn").inputValue(), thaiManga.isbn);
+  assert.equal(await page.locator("#publisherUrl").inputValue(), thaiManga.url);
+  await page.locator("#saveButton").click();
+  await page.waitForFunction(() => !document.getElementById("bookDialog").open);
+  const savedThai = await (
+    await page.request.post(url + "/api/rpc", {
+      data: { name: "getCollection" },
+    })
+  ).json();
+  assert.ok(
+    savedThai.books.some(
+      (book) =>
+        book.isbn === thaiManga.isbn &&
+        book.publisherUrl === thaiManga.url &&
+        book.type === "Manga (TH)",
+    ),
+  );
+  await page.locator("#animeSeasonSearch").fill("ห้องสมุดใต้แสงจันทร์");
+  assert.equal(await page.locator("#animeSeasonList .anime-card").count(), 1);
+  mkdirSync("outputs", { recursive: true });
+  await page.evaluate(() => {
+    document.activeElement?.blur();
+    window.scrollTo(0, 0);
+  });
+  await page.locator("#toast").waitFor({ state: "hidden" });
+  await page.screenshot({
+    path: "outputs/anime-thai-mobile.png",
+    fullPage: true,
+  });
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+    false,
+  );
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.screenshot({
+    path: "outputs/anime-thai-desktop.png",
+    fullPage: true,
+  });
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+    false,
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator("#animeSeasonSearch").fill("No match");
+  assert.match(
+    await page.locator("#animeSeasonList").textContent(),
+    /No matched Thai editions/,
+  );
+  await page.locator("#animeSeasonSearch").fill("");
+  await page.locator("#animeTranslation").selectOption("all");
+  await page.locator("#animeBookType").selectOption("");
+  assert.equal(await page.locator("#animeSeasonList .anime-card").count(), 3);
   assert.equal(
     await page
       .getByRole("link", { name: "On your shelf · View series" })
@@ -198,6 +286,7 @@ try {
   await page.reload();
   await page.locator("#animeSeasonList .anime-card").first().waitFor();
   assert.equal(await page.locator("#discoveryMode").inputValue(), "anime");
+  assert.equal(await page.locator("#animeTranslation").inputValue(), "all");
   mkdirSync("outputs", { recursive: true });
   await page.screenshot({
     path: "outputs/anime-season-mobile.png",

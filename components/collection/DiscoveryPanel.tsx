@@ -22,9 +22,7 @@ export default function DiscoveryPanel() {
           aria-controls="publisherDiscovery seasonalDiscovery"
         >
           <option value="publisher">Publisher catalogs</option>
-          <option value="anime">
-            Current anime season · Manga & light novels
-          </option>
+          <option value="anime">Current anime season · Thai editions</option>
         </select>
       </label>
       <AnimeSeasonPanel />

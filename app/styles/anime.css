@@ -110,6 +110,52 @@
   margin-top: auto;
 }
 
+.anime-sources {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+
+.anime-sources:empty {
+  display: none;
+}
+
+.anime-thai-edition {
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.anime-thai-edition + .anime-thai-edition {
+  margin-top: 20px;
+}
+
+.anime-thai-edition h4 {
+  margin: 8px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.anime-thai-edition > .release-match {
+  width: fit-content;
+}
+
+.anime-thai-edition .anime-actions {
+  margin-top: 12px;
+}
+
+#seasonalDiscovery .anime-card {
+  padding: 20px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+}
+
+#seasonalDiscovery .anime-card > .eyebrow {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .anime-grid > .empty {
   grid-column: 1 / -1;
 }
