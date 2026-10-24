@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-23T19:01:23.996577+00:00",
+  "generatedAt": "2026-10-24T14:38:14.062581+00:00",
   "title": "Design System: Book Collection",
   "extensions": {
     "colorMeta": {
@@ -1039,7 +1039,7 @@
     ],
     "dos": [
       "Do use the shared UI font and theme variables for reusable surfaces.",
-      "Do preserve the 44px primary control minimum and the 48\u201350px handheld entry controls.",
+      "Do preserve the 44px primary control minimum and the 48–50px handheld entry controls.",
       "Do keep capture actions and entry Save reachable above the safe area and virtual keyboard.",
       "Do preserve visible keyboard focus, current navigation visibility and readable selected filter text.",
       "Do use real collection covers; show a plain title placeholder when a cover is unavailable."

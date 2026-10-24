@@ -1,1 +1,23 @@
-{ "buildPath": "code" }
+{
+  "buildPath": "code",
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": ["lib/domain/releases.ts"],
+        "createdAt": "2026-10-24T14:27:18.865Z",
+        "reason": "Agent: img patterns parse external publisher HTML; this module renders no image elements."
+      },
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": ["lib/server/publisher-covers.ts"],
+        "createdAt": "2026-10-24T14:29:13.887Z",
+        "reason": "Agent: this server parser reads img tags from external product HTML and does not render image elements."
+      }
+    ]
+  }
+}
