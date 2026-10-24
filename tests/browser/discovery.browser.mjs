@@ -8,6 +8,16 @@ import { releaseItem } from "../../lib/domain.ts";
 const url = process.env.BOOKS_TEST_URL;
 const coverId = (source) => createHash("sha256").update(source).digest("hex");
 const coverUrl = (source) => "/api/covers/" + coverId(source);
+// The isolated server seeds this real image. Preview-only IDs below are mocks;
+// translate them when persisting the selected cover to the actual SQLite store.
+const storedCoverId = createHash("sha256")
+  .update(
+    Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  )
+  .digest("hex");
 if (!url)
   throw new Error("Use npm run test:e2e to start the isolated test app.");
 const browser = await chromium.launch({
@@ -124,6 +134,13 @@ try {
   );
   await page.route("**/api/rpc", async (route) => {
     const request = route.request().postDataJSON();
+    if (
+      request.name === "saveBook" &&
+      items.some((item) => item.coverId === request.arg.book.coverId)
+    ) {
+      request.arg.book.coverId = storedCoverId;
+      return route.continue({ postData: JSON.stringify(request) });
+    }
     if (request.name === "getBookCover")
       return route.fulfill({
         json: { row: request.arg.row, coverId: items[0].coverId },

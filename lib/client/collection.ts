@@ -129,10 +129,6 @@ export function mountCollection({
     addEdition: (item) => {
       if (state.busy) return;
       openRelease(item, releaseMatches(item));
-      $("publisherUrl").value = item.url;
-      $("coverUrl").value = item.coverUrl || "";
-      state.selectedCoverId = item.coverId || "";
-      renderMetadataCover();
     },
     loadPublisher: () => void loadDiscovery(),
     savePreferences: savePagePreferences,
@@ -1710,8 +1706,10 @@ export function mountCollection({
     (state.data.savedReleases || []).forEach((item) =>
       items.set(item.id, item),
     );
-    state.releaseFeeds.forEach((feed) =>
-      feed.items.forEach((item) => items.set(item.id, item)),
+    state.data.publishers.forEach((publisher) =>
+      state.releaseFeeds
+        .get(publisher.id)
+        ?.items.forEach((item) => items.set(item.id, item)),
     );
     return [...items.values()];
   }
@@ -1819,6 +1817,7 @@ export function mountCollection({
       firstpage: "www.firstpagepro.com",
       luckpim: "www.luckpim.com",
       yaakz: "www.yaakz.com",
+      yenpress: "yenpress.com",
     };
     let safe = false;
     try {
@@ -2703,6 +2702,10 @@ export function mountCollection({
     $("type").value = item.type || "Other";
     state.typeTouched = true;
     $("publisher").value = item.publisher;
+    $("publisherUrl").value = item.url || "";
+    $("coverUrl").value = item.coverUrl || "";
+    state.selectedCoverId = item.coverId || "";
+    renderMetadataCover();
     fillListedPrice(item);
     state.detailsExpanded = true;
     renderBookDetails();
