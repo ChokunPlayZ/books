@@ -1,59 +1,33 @@
 import {
-  BOOK_APP,
   PUBLISHERS,
   normalizeIsbn,
   canonicalIsbn,
   digest,
   seriesCatalogRequest,
-  parseSeriesCategories,
   matchSeriesCategory,
   seriesCategoryTitle,
   catalogSeriesKey,
-  catalogTotal,
-  parseCatalog,
   releaseItem,
-  luckpimItem,
-  splitBookTitle,
-  attr,
-  structuredBooks,
-  meta,
-  names,
   textHtml,
+  meta,
   publisherCatalogSource,
   safeCoverUrl,
   volumeCoverKey,
-  parsePublisherTitles,
-  splitFirstPageTitles,
-  splitFirstPageTitle,
   safePublisherTitleUrl,
   safeProductUrl,
   safePublisherUrl,
   publisherKey,
   specialSet,
-  releaseBundle,
 } from "../domain.ts";
-import { yaakzProducts, yaakzItems } from "./yaakz.ts";
 import { publisherCovers } from "./publisher-covers.ts";
-import { kinokuniyaBook } from "../domain/kinokuniya.ts";
-import { phoenixBook } from "../domain/phoenix.ts";
-import { firstPageBook } from "../domain/firstpage.ts";
+import { SCRAPE_TTL } from "./scrape-cache.ts";
+import { createScraperContext } from "./scrapers/http.ts";
+import { createScraperRegistry, SCRAPER_SOURCES } from "./scrapers/registry.ts";
 import {
-  yenPressBook,
-  yenPressCandidates,
-  yenPressSearchKey,
-} from "../domain/yenpress.ts";
-import { createScrapeCache, SCRAPE_TTL } from "./scrape-cache.ts";
-import type { Release } from "../types.ts";
-import {
-  yenPressSearchPage,
-  yenPressDirectoryTitles,
-  yenPressSeriesCatalog,
-  yenPressSeriesPage,
-  yenPressSeriesComplete,
-  yenPressCalendar,
-  yenPressPrintReleases,
-} from "../domain/yenpress-catalogs.ts";
-
+  cachedJson as cachedJson_,
+  cacheJson as cacheJson_,
+} from "./scrapers/cache.ts";
+import type { ScraperDefinition } from "./scrapers/types.ts";
 type CatalogRequest = {
   row?: number;
   publisherUrl?: string;
@@ -63,15 +37,6 @@ type CatalogRequest = {
   type?: string;
   categories?: { title: string; url: string; type?: string }[];
   series?: string;
-};
-
-type CatalogResult = {
-  items: Release[];
-  total: number | null;
-  pages: number;
-  complete: boolean;
-  title?: string;
-  search?: boolean;
 };
 
 export function knownBookCoverUrl(store, book) {
@@ -86,9 +51,15 @@ export function knownBookCoverUrl(store, book) {
 }
 
 // Catalog caches are durable; failed refreshes keep the previous successful result.
-export function createCatalogService(store, fetchImpl = globalThis.fetch) {
+export function createCatalogService(
+  store,
+  fetchImpl = globalThis.fetch,
+  sources: readonly ScraperDefinition[] = SCRAPER_SOURCES,
+) {
   const cache = store.cache;
-  const scrapeCache = createScrapeCache(cache);
+  const context = createScraperContext(cache, fetchImpl, sources);
+  const { fetchText: fetchText_ } = context;
+  const scrapers = createScraperRegistry(context, sources);
   const pendingCovers = new Map();
   const pendingTitles = new Map();
   function rememberCovers(items) {
@@ -119,7 +90,9 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
             item.isbn,
             item.type,
           ),
-          ...(item.publisherId === "yenpress" ? { series: item.series } : {}),
+          ...(scrapers.get(item.publisherId)?.preserveParsedSeries
+            ? { series: item.series }
+            : {}),
           availability: item.availability,
         })),
     };
@@ -137,99 +110,6 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     rememberCovers(catalog.items);
     return catalog;
   }
-  async function requestRemote(url: string, options: RequestInit = {}) {
-    const parsed = new URL(url);
-    const allowed = [
-      "www.phoenixnext.com",
-      "www.firstpagepro.com",
-      "www.luckpim.com",
-      "www.naiin.com",
-      "www.yaakz.com",
-      "www.googleapis.com",
-      "openlibrary.org",
-      "yenpress.com",
-      "enterprise-search.yenpress.com",
-      "kinokuniya.co.th",
-    ];
-    if (
-      parsed.protocol !== "https:" ||
-      !allowed.includes(parsed.hostname) ||
-      parsed.username ||
-      parsed.password ||
-      parsed.port
-    )
-      throw new Error("Unsupported catalog source.");
-    const fetchOptions: RequestInit = {
-      ...options,
-      headers: { "User-Agent": "Mozilla/5.0", ...options.headers },
-      redirect: "manual",
-      signal: AbortSignal.timeout(15000),
-      cache: "no-store",
-    };
-    let current = parsed,
-      response;
-    for (let hop = 0; hop <= 3; hop++) {
-      response = await fetchImpl(current.href, fetchOptions);
-      if (![301, 302, 303, 307, 308].includes(response.status)) break;
-      let location = response.headers.get("location");
-      if (
-        !["www.firstpagepro.com", "www.yaakz.com"].includes(current.hostname) ||
-        !location ||
-        hop === 3
-      )
-        throw new Error("Unsupported catalog redirect.");
-      // This publisher sends raw UTF-8 Thai slugs in Location. Fetch exposes
-      // header bytes as Latin-1; restore UTF-8 before URL percent-encoding.
-      if (
-        /[^\x00-\x7f]/.test(location) &&
-        [...location].every((char) => char.charCodeAt(0) <= 255)
-      ) {
-        try {
-          location = new TextDecoder("utf-8", { fatal: true }).decode(
-            Uint8Array.from([...location], (char) => char.charCodeAt(0)),
-          );
-        } catch {}
-      }
-      const next = new URL(location, current);
-      const sourceId =
-        current.hostname === "www.yaakz.com" ? "yaakz" : "firstpage";
-      const canonical = (value) =>
-        safePublisherTitleUrl(value.origin + value.pathname, sourceId) ||
-        safeProductUrl(value.origin + value.pathname, sourceId);
-      if (
-        next.protocol !== "https:" ||
-        next.hostname !== current.hostname ||
-        next.username ||
-        next.password ||
-        !canonical(current) ||
-        canonical(next) !== canonical(current)
-      )
-        throw new Error("Unsupported catalog redirect.");
-      if (!next.search) next.search = current.search;
-      await response.body?.cancel();
-      current = next;
-    }
-    let body = "",
-      size = 0;
-    if (response.body) {
-      const reader = response.body.getReader(),
-        decoder = new TextDecoder();
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        size += value.byteLength;
-        if (size > 8 * 1024 * 1024) {
-          await reader.cancel();
-          throw new Error("Catalog response too large.");
-        }
-        body += decoder.decode(value, { stream: true });
-      }
-      body += decoder.decode();
-    }
-    const headers = Object.fromEntries(response.headers);
-    headers["set-cookie"] = response.headers.getSetCookie?.() || [];
-    return { status: response.status, body, headers };
-  }
   async function lookupIsbn(raw) {
     const isbn = normalizeIsbn(raw);
     if (!isbn) throw new Error("Enter or scan an ISBN first.");
@@ -237,119 +117,23 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
 
     const cached = cache.get("isbn:v8:" + canonical);
     if (cached) return JSON.parse(cached);
-    const providers = [
-      {
-        lookup: () => lookupNaiin_(canonical),
-        warning:
-          "Naiin is unavailable right now. You can still search it using the link below.",
-      },
-      {
-        lookup: async () => {
-          const catalog = await fetchYaakzCatalog_(
-            "https://www.yaakz.com/search?q=" + encodeURIComponent(canonical),
-          );
-          const item = catalog.items.find(
-            (item) => canonicalIsbn(item.isbn) === canonical,
-          );
-          return item ? { ...item, source: "Yaakz" } : null;
-        },
-        warning: "Yaakz is unavailable right now.",
-      },
-      {
-        lookup: () => lookupFirstPage_(canonical),
-        warning: "First Page Pro is unavailable right now.",
-      },
-      {
-        lookup: async () => {
-          const result = await searchPublisherIsbn({
-            publisherId: "phoenix",
-            isbn: canonical,
-          });
-          const item = result.items.find(
-            (item) => canonicalIsbn(item.isbn) === canonical,
-          );
-          return item ? { ...item, source: "Phoenix Next" } : null;
-        },
-        warning: "Phoenix Next is unavailable right now.",
-      },
-      {
-        lookup: () => lookupYenPress_(canonical),
-        warning: "Yen Press is unavailable right now.",
-      },
-      {
-        lookup: () => lookupKinokuniya_(canonical),
-        warning: "Kinokuniya is unavailable right now.",
-      },
-      {
-        lookup: async () => {
-          const data = await fetchJson_(
-            "https://www.googleapis.com/books/v1/volumes?q=isbn:" +
-              encodeURIComponent(canonical) +
-              "&maxResults=5",
-          );
-          const found = (data.items || []).find(function (item) {
-            return ((item.volumeInfo || {}).industryIdentifiers || []).some(
-              function (id) {
-                return canonicalIsbn(id.identifier) === canonical;
-              },
-            );
-          });
-          if (!found) return null;
-          const v = found.volumeInfo;
-          return {
-            title: v.title || "",
-            publisher: v.publisher || "",
-            authors: (v.authors || []).join(", "),
-            source: "Google Books",
-            coverUrl: safeCoverUrl(
-              v.imageLinks?.thumbnail || v.imageLinks?.smallThumbnail,
-            ),
-          };
-        },
-        warning: "Google Books is unavailable right now.",
-      },
-      {
-        lookup: async () => {
-          const key = "ISBN:" + canonical;
-          const data = await fetchJson_(
-            "https://openlibrary.org/api/books?bibkeys=" +
-              encodeURIComponent(key) +
-              "&jscmd=data&format=json",
-          );
-          const v = data[key];
-          if (!v) return null;
-          return {
-            title: v.title || "",
-            publisher: (v.publishers || [])
-              .map(function (p) {
-                return p.name;
-              })
-              .join(", "),
-            authors: (v.authors || [])
-              .map(function (a) {
-                return a.name;
-              })
-              .join(", "),
-            source: "Open Library",
-            coverUrl: safeCoverUrl(
-              v.cover?.medium || v.cover?.large || v.cover?.small,
-            ),
-          };
-        },
-        warning: "Open Library is unavailable right now.",
-      },
-    ];
+    const providers = scrapers.isbnProviders;
     // Start independent sources together, then keep the existing source preference
     // and warnings regardless of the order in which requests finish.
     const results = await Promise.allSettled(
-      providers.map((provider) => provider.lookup()),
+      providers.map((provider) => provider.lookupIsbn(canonical)),
     );
     const warnings = [];
     let details = null;
     for (const [index, result] of results.entries()) {
-      if (result.status === "rejected") warnings.push(providers[index].warning);
+      if (result.status === "rejected")
+        warnings.push(
+          providers[index].isbnWarning ||
+            providers[index].id + " is unavailable right now.",
+        );
       else if (result.value) {
         details = result.value;
+        if ("publisherId" in details) rememberCovers([details]);
         break;
       }
     }
@@ -397,7 +181,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       return { row, token: book.token, coverUrl: safeCoverUrl(cached) };
     if (request.lookup === false)
       return { row, token: book.token, coverUrl: "" };
-    if (!isbn && ["yaakz", "yenpress"].includes(publisherKey(book.publisher))) {
+    if (!isbn && scrapers.get(publisherKey(book.publisher))?.coverFromSeries) {
       const catalog = await getSeriesCatalog({
         series: book.series,
         type: book.type,
@@ -414,7 +198,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       );
       return { row, token: book.token, coverUrl: match?.coverUrl || "" };
     }
-    if (!isbn || cache.get("cover:miss:v5:" + isbn))
+    if (!isbn || cache.get("cover:miss:v6:" + isbn))
       return { row, token: book.token, coverUrl: "" };
     if (!pendingCovers.has(isbn)) {
       const pending = lookupIsbn(isbn)
@@ -422,7 +206,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
           const cover = safeCoverUrl(result.details?.coverUrl);
           if (cover) cache.put(key, cover, 2592000);
           else if (!result.warnings.length)
-            cache.put("cover:miss:v5:" + isbn, "1", 86400);
+            cache.put("cover:miss:v6:" + isbn, "1", 86400);
           return cover;
         })
         .finally(() => pendingCovers.delete(isbn));
@@ -437,7 +221,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       .books.find((b) => b.row === request.row);
     if (!book) throw new Error("Choose a library volume.");
     const publisherId = publisherKey(book.publisher);
-    const supportedPublisher = PUBLISHERS.some((p) => p.id === publisherId);
+    const supportedPublisher = !!scrapers.get(publisherId)?.catalog;
     const explicit = request.publisherUrl ?? book.publisherUrl;
     if (explicit && !safePublisherUrl(explicit, publisherId))
       throw new Error("Use an HTTPS link on this publisher’s website.");
@@ -508,25 +292,14 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       await Promise.all(
         candidates.slice(start, start + 3).map(async (item) => {
           try {
-            if (publisherId === "yaakz") {
-              const options = item.coverUrl
-                ? [item]
-                : yaakzItems(
-                    await fetchYaakzProduct_(item.url, request.refresh),
-                  );
-              for (const option of options) {
-                if (specialSet(option.title) || option.bundle) continue;
-                if (
-                  (canonicalIsbn(book.isbn) &&
-                    canonicalIsbn(book.isbn) === canonicalIsbn(option.isbn)) ||
-                  (book.volume !== "" &&
-                    option.volume !== "" &&
-                    Number(option.volume) === Number(book.volume) &&
-                    (!option.type ||
-                      matchingType(option.type) === matchingType(book.type)))
-                )
-                  add(option.coverUrl, option);
-              }
+            const scraper = scrapers.get(publisherId);
+            if (scraper?.gallery) {
+              for (const option of await scraper.gallery(
+                item,
+                book,
+                request.refresh,
+              ))
+                add(option.coverUrl, { ...item, ...option });
               return;
             }
             const html = await fetchText_(
@@ -534,22 +307,6 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
               request.refresh,
               SCRAPE_TTL.product,
             );
-            if (publisherId === "yenpress") {
-              const isbn =
-                canonicalIsbn(book.isbn) ||
-                /\/titles\/(\d{13})-/.exec(item.url)?.[1];
-              const details = yenPressBook(html, isbn, item.url);
-              if (
-                details &&
-                (canonicalIsbn(book.isbn) ||
-                  (book.volume !== "" &&
-                    details.volume !== "" &&
-                    Number(details.volume) === Number(book.volume) &&
-                    details.type === book.type))
-              )
-                add(details.coverUrl, { ...item, url: details.url });
-              return;
-            }
             const title = textHtml(
               /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(html)?.[1] ||
                 meta(html, "og:title") ||
@@ -567,73 +324,15 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
         }),
       );
     if (catalog.error) warnings.push(catalog.error);
-    const isbn = canonicalIsbn(book.isbn);
-    if (isbn || /\(TH\)/.test(book.type)) {
+    for (const source of scrapers.coverProviders) {
       try {
-        const shop = isbn
-          ? await lookupNaiin_(isbn, request.refresh)
-          : await lookupNaiinTitle_(book, request.refresh);
-        if (shop?.coverUrl)
-          add(shop.coverUrl, {
-            title: shop.title,
-            url: book.publisherUrl || "",
-            source: "Naiin",
-            sourceUrl: shop.url,
-          });
+        for (const item of await source.coverOptions(book, request.refresh))
+          add(item.coverUrl, item);
       } catch {
-        warnings.push("Could not check Naiin for this ISBN.");
-      }
-    }
-    if (publisherId !== "yaakz" && /\(TH\)/.test(book.type)) {
-      try {
-        const shops = await fetchYaakzCatalog_(
-          "https://www.yaakz.com/search?q=" +
-            encodeURIComponent(isbn || book.series),
-          20,
-          request.refresh,
+        warnings.push(
+          source.coverWarning ||
+            "Could not check " + source.id + " for this volume.",
         );
-        for (const item of shops.items) {
-          if (item.bundle || specialSet(item.title)) continue;
-          const exact = isbn && canonicalIsbn(item.isbn) === isbn;
-          const named =
-            !isbn &&
-            catalogSeriesKey(item.series) === catalogSeriesKey(book.series) &&
-            item.volume !== "" &&
-            book.volume !== "" &&
-            Number(item.volume) === Number(book.volume) &&
-            item.type === book.type;
-          if (exact || named)
-            add(item.coverUrl, {
-              ...item,
-              url: book.publisherUrl || "",
-              source: "Yaakz",
-              sourceUrl: item.url,
-            });
-        }
-      } catch {
-        warnings.push("Could not check Yaakz for this volume.");
-      }
-    }
-    if (isbn && !/\(TH\)/.test(book.type)) {
-      try {
-        const item = await lookupYenPress_(isbn, request.refresh);
-        if (item?.coverUrl) add(item.coverUrl, item);
-      } catch {
-        warnings.push("Could not check Yen Press for this ISBN.");
-      }
-    }
-    if (isbn) {
-      try {
-        const shop = await lookupKinokuniya_(isbn, request.refresh);
-        if (shop?.coverUrl)
-          add(shop.coverUrl, {
-            title: shop.title,
-            url: book.publisherUrl || "",
-            source: "Kinokuniya",
-            sourceUrl: shop.url,
-          });
-      } catch {
-        warnings.push("Could not check Kinokuniya for this ISBN.");
       }
     }
     return {
@@ -649,84 +348,27 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     isbn: string;
     refresh?: boolean;
   }) {
-    const id = request?.publisherId;
-    if (id !== "phoenix" && id !== "firstpage")
-      throw new Error("Choose Phoenix Next or First Page Pro for ISBN search.");
+    const source = scrapers.get(request?.publisherId);
+    if (!source?.searchIsbn) {
+      const publishers = scrapers.isbnSearchProviders.map(
+        (provider) =>
+          PUBLISHERS.find((publisher) => publisher.id === provider.id)?.name ||
+          provider.id,
+      );
+      throw new Error(
+        publishers.length
+          ? "Choose " +
+              new Intl.ListFormat("en", { type: "disjunction" }).format(
+                publishers,
+              ) +
+              " for ISBN search."
+          : "No publisher supports ISBN search.",
+      );
+    }
     const isbn = canonicalIsbn(normalizeIsbn(request.isbn));
     if (!isbn) throw new Error("Enter a valid ISBN first.");
-    const url =
-      id === "phoenix"
-        ? "https://www.phoenixnext.com/catalogsearch/result/?q=" + isbn
-        : "https://www.firstpagepro.com/search?q=" + isbn;
-    const result = await scrapeCache.get(
-      "publisher-isbn:v1:" + id + ":" + isbn,
-      { maxAge: SCRAPE_TTL.isbn, refresh: request.refresh },
-      async () => {
-        const html = await fetchText_(url, request.refresh, SCRAPE_TTL.isbn);
-        const candidates = [
-          ...new Map(
-            parseCatalog(id, html).map((item) => [item.url, item]),
-          ).values(),
-        ];
-        const total = catalogTotal(id, html);
-        if (
-          !candidates.length &&
-          total !== 0 &&
-          !/search found no results|ไม่พบสินค้า|ไม่พบข้อมูล/i.test(
-            textHtml(html),
-          )
-        )
-          throw new Error(
-            "The publisher’s search could not be read. Try again later.",
-          );
-        const items: Release[] = [];
-        const warnings: string[] = [];
-        if (id === "phoenix") {
-          candidates.sort(
-            (a, b) => Number(b.isbn === isbn) - Number(a.isbn === isbn),
-          );
-          for (const candidate of candidates.slice(0, 4)) {
-            const page = await fetchText_(
-              candidate.url,
-              request.refresh,
-              SCRAPE_TTL.product,
-            );
-            const item = phoenixBook(page, isbn, candidate.url);
-            if (item) {
-              items.push({
-                ...candidate,
-                ...item,
-                coverUrl: item.coverUrl || candidate.coverUrl,
-              });
-              break;
-            }
-          }
-        } else {
-          // Search listings alone do not verify a product's barcode.
-          // Keep the ISBN blank so a search hit cannot become an exact ownership match.
-          items.push(...candidates.slice(0, 24));
-          if (items.length)
-            warnings.push(
-              "First Page Pro returned these books for ISBN " +
-                isbn +
-                ". These search results have not been checked against the product ISBN; check the book’s barcode before adding it.",
-            );
-          if (total !== null && total > items.length)
-            warnings.push(
-              "Showing the first " +
-                items.length +
-                " search results. Open the publisher search to see all results.",
-            );
-        }
-        rememberCovers(items);
-        return { publisherId: id, isbn, url, items, warnings };
-      },
-    );
-    if (id === "firstpage")
-      result.items = result.items.map((item) => {
-        const parsed = splitFirstPageTitle(item.title);
-        return { ...item, ...parsed, type: parsed.type || item.type };
-      });
+    const result = await source.searchIsbn(isbn, request.refresh);
+    rememberCovers(result.items);
     return result;
   }
 
@@ -734,6 +376,9 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     const source = publisherCatalogSource(
       request.url || "https://www.phoenixnext.com/gl.html",
     );
+    const scraper = scrapers.require(source.publisherId);
+    if (!scraper.catalog)
+      throw new Error("This source does not support catalogs.");
     const key = "publisher-catalog:v1:" + digest(source.url);
     const previous = reparseItems(cachedJson_(cache, key));
     if (
@@ -743,16 +388,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     )
       return previous;
     try {
-      const catalog =
-        source.publisherId === "yaakz"
-          ? await fetchYaakzCatalog_(source.url, 20, !!request.refresh)
-          : source.publisherId === "yenpress"
-            ? await fetchYenPressSeries_(source.url, request.refresh)
-            : await fetchSeriesCategory_(
-                source.publisherId,
-                source.url,
-                request.refresh,
-              );
+      const catalog = await scraper.catalog(source.url, request.refresh);
       if (previous?.complete && !catalog.complete)
         throw new Error("Incomplete refresh");
       rememberCovers(catalog.items);
@@ -792,16 +428,13 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     const source = publisherCatalogSource(
       request.url || "https://www.phoenixnext.com/gl.html",
     );
-    if (
-      source.publisherId === "yaakz" ||
-      (source.publisherId === "yenpress" &&
-        source.url !== "https://yenpress.com/")
-    )
+    const scraper = scrapers.require(source.publisherId);
+    if (!scraper.directory || scraper.directoryAsCatalog?.(source.url))
       return getPublisherCatalog({ ...request, url: source.url });
     const key = "publisher-directory:v1:" + digest(source.url),
       previous = cachedJson_(cache, key);
-    if (source.publisherId === "firstpage" && previous?.titles)
-      previous.titles = splitFirstPageTitles(previous.titles);
+    if (scraper.normalizeDirectory && previous?.titles)
+      previous.titles = scraper.normalizeDirectory(previous.titles);
     if (
       previous &&
       !request.refresh &&
@@ -809,47 +442,17 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     )
       return previous;
     try {
-      const html =
-        source.publisherId === "yenpress"
-          ? ""
-          : await fetchText_(source.url, request.refresh, SCRAPE_TTL.directory);
-      const titles =
-        source.publisherId === "yenpress"
-          ? await fetchYenPressDirectory_(request.refresh)
-          : parsePublisherTitles(source.publisherId, html, source.url);
-      if (!titles.length) {
-        // A pasted single-series category can omit its own link in navigation.
-        const title = /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(html);
-        if (!safePublisherTitleUrl(source.url, source.publisherId) || !title)
-          throw new Error("Directory markup unavailable");
-        const name = textHtml(title[1]);
-        titles.push({
-          id: source.publisherId + ":title:" + digest(source.url),
-          ...source,
-          publisher: PUBLISHERS.find((p) => p.id === source.publisherId).name,
-          series: name,
-          title: name,
-          categories: [{ url: source.url, type: "" }],
-          type: "",
-          volume: "",
-          isbn: "",
-          directory: true,
-        });
-      }
+      const { titles, title } = await scraper.directory(
+        source.url,
+        request.refresh,
+      );
       const result = {
         ...source,
         titles,
         items: [],
         checkedAt: new Date().toISOString(),
         stale: false,
-        title:
-          source.publisherId === "yenpress"
-            ? "Yen Press titles"
-            : source.publisherId === "firstpage"
-              ? "First Page Pro titles"
-              : source.url.endsWith("gl.html")
-                ? "Phoenix Next · Girl’s Love"
-                : "Phoenix Next titles",
+        title,
         error: "",
       };
       cacheJson_(cache, key, result);
@@ -959,7 +562,9 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     const publisher = PUBLISHERS.find(function (p) {
       return p.id === request.publisherId;
     });
-    if (!publisher) throw new Error("Choose a supported publisher.");
+    const scraper = scrapers.get(publisher?.id);
+    if (!publisher || !scraper?.releases)
+      throw new Error("Choose a supported publisher.");
     const key = "releases:v1:" + publisher.id;
     const cached = cache.get(key),
       previous = reparseItems(cached ? JSON.parse(cached) : null);
@@ -970,21 +575,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     )
       return previous;
     try {
-      const scraped =
-        publisher.id === "luckpim"
-          ? await fetchLuckpim_(request.refresh)
-          : publisher.id === "yaakz"
-            ? (
-                await fetchYaakzCatalog_(
-                  publisher.url,
-                  2,
-                  !!request.refresh,
-                  SCRAPE_TTL.releases,
-                )
-              ).items
-            : publisher.id === "yenpress"
-              ? await fetchYenPressReleases_(request.refresh)
-              : await fetchCatalog_(publisher, request.refresh);
+      const scraped = await scraper.releases(request.refresh);
       if (!scraped.length) throw new Error("No book listings could be read.");
       const items = scraped.filter((item) => !specialSet(item.title));
       rememberCovers(items);
@@ -1022,6 +613,9 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
 
   async function getSeriesCatalog(request) {
     const spec = seriesCatalogRequest(request);
+    const scraper = scrapers.require(spec.publisherId);
+    if (!scraper.catalog)
+      throw new Error("This source does not support series catalogs.");
     const saved = savedSeriesCatalog_(spec),
       key =
         "series:v1:" +
@@ -1040,7 +634,7 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       return previous;
     let category = saved;
     try {
-      if (!category && !["luckpim", "yaakz"].includes(spec.publisherId)) {
+      if (!category && !scraper.searchSeriesUrl) {
         const directory = await getSeriesCategories({
           publisherId: spec.publisherId,
           refresh: spec.refresh,
@@ -1068,30 +662,15 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       if (!category)
         category = {
           title: spec.series,
-          url:
-            (spec.publisherId === "yaakz"
-              ? "https://www.yaakz.com/search?q="
-              : "https://www.luckpim.com/search_result?k=") +
-            encodeURIComponent(spec.series),
+          url: scraper.searchSeriesUrl(spec.series),
         };
-      const catalog: CatalogResult =
-        spec.publisherId === "luckpim"
-          ? await fetchLuckpimSeries_(category.url, spec.refresh)
-          : spec.publisherId === "yaakz"
-            ? await fetchYaakzCatalog_(category.url, 20, spec.refresh)
-            : spec.publisherId === "yenpress"
-              ? await fetchYenPressSeries_(category.url, spec.refresh)
-              : await fetchSeriesCategory_(
-                  spec.publisherId,
-                  category.url,
-                  spec.refresh,
-                );
+      const catalog = await scraper.catalog(category.url, spec.refresh);
       if (
-        spec.publisherId === "yenpress" &&
+        scraper.preserveCompleteSeries &&
         previous?.complete &&
         !catalog.complete
       )
-        throw new Error("Incomplete Yen Press series refresh.");
+        throw new Error("Incomplete publisher series refresh.");
       if (catalog.title) category = { title: catalog.title, url: category.url };
       annotateSeriesItems(catalog, spec, category);
       catalog.items = catalog.items.filter((item) => !specialSet(item.title));
@@ -1139,9 +718,13 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
 
   async function getSeriesCategories(request) {
     const id = request && request.publisherId;
-    if (id === "yenpress") {
+    const source = scrapers.get(id);
+    const directorySource = source?.seriesDirectory;
+    if (!directorySource)
+      throw new Error("Choose a publisher that supports series categories.");
+    if (directorySource.fromPublisherDirectory) {
       const directory = await getPublisherDirectory({
-        url: "https://yenpress.com/",
+        url: directorySource.url,
         refresh: request.refresh,
       });
       if (directory.stale && !directory.titles.length)
@@ -1159,15 +742,6 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
         })),
       };
     }
-    if (
-      !PUBLISHERS.some(function (p) {
-        return p.id === id;
-      }) ||
-      ["luckpim", "yaakz"].includes(id)
-    )
-      throw new Error(
-        "Choose Phoenix Next or First Page Pro for series categories.",
-      );
     const key = "series-directory:v1:" + id,
       previous = cachedJson_(cache, key);
     if (
@@ -1176,15 +750,9 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
       Date.now() - Date.parse(previous.checkedAt) < SCRAPE_TTL.directory * 1000
     )
       return previous;
-    const url =
-      id === "phoenix"
-        ? "https://www.phoenixnext.com/book-series.html"
-        : "https://www.firstpagepro.com/";
+    const url = directorySource.url;
     try {
-      const categories = parseSeriesCategories(
-        id,
-        await fetchText_(url, request.refresh, SCRAPE_TTL.directory),
-      );
+      const categories = await directorySource.load(request.refresh);
       if (!categories.length) throw new Error("Category directory unavailable");
       const result = {
         publisherId: id,
@@ -1209,633 +777,6 @@ export function createCatalogService(store, fetchImpl = globalThis.fetch) {
     }
   }
 
-  async function fetchYaakzProduct_(url, refresh = false) {
-    const safe = safeProductUrl(url, "yaakz");
-    if (!safe) throw new Error("Choose a Yaakz product page.");
-    const key = "yaakz-product:v1:" + digest(safe);
-    const previous = cachedJson_(cache, key);
-    if (
-      previous &&
-      !refresh &&
-      Date.now() - Date.parse(previous.checkedAt) < SCRAPE_TTL.product * 1000
-    )
-      return previous.product;
-    const products = yaakzProducts(
-      await fetchText_(safe, refresh, SCRAPE_TTL.product),
-    );
-    const uuid = safe.split("/").pop();
-    const product = products.find((product) => String(product.uuid) === uuid);
-    if (!product) throw new Error("Yaakz product markup changed.");
-    cacheJson_(cache, key, { product, checkedAt: new Date().toISOString() });
-    return product;
-  }
-
-  async function fetchYaakzCatalog_(
-    url,
-    maxPages = 20,
-    refresh = false,
-    maxAge = SCRAPE_TTL.catalog,
-  ) {
-    const parsed = new URL(url);
-    const query = parsed.searchParams.get("q");
-    const category = parsed.pathname.split("/").pop();
-    const items = new Map(),
-      parentIds = new Set();
-    let pages = 0,
-      complete = false,
-      total = 0;
-    for (let page = 1; page <= maxPages; page++) {
-      const endpoint = new URL("https://www.yaakz.com/api/products");
-      endpoint.searchParams.set(
-        query ? "filter[q]" : "filter[parent_category_id]",
-        query || (/^\d+$/.test(category) ? category : "976"),
-      );
-      endpoint.searchParams.set("page", String(page));
-      endpoint.searchParams.set("per_page", "20");
-      const result = await fetchJson_(endpoint.href, refresh, maxAge);
-      if (!Array.isArray(result.data) || !Number.isSafeInteger(result.total))
-        throw new Error("Yaakz catalog markup changed.");
-      if (
-        result.total < 0 ||
-        result.data.some((item) => !/^\d+$/.test(String(item.uuid)))
-      )
-        throw new Error("Yaakz catalog markup changed.");
-      total = result.total;
-      const before = parentIds.size;
-      result.data.forEach((item) => parentIds.add(item.uuid));
-      if (parentIds.size === before && result.data.length) break;
-      for (let start = 0; start < result.data.length; start += 3) {
-        await Promise.all(
-          result.data.slice(start, start + 3).map(async (product) => {
-            if (product.has_subproduct)
-              product = await fetchYaakzProduct_(
-                "https://www.yaakz.com/product/" + product.uuid,
-                refresh,
-              );
-            for (const item of yaakzItems(product))
-              if (!specialSet(item.title)) items.set(item.id, item);
-          }),
-        );
-      }
-      pages++;
-      if (parentIds.size === total) {
-        complete = true;
-        break;
-      }
-      if (!result.data.length) break;
-    }
-    return {
-      items: [...items.values()],
-      total,
-      pages,
-      complete,
-      title: query || "Yaakz new arrivals",
-      search: !!query,
-    };
-  }
-
-  async function fetchSeriesCategory_(id, url, refresh = false) {
-    const items = new Map();
-    let total = null,
-      complete = false,
-      pages = 0,
-      title = "";
-    for (let page = 1; page <= 20; page++) {
-      let html;
-      try {
-        html = await fetchText_(
-          url + (page > 1 ? (id === "phoenix" ? "?p=" : "?tskp=") + page : ""),
-          refresh,
-        );
-      } catch (error) {
-        if (!items.size) throw error;
-        break;
-      }
-      if (page === 1) {
-        total = catalogTotal(id, html);
-        const heading =
-          /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(html) ||
-          /<title\b[^>]*>([^<]*)<\/title>/i.exec(html);
-        title = heading ? textHtml(heading[1]) : "";
-      }
-      const parsed = parseCatalog(id, html),
-        before = items.size;
-      parsed.forEach(function (item) {
-        items.set(item.id, item);
-      });
-      pages++;
-      if (total !== null && items.size === total) {
-        complete = true;
-        break;
-      }
-      if (!parsed.length) {
-        if (page === 1 && total !== 0)
-          throw new Error("Category markup changed");
-        break;
-      }
-      if (items.size === before) break; // A repeated page must not masquerade as a complete catalog.
-      const next = (html.match(/<a\b[^>]*>/gi) || []).some(function (anchor) {
-        const href = attr(anchor, "href"),
-          param = id === "phoenix" ? "p" : "tskp";
-        return (
-          href.indexOf(url) === 0 &&
-          new RegExp("[?&]" + param + "=" + (page + 1) + "(?:&|$)").test(href)
-        );
-      });
-      if (!next && (total === null || items.size >= total)) break;
-    }
-    return {
-      items: Array.from(items.values()),
-      total: total,
-      pages: pages,
-      complete: complete,
-      title: title,
-    };
-  }
-
-  async function fetchLuckpimSeries_(url, refresh = false) {
-    // Cache public book records, never the token/cookie handshake.
-    return scrapeCache.get(
-      "luckpim-series:" + url,
-      { maxAge: SCRAPE_TTL.catalog, refresh },
-      () => loadLuckpimSeries_(url),
-    );
-  }
-
-  async function loadLuckpimSeries_(url) {
-    const keyword = decodeURIComponent(url.split("?k=")[1]),
-      session = await luckpimSession_("https://www.luckpim.com/");
-    const result = await requestRemote(
-      "https://www.luckpim.com/get/search_pin/key?page=1&limit=-1&keyword=" +
-        encodeURIComponent(keyword),
-      { headers: session },
-    );
-    if (result.status !== 200) throw new Error("Series search unavailable");
-    const response = JSON.parse(result.body),
-      data = response.data;
-    if (
-      response.status !== 200 ||
-      !data ||
-      !Array.isArray(data.list) ||
-      !Number.isSafeInteger(data.total) ||
-      data.total < 0
-    )
-      throw new Error("Series search changed");
-    const items = data.list.map(luckpimItem).filter(Boolean);
-    return {
-      items: items,
-      total: data.total,
-      pages: 1,
-      complete: items.length === data.total,
-      search: true,
-    };
-  }
-
-  async function luckpimSession_(url) {
-    const response = await requestRemote(url, {
-      headers: { "User-Agent": "Mozilla/5.0" },
-    });
-    if (response.status !== 200) throw new Error("Catalog unavailable");
-    const tag =
-        /<input\b[^>]*name=["']?__RequestVerificationToken["']?[^>]*>/i.exec(
-          response.body,
-        ),
-      token = tag && attr(tag[0], "value");
-    if (!token) throw new Error("Catalog token unavailable");
-    const headers = response.headers,
-      cookieHeader = headers["Set-Cookie"] || headers["set-cookie"] || [];
-    return {
-      "XSRF-TOKEN": token,
-      Cookie: (Array.isArray(cookieHeader) ? cookieHeader : [cookieHeader])
-        .map(function (v) {
-          return String(v).split(";")[0];
-        })
-        .join("; "),
-    };
-  }
-
-  async function fetchCatalog_(p, refresh = false) {
-    let items = [];
-    for (let page = 1; page <= 2; page++) {
-      const url = p.url + (page > 1 ? "?tskp=" + page : "");
-      // Phoenix uses p, First Page Pro uses tskp.
-      const html = await fetchText_(
-        p.id === "phoenix" && page > 1 ? p.url + "?p=" + page : url,
-        refresh,
-        SCRAPE_TTL.releases,
-      );
-      const parsed = parseCatalog(p.id, html);
-      if (!parsed.length) {
-        if (page === 1) throw new Error("Catalog unavailable");
-        break;
-      }
-      items = items.concat(parsed);
-    }
-    const seen = {};
-    return items
-      .filter(function (item) {
-        if (seen[item.id]) return false;
-        seen[item.id] = true;
-        return true;
-      })
-      .slice(0, p.id === "phoenix" ? 72 : 40);
-  }
-
-  async function fetchLuckpim_(refresh = false) {
-    return scrapeCache.get(
-      "luckpim-releases",
-      { maxAge: SCRAPE_TTL.releases, refresh },
-      loadLuckpim_,
-    );
-  }
-
-  async function loadLuckpim_() {
-    const session = await luckpimSession_(
-      "https://www.luckpim.com/product/list/new",
-    );
-    let items = [];
-    for (let page = 1; page <= 2; page++) {
-      const result = await requestRemote(
-        "https://www.luckpim.com/_api/getBookList?setting=new&page=" +
-          page +
-          "&limit=100",
-        {
-          headers: session,
-        },
-      );
-      if (result.status !== 200) throw new Error("Catalog unavailable");
-      const data = JSON.parse(result.body);
-      if (data.sc !== 200 || !data.d || !Array.isArray(data.d.data))
-        throw new Error("Catalog changed");
-      data.d.data.forEach(function (book) {
-        const item = luckpimItem(book);
-        if (item) items.push(item);
-      });
-      if (page * 100 >= Number(data.d.total) || data.d.data.length < 100) break;
-    }
-    return items;
-  }
-
-  async function lookupYenPress_(canonical: string, refresh = false) {
-    return scrapeCache.get(
-      "yenpress-isbn:v1:" + canonical,
-      { maxAge: SCRAPE_TTL.isbn, refresh },
-      async () => {
-        const data = await searchYenPress_(await yenPressKey_(), {
-          query: canonical,
-          page: { size: 4 },
-          search_fields: { isbn: {} },
-          result_fields: { isbn: { raw: {} }, url: { raw: {} } },
-        });
-        for (const url of yenPressCandidates(data, canonical)) {
-          const book = yenPressBook(
-            await fetchText_(url, refresh, SCRAPE_TTL.product),
-            canonical,
-            url,
-          );
-          if (book) return book;
-        }
-        return null;
-      },
-    );
-  }
-
-  async function yenPressKey_() {
-    // The site's public key is held only for this operation, never persisted.
-    const bootstrap = await requestRemote("https://yenpress.com/search");
-    if (bootstrap.status !== 200)
-      throw new Error("Yen Press search unavailable.");
-    return yenPressSearchKey(bootstrap.body);
-  }
-
-  async function searchYenPress_(key: string, query: Record<string, unknown>) {
-    const response = await requestRemote(
-      "https://enterprise-search.yenpress.com/api/as/v1/engines/yenpress/search",
-      {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer " + key,
-          "Content-Type": "application/json",
-          Origin: "https://yenpress.com",
-          Referer: "https://yenpress.com/",
-        },
-        body: JSON.stringify(query),
-      },
-    );
-    if (response.status !== 200)
-      throw new Error("Yen Press search unavailable.");
-    return JSON.parse(response.body) as unknown;
-  }
-
-  async function fetchYenPressDirectory_(refresh = false) {
-    return scrapeCache.get(
-      "yenpress-directory:v1",
-      { maxAge: SCRAPE_TTL.directory, refresh },
-      async () => {
-        const key = await yenPressKey_(),
-          records: unknown[] = [],
-          seen = new Set<string>();
-        let expected: number | null = null;
-        for (let current = 1; current <= 20; current++) {
-          const page = yenPressSearchPage(
-            await searchYenPress_(key, {
-              query: "",
-              filters: {
-                all: [{ type: "series" }],
-                none: [{ imprint_id: "3" }],
-              },
-              page: { size: 1000, current },
-              result_fields: {
-                title: { raw: {} },
-                url: { raw: {} },
-                imprint_id: { raw: {} },
-              },
-            }),
-          );
-          if (
-            page.current !== current ||
-            (expected !== null && expected !== page.total)
-          )
-            throw new Error("Yen Press directory changed while loading.");
-          expected = page.total;
-          for (const [index, record] of page.records.entries()) {
-            const id = page.ids[index];
-            if (!seen.has(id)) {
-              seen.add(id);
-              records.push(record);
-            }
-          }
-          if (current >= page.pages) {
-            if (records.length !== expected)
-              throw new Error("Yen Press directory is incomplete.");
-            return yenPressDirectoryTitles(records);
-          }
-          if (!page.records.length) break;
-        }
-        throw new Error("Yen Press directory is incomplete.");
-      },
-    );
-  }
-
-  async function fetchYenPressReleases_(refresh = false) {
-    return scrapeCache.get(
-      "yenpress-releases:v1",
-      { maxAge: SCRAPE_TTL.releases, refresh },
-      async () => {
-        const calendar = yenPressCalendar(
-          await fetchText_(
-            "https://yenpress.com/calendar",
-            refresh,
-            SCRAPE_TTL.releases,
-          ),
-        );
-        if (!calendar.length) return [];
-        const data = await searchYenPress_(await yenPressKey_(), {
-          query: "",
-          filters: {
-            all: [
-              { isbn: calendar.map((book) => book.lookupIsbn) },
-              { type: ["books-manga", "books-comics", "books-light-novels"] },
-            ],
-          },
-          page: { size: 1000 },
-          result_fields: {
-            isbn: { raw: {} },
-            url: { raw: {} },
-            type: { raw: {} },
-          },
-        });
-        return yenPressPrintReleases(data, calendar);
-      },
-    );
-  }
-
-  async function fetchYenPressSeries_(
-    url: string,
-    refresh = false,
-  ): Promise<CatalogResult> {
-    const first = yenPressSeriesCatalog(await fetchText_(url, refresh), url);
-    const items = new Map(first.items.map((item) => [item.url, item]));
-    const visited = new Set<string>();
-    let nextUrl = first.nextUrl,
-      pages = 1;
-    while (nextUrl && pages < 20 && !visited.has(nextUrl)) {
-      visited.add(nextUrl);
-      try {
-        const page = yenPressSeriesPage(
-          await fetchText_(nextUrl, refresh, SCRAPE_TTL.catalog, {
-            headers: { "X-Requested-With": "XMLHttpRequest", Referer: url },
-          }),
-          url,
-          first.title,
-          first.type,
-        );
-        const before = items.size;
-        for (const item of page.items) items.set(item.url, item);
-        pages++;
-        nextUrl = page.nextUrl;
-        if (items.size === before) break;
-      } catch {
-        break;
-      }
-    }
-    return {
-      title: first.title,
-      items: [...items.values()],
-      total: first.total,
-      complete: yenPressSeriesComplete(
-        [...items.values()],
-        first.total,
-        nextUrl,
-      ),
-      pages,
-    };
-  }
-
-  async function lookupKinokuniya_(canonical: string, refresh = false) {
-    return scrapeCache.get(
-      "kinokuniya-isbn:v2:" + canonical,
-      { maxAge: SCRAPE_TTL.isbn, refresh },
-      async () => {
-        const response = await requestRemote(
-          "https://kinokuniya.co.th/products/" + canonical,
-        );
-        if (response.status === 404) return null;
-        if (response.status !== 200) throw new Error("Kinokuniya unavailable.");
-        return kinokuniyaBook(response.body, canonical);
-      },
-    );
-  }
-
-  async function lookupFirstPage_(canonical) {
-    const result = await searchPublisherIsbn({
-      publisherId: "firstpage",
-      isbn: canonical,
-    });
-    let unavailable = false;
-    for (const candidate of result.items.slice(0, 4)) {
-      try {
-        const html = await fetchText_(candidate.url, false, SCRAPE_TTL.product);
-        const book = firstPageBook(html, canonical, candidate.url);
-        if (book) return book;
-      } catch {
-        unavailable = true;
-      }
-    }
-    if (unavailable)
-      throw new Error("First Page Pro product details are unavailable.");
-    return null;
-  }
-
-  async function lookupNaiin_(canonical, refresh = false) {
-    const html = await fetchText_(
-      "https://www.naiin.com/search-result?title=" +
-        encodeURIComponent(canonical),
-      refresh,
-      SCRAPE_TTL.isbn,
-    );
-    const component = /<product-list\b[^>]*>/i.exec(html);
-    if (!component) throw new Error("Search markup unavailable");
-    let candidates;
-    try {
-      candidates = JSON.parse(attr(component[0], ":items"));
-    } catch (e) {
-      throw new Error("Search markup changed");
-    }
-    if (!Array.isArray(candidates)) throw new Error("Search markup changed");
-    candidates = candidates
-      .filter(function (v) {
-        return (
-          Number(v.ProductTypeId) === 1 && /^\d+$/.test(String(v.ProductID))
-        );
-      })
-      .slice(0, 4);
-    for (let i = 0; i < candidates.length; i++) {
-      const candidate = candidates[i],
-        url = "https://www.naiin.com/product/detail/" + candidate.ProductID;
-      const page = await fetchText_(url, refresh, SCRAPE_TTL.product),
-        data = structuredBooks(page);
-      const exact = data.find(function (b) {
-        return [b.isbn, b.gtin13, b.sku].some(function (code) {
-          return canonicalIsbn(code) === canonical;
-        });
-      });
-      const metaIsbn = meta(page, "book:isbn");
-      if (!exact && canonicalIsbn(metaIsbn) !== canonical) continue;
-      const book = exact || {},
-        title = book.name || candidate.ProductName || "";
-      if (!title) continue;
-      const parsed = splitBookTitle(title);
-      const regularPrice =
-        candidate.PriceFull === "" ? NaN : Number(candidate.PriceFull ?? NaN);
-      return {
-        title: title,
-        series: parsed.series,
-        volume: parsed.volume,
-        type: parsed.type,
-        publisher: names(book.publisher) || candidate.PublisherName || "",
-        authors: names(book.author) || candidate.AuthorName || "",
-        source: "Naiin",
-        url: url,
-        releaseDate: meta(page, "book:release_date"),
-        regularPrice:
-          Number.isFinite(regularPrice) && regularPrice >= 0
-            ? regularPrice
-            : "",
-        coverUrl: safeCoverUrl(book.image || meta(page, "og:image")),
-      };
-    }
-    return null;
-  }
-
-  async function lookupNaiinTitle_(book, refresh = false) {
-    if (book.volume === "" || book.volume == null) return null;
-    const html = await fetchText_(
-      "https://www.naiin.com/search-result?title=" +
-        encodeURIComponent(book.series + " เล่ม " + book.volume),
-      refresh,
-      SCRAPE_TTL.isbn,
-    );
-    const component = /<product-list\b[^>]*>/i.exec(html);
-    if (!component) throw new Error("Naiin search unavailable.");
-    const candidates = JSON.parse(attr(component[0], ":items"));
-    if (!Array.isArray(candidates)) throw new Error("Naiin search changed.");
-    for (const candidate of candidates
-      .filter(
-        (item) =>
-          Number(item.ProductTypeId) === 1 &&
-          /^\d+$/.test(String(item.ProductID)),
-      )
-      .slice(0, 4)) {
-      const url = "https://www.naiin.com/product/detail/" + candidate.ProductID;
-      const page = await fetchText_(url, refresh, SCRAPE_TTL.product);
-      for (const product of structuredBooks(page)) {
-        const title = product.name || candidate.ProductName || "";
-        const parsed = splitBookTitle(title);
-        const publisher = names(product.publisher) || candidate.PublisherName;
-        if (
-          specialSet(title) ||
-          releaseBundle(title) ||
-          parsed.volume === "" ||
-          Number(parsed.volume) !== Number(book.volume) ||
-          catalogSeriesKey(parsed.series) !== catalogSeriesKey(book.series) ||
-          !publisher ||
-          publisherKey(publisher) !== publisherKey(book.publisher) ||
-          !parsed.type ||
-          parsed.type !== book.type
-        )
-          continue;
-        return {
-          title,
-          url,
-          coverUrl: safeCoverUrl(product.image || meta(page, "og:image")),
-        };
-      }
-    }
-    return null;
-  }
-
-  async function fetchText_(
-    url,
-    refresh = false,
-    maxAge = SCRAPE_TTL.catalog,
-    options: RequestInit = {},
-  ) {
-    return scrapeCache.get(
-      "text:" + new URL(url).href,
-      { maxAge, refresh },
-      async () => {
-        const response = await requestRemote(url, options);
-        if (response.status !== 200) throw new Error("Website unavailable");
-        return response.body;
-      },
-    );
-  }
-
-  async function fetchJson_(url, refresh = false, maxAge = SCRAPE_TTL.catalog) {
-    return scrapeCache.get(
-      "json:" + new URL(url).href,
-      { maxAge, refresh },
-      async () => {
-        const response = await requestRemote(url);
-        if (response.status !== 200)
-          throw new Error("Book lookup service returned " + response.status);
-        return JSON.parse(response.body);
-      },
-    );
-  }
-  function cachedJson_(cache, key) {
-    try {
-      const json = cache.get(key);
-      return json ? JSON.parse(json) : null;
-    } catch (error) {
-      return null;
-    }
-  }
-  function cacheJson_(cache, key, value) {
-    const json = JSON.stringify(value);
-    cache.put(key, json, SCRAPE_TTL.retention);
-  }
   return {
     lookupIsbn,
     searchPublisherIsbn,

@@ -1,6 +1,6 @@
 # Publisher catalogs and metadata
 
-The Next.js server fetches publisher pages using native `fetch`. `lib/server/catalogs.ts` manages bounded requests, pagination and parsed catalog caches; `lib/server/scrape-cache.ts` shares durable SQLite page/API responses across scraping features. `lib/domain/releases.ts`, `titles.ts`, `urls.ts` and `html.ts` hold pure parsing and validation rules. Yaakz’s serialized product data is decoded in `lib/server/yaakz.ts`; gallery extraction lives in `lib/server/publisher-covers.ts`.
+The Next.js server fetches publisher pages using native `fetch`. `lib/server/catalogs.ts` coordinates library lookups, stored covers, catalog annotations and stale-result fallback. Source-specific requests live in `lib/server/scrapers/`, with one module per publisher or metadata provider. `registry.ts` registers the active sources and their capabilities; `http.ts` shares bounded requests, redirect checks and page/API caching. `lib/server/scrape-cache.ts` owns durable SQLite response reuse and retry cooldowns. Pure parsers and URL validation remain in `lib/domain/`; Yaakz’s serialized product decoder and shared gallery parser remain in `lib/server/yaakz.ts` and `lib/server/publisher-covers.ts`.
 
 Requests have a 15-second timeout and an 8 MB response bound. Source and redirect allowlists reject unexpected hosts and credentials. External markup is parsed as data and never executed. The browser displays titles as text.
 
@@ -40,7 +40,7 @@ Opening a series immediately renders gaps from the recorded shelf and calls `get
 
 When no unique category matches, the response has `needsSelection: true`, category choices and `complete: false`. **Choose series category** searches these titles and URLs locally, or accepts a pasted URL. `setSeriesCatalog()` validates the publisher host/path and saves the explicit choice keyed by normalized shelf title, publisher ID and exact book type. Phoenix URLs must be HTTPS series-category paths; First Page Pro URLs are canonicalized to the numeric category root. Luckpim choices accept only its HTTPS `/search_result?k=<title>` URL. Arbitrary fetch URLs are rejected.
 
-`fetchSeriesCategory_()` reuses the product-card parser described below. It reads Phoenix's `span.toolbar-number` or First Page Pro's `span.tsk-all` count, deduplicates product IDs, and requests more pages until the total is accounted for or the bounded traversal stops. `complete` is true only when unique extracted listings equal the reported total. Missing counts, repeated pages, extraction mismatches and the 20-page limit stay incomplete. An empty page without an explicit zero total is a failure. The category heading, falling back to the HTML title, supplies the publisher's series title. Live samples included 32 Phoenix listings for [ดอกรักผลิบานที่กลางใจ](https://www.phoenixnext.com/book-series/kaoru-hana-wa-rin-to-saku.html) and 11 First Page Pro listings for [ชิชุนกิจัง](https://www.firstpagepro.com/category/56), including older volumes.
+The `catalog()` method in `lib/server/scrapers/html-catalog.ts` reuses the product-card parser described below. It reads Phoenix's `span.toolbar-number` or First Page Pro's `span.tsk-all` count, deduplicates product IDs, and requests more pages until the total is accounted for or the bounded traversal stops. `complete` is true only when unique extracted listings equal the reported total. Missing counts, repeated pages, extraction mismatches and the 20-page limit stay incomplete. An empty page without an explicit zero total is a failure. The category heading, falling back to the HTML title, supplies the publisher's series title. Live samples included 32 Phoenix listings for [ดอกรักผลิบานที่กลางใจ](https://www.phoenixnext.com/book-series/kaoru-hana-wa-rin-to-saku.html) and 11 First Page Pro listings for [ชิชุนกิจัง](https://www.firstpagepro.com/category/56), including older volumes.
 
 `fetchLuckpimSeries_()` gets a fresh public token/cookie session from Luckpim's home page, then reads the full search endpoint. It requires HTTP 200, `status === 200`, an array in `data.list`, and a non-negative integer `data.total`. Extracted records must equal that total for a complete result. The shared Luckpim item parser supplies type, listed price and stock/pre-order labels. An empty search asks for the publisher's series title. It never substitutes the monthly new-release feed.
 
@@ -58,7 +58,7 @@ These limits describe recent catalog listings. They do not provide a complete re
 
 ### Phoenix Next
 
-`fetchCatalog_()` downloads the two catalog pages. `parseCatalog('phoenix', html)` finds anchors whose class includes `product-item-link` and reads:
+The shared HTML catalog’s `releases()` method downloads the two catalog pages. `parseCatalog('phoenix', html)` finds anchors whose class includes `product-item-link` and reads:
 
 - The anchor text for the title and its `href` for the product URL.
 - The first `data-price-amount` value in the associated card segment for the listed price.
@@ -147,7 +147,7 @@ Successful lookups and confirmed misses, including HTTP 404, share a 24-hour dur
 
 ## Yen Press ISBN lookup
 
-`lib/domain/yenpress.ts` parses Yen Press's public search configuration, search records and book detail pages. `lookupYenPress_()` in `lib/server/catalogs.ts` follows the site's public search flow:
+`lib/domain/yenpress.ts` parses Yen Press's public search configuration, search records and book detail pages. `lookupYenPress_()` in `lib/server/scrapers/yenpress.ts` follows the site's public search flow:
 
 1. Fetch `https://yenpress.com/search` and read the JSON `_elastic` configuration without executing page scripts. Require the known Yen Press search host and engine. The public search key is used only for that request and is not persisted.
 2. POST the canonical ISBN to `https://enterprise-search.yenpress.com/api/as/v1/engines/yenpress/search`, with the site's public search key and origin headers. Request at most four results using the ISBN search field. Search can return fuzzy matches, so candidates must state the exact canonical ISBN and use a validated HTTPS `/titles/<isbn>-<slug>` URL on `yenpress.com`.
@@ -160,7 +160,7 @@ The saved comic, digital and novel fixtures in `tests/fixtures/publishers/yenpre
 
 ## Yen Press publisher catalogs
 
-`yenpress` is a configured publisher for releases, discovery, saved listings, series comparisons and cover selection. Server and browser matching recognize Yen Press, Yen On, Ize Press and JY as this catalog source. `lib/domain/yenpress-catalogs.ts` parses the public records; `lib/server/catalogs.ts` handles requests and shared caches.
+`yenpress` is a configured publisher for releases, discovery, saved listings, series comparisons and cover selection. Server and browser matching recognize Yen Press, Yen On, Ize Press and JY as this catalog source. `lib/domain/yenpress-catalogs.ts` parses the public records; `lib/server/scrapers/yenpress.ts` handles source requests through the shared HTTP and cache services.
 
 - **Discovery and category choices:** query the public search index with `type: series`, excluding the Yen Audio imprint. Read up to 20 pages of 1,000 records, requiring stable totals, matching page numbers and unique record IDs. Deduplicate series URLs after accounting for every raw record. The directory supplies validated HTTPS series links and format hints from explicit title labels or the Yen On/Ize Press imprint. Formats without a confirmed hint are resolved from the series page as their cards approach the viewport. Manga/comics and novels remain separate discovery cards. A confirmed empty series is hidden; failed checks remain visible. Directory responses are reused for seven days and shared with automatic category matching.
 - **Series catalogs:** accept only HTTPS `/series/<slug>` URLs on `yenpress.com`. Read the heading, its numbered-volume count, the category breadcrumb, and product links/images inside `#volumes-list`. Older volumes use the page’s `show-more` link. Continuation URLs must remain on the same series, contain a numeric `next_ord`, and use only Paperback/Hardback format parameters. Requests send the site’s AJAX header. Deduplicate products across at most 20 pages; repeated pages, missing counts and failed continuation requests stay incomplete. The heading counts numbered volumes, so unnumbered collector editions remain extra listings for review. A partial refresh retains an earlier complete catalog and its check time. Successful catalogs are reused for 24 hours.
@@ -177,9 +177,32 @@ Cover discovery runs on the server. `lib/server/covers.ts` validates image bytes
 
 ## Maintaining a publisher
 
+The scraper boundary is defined in `lib/server/scrapers/types.ts`. Each `ScraperDefinition` declares its ID, exact allowed hosts, optional redirect identity and a `create(context)` factory. Factories receive shared `fetchText`, `fetchJson`, `requestRemote` and cache helpers. Use those helpers instead of calling `fetch` directly so timeouts, size bounds, refreshes and retry cooldowns apply consistently. Session-bearing handshakes use `requestRemote`; cache their public parsed results rather than tokens or cookies.
+
+Implement only the capabilities the source supports:
+
+| Capability                                        | Purpose                                                                             |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `releases`                                        | Recent publisher listings                                                           |
+| `catalog`                                         | A full category or series catalog, including completeness and page counts           |
+| `directory`, `seriesDirectory`, `searchSeriesUrl` | Discover titles, choose series categories, or search by series name                 |
+| `searchIsbn`                                      | Publisher ISBN search, including unverified candidates and review warnings          |
+| `lookupIsbn`                                      | Verified barcode metadata; `isbnPriority` sets provider preference                  |
+| `gallery`, `coverOptions`                         | Product galleries and supplementary cover sources; `coverPriority` sets their order |
+
+`createHtmlCatalog()` shares bounded listing pagination; each source supplies its page parameter, release limit and optional variant expansion. `createIsbnSearch()` shares search caching and malformed-result checks while the source verifies candidate products. Source options also preserve parser-specific series names, complete catalogs and cached-directory upgrades where needed. Shared code must not infer these capabilities from publisher IDs.
+
+To add a source:
+
 1. Save a minimal representative response under `tests/fixtures/publishers/` or `tests/fixtures/series-catalogs/`.
-2. Update the parser and URL validation in `lib/domain/`; keep network behavior in `lib/server/catalogs.ts`.
-3. Add a regression against the fixture in `tests/integration/`. Check pagination, exact editions, incomplete responses and stale-cache fallback.
-4. Run `npm run check`, `npm run build` and `npm run test:e2e`. Browser scenarios use isolated temporary databases and fixed responses.
+2. Add a source module under `lib/server/scrapers/`, using a nearby source as an example. Keep pure parsing and URL validation in `lib/domain/`.
+3. Import the definition and add it to `SCRAPER_SOURCES` in `registry.ts`. Host permissions, ISBN lookup and cover capabilities are registered together. Set `isbnPriority`/`isbnWarning` or `coverPriority`/`coverWarning` when providing those features.
+4. For a publisher exposed in the app, add its display metadata to browser-safe `PUBLISHERS` in `lib/domain/constants.ts`. Add publisher aliases, allowed product/category/image URLs and title parsing rules in the relevant domain modules. Metadata-only providers do not need a `PUBLISHERS` entry. Never import the server registry into browser code.
+5. Add fixture regressions for pagination, exact editions, incomplete responses and stale-cache fallback. `tests/integration/scraper-registry.test.mjs` also checks registration, removal, provider ordering and host restrictions.
+6. Run `npm run check`. For publisher UI changes, also run `npm run build` and `npm run test:e2e`; browser scenarios use isolated temporary databases and fixed responses.
+
+To stop using a source, remove its entry from `SCRAPER_SOURCES`. This removes its network host permissions and lookup/cover capabilities. Remove its `PUBLISHERS` entry as well to hide it from the app’s publisher choices. Keep historical publisher aliases and URL validators while stored books, saved releases or explicit series links still use them. Removing a scraper does not delete those records or stored cover images. Disposable cached lookup results retain their normal expiry.
+
+To repair an existing source, edit its source module and focused domain parser, then extend the corresponding fixture test. Changes to a source’s requests do not require editing source-selection branches in the catalog service.
 
 Fixture tests confirm the saved markup and application behavior. Live publisher markup can change; refresh a representative fixture when investigating a changed source.
