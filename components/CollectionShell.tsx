@@ -40,6 +40,7 @@ export default function CollectionShell({
       </a>
       <IconSymbols />
       <CollectionHeader series={series} />
+      <CollectionTabs view={view} data={data} />
       <main
         id="libraryMain"
         className={"library-main" + (series !== null ? " series-page" : "")}
@@ -48,8 +49,6 @@ export default function CollectionShell({
         <div id={"pageError"} className={"banner"} role={"alert"} hidden></div>
         {overview && <CollectionHeading removed={view === "trash"} />}
         {overview && <CollectionStats books={data.books} />}
-        {view === "collection" && series === null && <CollectionSpending />}
-        <CollectionTabs view={view} data={data} />
         {series !== null && <SeriesHeader series={series} books={data.books} />}
         {series !== null && <SeriesEditor />}
         {shelf && (
@@ -70,9 +69,14 @@ export default function CollectionShell({
             today={new Date().toISOString().slice(0, 10)}
           />
         )}
+        {view === "collection" && series === null && (
+          <details className="spending-disclosure">
+            <summary>Collection spending</summary>
+            <CollectionSpending />
+          </details>
+        )}
         <footer className={"footer"}>
           <span id={"syncNote"}>{"Saved in your library"}</span>
-          <span>Made for the love of books.</span>
         </footer>
       </main>
       <TitleDialog />

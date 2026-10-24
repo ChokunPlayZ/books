@@ -95,6 +95,10 @@ export default function ShelfEntries({
           aria-label={`Open ${name}, ${owned.length} owned ${owned.length === 1 ? "volume" : "volumes"}`}
         >
           <Cover book={shelfCoverBook(owned)} gallery="series" />
+          <span className="shelf-caption">{name}</span>
+          <span className="shelf-detail">
+            {owned.length} {owned.length === 1 ? "volume" : "volumes"}
+          </span>
         </a>
       ));
   }
@@ -119,6 +123,10 @@ export default function ShelfEntries({
         aria-haspopup="dialog"
       >
         <Cover book={book} gallery="volume" />
+        <span className="shelf-caption">
+          {book.volume === "" ? book.series : "Volume " + book.volume}
+        </span>
+        <span className="shelf-detail">{book.status || "No status"}</span>
       </button>
     ) : (
       <article className="book-row" key={book.row}>

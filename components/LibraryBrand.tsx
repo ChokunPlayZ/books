@@ -12,7 +12,6 @@ export default function LibraryBrand() {
       </span>
       <span>
         <span className="brand-name">Book Collection</span>
-        <span className="brand-caption">A shelf of your own</span>
       </span>
     </a>
   );

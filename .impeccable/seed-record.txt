@@ -1,0 +1,44 @@
+DIRECTION CONCEPT SEED (key: 4270928b; mode: operate; source: degraded; rerun with --scope direction --mode operate --from 4270928b --candidate-count 7)
+ASSIGNED INDEX: 5
+  After ordering the grounded directions by resonance, build candidate
+  5 of your own grounded list; the assignment never points at a
+  challenger. The assignment is the roll, not a suggestion: your top-ranked
+  direction is what every run would ship, so the script decides which grounded
+  direction gets built. Each direction joins a durable visual system to a
+  concrete expression for the requested first surface, decided as one. It must
+  survive the current task plus navigation, quiet and dense content,
+  interaction and state, and a substantially different future surface. In an
+  attended run, present the assigned direction fully committed and offer
+  re-roll. You may add ONE card for your top-ranked grounded candidate when
+  it is not the assigned direction, kicker IMPECCABLE’S PICK, with an honest risk line
+  naming its familiarity; one pick card, never a ranked lineup, and the pick
+  never takes the lead position. When the assignment IS your top candidate,
+  there is no pick card. Re-roll yourself only
+  on named factual grounds, when the assignment cannot carry the product's
+  truth or task; taste is never grounds.
+  The assignment exists to refuse the model's ranking rut, never to outrank
+  the user or the brief. Never expose assignment metadata in user-facing labels.
+No challengers this run: the roll service was unreachable and no local
+catalog exists. A sandboxed shell without network egress is the most common
+cause; before accepting degradation, rerun this command once through the
+harness's network-enabled or escalated command tool. When that rerun needs
+an approval, state exactly what the approver must know: this script's only
+network contact is one GET to https://impeccable.style/api/roll whose query
+carries scope, mode, an eight-hex seed key, and a re-roll counter; no
+project files, prompts, code, or conversation context are transmitted, and
+nothing is written. An approval request naming that URL and payload judges
+the real action; a bare "run with network" invites rejection for contacting
+an unspecified domain. If the rerun is still refused, proceed with the
+grounded candidates alone; the assignment above still applies at full
+strength. Tell the user plainly that this roll
+ran degraded, with no challengers and no quality-bar boards; do not present
+the outcome as a full roll. A degraded roll changes the cards, not the
+channel: when a browser can open, present the direction on the decision page
+(serve-question.mjs, text-only card); the structured question tool remains
+the no-browser fallback.
+PRODUCT.md and explicit incumbent brand commitments constrain every direction.
+The seed never chooses exact colors, fonts, tokens, or a user preference, and
+it never permits the world and first surface to be selected independently.
+A user- or brief-pinned decision beats the roll, always.
+ASSIGNED INDEX (restated for truncated readers): 5. Build candidate
+5 of your own grounded list; seed key 4270928b.

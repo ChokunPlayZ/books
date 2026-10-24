@@ -5,3 +5,6 @@ outputs/
 package-lock.json
 next-env.d.ts
 tests/fixtures/
+
+.impeccable/review/
+.impeccable/hook.cache.json

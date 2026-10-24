@@ -19,6 +19,8 @@ export default function CollectionHeader({
             </a>
             <ThemeToggle />
           </div>
+        </div>
+        <div className="capture-actions" aria-label="Book entry">
           <button id={"checkBookButton"} className={"btn"} disabled>
             <svg aria-hidden={"true"}>
               <use href={"#i-scan"} />

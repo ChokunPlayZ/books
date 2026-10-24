@@ -11,9 +11,6 @@ export default function DiscoveryPanel() {
             Find your next read in publisher catalogs or this season’s anime.
           </p>
         </div>
-        <button id="refreshDiscovery" className="btn">
-          Refresh titles
-        </button>
       </div>
       <label className="field discovery-mode" htmlFor="discoveryMode">
         <span>Browse</span>
@@ -70,7 +67,12 @@ export default function DiscoveryPanel() {
               <option value="">Another category URL</option>
             </select>
           </label>
-          <label className="field discovery-url" htmlFor="discoveryUrl">
+          <label
+            id="discoveryCustom"
+            className="field discovery-url"
+            htmlFor="discoveryUrl"
+            hidden
+          >
             <span>Publisher category URL</span>
             <input
               id="discoveryUrl"
@@ -80,17 +82,21 @@ export default function DiscoveryPanel() {
               placeholder="Publisher catalog or series URL"
             />
           </label>
-          <button id="loadDiscovery" className="btn primary" type="submit">
+          <button
+            id="loadDiscovery"
+            className="btn primary"
+            type="submit"
+            hidden
+          >
             Load titles
           </button>
+          <button id="refreshDiscovery" className="btn" type="button">
+            Refresh titles
+          </button>
         </form>
-        <p className="release-note">
-          Titles come from the publisher’s catalog. Any series already on your
-          shelf is hidden.
-        </p>
         <div id="discoveryError" className="banner" role="alert" hidden></div>
         <div id="discoverySource" className="discovery-status"></div>
-        <div className="toolbar release-filters">
+        <div className="toolbar discovery-filters">
           <div className="search">
             <svg aria-hidden="true">
               <use href="#i-search" />

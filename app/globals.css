@@ -17,6 +17,7 @@
 @import "./styles/missing.css" layer(components);
 @import "./styles/statistics.css" layer(components);
 @import "./styles/anime.css" layer(components);
+@import "./styles/interface.css" layer(components);
 @source "../components";
 @source "../lib/client";
 

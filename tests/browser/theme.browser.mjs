@@ -119,7 +119,7 @@ try {
     await unhydrated
       .locator("body")
       .evaluate((body) => getComputedStyle(body).backgroundColor),
-    "rgb(21, 28, 24)",
+    "rgb(24, 27, 34)",
   );
   await beforeHydration.close();
 

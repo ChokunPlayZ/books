@@ -1,4 +1,5 @@
 import Icon from "../Icon";
+import NavigationPosition from "./NavigationPosition";
 import {
   collectionPaths,
   type CollectionView,
@@ -13,7 +14,8 @@ export default function CollectionTabs({
   data: ReturnType<Store["api"]["getCollection"]>;
 }) {
   return (
-    <nav className="tabs" aria-label="Collection views">
+    <nav id="libraryNavigation" className="tabs" aria-label="Collection views">
+      <NavigationPosition view={view} />
       <a
         id="collectionTab"
         className={"tab" + (view === "collection" ? " active" : "")}

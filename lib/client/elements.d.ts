@@ -103,6 +103,7 @@ interface LibraryElements {
   discoverySource: HTMLDivElement;
   discoveryType: HTMLSelectElement;
   discoveryUrl: HTMLInputElement;
+  discoveryCustom: HTMLLabelElement;
   doneCheck: HTMLButtonElement;
   editTitleButton: HTMLButtonElement;
   editVolumesButton: HTMLButtonElement;

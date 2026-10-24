@@ -1,0 +1,1109 @@
+/* Shared utility interface. Capture on handheld; browse on desktop. */
+:root {
+  --ui-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, sans-serif;
+  --ui-radius: 8px;
+}
+html {
+  scrollbar-color: var(--line-hover) var(--paper);
+  scroll-padding-top: 132px;
+}
+body {
+  font-family: var(--ui-font);
+}
+input,
+textarea {
+  caret-color: var(--primary);
+}
+a {
+  text-underline-offset: 3px;
+}
+input,
+select,
+textarea,
+.btn {
+  border-radius: var(--ui-radius);
+}
+.btn {
+  min-height: 44px;
+  font-weight: 600;
+  box-shadow: none;
+}
+.primary {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--primary);
+}
+.primary:hover {
+  background: var(--primary-hover);
+}
+h1,
+h2,
+h3,
+.dialog-head h2,
+.stat-value,
+.spending-amount,
+.analytics-value,
+.login-story-copy h2 {
+  font-family: var(--ui-font);
+  font-style: normal;
+  letter-spacing: -0.025em;
+}
+.data-card h2,
+.missing-series h2,
+.series-header h1,
+.series-missing h2,
+.ownership-status h3,
+.anime-heading h2,
+.anime-card h3,
+.empty h2,
+.analytics-reading-total,
+.analytics-reading-note h3 {
+  font-family: var(--ui-font);
+  font-weight: 600;
+}
+h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  font-weight: 650;
+}
+h2,
+h3 {
+  font-weight: 600;
+}
+.eyebrow,
+.heading-dot {
+  display: none;
+}
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  background: var(--white);
+}
+.top-inner {
+  max-width: 1600px;
+  min-height: 72px;
+  padding: 12px 32px;
+  gap: 24px;
+  flex-wrap: nowrap;
+}
+.brand {
+  gap: 10px;
+}
+.brand-mark {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--green);
+}
+.brand-mark svg {
+  width: 26px;
+  height: 26px;
+}
+.brand-name {
+  font-size: 16px;
+  letter-spacing: -0.025em;
+}
+.top-actions {
+  width: auto;
+  margin-left: auto;
+}
+.header-links {
+  gap: 4px;
+}
+#dataLink {
+  font-size: 13px;
+  margin: 0;
+}
+#dataLink svg {
+  display: block;
+}
+.theme-toggle {
+  width: 44px;
+  height: 44px;
+}
+.capture-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.capture-actions .btn {
+  padding: 10px 16px;
+  font-size: 13px;
+}
+.tabs {
+  position: fixed;
+  top: 104px;
+  left: max(20px, calc((100vw - 1600px) / 2 + 20px));
+  z-index: 20;
+  width: 198px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+.tab {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  min-height: 44px;
+  padding: 11px 14px;
+  gap: 12px;
+  border: 0;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.tab.active {
+  background: var(--tab-active);
+  color: var(--green);
+  font-weight: 650;
+}
+.tab-count {
+  margin-left: auto;
+}
+.library-main,
+.library-main:has(#collectionSpending:not([hidden])) {
+  display: flex;
+  flex-direction: column;
+  width: auto;
+  max-width: 1328px;
+  min-height: calc(100dvh - 72px);
+  margin: 0 max(0px, calc((100vw - 1600px) / 2)) 0
+    max(238px, calc((100vw - 1600px) / 2 + 238px));
+  padding: 32px 36px;
+}
+.collection-heading {
+  min-height: 0;
+  margin: 0 0 20px;
+  gap: 0;
+}
+.collection-heading h1 {
+  font-size: 32px;
+  margin: 0 0 8px;
+  letter-spacing: -0.03em;
+}
+.collection-heading .intro {
+  font-size: 14px;
+}
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 28px;
+  padding: 0 0 24px;
+  margin: 0 0 26px;
+  border-bottom: 1px solid var(--line);
+}
+.stat,
+.stat:first-child,
+.stat:last-child {
+  position: static;
+  display: flex;
+  flex-direction: row-reverse;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.stat .stat-icon,
+.stat .stat-note,
+.stat .reading-progress,
+.stat:first-child::after,
+.stat:nth-child(2)::after {
+  display: none;
+}
+.stat-label {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
+}
+.stat-value {
+  padding: 0;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+.toolbar {
+  gap: 10px;
+  margin: 0 0 12px;
+}
+.search input {
+  min-height: 48px;
+  font-size: 15px;
+  background: var(--white);
+}
+.toolbar select {
+  min-height: 48px;
+  max-width: 165px;
+  font-size: 13px;
+}
+.search svg {
+  top: 14px;
+}
+.refresh {
+  width: 44px;
+  min-height: 48px;
+}
+.collection-filters {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0 0 22px;
+}
+.collection-filters summary {
+  display: list-item;
+  width: fit-content;
+  min-height: 44px;
+  padding: 10px 0;
+  font-size: 13px;
+}
+.collection-filter-grid {
+  padding: 14px 0;
+  gap: 16px;
+}
+.collection-filter-grid .field {
+  margin: 0;
+}
+.list-label {
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  margin-bottom: 16px;
+}
+#listRight {
+  display: none;
+}
+.selection-tools .text-btn {
+  min-height: 44px;
+}
+.selection-tools .text-btn::after {
+  display: none;
+}
+.collection.cover-grid {
+  grid-template-columns: repeat(auto-fill, minmax(138px, 1fr));
+  gap: 26px 20px;
+}
+.cover-grid :is(.series-card, .book-card) {
+  border-radius: 0;
+  text-align: left;
+}
+.cover-grid :is(.series-cover, .volume-cover) {
+  border-radius: 3px;
+  box-shadow: 1px 3px 8px #14203814;
+}
+.cover-grid :is(.series-card, .book-card):hover {
+  transform: none;
+}
+.cover-grid :is(.series-card, .book-card):hover .shelf-caption {
+  color: var(--green);
+}
+.cover-placeholder,
+.cover-placeholder[data-tint] {
+  color: var(--muted);
+  background: var(--surface-inset);
+  border: 1px solid var(--line);
+}
+.cover-placeholder::before {
+  display: none;
+}
+:is(.series-cover, .volume-cover) .cover-placeholder {
+  padding: 18px 14px;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 14px;
+}
+:is(.series-cover, .volume-cover) .placeholder-title {
+  font: 600 16px/1.45 var(--ui-font);
+  color: var(--ink);
+  text-align: left;
+  -webkit-line-clamp: 5;
+}
+:is(.series-cover, .volume-cover) .placeholder-label {
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 1;
+  margin-top: auto;
+}
+:is(.series-cover, .volume-cover) .cover-placeholder svg {
+  width: 22px;
+  height: 22px;
+}
+.shelf-caption {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  margin: 10px 0 3px;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 600;
+}
+.shelf-detail {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.spending-disclosure {
+  margin-top: 36px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.spending-disclosure > summary {
+  width: fit-content;
+  padding: 12px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.spending-disclosure:has(#collectionSpending[hidden]) {
+  display: none;
+}
+.collection-spending {
+  width: 100%;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.spending-heading,
+.shelf-note {
+  display: none;
+}
+.spending-highlights {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.spending-card {
+  border: 0;
+  border-radius: 0;
+  padding: 16px 0;
+  background: transparent;
+}
+.spending-amount {
+  font-size: 24px;
+  font-weight: 600;
+}
+.spending-name {
+  font-size: 14px;
+}
+.spending-card h3,
+.spending-card .hint,
+.spending-item,
+.spending-details summary {
+  font-size: 12px;
+  letter-spacing: 0;
+}
+.spending-rankings {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.library-main > .footer {
+  margin-top: auto;
+  padding-top: 24px;
+  border: 0;
+  font-size: 12px;
+}
+#collectionBrowser ~ .footer {
+  margin-top: 32px;
+}
+#syncNote::before {
+  background: var(--green);
+}
+.empty {
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 44px 24px;
+  background: transparent;
+}
+.empty h2 {
+  font-size: 20px;
+}
+.empty p {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.empty-icon {
+  display: none;
+}
+.release-heading,
+.analytics-heading,
+.missing-heading {
+  margin-top: 0;
+}
+.release-heading h1,
+.analytics-heading h1,
+.missing-heading h1,
+.data-heading h1 {
+  font-size: 32px;
+}
+.release-grid,
+.discovery-grid {
+  gap: 16px;
+}
+.release-card,
+.discovery-card {
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  padding: 16px 0;
+  gap: 10px 14px;
+}
+.release-card .book-title,
+.discovery-card .book-title {
+  font-size: 14px;
+}
+.release-card .btn,
+.discovery-card .btn {
+  min-height: 44px;
+  font-size: 13px;
+}
+.publisher-copy .release-meta,
+.publisher-copy .release-price,
+.publisher-copy > a {
+  font-size: 12px;
+}
+.publisher-details,
+.discovery-source,
+.series-missing {
+  border-radius: 8px;
+  background: var(--surface-inset);
+}
+.discovery-source,
+.publisher-source {
+  border: 0;
+}
+.discovery-source {
+  padding: 0;
+  margin: 0 0 16px;
+  background: transparent;
+}
+.discovery-source .field {
+  flex: 1 1 0;
+}
+.discovery-source .discovery-url {
+  flex-basis: 100%;
+}
+.discovery-mode {
+  margin: 0 0 16px;
+}
+.publisher-source {
+  border-radius: 0;
+  background: transparent;
+  border-bottom: 1px solid var(--line);
+}
+.publisher-copy .eyebrow {
+  display: block;
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.series-page .series-header {
+  padding-bottom: 20px;
+}
+.series-page .series-header h1 {
+  font-size: 28px;
+}
+.series-header p {
+  font-size: 13px;
+}
+.series-page .series-title-line .btn {
+  min-height: 44px;
+  font-size: 13px;
+}
+.series-page .collection-filters {
+  padding: 0;
+}
+.analytics-metrics {
+  gap: 0;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+.analytics-metric {
+  border: 0;
+  padding: 12px 16px 12px 0;
+  border-radius: 0;
+  background: transparent;
+}
+.analytics-metric > .stat-icon {
+  display: none;
+}
+.analytics-metric h2 {
+  font-size: 13px;
+  margin: 0 0 8px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.analytics-value {
+  font-size: 28px;
+  font-weight: 600;
+}
+.analytics-card {
+  border-radius: 8px;
+  padding: 22px;
+}
+.analytics-card h2 {
+  font-size: 18px;
+}
+.data-page {
+  max-width: 1040px;
+}
+.data-card {
+  padding: 24px;
+  border-radius: 8px;
+  background: transparent;
+}
+.data-card h2 {
+  font-size: 24px;
+}
+.data-card p {
+  font-size: 14px;
+  line-height: 1.65;
+}
+.data-icon {
+  width: auto;
+  height: auto;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  margin-bottom: 16px;
+}
+.data-grid {
+  gap: 32px;
+}
+.data-overview {
+  font-size: 13px;
+}
+.backup-card {
+  border: 0;
+}
+.login-page {
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+}
+.login-story {
+  padding: 24px 32px;
+  background: transparent;
+  overflow: visible;
+}
+.login-story-copy,
+.login-story-foot {
+  display: none;
+}
+.login {
+  max-width: 420px;
+  margin: auto;
+  padding: 40px 24px 80px;
+}
+.login h1 {
+  font-size: 30px;
+}
+.login .intro {
+  font-size: 14px;
+}
+.login > .data-icon,
+.login-note {
+  display: none;
+}
+.login input {
+  font-size: 16px;
+  min-height: 52px;
+}
+.login label {
+  font-size: 14px;
+}
+dialog {
+  border: 0;
+  border-radius: 12px;
+}
+dialog::backdrop {
+  backdrop-filter: none;
+}
+.dialog-head {
+  padding: 24px;
+}
+.dialog-head h2 {
+  font-size: 24px;
+  font-weight: 650;
+}
+.dialog-head p {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.dialog-body {
+  padding: 24px;
+}
+.dialog-foot {
+  padding: 16px 24px;
+  background: var(--white);
+  border-top: 1px solid var(--line);
+}
+.close {
+  width: 44px;
+  height: 44px;
+  background: transparent;
+  border-radius: 8px;
+}
+.field label {
+  font-size: 13px;
+}
+.title-entry,
+.metadata-manager,
+.purchase-price {
+  border-radius: 8px;
+}
+.field input,
+.field select,
+.field textarea {
+  font-size: 16px;
+  min-height: 48px;
+}
+.hint {
+  line-height: 1.5;
+}
+.toast {
+  bottom: 24px;
+  border-radius: 8px;
+}
+@media (max-width: 1000px) and (min-width: 761px) {
+  .tabs {
+    width: 170px;
+    left: 16px;
+  }
+  .tab {
+    padding-inline: 10px;
+    gap: 8px;
+  }
+  .library-main,
+  .library-main:has(#collectionSpending:not([hidden])) {
+    margin-left: 194px;
+    margin-right: 0;
+    padding: 28px 24px;
+  }
+  #dataLink span {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  html {
+    scroll-padding-top: 132px;
+  }
+  .top-inner {
+    min-height: 64px;
+    padding: 10px 16px;
+    gap: 12px;
+    flex-wrap: nowrap;
+  }
+  .brand-name {
+    font-size: 15px;
+  }
+  .brand-mark svg {
+    width: 24px;
+    height: 24px;
+  }
+  .top-actions {
+    width: auto;
+  }
+  #dataLink {
+    display: flex;
+    width: 44px;
+    height: 44px;
+    padding: 10px;
+  }
+  #dataLink svg {
+    display: block;
+    width: 19px;
+    height: 19px;
+  }
+  #dataLink span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .header-links .theme-toggle {
+    width: 44px;
+    height: 44px;
+    padding: 10px;
+  }
+  .capture-actions {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 10px max(16px, env(safe-area-inset-right))
+      max(10px, env(safe-area-inset-bottom))
+      max(16px, env(safe-area-inset-left));
+    background: var(--white);
+    border-top: 1px solid var(--line);
+  }
+  .capture-actions .btn {
+    min-height: 50px;
+    font-size: 14px;
+  }
+  .tabs {
+    position: sticky;
+    top: 64px;
+    left: auto;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 16px;
+    margin: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    border-bottom: 1px solid var(--line);
+    background: var(--white);
+  }
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .tab {
+    flex: 0 0 auto;
+    flex-direction: row;
+    gap: 7px;
+    padding: 10px 12px;
+    min-height: 44px;
+    font-size: 13px;
+  }
+  .tab svg {
+    width: 16px;
+    height: 16px;
+  }
+  .tab-count {
+    position: static;
+    font-size: 10px;
+    margin: 0;
+  }
+  .library-main,
+  .library-main:has(#collectionSpending:not([hidden])) {
+    display: flex;
+    margin: 0;
+    padding: 24px 16px calc(100px + env(safe-area-inset-bottom));
+    min-height: calc(100dvh - 118px);
+  }
+  .collection-heading {
+    margin: 0 0 14px;
+  }
+  .collection-heading h1 {
+    font-size: 27px;
+    letter-spacing: -0.03em;
+    margin: 0 0 6px;
+  }
+  .collection-heading .intro {
+    font-size: 13px;
+  }
+  .stats {
+    gap: 8px 18px;
+    padding: 0 0 18px;
+    margin-bottom: 20px;
+  }
+  .stat,
+  .stat:first-child,
+  .stat:last-child,
+  .stat:nth-child(odd),
+  .stat:nth-child(even) {
+    padding: 0;
+    gap: 5px;
+    border: 0;
+  }
+  .stat .stat-icon {
+    display: none;
+  }
+  .stat-value,
+  .stat:last-child .stat-value {
+    font-size: 14px;
+  }
+  .stat-label {
+    font-size: 12px;
+  }
+  .toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
+    gap: 8px;
+  }
+  .toolbar .search {
+    grid-column: 1 / -1;
+  }
+  .toolbar select {
+    max-width: none;
+    width: 100%;
+    font-size: 14px;
+    min-height: 44px;
+    padding: 10px;
+  }
+  .toolbar .search input {
+    font-size: 16px;
+  }
+  .release-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .discovery-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .discovery-filters select {
+    width: 100%;
+  }
+  .refresh {
+    min-height: 44px;
+  }
+  .collection-filters {
+    padding: 0;
+    margin-bottom: 8px;
+  }
+  .collection-filters summary {
+    font-size: 13px;
+  }
+  .collection-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 12px;
+  }
+  .collection-filter-grid input,
+  .collection-filter-grid select {
+    font-size: 16px;
+  }
+  .list-label {
+    margin-bottom: 12px;
+    font-size: 12px;
+  }
+  .collection.cover-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px 16px;
+  }
+  :is(.series-cover, .volume-cover) .cover-placeholder {
+    padding: 16px;
+  }
+  :is(.series-cover, .volume-cover) .placeholder-title {
+    font-size: 15px;
+  }
+  .shelf-caption {
+    font-size: 14px;
+  }
+  .shelf-detail {
+    font-size: 12px;
+  }
+  .spending-highlights,
+  .spending-rankings {
+    grid-template-columns: 1fr;
+  }
+  .spending-card {
+    padding: 12px 0;
+  }
+  .release-heading,
+  .analytics-heading,
+  .missing-heading {
+    flex-wrap: wrap;
+    gap: 16px;
+    margin: 0 0 20px;
+  }
+  .release-heading h1,
+  .analytics-heading h1,
+  .missing-heading h1,
+  .data-heading h1 {
+    font-size: 27px;
+  }
+  .release-heading .intro,
+  .release-note {
+    font-size: 14px;
+  }
+  .release-grid,
+  .discovery-grid,
+  .series-missing .release-grid {
+    grid-template-columns: 1fr;
+  }
+  .publisher-copy .hint {
+    font-size: 12px;
+  }
+  .release-card .buttons,
+  .discovery-card .buttons {
+    grid-column: 1 / -1;
+  }
+  .series-page .series-header h1 {
+    font-size: 24px;
+  }
+  .series-page .series-header p {
+    font-size: 13px;
+  }
+  .series-page .series-title-line {
+    flex-wrap: wrap;
+  }
+  .series-page .series-title-line .btn {
+    min-height: 44px;
+  }
+  .series-page .collection-filters {
+    padding: 0;
+  }
+  .analytics-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .analytics-value {
+    font-size: 26px;
+  }
+  .analytics-card {
+    padding: 18px;
+  }
+  .analytics-controls {
+    flex: 1;
+  }
+  .analytics-controls select {
+    width: 100%;
+    max-width: none;
+  }
+  .data-header .top-inner {
+    flex-wrap: wrap;
+  }
+  .data-header .header-links {
+    display: flex;
+  }
+  .data-header .return-link {
+    font-size: 12px;
+  }
+  .data-page {
+    padding: 24px 16px;
+  }
+  .data-grid {
+    gap: 24px;
+  }
+  .data-card {
+    padding: 20px 0;
+  }
+  .data-card h2 {
+    font-size: 22px;
+  }
+  .data-card p {
+    font-size: 14px;
+  }
+  .login-story {
+    padding: 16px;
+  }
+  .login {
+    padding: 24px 24px 64px;
+  }
+  .login h1 {
+    font-size: 28px;
+  }
+  dialog {
+    width: calc(100% - 24px);
+    max-height: calc(100dvh - 24px);
+    border-radius: 12px;
+  }
+  .dialog-head {
+    padding: 20px;
+  }
+  .dialog-head h2 {
+    font-size: 22px;
+  }
+  .dialog-body {
+    padding: 20px;
+  }
+  .dialog-foot {
+    padding: 12px 20px max(12px, env(safe-area-inset-bottom));
+  }
+  #bookDialog {
+    position: fixed;
+    inset: var(--book-dialog-top, 0px) 0 auto;
+    margin: 0;
+    width: 100%;
+    max-width: none;
+    height: var(--book-dialog-height, 100dvh);
+    max-height: none;
+    border-radius: 0;
+  }
+  #bookDialog .dialog-head {
+    padding: 16px;
+    padding-top: max(16px, env(safe-area-inset-top));
+  }
+  #bookDialog .dialog-head h2 {
+    font-size: 22px;
+  }
+  #bookDialog .dialog-body {
+    flex: 1;
+    padding: 20px 16px;
+  }
+  #bookDialog > form {
+    flex: 1;
+  }
+  #bookDialog .book-dialog-foot {
+    padding: 10px 16px max(12px, env(safe-area-inset-bottom));
+    background: var(--white);
+  }
+  #bookDialog .isbn-entry {
+    background: transparent;
+    padding: 0 0 20px;
+    border-radius: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  #bookDialog .isbn-line {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  #bookDialog .isbn-line input {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  #bookDialog .isbn-line .btn {
+    min-height: 48px;
+    font-size: 14px;
+  }
+  #bookDialog .title-entry,
+  #bookDialog .purchase-price {
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+  }
+  #bookDialog #keepAddingLabel {
+    min-height: 44px;
+    font-size: 14px;
+  }
+  #bookDialog .book-save-actions .btn {
+    min-height: 50px;
+    font-size: 15px;
+  }
+  #checkDialog .isbn-line {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  #checkDialog .isbn-line input {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  #checkDialog .isbn-line .btn {
+    min-height: 48px;
+    font-size: 13px;
+  }
+  .toast {
+    bottom: calc(86px + env(safe-area-inset-bottom));
+    max-width: calc(100% - 32px);
+    font-size: 13px;
+  }
+}
+@media (min-width: 560px) and (max-width: 760px) {
+  .collection.cover-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

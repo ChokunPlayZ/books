@@ -3,7 +3,6 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import Icon from "../../components/Icon";
 import LibraryBrand from "../../components/LibraryBrand";
-import LibraryArtwork from "../../components/LibraryArtwork";
 import ThemeToggle from "../../components/ThemeToggle";
 export default function LoginPage() {
   const [error, setError] = useState(""),
@@ -42,29 +41,13 @@ export default function LoginPage() {
           <LibraryBrand />
           <ThemeToggle />
         </div>
-        <div className="login-story-copy">
-          <p className="eyebrow">A home for every story</p>
-          <h2>
-            A little order.
-            <br />A lot of stories.
-          </h2>
-          <p>
-            For the series you love, the volumes you’re missing, and the next
-            book you can’t wait to open.
-          </p>
-          <LibraryArtwork />
-        </div>
-        <span className="login-story-foot">One volume at a time.</span>
       </section>
       <section className="login">
         <span className="data-icon">
           <Icon name="book" />
         </span>
-        <p className="eyebrow">Welcome to your shelf</p>
         <h1>Open your library</h1>
-        <p className="intro">
-          Your next chapter is waiting. Make yourself at home.
-        </p>
+        <p className="intro">Sign in to manage your books and collection.</p>
         <form className="grid" onSubmit={submit}>
           <label htmlFor="password">
             Library password

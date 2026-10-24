@@ -671,6 +671,13 @@ export function mountCollection({
     );
     button.append(
       bookCover(shelfCoverBook(group.books), "shelf-cover series-cover"),
+      node("span", "shelf-caption", group.series),
+      node(
+        "span",
+        "shelf-detail",
+        group.books.length +
+          (group.books.length === 1 ? " volume" : " volumes"),
+      ),
     );
     return bulkSelection.decorate(button, group.series);
   }
@@ -1492,7 +1499,7 @@ export function mountCollection({
       state.newEdition = false;
       state.detailsExpanded = false;
       $("priceCalculator").open =
-        (!series && !window.matchMedia("(max-width: 560px)").matches) ||
+        (!series && !window.matchMedia("(max-width: 760px)").matches) ||
         $("regularPrice").value !== "" ||
         $("discount").value !== "";
     }
@@ -1590,6 +1597,14 @@ export function mountCollection({
       button.setAttribute("aria-haspopup", "dialog");
       button.disabled = state.busy;
       button.append(bookCover(book, "shelf-cover volume-cover"));
+      button.append(
+        node(
+          "span",
+          "shelf-caption",
+          book.volume === "" ? book.series : "Volume " + book.volume,
+        ),
+        node("span", "shelf-detail", book.status || "No status"),
+      );
       bulkSelection.decorate(button, String(book.row));
       button.addEventListener("click", () => openBook(book), {
         signal: events.signal,
@@ -2060,6 +2075,9 @@ export function mountCollection({
   }
   function renderDiscovery() {
     if (!state.data || !$("discoverPanel")) return;
+    const customCatalog = $("discoveryPreset").value === "";
+    $("discoveryCustom").hidden = !customCatalog;
+    $("loadDiscovery").hidden = !customCatalog;
     const feed = state.discoveryFeeds.get(state.discoveryUrl);
     $("refreshDiscovery").disabled = state.discoveryLoading;
     $("loadDiscovery").disabled = state.discoveryLoading;
@@ -3074,7 +3092,7 @@ export function mountCollection({
     $("saveButton").textContent = book ? "Save changes" : "Add book";
     $("removeButton").hidden = !book;
     $("keepAddingLabel").hidden = !!book;
-    const mobile = window.matchMedia("(max-width: 560px)").matches;
+    const mobile = window.matchMedia("(max-width: 760px)").matches;
     $("priceCalculator").open = !!book || !mobile;
     $("bookExtras").open = !!book || !mobile;
     syncSeriesSelection();
@@ -3857,7 +3875,10 @@ export function mountCollection({
       if ($("discoveryPreset").value) {
         $("discoveryUrl").value = $("discoveryPreset").value;
         void loadDiscovery();
-      } else $("discoveryUrl").focus();
+      } else {
+        renderDiscovery();
+        $("discoveryUrl").focus();
+      }
     },
     { signal: events.signal },
   );

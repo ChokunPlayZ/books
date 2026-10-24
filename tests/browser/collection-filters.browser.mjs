@@ -119,6 +119,7 @@ try {
   assert.equal(await page.locator("#topSeriesAmount").textContent(), "฿501");
   assert.equal(await page.locator("#topStoreName").textContent(), "Store A");
   assert.equal(await page.locator("#topStoreAmount").textContent(), "฿601");
+  await page.locator(".spending-disclosure > summary").click();
   await page.locator(".spending-details summary").click();
   assert.match(
     await page.locator("#spendingCoverage").textContent(),
