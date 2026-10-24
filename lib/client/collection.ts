@@ -1041,7 +1041,7 @@ export function mountCollection({
       pending || state.catalogRefreshing ? "Checking…" : "Refresh catalog";
     renderSeriesCatalogSources(specs);
     $("seriesReleaseStatus").textContent = !specs.length
-      ? "Catalog checks are available for Phoenix Next, First Page Pro, Luckpim, Yaakz and Yen Press."
+      ? "Catalog checks are available for Animag, Phoenix Next, First Page Pro, Luckpim, Yaakz and Yen Press."
       : pending
         ? "Checking the publisher’s series catalog…"
         : choose
@@ -1257,7 +1257,9 @@ export function mountCollection({
           ? "https://www.phoenixnext.com/book-series/…"
           : spec.publisherId === "yenpress"
             ? "https://yenpress.com/series/…"
-            : "https://www.firstpagepro.com/category/…";
+            : spec.publisherId === "animag"
+              ? "https://www.animagshop.com/category/…"
+              : "https://www.firstpagepro.com/category/…";
       manual.value = editor.url || "";
       field("Or paste the series category URL", manual);
       manual.addEventListener(
@@ -1817,6 +1819,7 @@ export function mountCollection({
       firstpage: "www.firstpagepro.com",
       luckpim: "www.luckpim.com",
       yaakz: "www.yaakz.com",
+      animag: "www.animagshop.com",
       yenpress: "yenpress.com",
     };
     let safe = false;
@@ -2118,7 +2121,9 @@ export function mountCollection({
       ? "phoenix"
       : state.discoveryUrl.startsWith("https://www.firstpagepro.com/")
         ? "firstpage"
-        : "";
+        : state.discoveryUrl.startsWith("https://www.animagshop.com/")
+          ? "animag"
+          : "";
     const isbnSearch = publisherIsbnSearch.get(
       publisherId,
       $("discoverySearch").value,
@@ -2144,7 +2149,9 @@ export function mountCollection({
           discoveryTitleKey(entry),
         );
         if (
-          ["phoenix", "firstpage", "yenpress"].includes(entry.publisherId) &&
+          ["phoenix", "firstpage", "yenpress", "animag"].includes(
+            entry.publisherId,
+          ) &&
           result?.complete &&
           !result.stale &&
           result.item === null
@@ -3317,6 +3324,11 @@ export function mountCollection({
         releaseLink(
           "Search this ISBN at First Page Pro ↗",
           "https://www.firstpagepro.com/search?q=" + canonical(result.isbn),
+        ),
+        document.createTextNode("\n"),
+        releaseLink(
+          "Search this ISBN at Animag ↗",
+          "https://www.animagshop.com/search?q=" + canonical(result.isbn),
         ),
         document.createTextNode("\n"),
         releaseLink(

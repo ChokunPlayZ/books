@@ -1,6 +1,7 @@
 import { decodeHtml, attr, textHtml } from "./html.ts";
 import { digest } from "./hash.ts";
 import { publisherKey, safeSeriesCatalogUrl } from "./urls.ts";
+import { animagCategories } from "./animag.ts";
 import {
   catalogSeriesKey,
   bookSeriesTitle,
@@ -40,6 +41,7 @@ export function releaseBundle(title) {
 }
 
 export function parseSeriesCategories(id, html) {
+  if (id === "animag") return animagCategories(html);
   const categories = new Map(),
     anchors = html.match(/<a\b[^>]*>[\s\S]*?<\/a>/gi) || [];
   anchors.forEach(function (anchor) {
@@ -153,4 +155,29 @@ export function splitFirstPageTitle(raw: string) {
       ? "Manga (TH)"
       : parsed.type;
   return { ...parsed, type };
+}
+
+export function splitAnimagTitle(raw: string) {
+  const title = decodeHtml(String(raw || ""))
+    .replace(
+      /^\s*(?:\((?:พรีออเดอร์|พรีออร์เดอร์|PRE[- ]?ORDER)\)|\[PRE[- ]?ORDER\])\s*/i,
+      "",
+    )
+    .replace(/^\s*Animag\s+/i, "")
+    .replace(/\s*\((?:ทยอยจัดส่ง|จัดส่ง)[^)]*\)\s*$/i, "")
+    .trim();
+  const type = /\b(?:NOVEL|LIGHT\s*NOVEL)\b/i.test(title)
+    ? "LN (TH)"
+    : /\b(?:COMIC|MANGA)\b/i.test(title)
+      ? "Manga (TH)"
+      : "";
+  const parsed = splitBookTitle(
+    title.replace(/\b(?:LIGHT\s*NOVEL|NOVEL|COMIC|MANGA)\b/gi, " "),
+  );
+  parsed.series = parsed.series
+    .replace(/\s*เล่มเดียวจบ.*$/i, "")
+    .replace(/\s+(?:Limited(?:\s+Edition)?|BOXSET)\b.*$/i, "")
+    .trim();
+  if (parsed.volume === "" && /เล่มเดียวจบ/.test(title)) parsed.volume = 1;
+  return { ...parsed, type: type || parsed.type };
 }

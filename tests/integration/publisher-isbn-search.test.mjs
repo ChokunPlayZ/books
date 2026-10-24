@@ -16,6 +16,8 @@ const url = "https://www.phoenixnext.com/ln0838-01.html";
 function scanRemote(calls, overrides = {}) {
   return async (address) => {
     calls.push(address);
+    if (address.includes("animagshop.com/search"))
+      return new Response(fixture("animag-empty.html"));
     if (address.includes("naiin.com"))
       return new Response('<product-list :items="[]">');
     if (address.includes("yaakz.com"))
@@ -93,7 +95,7 @@ test("Phoenix ISBN search covers the full catalog, canonicalizes input, verifies
     assert.equal(calls.length, 2);
     await assert.rejects(
       () => api.searchPublisherIsbn({ publisherId: "unknown", isbn }),
-      /Choose Phoenix/,
+      /Choose Animag/,
     );
     await assert.rejects(
       () =>

@@ -21,9 +21,24 @@ Explicit `refresh: true` bypasses fresh catalog and page/API entries. Failed req
 
 ## Publisher ISBN search
 
-`searchPublisherIsbn({ publisherId, isbn, refresh })` supports Phoenix Next and First Page Pro independently of loaded discovery categories and recent releases. ISBN-10, ISBN-13, prefixes and hyphens share a canonical ISBN-13 cache entry for 24 hours. Requests use the same source allowlists, retry cooldown and stored-cover service as other catalog features.
+`searchPublisherIsbn({ publisherId, isbn, refresh })` supports Animag, Phoenix Next and First Page Pro independently of loaded discovery categories and recent releases. ISBN-10, ISBN-13, prefixes and hyphens share a canonical ISBN-13 cache entry for 24 hours. Requests use the same source allowlists, retry cooldown and stored-cover service as other catalog features.
 
 Phoenix requests `/catalogsearch/result/?q=<isbn>`, then checks at most four product candidates. `lib/domain/phoenix.ts` requires the main product’s labeled Barcode/ISBN attribute or `book:isbn` metadata to match; preview and recommendation links cannot confirm the ISBN. First Page Pro requests `/search?q=<isbn>` and returns up to 24 search candidates with blank ISBN fields and a review note, because product details omit ISBNs. The browser carries the user’s search ISBN into the add form explicitly as unconfirmed input. A First Page Pro search result never becomes an automatic exact-ISBN ownership match. Confirmed empty searches are cached; unavailable sources and unrecognized result markup remain errors.
+
+Animag also supports full-catalog ISBN search through `/search?q=<isbn>`, independently of release feeds and loaded discovery categories. It checks up to four regular product candidates against the main product’s JSON-LD ISBN/GTIN/SKU, matched by canonical product URL. A search hit or recommendation cannot confirm another product’s ISBN. Animag participates in automatic barcode lookup before generic metadata providers; confirmed empty searches and verified matches share the existing durable cache and retry policy.
+
+## Animag
+
+[Animag Shop](https://www.animagshop.com/) is integrated with releases, title discovery, full series catalogs, missing-volume checks, saved releases, automatic ISBN metadata, cover galleries, and seasonal anime discovery. Publisher aliases include A-Plus, G-Plus, Animag Books, Animag Comics, and BeLOVED+ in both server validation and browser ownership matching.
+
+- Releases read `/category?sortby=new` and `&tskp=2`, deduplicating up to 100 listings. This is a recent catalog window; shipping notices are not publication dates.
+- The advanced-search page `/search` exposes the complete `category_id` directory. Its indented series options inherit the format of the five book imprints. Discovery can browse all titles or one imprint, and keeps manga and novel categories separate. Non-book service and promotional roots are excluded.
+- Series links accept only `https://www.animagshop.com/category/<id>`, optionally with descriptive slugs that are canonicalized away. Series pages use `?tskp=N`, up to 20 pages. Only the product pagination’s explicit total counts toward completeness; subcategory pagination does not. Repeated pages, missing counts, partial traversals, and outages remain incomplete. Failed or incomplete refreshes preserve a previously complete series result and its original check time.
+- Listing cards supply titles, discounted `product_price` values, SKU codes where shown, and availability. Matching `CollectionPage` JSON-LD products supply original cover images and ISBN-shaped SKUs, validated by checksum. Arbitrary shop codes remain blank ISBNs. `Animag`, preorder prefixes, `NOVEL`/`COMIC`, and shipping notices are removed from parsed series names; decimal volumes and single-volume `เล่มเดียวจบ` books are recognized. Bundles and limited editions retain their review flags and cannot borrow a regular volume’s ISBN.
+- Selectable products expand from their product-page JSON-LD into individual variants. Each retains its own ISBN, price, stock status, cover, and `?pid=<variant-id>` link. Completeness counts the parent listings, so expansion cannot inflate coverage. Bundled variants remain marked for review; parent images and ISBNs are never copied to the variants.
+- Product links canonicalize to `/product/<id>`, preserving only an optional numeric `pid` variant parameter. Safe redirects may add a slug while preserving the same product/category ID and host. Cover galleries use only that main product’s structured images, excluding recommendation images. Images use the existing allowlisted `lnwfile.com` hosts and permanent stored-cover service.
+
+Trimmed live fixtures were captured on October 24, 2026. At inspection, the search directory contained 212 book categories, and the Re:ZERO category exposed 39 listings, including box sets and side stories. These are current listings, not a guarantee that removed or out-of-print books remain available.
 
 ## Dedicated series catalogs
 

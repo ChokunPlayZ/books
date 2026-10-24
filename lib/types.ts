@@ -65,4 +65,5 @@ export type Release = {
   catalogSeries?: string;
   catalogVariant?: boolean;
   source?: string;
+  variantGroup?: boolean;
 };

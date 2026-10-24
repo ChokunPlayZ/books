@@ -1,3 +1,4 @@
+import { animag } from "./animag.ts";
 import { firstpage } from "./firstpage.ts";
 import { googleBooks } from "./google-books.ts";
 import { kinokuniya } from "./kinokuniya.ts";
@@ -12,13 +13,14 @@ import type { Scraper, ScraperContext, ScraperDefinition } from "./types.ts";
 // Register or remove a source here. Its capabilities and allowed hosts travel
 // together; the catalog service does not need a new source-selection branch.
 export const SCRAPER_SOURCES: readonly ScraperDefinition[] = Object.freeze([
-  phoenix,
+  animag,
   firstpage,
   googleBooks,
   kinokuniya,
   luckpim,
   naiin,
   openLibrary,
+  phoenix,
   yaakz,
   yenpress,
 ]);

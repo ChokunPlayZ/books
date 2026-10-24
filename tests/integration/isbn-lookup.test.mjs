@@ -15,6 +15,7 @@ const sources = [
   "www.naiin.com",
   "www.yaakz.com",
   "www.firstpagepro.com",
+  "www.animagshop.com",
   "www.phoenixnext.com",
   "yenpress.com",
   "kinokuniya.co.th",
@@ -28,6 +29,8 @@ function emptyResponse(address) {
   if (host === "www.yaakz.com") return new Response('{"data":[],"total":0}');
   if (host === "www.firstpagepro.com")
     return new Response('<span class="tsk-all">0</span>');
+  if (host === "www.animagshop.com")
+    return new Response(fixture("animag-empty.html"));
   if (host === "www.phoenixnext.com")
     return new Response('<div class="message info empty">Empty</div>');
   if (host === "yenpress.com")

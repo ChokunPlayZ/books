@@ -29,6 +29,8 @@ function database(t) {
 function remote(calls, overrides = {}) {
   return async (url) => {
     calls.push(url);
+    if (url.includes("animagshop.com/search"))
+      return new Response(fixture("animag-empty.html"));
     if (url.includes("naiin.com"))
       return new Response('<product-list :items="[]">');
     if (url.includes("yaakz.com")) return new Response('{"data":[],"total":0}');

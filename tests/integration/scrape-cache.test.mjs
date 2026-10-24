@@ -242,6 +242,8 @@ test("equivalent ISBN lookups share requests and cache confirmed misses for a da
       return new Response('<span class="tsk-all">0</span>');
     if (url.includes("phoenixnext.com/catalogsearch"))
       return new Response('<div class="message info empty">Empty</div>');
+    if (url.includes("animagshop.com/search"))
+      return new Response(fixture("publishers/animag-empty.html"));
     return new Response(
       url.includes("naiin")
         ? '<product-list :items="[]">'
@@ -261,12 +263,12 @@ test("equivalent ISBN lookups share requests and cache confirmed misses for a da
   assert.ok(
     results.every((result) => !result.found && !result.warnings.length),
   );
-  assert.equal(calls.length, 9);
+  assert.equal(calls.length, 10);
   service = createCatalogService(db.restart(), remote);
   t.mock.timers.tick(day - 1);
   await service.lookupIsbn("9780140328721");
-  assert.equal(calls.length, 9);
+  assert.equal(calls.length, 10);
   t.mock.timers.tick(1);
   await service.lookupIsbn("9780140328721");
-  assert.equal(calls.length, 18);
+  assert.equal(calls.length, 20);
 });

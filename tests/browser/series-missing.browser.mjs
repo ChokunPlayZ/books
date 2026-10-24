@@ -285,7 +285,7 @@ try {
   );
   assert.match(
     await page.locator("#seriesReleaseStatus").textContent(),
-    /available for Phoenix/,
+    /available for .*Animag/,
   );
   assert.equal(await page.locator("#seriesMissing").isVisible(), false);
   assert.equal(await page.locator("#seriesCatalogToggle").isVisible(), false);

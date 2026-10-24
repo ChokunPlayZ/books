@@ -115,7 +115,7 @@ export function createCatalogService(
     if (!isbn) throw new Error("Enter or scan an ISBN first.");
     const canonical = canonicalIsbn(isbn);
 
-    const cached = cache.get("isbn:v8:" + canonical);
+    const cached = cache.get("isbn:v9:" + canonical);
     if (cached) return JSON.parse(cached);
     const providers = scrapers.isbnProviders;
     // Start independent sources together, then keep the existing source preference
@@ -148,7 +148,7 @@ export function createCatalogService(
     };
     // Cache confirmed misses too; transient provider failures get a shorter TTL.
     cache.put(
-      "isbn:v8:" + canonical,
+      "isbn:v9:" + canonical,
       JSON.stringify(result),
       warnings.length ? SCRAPE_TTL.retry : SCRAPE_TTL.isbn,
     );

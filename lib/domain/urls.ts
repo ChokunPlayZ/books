@@ -10,6 +10,13 @@ export function kinokuniyaSearchUrl(query: string): string {
 
 export function safeSeriesCatalogUrl(raw, id) {
   const url = decodeHtml(String(raw || "").trim());
+  if (id === "animag") {
+    const category =
+      /^https:\/\/www\.animagshop\.com\/category\/(\d+)(?:\/[^?#]*)?\/?$/.exec(
+        url,
+      );
+    if (category) return "https://www.animagshop.com/category/" + category[1];
+  }
   if (
     id === "yenpress" &&
     /^https:\/\/yenpress\.com\/series\/[a-zA-Z0-9-]+\/?$/.test(url)
@@ -70,7 +77,7 @@ export function safeSeriesCatalogUrl(raw, id) {
 
 export function publisherCatalogSource(raw) {
   const url = decodeHtml(String(raw || "").trim());
-  for (const id of ["phoenix", "firstpage", "yaakz", "yenpress"]) {
+  for (const id of ["phoenix", "firstpage", "yaakz", "yenpress", "animag"]) {
     const category = safePublisherTitleUrl(url, id);
     if (category) return { publisherId: id, url: category };
   }
@@ -89,8 +96,13 @@ export function publisherCatalogSource(raw) {
     return { publisherId: "yaakz", url: "https://www.yaakz.com/" };
   if (url === "https://yenpress.com/" || url === "https://yenpress.com")
     return { publisherId: "yenpress", url: "https://yenpress.com/" };
+  if (
+    /^https:\/\/www\.animagshop\.com\/?$/.test(url) ||
+    url === "https://www.animagshop.com/category"
+  )
+    return { publisherId: "animag", url: "https://www.animagshop.com/" };
   throw new Error(
-    "Use a Phoenix Next, First Page Pro, Yaakz or Yen Press category or series URL.",
+    "Use an Animag, Phoenix Next, First Page Pro, Yaakz or Yen Press category or series URL.",
   );
 }
 
@@ -155,6 +167,12 @@ export function publisherKey(name) {
   if (/luckpim|รักพิมพ์/.test(key)) return "luckpim";
   if (/yaakz|siaminter|สยามอินเตอร์|^sic$/.test(key)) return "yaakz";
   if (/^(?:yenpress|yenon|izepress|jy)$/.test(key)) return "yenpress";
+  if (
+    /animag|อนิแม็ก|อนิแมก|^(?:aplus|gplus|agbook|agbooks|agcomic|agcomics|beloved|เอพลัส|จีพลัส|บีเลิฟด์พลัส)$/.test(
+      key,
+    )
+  )
+    return "animag";
   return key;
 }
 
@@ -169,6 +187,7 @@ export function safePublisherUrl(raw, publisher) {
       luckpim: "www.luckpim.com",
       yaakz: "www.yaakz.com",
       yenpress: "yenpress.com",
+      animag: "www.animagshop.com",
     };
     if (
       url.protocol !== "https:" ||
@@ -194,13 +213,22 @@ export function safeProductUrl(raw, id) {
     yaakz: /^https:\/\/www\.yaakz\.com\/product\/(?:[^/?#]+\/)*\d+\/?$/,
     luckpim: /^https:\/\/www\.luckpim\.com\/product\/detail\/\d+\/?$/,
     yenpress: /^https:\/\/yenpress\.com\/titles\/\d{13}-[a-zA-Z0-9-]+\/?$/,
+    animag:
+      /^https:\/\/www\.animagshop\.com\/product\/(\d+)(?:\/[^?#]*)?(?:\?pid=(\d+))?$/,
   };
   if (!patterns[id] || !patterns[id].test(url)) return "";
   if (id === "yaakz")
     return (
       "https://www.yaakz.com/product/" + url.replace(/\/$/, "").split("/").pop()
     );
-  if (id === "firstpage")
-    return "https://www.firstpagepro.com/product/" + url.match(patterns[id])[1];
+  if (id === "firstpage" || id === "animag")
+    return (
+      new URL(url).origin +
+      "/product/" +
+      url.match(patterns[id])[1] +
+      (id === "animag" && url.match(patterns[id])[2]
+        ? "?pid=" + url.match(patterns[id])[2]
+        : "")
+    );
   return url.replace(/\/$/, "");
 }

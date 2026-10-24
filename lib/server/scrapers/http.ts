@@ -9,8 +9,9 @@ import type {
 // A redirect may add a descriptive slug, but must still identify the same resource.
 export function publisherRedirectIdentity(id: string, value: URL): string {
   return (
+    (id === "animag" && safeProductUrl(value.href, id)) ||
     safePublisherTitleUrl(value.origin + value.pathname, id) ||
-    safeProductUrl(value.origin + value.pathname, id) ||
+    (id !== "animag" && safeProductUrl(value.origin + value.pathname, id)) ||
     ""
   );
 }

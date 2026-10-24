@@ -1,7 +1,24 @@
 import { attr, meta, safeCoverUrl, structuredBooks } from "../domain.ts";
+import { animagProducts } from "../domain/animag.ts";
+import { safeProductUrl } from "../domain/urls.ts";
 
 // Read publisher product galleries only; recommendation cards are unrelated books.
 export function publisherCovers(html, pageUrl) {
+  if (safeProductUrl(pageUrl, "animag")) {
+    const product = animagProducts(html).find(
+      (product) =>
+        safeProductUrl(product.url, "animag") ===
+        safeProductUrl(pageUrl, "animag"),
+    );
+    const images = Array.isArray(product?.image)
+      ? product.image
+      : [product?.image];
+    return [
+      ...new Set(
+        images.map((image) => safeCoverUrl(image, pageUrl)).filter(Boolean),
+      ),
+    ];
+  }
   const covers = new Set();
   const add = (raw) => {
     const url = safeCoverUrl(raw, pageUrl);

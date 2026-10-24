@@ -5,13 +5,30 @@ import {
   catalogSeriesKey,
   splitBookTitle,
   splitFirstPageTitle,
+  splitAnimagTitle,
   releaseBundle,
 } from "./titles.ts";
 import { digest } from "./hash.ts";
 import { PUBLISHERS } from "./constants.ts";
 import { canonicalIsbn } from "./isbn.ts";
+import { animagCategories, animagProducts, animagTotal } from "./animag.ts";
 
 export function parsePublisherTitles(id, html, sourceUrl) {
+  if (id === "animag")
+    return animagCategories(html, sourceUrl).map((category) => ({
+      id: "animag:title:" + digest(category.url),
+      publisherId: id,
+      publisher: "Animag",
+      series: category.title,
+      title: category.title,
+      type: category.type,
+      url: category.url,
+      categories: [{ url: category.url, type: category.type }],
+      volume: "",
+      isbn: "",
+      coverUrl: "",
+      directory: true,
+    }));
   const candidates = new Map();
   for (const anchor of html.match(/<a\b[^>]*>[\s\S]*?<\/a>/gi) || []) {
     const tag = anchor.slice(0, anchor.indexOf(">") + 1),
@@ -126,6 +143,7 @@ export function splitFirstPageTitles<
 }
 
 export function catalogTotal(id, html) {
+  if (id === "animag") return animagTotal(html);
   const pattern =
     id === "phoenix"
       ? /<span\b[^>]*class=["'][^"']*\btoolbar-number\b[^"']*["'][^>]*>\s*([\d,]+)\s*<\/span>/i
@@ -230,7 +248,11 @@ export function releaseItem(
   type?: string,
 ): Release {
   const parsed =
-    id === "firstpage" ? splitFirstPageTitle(title) : splitBookTitle(title);
+    id === "firstpage"
+      ? splitFirstPageTitle(title)
+      : id === "animag"
+        ? splitAnimagTitle(title)
+        : splitBookTitle(title);
   const special =
     /(?:special|complete|ultimate)(?:\s+combo)?\s*(?:set|edition)|box\s*set|limited|เซต|ชุด|ฉบับพิเศษ|ปกพิเศษ/i.test(
       title,
@@ -263,6 +285,70 @@ export function releaseItem(
 }
 
 export function parseCatalog(id, html) {
+  if (id === "animag") {
+    const products = new Map(
+      animagProducts(html).map((product) => [
+        safeProductUrl(product.url, id),
+        product,
+      ]),
+    );
+    const items = [];
+    for (const card of html
+      .split(
+        /<div\b(?=[^>]*class=["'][^"']*\bproductArea\b)(?=[^>]*class=["'][^"']*\bproductItem\b)[^>]*>/i,
+      )
+      .slice(1)) {
+      const anchor =
+        /<a\b[^>]*class=["'][^"']*\bgadgetThumbnail\b[^"']*["'][^>]*>/i.exec(
+          card,
+        );
+      if (!anchor) continue;
+      const url = safeProductUrl(attr(anchor[0], "href"), id);
+      const product = products.get(url);
+      const title = attr(anchor[0], "title");
+      if (
+        !url ||
+        !title ||
+        !/\b(?:NOVEL|COMIC|MANGA|Animag)\b|นิยาย|การ์ตูน|ไลท์โนเวล/i.test(title)
+      )
+        continue;
+      const priceTag =
+        /<div\b[^>]*class=["'][^"']*\bproduct_price\b[^"']*["'][^>]*>/i.exec(
+          card,
+        )?.[0];
+      const code =
+        /<span\b[^>]*class=["']code["'][^>]*>([\s\S]*?)<\/span>/i.exec(
+          card,
+        )?.[1];
+      const img = /<img\b[^>]*>/i.exec(card)?.[0] || "";
+      const offer = Array.isArray(product?.offers)
+        ? product.offers[0]
+        : product?.offers;
+      const item = releaseItem(
+        id,
+        title,
+        url,
+        priceTag ? attr(priceTag, "realprice") : offer?.price,
+        product?.sku || textHtml(code || ""),
+      );
+      if (/เลือกแบบสินค้า/.test(card)) item.variantGroup = true;
+      item.coverUrl = safeCoverUrl(
+        (Array.isArray(product?.image) ? product.image[0] : product?.image) ||
+          attr(img, "data-src") ||
+          attr(img, "src"),
+        url,
+      );
+      item.availability = /พรีออ(?:ร์)?เดอร์|PRE[- ]?ORDER/i.test(title)
+        ? "Pre-order"
+        : /สินค้าหมด|OutOfStock/i.test(card + (offer?.availability || ""))
+          ? "Out of stock"
+          : /btn-add_to_cart|InStock/.test(card + (offer?.availability || ""))
+            ? "In stock"
+            : "Check availability";
+      items.push(item);
+    }
+    return items;
+  }
   const items = [];
   // Images precede the title anchor on Phoenix. Associate them by product URL,
   // rather than accidentally taking the next product's image from a title chunk.
@@ -328,4 +414,36 @@ export function parseCatalog(id, html) {
       });
   });
   return items;
+}
+
+export function animagVariants(html: string, parentUrl: string) {
+  const parent = safeProductUrl(parentUrl, "animag");
+  if (!parent || new URL(parent).search) return [];
+  return animagProducts(html).flatMap((product) => {
+    const url = safeProductUrl(product.url, "animag");
+    if (!url.startsWith(parent + "?pid=") || !textHtml(product.name || ""))
+      return [];
+    const offer = Array.isArray(product.offers)
+      ? product.offers[0]
+      : product.offers;
+    const item = releaseItem(
+      "animag",
+      product.name,
+      url,
+      offer?.price,
+      product.isbn || product.gtin13 || product.gtin || product.sku,
+    );
+    item.coverUrl = safeCoverUrl(
+      Array.isArray(product.image) ? product.image[0] : product.image,
+      url,
+    );
+    item.availability = /พรีออ(?:ร์)?เดอร์|PRE[- ]?ORDER/i.test(item.title)
+      ? "Pre-order"
+      : /OutOfStock/.test(offer?.availability || "")
+        ? "Out of stock"
+        : /InStock/.test(offer?.availability || "")
+          ? "In stock"
+          : "Check availability";
+    return [item];
+  });
 }

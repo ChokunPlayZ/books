@@ -153,6 +153,10 @@ test("application API joins AniList and Thai publisher catalogs and reuses persi
         return new Response(
           '<a href="https://www.firstpagepro.com/category/101/light-novel/archivist">บรรณารักษ์คนสุดท้าย (The Last Archivist)</a>',
         );
+      if (url === "https://www.animagshop.com/search")
+        return new Response(
+          '<select name="category_id"><option value="1">- • A-Plus</option><option value="13">&nbsp; - • Re:ZERO</option></select>',
+        );
       if (url === "https://www.firstpagepro.com/category/101")
         return new Response(
           '<span class="tsk-all">1</span><div class="productArea productItem"><a class="gadgetThumbnail" href="https://www.firstpagepro.com/product/501/archivist" title="นิยาย บรรณารักษ์คนสุดท้าย เล่ม 1"></a></div>',
@@ -169,7 +173,7 @@ test("application API joins AniList and Thai publisher catalogs and reuses persi
       "ห้องสมุดใต้แสงจันทร์",
     );
     assert.equal(feed.items[0].thaiEditions[0].item.type, "Manga (TH)");
-    assert.equal(feed.thaiSources.length, 2);
+    assert.equal(feed.thaiSources.length, 3);
     assert.equal(feed.items[1].thaiEditions[0].item.publisherId, "firstpage");
     assert.equal(feed.items[1].thaiEditions[0].item.type, "LN (TH)");
     assert.equal(
@@ -177,11 +181,11 @@ test("application API joins AniList and Thai publisher catalogs and reuses persi
       "บรรณารักษ์คนสุดท้าย",
     );
     assert.ok(feed.thaiSources.every((source) => source.complete));
-    assert.equal(calls.length, 5);
+    assert.equal(calls.length, 6);
     await api.getSeasonalThaiBooks({ season: "FALL", year: 2026 });
     assert.equal(
       calls.length,
-      5,
+      6,
       "AniList, directories and matching categories are cached",
     );
   } finally {

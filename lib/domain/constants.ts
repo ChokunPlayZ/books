@@ -38,6 +38,12 @@ export const BOOK_APP = Object.freeze({
 
 export const PUBLISHERS = Object.freeze([
   {
+    id: "animag",
+    name: "Animag",
+    url: "https://www.animagshop.com/category?sortby=new",
+    scope: "Latest 100 catalog listings across Animag imprints",
+  },
+  {
     id: "yenpress",
     name: "Yen Press",
     url: "https://yenpress.com/calendar",

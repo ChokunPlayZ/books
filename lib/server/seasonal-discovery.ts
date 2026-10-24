@@ -13,6 +13,7 @@ const sources = [
     url: "https://www.phoenixnext.com/book-series.html",
   },
   { publisher: "First Page Pro", url: "https://www.firstpagepro.com/" },
+  { publisher: "Animag", url: "https://www.animagshop.com/" },
 ];
 
 function representative(a: Release, b: Release) {

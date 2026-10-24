@@ -64,6 +64,12 @@ export function publisherKey(name: string) {
   if (/luckpim|รักพิมพ์/.test(key)) return "luckpim";
   if (/yaakz|siaminter|สยามอินเตอร์|^sic$/.test(key)) return "yaakz";
   if (/^(?:yenpress|yenon|izepress|jy)$/.test(key)) return "yenpress";
+  if (
+    /animag|อนิแม็ก|อนิแมก|^(?:aplus|gplus|agbook|agbooks|agcomic|agcomics|beloved|เอพลัส|จีพลัส|บีเลิฟด์พลัส)$/.test(
+      key,
+    )
+  )
+    return "animag";
   return key;
 }
 

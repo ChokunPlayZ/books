@@ -20,12 +20,15 @@ try {
       title,
       publisherId === "phoenix"
         ? "https://www.phoenixnext.com/ln0838-01.html"
-        : "https://www.firstpagepro.com/product/1152",
+        : publisherId === "animag"
+          ? "https://www.animagshop.com/product/1169"
+          : "https://www.firstpagepro.com/product/1152",
       175,
-      publisherId === "phoenix" ? isbn : "",
+      publisherId === "firstpage" ? "" : isbn,
     );
   const phoenix = make("phoenix", "(LN) ISBN outside loaded category เล่ม 7");
   const firstpage = make("firstpage", "การ์ตูน First Page ISBN search เล่ม 2");
+  const animag = make("animag", "Animag Full catalog ISBN search NOVEL เล่ม 6");
   let fail = false;
   await page.route("**/api/rpc", async (route) => {
     const request = route.request().postDataJSON();
@@ -58,8 +61,16 @@ try {
           url:
             request.arg.publisherId === "phoenix"
               ? "https://www.phoenixnext.com/catalogsearch/result/?q=" + isbn
-              : "https://www.firstpagepro.com/search?q=" + isbn,
-          items: [request.arg.publisherId === "phoenix" ? phoenix : firstpage],
+              : request.arg.publisherId === "animag"
+                ? "https://www.animagshop.com/search?q=" + isbn
+                : "https://www.firstpagepro.com/search?q=" + isbn,
+          items: [
+            request.arg.publisherId === "phoenix"
+              ? phoenix
+              : request.arg.publisherId === "animag"
+                ? animag
+                : firstpage,
+          ],
           warnings:
             request.arg.publisherId === "firstpage"
               ? [
@@ -122,6 +133,24 @@ try {
     /comes from your search/,
   );
   await page.locator("#cancelBook").click();
+  await page
+    .locator("#discoveryPreset")
+    .selectOption("https://www.animagshop.com/category/1");
+  await page
+    .locator("#discoveryList .release-card")
+    .filter({ hasText: "Full catalog ISBN search" })
+    .waitFor();
+  assert.equal(calls.at(-1).publisherId, "animag");
+  await page
+    .locator("#discoveryList .release-card")
+    .getByRole("button", { name: "Add to shelf", exact: true })
+    .click();
+  assert.equal(await page.locator("#isbn").inputValue(), isbn);
+  assert.equal(await page.locator("#publisher").inputValue(), "Animag");
+  assert.equal(await page.locator("#type").inputValue(), "LN (TH)");
+  assert.equal(await page.locator("#volume").inputValue(), "6");
+  assert.equal(await page.locator("#publisherUrl").inputValue(), animag.url);
+  await page.locator("#cancelBook").click();
   assert.equal(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -150,9 +179,31 @@ try {
   assert.equal(await page.locator("#releaseList .release-card").count(), 0);
   await page.locator("#releaseScope").selectOption("all");
   assert.equal(await page.locator("#releaseList .release-card").count(), 1);
+  await page.locator("#releasePublisher").selectOption("animag");
+  await page
+    .locator("#releaseList .release-card")
+    .filter({ hasText: "Full catalog ISBN search" })
+    .waitFor();
+  assert.equal(calls.at(-1).publisherId, "animag");
+  for (const [width, height] of [
+    [390, 844],
+    [1280, 900],
+  ]) {
+    await page.setViewportSize({ width, height });
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      true,
+    );
+    await page.screenshot({
+      path: `outputs/animag-releases-${width}.png`,
+      fullPage: true,
+    });
+  }
   assert.deepEqual(errors, []);
   console.log(
-    "PASS Phoenix/First Page Pro full-catalog ISBN search, canonical input, review form, stale results, source errors and release search",
+    "PASS Animag/Phoenix/First Page Pro full-catalog ISBN search, canonical input, review form, source errors and responsive release search",
   );
 } finally {
   await browser.close();

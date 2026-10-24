@@ -76,9 +76,10 @@ export default function AnimeSeasonPanel() {
         </label>
       </div>
       <p className="hint">
-        Anime relations from AniList; Thai editions checked against Phoenix Next
-        and First Page Pro. Matches require a listed Thai book. Stock and
-        pre-orders can change; a missing match does not rule out a Thai edition.
+        Anime relations from AniList; Thai editions checked against Phoenix
+        Next, First Page Pro and Animag. Matches require a listed Thai book.
+        Stock and pre-orders can change; a missing match does not rule out a
+        Thai edition.
       </p>
       <div
         id="animeThaiSources"
