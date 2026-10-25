@@ -3,6 +3,7 @@ import { open } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { safeCoverUrl } from "../domain.ts";
 import { AppError } from "./store.ts";
+import { SCRAPE_TTL } from "./scrape-cache.ts";
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const coverDigest = (value) =>
@@ -125,11 +126,25 @@ export function createCoverService(
       const url = imageSource(rawUrl);
       const existing = store.covers.bySource(url);
       if (existing) return existing;
-      if (!pending.has(url))
+      if (!pending.has(url)) {
+        const retryKey = "cover:retry:v1:" + coverDigest(url);
+        // Cached catalogs still attach images on every view. Keep failed downloads
+        // from repeating that remote work, including after a server restart.
+        if (store.cache.get(retryKey))
+          throw new AppError(
+            "Cover image is unavailable. Try again after the retry cooldown.",
+            502,
+          );
         pending.set(
           url,
-          ingest(url).finally(() => pending.delete(url)),
+          ingest(url)
+            .catch((error) => {
+              store.cache.put(retryKey, "1", SCRAPE_TTL.retry);
+              throw error;
+            })
+            .finally(() => pending.delete(url)),
         );
+      }
       return pending.get(url);
     },
     get(id) {

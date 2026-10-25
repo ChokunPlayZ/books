@@ -49,6 +49,15 @@ const items = [
   make("standalone", "(มังงะ) Discovery one-shot", "Manga (JP) (Color)"),
   make("novel-1", "(LN) Discovery novel เล่ม 1", "LN (TH)"),
 ];
+const otherEditions = [
+  make("fresh-special-2", "(มังงะ) Special Edition Discovery fresh เล่ม 2"),
+  make("fresh-complete", "(มังงะ) Complete Set Discovery fresh เล่ม 1-3"),
+  make("fresh-limited-2", "(มังงะ) Limited Edition Discovery fresh เล่ม 2"),
+  {
+    ...make("fresh-bundle", "(มังงะ) Discovery fresh เล่ม 1-3"),
+    special: false,
+  },
+];
 const titles = [items[0], items[3], items[4], items[5], items[6]].map(
   (item) => ({
     ...item,
@@ -108,7 +117,7 @@ let fail = false,
 const titleCalls = [];
 const volumeCalls = [];
 let failVolumes = false;
-let emptyVolumes = false;
+let specialVolumesOnly = false;
 let flatDirectory = false;
 let releaseDelayedTitle;
 const delayedTitle = new Promise((resolve) => {
@@ -159,10 +168,12 @@ try {
       const title = titles.find((title) =>
         title.categories.some((category) => category.url === request.arg.url),
       );
-      const volumes = items.filter((item) => item.series === title?.series);
+      const volumes = [...items, ...otherEditions].filter(
+        (item) => item.series === title?.series,
+      );
       return route.fulfill({
         json: {
-          items: emptyVolumes ? [] : [...volumes, ...volumes],
+          items: specialVolumesOnly ? otherEditions : [...volumes, ...volumes],
           complete: true,
           stale: false,
           checkedAt: "2026-10-14T05:00:00Z",
@@ -175,7 +186,14 @@ try {
         json: {
           items:
             flatDirectory && request.arg.series === "Discovery later"
-              ? [items[4], make("later-4", "(มังงะ) Discovery later เล่ม 4")]
+              ? [
+                  items[4],
+                  make("later-4", "(มังงะ) Discovery later เล่ม 4"),
+                  make(
+                    "later-set",
+                    "(มังงะ) Complete Set Discovery later เล่ม 1-4",
+                  ),
+                ]
               : [],
           complete: true,
           checkedAt: "2026-10-14T05:00:00Z",
@@ -335,17 +353,17 @@ try {
     name: "Volumes in Discovery fresh",
   });
   await volumes
-    .getByText("3 listings from the publisher", { exact: true })
+    .getByText("2 listings from the publisher", { exact: true })
     .waitFor();
   assert.deepEqual(
     await volumes
       .locator(".book-card")
       .evaluateAll((covers) => covers.map((cover) => cover.title)),
-    [items[3].title, items[2].title, items[1].title],
-    "Volume listings are deduplicated and ordered by volume and edition",
+    [items[3].title, items[1].title],
+    "Volume listings exclude special editions and sets, deduplicate, and sort by volume",
   );
   assert.equal(await volumes.locator(".release-card").count(), 0);
-  assert.equal(await volumes.locator(".book-card .volume-cover").count(), 3);
+  assert.equal(await volumes.locator(".book-card .volume-cover").count(), 2);
   assert.equal(volumeCalls[0].url, titles[1].categories[0].url);
   await volumes
     .getByRole("button", {
@@ -365,7 +383,7 @@ try {
   failVolumes = true;
   await volumes.getByRole("button", { name: "Refresh volumes" }).click();
   await volumes.getByText(/Could not load volumes/).waitFor();
-  assert.equal(await volumes.locator(".book-card").count(), 3);
+  assert.equal(await volumes.locator(".book-card").count(), 2);
   failVolumes = false;
   await volumes.getByRole("button", { name: "Retry volumes" }).click();
   await volumes.getByRole("button", { name: "Refresh volumes" }).waitFor();
@@ -378,7 +396,7 @@ try {
     .getByRole("button", { name: "View volumes", exact: true })
     .click();
   await volumes
-    .getByText("3 listings from the publisher", { exact: true })
+    .getByText("2 listings from the publisher", { exact: true })
     .waitFor();
   assert.equal(volumeCalls.length, cachedVolumeCalls);
   await page.locator("#toast").waitFor({ state: "hidden" });
@@ -425,7 +443,7 @@ try {
     .first()
     .waitFor();
   await volumes
-    .getByText("3 listings from the publisher", { exact: true })
+    .getByText("2 listings from the publisher", { exact: true })
     .waitFor();
   assert.equal(volumeCalls.length, cachedVolumeCalls + 1);
   await fresh()
@@ -434,14 +452,22 @@ try {
   const standalone = page.locator(".discovery-card").filter({
     has: page.getByRole("heading", { name: "Discovery one-shot", exact: true }),
   });
-  emptyVolumes = true;
   await standalone
     .getByRole("button", { name: "View volumes", exact: true })
     .click();
+  await standalone.getByText("1 listing from the publisher").waitFor();
+  assert.equal(
+    await standalone.locator(".book-card").getAttribute("title"),
+    items[5].title,
+    "Regular unnumbered books remain visible",
+  );
+  specialVolumesOnly = true;
+  await standalone.getByRole("button", { name: "Refresh volumes" }).click();
   await standalone
     .getByText("No volumes are currently listed by the publisher.")
     .waitFor();
-  emptyVolumes = false;
+  assert.equal(await standalone.locator(".book-card").count(), 0);
+  specialVolumesOnly = false;
   await standalone
     .getByRole("button", { name: "Hide volumes", exact: true })
     .click();
@@ -770,6 +796,7 @@ try {
   await flatVolumes
     .getByText("2 listings from the publisher", { exact: true })
     .waitFor();
+  assert.equal(await flatVolumes.locator(".book-card").count(), 2);
   await flatVolumes
     .getByRole("button", {
       name: "Add to shelf: (มังงะ) Discovery later เล่ม 4",

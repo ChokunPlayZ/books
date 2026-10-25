@@ -2437,15 +2437,19 @@ export function mountCollection({
         renderedBooks = state.data.books;
         renderedVolumeState = volumeState;
         volumes.setAttribute("aria-busy", String(!result || !!result.loading));
+        const items = (result?.items || []).filter(
+          (volume) =>
+            view !== "discover" || (!volume.special && !volume.bundle),
+        );
         const heading = node("div", "discovery-volumes-heading");
         const status = node(
           "p",
           "hint",
           !result || result.loading
             ? "Loading volumes…"
-            : result.items.length
-              ? number(result.items.length) +
-                (result.items.length === 1 ? " listing" : " listings") +
+            : items.length
+              ? number(items.length) +
+                (items.length === 1 ? " listing" : " listings") +
                 " from the publisher"
               : result.error || !result.complete
                 ? "Volume listings are unavailable."
@@ -2473,7 +2477,7 @@ export function mountCollection({
             node("p", "hint", "This check may be missing some volumes."),
           );
         const gallery = node("div", "collection cover-grid");
-        for (const volume of result?.items || []) {
+        for (const volume of items) {
           const cover = node("button", "book-card");
           const match = releaseMatches(volume);
           cover.type = "button";

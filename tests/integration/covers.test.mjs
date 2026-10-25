@@ -7,7 +7,7 @@ import { createCoverService, coverDigest } from "../../lib/server/covers.ts";
 import { openStore } from "../../lib/server/store.ts";
 import { createApplicationApi } from "../../lib/server/api.ts";
 import { parseImport } from "../../lib/server/importer.ts";
-import { volumeCoverKey } from "../../lib/domain.ts";
+import { releaseItem, volumeCoverKey } from "../../lib/domain.ts";
 
 const source = "https://www.phoenixnext.com/media/catalog/product/cover.jpg";
 const png = Buffer.from(
@@ -96,6 +96,105 @@ test("content IDs deduplicate different sources and old file caches migrate with
     store.db.prepare("SELECT COUNT(*) AS n FROM cover_sources").get().n,
     2,
   );
+});
+
+test("cached releases do not retry failed covers on every view or restart, and recover after the cooldown", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+  const legacyDirectory = await directory(t);
+  const path = join(legacyDirectory, "library.sqlite");
+  let store = openStore(path);
+  t.after(() => store.close());
+  const checkedAt = new Date().toISOString();
+  store.cache.put(
+    "releases:v1:phoenix",
+    JSON.stringify({
+      publisherId: "phoenix",
+      items: [
+        {
+          ...releaseItem(
+            "phoenix",
+            "Cached release เล่ม 1",
+            "https://www.phoenixnext.com/cached-release.html",
+            100,
+            "",
+            "Manga (TH)",
+          ),
+          coverUrl: source,
+        },
+      ],
+      checkedAt,
+      stale: false,
+      error: "",
+    }),
+    30 * 86400,
+  );
+  let imageCalls = 0,
+    catalogCalls = 0,
+    offline = true;
+  const application = () =>
+    createApplicationApi(
+      store,
+      createCoverService(store, {
+        legacyDirectory,
+        fetchImpl: async () => {
+          imageCalls++;
+          return offline
+            ? new Response("Unavailable", { status: 503 })
+            : imageResponse();
+        },
+      }),
+      async () => {
+        catalogCalls++;
+        throw new Error("Cached releases should not fetch catalog pages");
+      },
+    );
+  let api = application();
+  const request = { publisherId: "phoenix" };
+  const results = await Promise.all(
+    Array.from({ length: 8 }, () => api.getPublisherReleases(request)),
+  );
+  assert.equal(imageCalls, 1, "Concurrent failures share one download");
+  assert.ok(
+    results.every(
+      (result) =>
+        result.items.length === 1 &&
+        !result.items[0].coverId &&
+        result.checkedAt === checkedAt &&
+        !result.stale,
+    ),
+    "Failed covers must not discard cached releases",
+  );
+  await api.getPublisherReleases(request);
+  assert.equal(
+    imageCalls,
+    1,
+    "Reopening cached releases respects the cooldown",
+  );
+
+  store.close();
+  store = openStore(path);
+  api = application();
+  t.mock.timers.tick(15 * 60000 - 1);
+  await api.getPublisherReleases(request);
+  assert.equal(imageCalls, 1, "The cooldown survives a database restart");
+
+  offline = false;
+  t.mock.timers.tick(1);
+  const recovered = await api.getPublisherReleases(request);
+  assert.equal(imageCalls, 2, "Failed images are retried after 15 minutes");
+  assert.equal(recovered.items[0].coverId, coverDigest(png));
+  assert.equal(recovered.checkedAt, checkedAt);
+
+  store.close();
+  store = openStore(path);
+  const cached = await application().getPublisherReleases(request);
+  assert.equal(cached.items[0].coverId, coverDigest(png));
+  assert.equal(
+    imageCalls,
+    2,
+    "Successful covers remain stored across restarts",
+  );
+  assert.equal(catalogCalls, 0, "All release views reuse the catalog cache");
 });
 
 test("API choices, saved volumes, trash and JSON restore retain stored cover IDs and bytes offline", async (t) => {
@@ -228,7 +327,6 @@ test("backups restore image payloads larger than a megabyte", (t) => {
 });
 
 test("HTML, SVG, empty images and failed responses are never stored", async (t) => {
-  const store = database(t);
   for (const response of [
     () =>
       new Response("<html>Not an image</html>", {
@@ -238,6 +336,7 @@ test("HTML, SVG, empty images and failed responses are never stored", async (t) 
     () => new Response(null),
     () => new Response("Unavailable", { status: 503 }),
   ]) {
+    const store = database(t);
     await assert.rejects(
       createCoverService(store, { fetchImpl: response }).ensure(source),
       { status: 502 },
@@ -277,7 +376,13 @@ test("cover sources and redirects reject arbitrary hosts, credentials and insecu
     "https://www.phoenixnext.com:444/cover.jpg",
   ]) {
     const before = calls.length;
-    await assert.rejects(cache.ensure(source), { status: 502 });
+    const redirected = createCoverService(database(t), {
+      fetchImpl: async (url) => {
+        calls.push(url);
+        return new Response(null, { status: 302, headers: { location } });
+      },
+    });
+    await assert.rejects(redirected.ensure(source), { status: 502 });
     assert.equal(calls.length - before, 1);
   }
   assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM covers").get().n, 0);
@@ -315,7 +420,6 @@ test("supported image redirects are followed and cached under the original sourc
 });
 
 test("cover downloads enforce the size limit for declared and streamed bodies", async (t) => {
-  const store = database(t);
   const limit = 5 * 1024 * 1024;
   for (const response of [
     () =>
@@ -331,6 +435,7 @@ test("cover downloads enforce the size limit for declared and streamed bodies", 
         }),
       ),
   ]) {
+    const store = database(t);
     await assert.rejects(
       createCoverService(store, { fetchImpl: response }).ensure(source),
       { status: 502 },
