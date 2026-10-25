@@ -1,4 +1,32 @@
 /* Series and owned volumes share the same cover-only gallery. */
+#mergeSeriesDialog .dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+#mergeSeriesSummary {
+  margin: 0;
+}
+.merge-series-preview {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.merge-series-preview li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.merge-series-preview strong {
+  font-weight: 600;
+}
+#mergeSeriesName {
+  min-width: 0;
+}
+
 .bulk-actions {
   display: flex;
   flex-wrap: wrap;

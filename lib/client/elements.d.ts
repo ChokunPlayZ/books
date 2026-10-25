@@ -35,6 +35,17 @@ interface LibraryElements {
   bulkRemoveError: HTMLDivElement;
   cancelBulkRemove: HTMLButtonElement;
   confirmBulkRemove: HTMLButtonElement;
+  mergeSeriesButton: HTMLButtonElement;
+  mergeSeriesDialog: HTMLDialogElement;
+  mergeSeriesTitle: HTMLHeadingElement;
+  mergeSeriesForm: HTMLFormElement;
+  mergeSeriesName: HTMLSelectElement;
+  mergeSeriesSummary: HTMLParagraphElement;
+  mergeSeriesPreview: HTMLUListElement;
+  mergeSeriesError: HTMLDivElement;
+  closeMergeSeries: HTMLButtonElement;
+  cancelMergeSeries: HTMLButtonElement;
+  confirmMergeSeries: HTMLButtonElement;
   activeCount: HTMLSpanElement;
   addButton: HTMLButtonElement;
   allowDuplicate: HTMLInputElement;

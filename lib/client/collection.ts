@@ -106,6 +106,7 @@ export function mountCollection({
   const bulkSelection = createBulkSelection({
     signal: events.signal,
     removed: view === "trash",
+    getCollection: () => state.data,
     isBusy: () => state.busy,
     setBusy,
     rpc,

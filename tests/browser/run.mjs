@@ -376,6 +376,10 @@ try {
     await start("bulk-selection", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
   );
   await runBrowserScenario(
+    "merge-series.browser.mjs",
+    await start("merge-series", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
+  );
+  await runBrowserScenario(
     "publisher-isbn-search.browser.mjs",
     await start("publisher-isbn-search", {
       BOOKS_ALLOW_UNAUTHENTICATED: "true",

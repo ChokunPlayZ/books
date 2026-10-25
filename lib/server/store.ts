@@ -400,6 +400,105 @@ export function openStore(
         };
       });
     },
+    mergeSeries(request: {
+      requestId: string;
+      series: string;
+      titles: { series: string; token: string }[];
+    }) {
+      return receipt("merge-series", request, () => {
+        if (!Array.isArray(request.titles) || request.titles.length < 2)
+          throw new AppError("Select at least two series to merge.");
+        const names = new Set<string>();
+        const titles = request.titles.map((title) => {
+          if (
+            !title ||
+            typeof title.series !== "string" ||
+            names.has(title.series)
+          )
+            throw new AppError("Include each series only once.");
+          names.add(title.series);
+          const rows = all(
+            "SELECT * FROM books WHERE series=? AND removed_at IS NULL ORDER BY id",
+            title.series,
+          );
+          if (!rows.length || titleToken(title.series, rows) !== title.token)
+            throw new AppError(
+              "A selected series changed. Close this dialog, refresh and select the series again.",
+              409,
+            );
+          return { series: title.series, rows };
+        });
+        const series = request.series;
+        if (typeof series !== "string" || !names.has(series))
+          throw new AppError(
+            "Choose one of the selected series names to keep.",
+          );
+        for (const title of titles) {
+          if (title.series === series) continue;
+          run(
+            "UPDATE books SET series=?,revision=revision+1 WHERE series=? AND removed_at IS NULL",
+            series,
+            title.series,
+          );
+          run(
+            "DELETE FROM options WHERE field='series' AND value=? AND NOT EXISTS (SELECT 1 FROM books WHERE series=?)",
+            title.series,
+            title.series,
+          );
+        }
+        rememberOptions({ series });
+
+        // The destination's catalog choices take priority when editions overlap.
+        const targetKey = catalogSeriesKey(series);
+        for (const row of all(
+          "SELECT data FROM series_catalogs WHERE series_key=?",
+          targetKey,
+        )) {
+          const catalog = JSON.parse(row.data);
+          run(
+            "UPDATE series_catalogs SET data=? WHERE series_key=? AND publisher_id=? AND type=?",
+            JSON.stringify({ ...catalog, series }),
+            targetKey,
+            catalog.publisherId,
+            catalog.type,
+          );
+        }
+        const sourceKeys = new Set(
+          titles.map((title) => catalogSeriesKey(title.series)),
+        );
+        sourceKeys.delete(targetKey);
+        const remainingKeys = new Set(
+          all("SELECT DISTINCT series FROM books WHERE removed_at IS NULL").map(
+            (row) => catalogSeriesKey(row.series),
+          ),
+        );
+        for (const key of sourceKeys) {
+          for (const row of all(
+            "SELECT data FROM series_catalogs WHERE series_key=?",
+            key,
+          )) {
+            const catalog = JSON.parse(row.data);
+            run(
+              "INSERT OR IGNORE INTO series_catalogs VALUES (?,?,?,?)",
+              targetKey,
+              catalog.publisherId,
+              catalog.type,
+              JSON.stringify({ ...catalog, series }),
+            );
+          }
+          if (!remainingKeys.has(key))
+            run("DELETE FROM series_catalogs WHERE series_key=?", key);
+        }
+        return {
+          series,
+          volumes: titles.reduce(
+            (count, title) => count + title.rows.length,
+            0,
+          ),
+          merged: titles.length,
+        };
+      });
+    },
     saveTitle(request) {
       return receipt("title", request, () => {
         const original = String(request.series || "");
@@ -425,7 +524,7 @@ export function openStore(
           )
         )
           throw new AppError(
-            "That title already exists. Use a different series name.",
+            "That title already exists. To combine them, select both on the collection page and choose Merge series.",
             409,
           );
         const editions = new Map();

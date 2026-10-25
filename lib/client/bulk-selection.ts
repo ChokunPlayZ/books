@@ -1,5 +1,7 @@
 import { $, node, number, fillOptions, requestId } from "./dom.ts";
 import { selectRange } from "./selection.ts";
+import { createSeriesMerge } from "./series-merge.ts";
+import type { CollectionState } from "./state.ts";
 import type { StoredBook } from "../types.ts";
 
 type SelectionItem = { key: string; books: StoredBook[]; trashId?: string };
@@ -10,6 +12,7 @@ type BatchRequest = Parameters<
 export function createBulkSelection({
   signal,
   removed,
+  getCollection,
   isBusy,
   setBusy,
   rpc,
@@ -19,6 +22,7 @@ export function createBulkSelection({
 }: {
   signal: AbortSignal;
   removed: boolean;
+  getCollection: () => CollectionState["data"];
   isBusy: () => boolean;
   setBusy: (busy: boolean) => void;
   rpc: (name: string, arg?: unknown) => Promise<unknown>;
@@ -35,6 +39,18 @@ export function createBulkSelection({
   const list = $("bookList");
   const options = { signal };
   const grouped = $("toggleSelection")?.textContent.includes("series");
+  const seriesMerge = createSeriesMerge({
+    signal,
+    getCollection,
+    selectedSeries: () => [...selected],
+    isBusy,
+    setBusy,
+    rpc,
+    load,
+    notify,
+    errorAt,
+    onMerged: () => clear(true),
+  });
 
   function selectedBooks() {
     return items
@@ -49,6 +65,7 @@ export function createBulkSelection({
   }
   function syncControls() {
     if (!list) return;
+    seriesMerge.syncControls();
     const busy = isBusy(),
       count = selectedBooks().length;
     $("bulkActions").hidden = !mode;

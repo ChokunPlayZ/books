@@ -168,7 +168,7 @@ export default function ShelfBrowser({
           <SelectionToggle grouped={!removed && series === null} />
         </div>
       </div>
-      <BulkActions removed={removed} />
+      <BulkActions removed={removed} grouped={!removed && series === null} />
       <section
         id={"bookList"}
         className={"collection" + (gallery ? " cover-grid" : "")}

@@ -556,14 +556,16 @@
 }
 
 #bookDialog[open],
-#titleDialog[open] {
+#titleDialog[open],
+#mergeSeriesDialog[open] {
   @apply flex;
   @apply flex-col;
   @apply overflow-hidden;
 }
 
 #bookDialog > form,
-#titleDialog > form {
+#titleDialog > form,
+#mergeSeriesDialog > form {
   @apply flex;
   @apply flex-col;
   @apply min-h-0;
@@ -572,12 +574,15 @@
 #bookDialog .dialog-head,
 #bookDialog .dialog-foot,
 #titleDialog .dialog-head,
-#titleDialog .dialog-foot {
+#titleDialog .dialog-foot,
+#mergeSeriesDialog .dialog-head,
+#mergeSeriesDialog .dialog-foot {
   @apply shrink-0;
 }
 
 #bookDialog .dialog-body,
-#titleDialog .dialog-body {
+#titleDialog .dialog-body,
+#mergeSeriesDialog .dialog-body {
   @apply min-h-0;
   @apply overflow-y-auto;
 }

@@ -1,3 +1,5 @@
+import MergeSeriesDialog from "./dialogs/MergeSeriesDialog";
+
 export function SelectionToggle({ grouped }: { grouped: boolean }) {
   return (
     <button
@@ -13,7 +15,13 @@ export function SelectionToggle({ grouped }: { grouped: boolean }) {
   );
 }
 
-export default function BulkActions({ removed }: { removed: boolean }) {
+export default function BulkActions({
+  removed,
+  grouped,
+}: {
+  removed: boolean;
+  grouped: boolean;
+}) {
   return (
     <>
       <span id="selectionHint" className="sr-only">
@@ -35,6 +43,11 @@ export default function BulkActions({ removed }: { removed: boolean }) {
         <button id="clearSelection" type="button" className="text-btn">
           Clear selection
         </button>
+        {grouped && !removed && (
+          <button id="mergeSeriesButton" type="button" className="btn" disabled>
+            Merge series
+          </button>
+        )}
         {!removed && (
           <>
             <label htmlFor="bulkStatus" className="sr-only">
@@ -56,9 +69,12 @@ export default function BulkActions({ removed }: { removed: boolean }) {
           {removed ? "Restore selected" : "Remove selected"}
         </button>
         <span className="hint selection-hint">
-          Click to toggle books · Shift click for a range · Escape to finish
+          {grouped
+            ? "Select two or more series to merge · Shift click for a range · Escape to finish"
+            : "Click to toggle books · Shift click for a range · Escape to finish"}
         </span>
       </div>
+      {grouped && !removed && <MergeSeriesDialog />}
       {!removed && (
         <dialog id="bulkRemoveDialog" aria-labelledby="bulkRemoveTitle">
           <div className="dialog-head">
