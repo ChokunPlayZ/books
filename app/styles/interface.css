@@ -477,15 +477,12 @@ h3 {
 }
 .discovery-volumes {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 24px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
   grid-column: 1 / -1;
   min-width: 0;
   border-top: 1px solid var(--line);
   padding-top: 16px;
-}
-.discovery-volumes > :not(.release-card) {
-  grid-column: 1 / -1;
 }
 .discovery-volumes-heading {
   display: flex;
@@ -497,15 +494,6 @@ h3 {
 .discovery-volumes-heading h3 {
   margin: 0;
   font-size: 14px;
-}
-.discovery-volumes > .release-card:last-child {
-  border-bottom: 0;
-  padding-bottom: 0;
-}
-@media (max-width: 760px) {
-  .discovery-volumes {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 .publisher-copy .release-meta,
 .publisher-copy .release-price,

@@ -338,20 +338,26 @@ try {
     .getByText("3 listings from the publisher", { exact: true })
     .waitFor();
   assert.deepEqual(
-    await volumes.locator(".release-card .book-title").allTextContents(),
+    await volumes
+      .locator(".book-card")
+      .evaluateAll((covers) => covers.map((cover) => cover.title)),
     [items[3].title, items[2].title, items[1].title],
     "Volume listings are deduplicated and ordered by volume and edition",
   );
+  assert.equal(await volumes.locator(".release-card").count(), 0);
+  assert.equal(await volumes.locator(".book-card .volume-cover").count(), 3);
   assert.equal(volumeCalls[0].url, titles[1].categories[0].url);
-  const thirdVolume = () =>
-    volumes.locator(".release-card").filter({
-      has: page.getByRole("heading", { name: items[1].title, exact: true }),
-    });
-  await thirdVolume().getByRole("button", { name: "Save for later" }).click();
-  await thirdVolume().getByRole("button", { name: "Saved · Unsave" }).waitFor();
-  await thirdVolume().getByRole("button", { name: "Saved · Unsave" }).click();
-  await thirdVolume().getByRole("button", { name: "Save for later" }).waitFor();
-  await thirdVolume().getByRole("button", { name: "Add to shelf" }).click();
+  await volumes
+    .getByRole("button", {
+      name: "Add to shelf: " + items[1].title,
+      exact: true,
+    })
+    .click();
+  const bookDialog = page.locator("#bookDialog");
+  await bookDialog.getByRole("button", { name: "Save for later" }).click();
+  await bookDialog.getByRole("button", { name: "Saved · Unsave" }).waitFor();
+  await bookDialog.getByRole("button", { name: "Saved · Unsave" }).click();
+  await bookDialog.getByRole("button", { name: "Save for later" }).waitFor();
   assert.equal(await page.locator("#series").inputValue(), "Discovery fresh");
   assert.equal(await page.locator("#volume").inputValue(), "3");
   assert.equal(await page.locator("#publisherUrl").inputValue(), items[1].url);
@@ -359,7 +365,7 @@ try {
   failVolumes = true;
   await volumes.getByRole("button", { name: "Refresh volumes" }).click();
   await volumes.getByText(/Could not load volumes/).waitFor();
-  assert.equal(await volumes.locator(".release-card").count(), 3);
+  assert.equal(await volumes.locator(".book-card").count(), 3);
   failVolumes = false;
   await volumes.getByRole("button", { name: "Retry volumes" }).click();
   await volumes.getByRole("button", { name: "Refresh volumes" }).waitFor();
@@ -765,14 +771,10 @@ try {
     .getByText("2 listings from the publisher", { exact: true })
     .waitFor();
   await flatVolumes
-    .locator(".release-card")
-    .filter({
-      has: page.getByRole("heading", {
-        name: "(มังงะ) Discovery later เล่ม 4",
-        exact: true,
-      }),
+    .getByRole("button", {
+      name: "Add to shelf: (มังงะ) Discovery later เล่ม 4",
+      exact: true,
     })
-    .getByRole("button", { name: "Add to shelf" })
     .click();
   assert.equal(await page.locator("#volume").inputValue(), "4");
   assert.equal(await page.locator("#series").inputValue(), "Discovery later");

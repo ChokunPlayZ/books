@@ -2538,10 +2538,34 @@ export function mountCollection({
           volumes.append(
             node("p", "hint", "This check may be missing some volumes."),
           );
-        for (const volume of result?.items || [])
-          volumes.append(
-            releaseCard(volume, nextSaved.has(volume.id), { catalog: true }),
+        const gallery = node("div", "collection cover-grid");
+        for (const volume of result?.items || []) {
+          const cover = node("button", "book-card");
+          const match = releaseMatches(volume);
+          cover.type = "button";
+          cover.title = volume.title;
+          cover.setAttribute(
+            "aria-label",
+            (match.owned.length ? "View owned series for " : "Add to shelf: ") +
+              volume.title,
           );
+          if (!match.owned.length)
+            cover.setAttribute("aria-haspopup", "dialog");
+          cover.disabled = state.busy;
+          cover.append(
+            coverImage(volume.coverId, volume.title, "volume-cover"),
+          );
+          cover.addEventListener(
+            "click",
+            () => {
+              if (match.owned.length) openSeries(seriesKey(match.owned[0]));
+              else openRelease(volume, match, { saveForLater: true });
+            },
+            { signal: events.signal },
+          );
+          gallery.append(cover);
+        }
+        if (gallery.childElementCount) volumes.append(gallery);
       } else {
         volumes.replaceChildren();
         renderedVolumeState = undefined;
@@ -2878,7 +2902,7 @@ export function mountCollection({
       renderSeriesMissing();
     }
   }
-  function openRelease(item, match) {
+  function openRelease(item, match, { saveForLater = false } = {}) {
     const series = item.catalogVariant
       ? item.series
       : match.series[0]?.series || item.catalogSeries || item.series;
@@ -2917,6 +2941,33 @@ export function mountCollection({
             : ""),
       ),
     );
+    if (saveForLater) {
+      const save = node("button", "btn");
+      save.type = "button";
+      const isSaved = () =>
+        state.data.savedReleases.some((release) => release.id === item.id);
+      const update = () => {
+        save.textContent = state.savingReleases.has(item.id)
+          ? "Saving…"
+          : isSaved()
+            ? "Saved · Unsave"
+            : "Save for later";
+        save.disabled = state.savingReleases.size > 0;
+        save.setAttribute("aria-pressed", String(isSaved()));
+      };
+      save.addEventListener(
+        "click",
+        async () => {
+          const pending = saveRelease(item, !isSaved());
+          update();
+          await pending;
+          update();
+        },
+        { signal: events.signal },
+      );
+      update();
+      $("lookupResult").append(save);
+    }
   }
 
   function setLookupLoading(loading: boolean) {
