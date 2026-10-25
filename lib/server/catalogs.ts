@@ -94,6 +94,9 @@ export function createCatalogService(
             ? { series: item.series }
             : {}),
           availability: item.availability,
+          ...(item.publisherId === "lilyhouse" && item.variantGroup
+            ? { special: true, isbn: "", volume: "" }
+            : {}),
         })),
     };
     rememberCovers(reparsed.items);

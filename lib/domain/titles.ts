@@ -203,3 +203,20 @@ export function splitDexpressTitle(raw: string) {
   if (parsed.volume === "" && /เล่มเดียวจบ/.test(title)) parsed.volume = 1;
   return { ...parsed, type: type || parsed.type };
 }
+
+export function splitLilyHouseTitle(raw: string) {
+  const title = decodeHtml(String(raw || ""))
+    .replace(/^\s*\((?:PRE(?:[- ]?ORDER)?|COMIC|NOVEL)\)\s*/gi, "")
+    .replace(/^\s*\((?:COMIC|NOVEL)\)\s*/i, "")
+    .replace(/\s*\(English (?:Version|Edition)\)\s*/gi, " ")
+    .trim();
+  const parsed = splitBookTitle(title);
+  parsed.series = parsed.series
+    .replace(/\s*\((?:ฉบับ\s*)?reprint\)\s*$/i, "")
+    .trim();
+  if (parsed.volume === "" && /เล่มเดียวจบ/.test(title)) {
+    parsed.series = parsed.series.replace(/\s*\(?เล่มเดียวจบ\)?.*$/, "").trim();
+    parsed.volume = 1;
+  }
+  return parsed;
+}

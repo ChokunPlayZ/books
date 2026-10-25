@@ -775,7 +775,7 @@ export function mountCollection({
     if (
       !editor.open ||
       editor.categories ||
-      (["luckpim", "yaakz"] as const).includes(spec.publisherId)
+      (["luckpim", "yaakz", "lilyhouse"] as const).includes(spec.publisherId)
     )
       return;
     editor.loading = true;
@@ -1042,7 +1042,7 @@ export function mountCollection({
       pending || state.catalogRefreshing ? "Checking…" : "Refresh catalog";
     renderSeriesCatalogSources(specs);
     $("seriesReleaseStatus").textContent = !specs.length
-      ? "Catalog checks are available for Animag, Phoenix Next, First Page Pro, Luckpim, Yaakz and Yen Press."
+      ? "Catalog checks are available for Lily House, DEXpress, Animag, Phoenix Next, First Page Pro, Luckpim, Yaakz and Yen Press."
       : pending
         ? "Checking the publisher’s series catalog…"
         : choose
@@ -1151,7 +1151,7 @@ export function mountCollection({
       };
       state.catalogEditors.set(key, editor);
     }
-    const searchBased = (["luckpim", "yaakz"] as const).includes(
+    const searchBased = (["luckpim", "yaakz", "lilyhouse"] as const).includes(
       spec.publisherId,
     );
     const toggle = node(
@@ -1190,12 +1190,20 @@ export function mountCollection({
         editor.url ??
         (feed.url
           ? new URL(feed.url).searchParams.get(
-              spec.publisherId === "yaakz" ? "q" : "k",
+              spec.publisherId === "yaakz"
+                ? "q"
+                : spec.publisherId === "lilyhouse"
+                  ? "s"
+                  : "k",
             )
           : spec.series);
       field(
         "Series title on " +
-          (spec.publisherId === "yaakz" ? "Yaakz" : "Luckpim"),
+          (spec.publisherId === "lilyhouse"
+            ? "Lily House"
+            : spec.publisherId === "yaakz"
+              ? "Yaakz"
+              : "Luckpim"),
         manual,
       );
       manual.addEventListener("input", () => (editor.url = manual.value), {
@@ -1262,7 +1270,9 @@ export function mountCollection({
               ? "https://www.animagshop.com/category/…"
               : spec.publisherId === "dexpress"
                 ? "https://www.dexpress-shop.com/search?q=…"
-                : "https://www.firstpagepro.com/category/…";
+                : spec.publisherId === "lilyhouse"
+                  ? "https://lily-house.com/?s=…&post_type=product"
+                  : "https://www.firstpagepro.com/category/…";
       manual.value = editor.url || "";
       field("Or paste the series category URL", manual);
       manual.addEventListener(
@@ -1285,12 +1295,17 @@ export function mountCollection({
       "submit",
       (event) => {
         event.preventDefault();
-        const url = searchBased
-          ? (spec.publisherId === "yaakz"
-              ? "https://www.yaakz.com/search?q="
-              : "https://www.luckpim.com/search_result?k=") +
-            encodeURIComponent(manual.value.trim())
-          : manual.value.trim() || selected.value;
+        const url =
+          spec.publisherId === "lilyhouse"
+            ? "https://lily-house.com/?s=" +
+              encodeURIComponent(manual.value.trim()) +
+              "&post_type=product"
+            : searchBased
+              ? (spec.publisherId === "yaakz"
+                  ? "https://www.yaakz.com/search?q="
+                  : "https://www.luckpim.com/search_result?k=") +
+                encodeURIComponent(manual.value.trim())
+              : manual.value.trim() || selected.value;
         if (!url) {
           errorAt(
             "seriesReleaseError",
@@ -1824,6 +1839,7 @@ export function mountCollection({
       yaakz: "www.yaakz.com",
       animag: "www.animagshop.com",
       dexpress: "www.dexpress-shop.com",
+      lilyhouse: "lily-house.com",
       yenpress: "yenpress.com",
     };
     let safe = false;
@@ -2129,7 +2145,9 @@ export function mountCollection({
           ? "animag"
           : state.discoveryUrl.startsWith("https://www.dexpress-shop.com/")
             ? "dexpress"
-            : "";
+            : state.discoveryUrl.startsWith("https://lily-house.com/")
+              ? "lilyhouse"
+              : "";
     const isbnSearch = publisherIsbnSearch.get(
       publisherId,
       $("discoverySearch").value,
@@ -2257,7 +2275,7 @@ export function mountCollection({
         releaseCard(
           {
             ...item,
-            ...(result.publisherId === "firstpage"
+            ...(["firstpage", "lilyhouse"].includes(result.publisherId)
               ? { searchedIsbn: result.isbn }
               : {}),
           },

@@ -35,7 +35,9 @@ export function createPublisherIsbnSearch({
       const isbn = canonicalIsbn(query);
       if (
         !isbn ||
-        !["phoenix", "firstpage", "animag", "dexpress"].includes(publisherId)
+        !["phoenix", "firstpage", "animag", "dexpress", "lilyhouse"].includes(
+          publisherId,
+        )
       ) {
         cancel();
         return null;

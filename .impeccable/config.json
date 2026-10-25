@@ -17,6 +17,13 @@
         "files": ["lib/server/publisher-covers.ts"],
         "createdAt": "2026-10-24T14:29:13.887Z",
         "reason": "Agent: this server parser reads img tags from external product HTML and does not render image elements."
+      },
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": ["lib/domain/lilyhouse.ts"],
+        "createdAt": "2026-10-25T11:51:10.342Z",
+        "reason": "Codex: these img tokens are regular expressions parsing remote HTML; this module renders no images."
       }
     ]
   }

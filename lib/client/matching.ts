@@ -61,6 +61,8 @@ export function publisherKey(name: string) {
     .replace(/[^\p{L}\p{N}\p{M}]/gu, "");
   if (/phoenix|ฟีนิกซ์/.test(key)) return "phoenix";
   if (/firstpage|เฟิร์สเพจ/.test(key)) return "firstpage";
+  if (/^(?:lilyhouse|lillyhouse|ลิลลี่เฮ้าส์|ลิลลีเฮาส์)$/.test(key))
+    return "lilyhouse";
   if (
     /^(?:dexpress|dex|เดกซ์เพรส|เดกซ์เพรสส์|เด็กซ์เพรส|เด็กซ์เพรสส์)$/.test(key)
   )
@@ -188,7 +190,9 @@ export function discoverTitles<T extends Release>(
       item.publisherId +
       ":" +
       releaseSeriesKey(item.series) +
-      (["yenpress", "firstpage", "dexpress"].includes(item.publisherId)
+      (["yenpress", "firstpage", "dexpress", "lilyhouse"].includes(
+        item.publisherId,
+      )
         ? ":" + matchingBookType(item.type)
         : "");
     if (!groups.has(key)) groups.set(key, []);
@@ -213,7 +217,9 @@ export function discoverTitles<T extends Release>(
               (canonical(item.isbn) &&
                 canonical(item.isbn) === canonical(book.isbn)) ||
               (publisherKey(book.publisher) === item.publisherId &&
-                (!["firstpage", "dexpress"].includes(item.publisherId) ||
+                (!["firstpage", "dexpress", "lilyhouse"].includes(
+                  item.publisherId,
+                ) ||
                   !item.type ||
                   matchingBookType(book.type) ===
                     matchingBookType(item.type)) &&

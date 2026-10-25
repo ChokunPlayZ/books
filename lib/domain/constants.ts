@@ -38,6 +38,12 @@ export const BOOK_APP = Object.freeze({
 
 export const PUBLISHERS = Object.freeze([
   {
+    id: "lilyhouse",
+    name: "Lily House",
+    url: "https://lily-house.com/shop-2/?orderby=date",
+    scope: "Latest 48 shop listings, excluding merchandise",
+  },
+  {
     id: "dexpress",
     name: "DEXpress",
     url: "https://www.dexpress-shop.com/showroom/new",

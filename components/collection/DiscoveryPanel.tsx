@@ -91,6 +91,18 @@ export default function DiscoveryPanel() {
               <option value="https://www.dexpress-shop.com/category/3">
                 DEXpress · Light novels
               </option>
+              <option value="https://lily-house.com/shop-2/">
+                Lily House · All titles
+              </option>
+              <option value="https://lily-house.com/product-category/manga/">
+                Lily House · Manga
+              </option>
+              <option value="https://lily-house.com/product-category/novel/">
+                Lily House · Novels
+              </option>
+              <option value="https://lily-house.com/product-category/english-book/">
+                Lily House · English books
+              </option>
               <option value="">Another category URL</option>
             </select>
           </label>

@@ -10,6 +10,45 @@ export function kinokuniyaSearchUrl(query: string): string {
 
 export function safeSeriesCatalogUrl(raw, id) {
   const url = decodeHtml(String(raw || "").trim());
+  if (id === "lilyhouse") {
+    try {
+      const parsed = new URL(url);
+      if (
+        parsed.origin !== "https://lily-house.com" ||
+        parsed.username ||
+        parsed.password ||
+        parsed.hash ||
+        /%2f|%5c/i.test(parsed.pathname)
+      )
+        return "";
+      if (
+        !parsed.search &&
+        (/^\/(?:shop-2\/?)?$/.test(parsed.pathname) ||
+          /^\/product-category\/(?:[\p{L}\p{N}\p{M}%_-]+\/)*[\p{L}\p{N}\p{M}%_-]+\/?$/u.test(
+            parsed.pathname,
+          ))
+      )
+        return parsed.pathname === "/"
+          ? parsed.origin + "/shop-2/"
+          : parsed.origin + parsed.pathname.replace(/\/$/, "") + "/";
+      const keys = [...parsed.searchParams.keys()].sort().join();
+      const query = parsed.searchParams.get("s")?.trim();
+      if (
+        parsed.pathname === "/" &&
+        keys === "post_type,s" &&
+        parsed.searchParams.get("post_type") === "product" &&
+        query &&
+        query.length <= 500
+      )
+        return (
+          parsed.origin +
+          "/?s=" +
+          encodeURIComponent(query) +
+          "&post_type=product"
+        );
+    } catch {}
+    return "";
+  }
   if (id === "dexpress") {
     try {
       const parsed = new URL(url);
@@ -110,6 +149,7 @@ export function publisherCatalogSource(raw) {
     "yenpress",
     "animag",
     "dexpress",
+    "lilyhouse",
   ]) {
     const category = safePublisherTitleUrl(url, id);
     if (category) return { publisherId: id, url: category };
@@ -140,7 +180,7 @@ export function publisherCatalogSource(raw) {
   )
     return { publisherId: "dexpress", url: "https://www.dexpress-shop.com/" };
   throw new Error(
-    "Use a DEXpress, Animag, Phoenix Next, First Page Pro, Yaakz or Yen Press category or series URL.",
+    "Use a Lily House, DEXpress, Animag, Phoenix Next, First Page Pro, Yaakz or Yen Press category or series URL.",
   );
 }
 
@@ -173,6 +213,7 @@ export function safeCoverUrl(raw, base?: string) {
       "covers.openlibrary.org",
       "images.yenpress.com",
       "kinokuniya.co.th",
+      "lily-house.com",
     ];
     if (
       !allowed.includes(host) &&
@@ -180,6 +221,11 @@ export function safeCoverUrl(raw, base?: string) {
     )
       return "";
     if (host === "kinokuniya.co.th" && !url.pathname.startsWith("/cdn/shop/"))
+      return "";
+    if (
+      host === "lily-house.com" &&
+      !url.pathname.startsWith("/wp-content/uploads/")
+    )
       return "";
     if (url.protocol === "http:") url.protocol = "https:";
     if (
@@ -202,6 +248,8 @@ export function publisherKey(name) {
     .replace(/[^\p{L}\p{N}\p{M}]/gu, "");
   if (/phoenix|ฟีนิกซ์/.test(key)) return "phoenix";
   if (/firstpage|เฟิร์สเพจ/.test(key)) return "firstpage";
+  if (/^(?:lilyhouse|lillyhouse|ลิลลี่เฮ้าส์|ลิลลีเฮาส์)$/.test(key))
+    return "lilyhouse";
   if (
     /^(?:dexpress|dex|เดกซ์เพรส|เดกซ์เพรสส์|เด็กซ์เพรส|เด็กซ์เพรสส์)$/.test(key)
   )
@@ -231,6 +279,7 @@ export function safePublisherUrl(raw, publisher) {
       yenpress: "yenpress.com",
       animag: "www.animagshop.com",
       dexpress: "www.dexpress-shop.com",
+      lilyhouse: "lily-house.com",
     };
     if (
       url.protocol !== "https:" ||
@@ -249,6 +298,34 @@ export function safePublisherUrl(raw, publisher) {
 
 export function safeProductUrl(raw, id) {
   const url = decodeHtml(String(raw || ""));
+  if (id === "lilyhouse") {
+    try {
+      const parsed = new URL(url);
+      if (
+        parsed.origin !== "https://lily-house.com" ||
+        parsed.username ||
+        parsed.password ||
+        parsed.search ||
+        parsed.hash ||
+        /%2f|%5c/i.test(parsed.pathname)
+      )
+        return "";
+      const path = decodeURIComponent(parsed.pathname);
+      if (
+        !/^\/shop-2\/(?:[\p{L}\p{N}\p{M}_.-]+\/)+[\p{L}\p{N}\p{M}_.-]+\/?$/u.test(
+          path,
+        ) ||
+        /^\/shop-2\/page\//.test(path)
+      )
+        return "";
+      return (parsed.origin + parsed.pathname.replace(/\/$/, "") + "/").replace(
+        /%[\da-f]{2}/gi,
+        (code) => code.toUpperCase(),
+      );
+    } catch {
+      return "";
+    }
+  }
   const patterns = {
     phoenix: /^https:\/\/www\.phoenixnext\.com\/[a-zA-Z0-9_-]+\.html$/,
     firstpage:

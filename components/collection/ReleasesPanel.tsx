@@ -53,6 +53,7 @@ export default function ReleasesPanel() {
           <option value="yenpress">Yen Press</option>
           <option value="animag">Animag</option>
           <option value="dexpress">DEXpress</option>
+          <option value="lilyhouse">Lily House</option>
         </select>
         <label htmlFor={"releaseScope"} className={"sr-only"}>
           {"Release list"}

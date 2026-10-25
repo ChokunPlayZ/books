@@ -2,9 +2,12 @@ import { attr, meta, safeCoverUrl, structuredBooks } from "../domain.ts";
 import { animagProducts } from "../domain/animag.ts";
 import { safeProductUrl } from "../domain/urls.ts";
 import { dexpressProduct } from "../domain/dexpress.ts";
+import { lilyHouseProduct } from "../domain/lilyhouse.ts";
 
 // Read publisher product galleries only; recommendation cards are unrelated books.
 export function publisherCovers(html, pageUrl) {
+  if (safeProductUrl(pageUrl, "lilyhouse"))
+    return lilyHouseProduct(html, pageUrl).covers;
   if (safeProductUrl(pageUrl, "dexpress")) {
     const { data } = dexpressProduct(html, pageUrl);
     return [

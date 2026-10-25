@@ -412,6 +412,7 @@ try {
     "yaakz.browser.mjs",
     "yenpress.browser.mjs",
     "kinokuniya.browser.mjs",
+    "lilyhouse.browser.mjs",
     "navigation.browser.mjs",
   ])
     await runBrowserScenario(name, fixturesUrl);

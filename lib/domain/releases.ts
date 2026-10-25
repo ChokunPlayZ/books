@@ -7,6 +7,7 @@ import {
   splitFirstPageTitle,
   splitAnimagTitle,
   splitDexpressTitle,
+  splitLilyHouseTitle,
   releaseBundle,
 } from "./titles.ts";
 import { digest } from "./hash.ts";
@@ -14,6 +15,7 @@ import { PUBLISHERS } from "./constants.ts";
 import { canonicalIsbn } from "./isbn.ts";
 import { animagCategories, animagProducts, animagTotal } from "./animag.ts";
 import { lnwProducts, lnwTotal } from "./lnwshop.ts";
+import { lilyHousePage, lilyHouseTotal } from "./lilyhouse.ts";
 
 export function parsePublisherTitles(id, html, sourceUrl) {
   if (id === "animag")
@@ -145,6 +147,7 @@ export function splitFirstPageTitles<
 }
 
 export function catalogTotal(id, html) {
+  if (id === "lilyhouse") return lilyHouseTotal(html);
   if (id === "animag") return animagTotal(html);
   if (id === "dexpress") return lnwTotal(html);
   const pattern =
@@ -236,6 +239,12 @@ export function cleanRelease(input) {
     throw new Error("Invalid release volume.");
   item.availability = String(input.availability || "").slice(0, 100);
   item.coverUrl = safeCoverUrl(input.coverUrl);
+  if (p.id === "lilyhouse" && input.variantGroup) {
+    item.variantGroup = true;
+    item.special = true;
+    item.isbn = "";
+    item.volume = "";
+  }
   if (input.catalogSeries)
     item.catalogSeries = String(input.catalogSeries).slice(0, 500);
   if (input.catalogVariant) item.catalogVariant = true;
@@ -257,14 +266,18 @@ export function releaseItem(
         ? splitAnimagTitle(title)
         : id === "dexpress"
           ? splitDexpressTitle(title)
-          : splitBookTitle(title);
+          : id === "lilyhouse"
+            ? splitLilyHouseTitle(title)
+            : splitBookTitle(title);
   const selectable = id === "dexpress" && /\?pid=\d+$/.test(url);
   const special =
     selectable ||
     /(?:special|complete|ultimate)(?:\s+combo)?\s*(?:set|edition)|box\s*set|limited|เซต|ชุด|ฉบับพิเศษ|ปกพิเศษ/i.test(
       title,
     ) ||
-    (id === "dexpress" && /AUTOGRAPH\s+SET/i.test(title));
+    (id === "dexpress" && /AUTOGRAPH\s+SET/i.test(title)) ||
+    (id === "lilyhouse" &&
+      /sprayed\s+edges|ปกนักแสดง|\bspecial\b/i.test(title));
   const p = PUBLISHERS.find(function (p) {
     return p.id === id;
   });
@@ -293,12 +306,25 @@ export function releaseItem(
     special: special,
     bundle:
       releaseBundle(title) ||
+      (id === "lilyhouse" &&
+        /(?:ชุด\s*\d+\s*เล่ม|\d+\s*เล่มจบ|\bset\b)/i.test(title)) ||
       (id === "dexpress" && /AUTOGRAPH\s+SET|แพ(?:็ค|็ก|ค|ก)ชุด/i.test(title)),
     availability: "",
   };
 }
 
 export function parseCatalog(id, html, sourceUrl = "") {
+  if (id === "lilyhouse")
+    return lilyHousePage(html)
+      .items.filter((item) => item.type)
+      .map((item) => ({
+        ...releaseItem(id, item.title, item.url, item.price, "", item.type),
+        coverUrl: item.coverUrl,
+        availability: item.availability,
+        ...(item.variantGroup
+          ? { variantGroup: true, special: true, volume: "" as const }
+          : {}),
+      }));
   if (id === "animag" || id === "dexpress") {
     const products = new Map(
       (id === "animag" ? animagProducts(html) : lnwProducts(html, id)).map(
