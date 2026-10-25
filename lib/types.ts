@@ -67,3 +67,30 @@ export type Release = {
   source?: string;
   variantGroup?: boolean;
 };
+
+export type PriceAvailability =
+  "in_stock" | "out_of_stock" | "preorder" | "unknown";
+
+export type PriceOffer = {
+  shopId: string;
+  shop: string;
+  isbn: string;
+  title: string;
+  url: string;
+  price: number | null;
+  currency: string;
+  availability: PriceAvailability;
+  checkedAt: string;
+};
+
+export type PriceComparison = {
+  isbn: string;
+  offers: PriceOffer[];
+  sources: {
+    id: string;
+    name: string;
+    searchUrl: string;
+    status: "found" | "not_found" | "unavailable";
+    checkedAt: string | null;
+  }[];
+};

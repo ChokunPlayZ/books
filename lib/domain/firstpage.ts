@@ -30,6 +30,8 @@ export function firstPageBook(html: string, isbn: string, productUrl: string) {
   return {
     ...item,
     authors: names(product.author),
+    currency: offer?.priceCurrency || "THB",
+    availability: offer?.availability || "",
     source: "First Page Pro",
     coverUrl: safeCoverUrl(
       (Array.isArray(product.image) ? product.image[0] : product.image) ||

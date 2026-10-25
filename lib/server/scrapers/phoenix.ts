@@ -8,6 +8,12 @@ import type { ScraperContext, ScraperDefinition } from "./types.ts";
 export const phoenix: ScraperDefinition = {
   id: "phoenix",
   hosts: ["www.phoenixnext.com"],
+  priceSource: {
+    name: "Phoenix Next",
+    currency: "THB",
+    searchUrl: (isbn) =>
+      "https://www.phoenixnext.com/catalogsearch/result/?q=" + isbn,
+  },
   isbnPriority: 50,
   isbnWarning: "Phoenix Next is unavailable right now.",
   create(context: ScraperContext) {

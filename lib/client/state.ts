@@ -41,6 +41,15 @@ export function createCollectionState() {
     discoveryLoading: false,
     selectedCoverId: "",
     discoveryTitleResults: new Map(),
+    discoveryVolumeResults: new Map<
+      string,
+      {
+        items: import("../types").Release[];
+        loading?: boolean;
+        error?: string;
+        complete?: boolean;
+      }
+    >(),
     titleQueue: [],
     titleRequests: 0,
     discoveryRefresh: false,

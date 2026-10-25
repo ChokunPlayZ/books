@@ -13,6 +13,7 @@ import DiscoveryPanel from "./collection/DiscoveryPanel";
 import AdaptationPanel from "./collection/AdaptationPanel";
 import MissingPanel from "./collection/MissingPanel";
 import StatisticsPanel from "./collection/StatisticsPanel";
+import PriceFinder from "./collection/PriceFinder";
 import TitleDialog from "./collection/dialogs/TitleDialog";
 import BookDialog from "./collection/dialogs/BookDialog";
 import ScanDialog from "./collection/dialogs/ScanDialog";
@@ -26,10 +27,12 @@ export default function CollectionShell({
   view,
   series,
   data,
+  priceIsbn = "",
 }: {
   view: CollectionView;
   series: string | null;
   data: ReturnType<Store["api"]["getCollection"]>;
+  priceIsbn?: string;
 }) {
   const shelf = view === "collection" || view === "trash";
   const overview = shelf && series === null;
@@ -62,6 +65,7 @@ export default function CollectionShell({
         {series !== null && <SeriesCatalogPanel />}
         {view === "releases" && <ReleasesPanel />}
         {view === "discover" && <DiscoveryPanel />}
+        {view === "prices" && <PriceFinder initialIsbn={priceIsbn} />}
         {view === "missing" && <MissingPanel books={data.books} />}
         {view === "stats" && (
           <StatisticsPanel

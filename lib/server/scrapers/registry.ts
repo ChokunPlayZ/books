@@ -52,6 +52,9 @@ export function createScraperRegistry(
     isbnSearchProviders: [...sources.values()].filter(
       (source) => source.searchIsbn,
     ),
+    priceProviders: [...sources.values()].filter(
+      (source) => source.priceSource && source.lookupIsbn,
+    ),
     coverProviders: [...sources.values()]
       .filter((source) => source.coverOptions)
       .sort(

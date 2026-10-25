@@ -412,7 +412,7 @@ export function mountCollection({
     $("activeCount").textContent = number(books.length);
     $("trashCount").textContent = number(trash.length);
     $("trashCount").hidden = !trash.length;
-    if (state.view === "stats") {
+    if (state.view === "stats" || state.view === "prices") {
       onBooksChange?.(books);
       return;
     }
@@ -2020,6 +2020,7 @@ export function mountCollection({
       if (refresh) {
         state.titleGeneration++;
         state.discoveryTitleResults.clear();
+        state.discoveryVolumeResults.clear();
         state.titleQueue = [];
       }
       state.discoveryRefresh = refresh;
@@ -2046,6 +2047,80 @@ export function mountCollection({
     return JSON.stringify(
       item.categories.map((category) => category.url).sort(),
     );
+  }
+  function discoveryVolumeKey(item) {
+    return JSON.stringify([
+      item.publisherId,
+      item.series,
+      item.directory ? "" : item.type,
+      discoveryTitleKey(item),
+    ]);
+  }
+  async function loadDiscoveryVolumes(item, refresh = false) {
+    const key = discoveryVolumeKey(item);
+    const previous = state.discoveryVolumeResults.get(key);
+    if (previous?.loading || (!refresh && previous)) return;
+    const generation = state.titleGeneration;
+    state.discoveryVolumeResults.set(key, {
+      ...previous,
+      items: previous?.items || [],
+      loading: true,
+    });
+    renderDiscovery();
+    try {
+      const catalogs = item.directory
+        ? await Promise.all(
+            item.categories.map(async (category) => {
+              const catalog = await rpc("getPublisherCatalog", {
+                url: category.url,
+                refresh,
+              });
+              return {
+                ...catalog,
+                items: catalog.items.map((volume) => ({
+                  ...volume,
+                  type: volume.type || category.type || "",
+                  catalogSeries: item.series,
+                })),
+              };
+            }),
+          )
+        : [
+            await rpc("getSeriesCatalog", {
+              publisherId: item.publisherId,
+              series: item.series,
+              type: item.type,
+              refresh,
+            }),
+          ];
+      if (events.signal.aborted || generation !== state.titleGeneration) return;
+      const volumes = new Map<string, import("../types").Release>();
+      for (const catalog of catalogs)
+        for (const volume of catalog.items)
+          volumes.set(JSON.stringify([volume.id, volume.type]), volume);
+      const items = [...volumes.values()].sort(
+        (a, b) =>
+          Number(a.bundle) - Number(b.bundle) ||
+          (a.volume === "" ? Infinity : Number(a.volume)) -
+            (b.volume === "" ? Infinity : Number(b.volume)) ||
+          Number(a.special) - Number(b.special) ||
+          a.title.localeCompare(b.title),
+      );
+      state.discoveryVolumeResults.set(key, {
+        items,
+        complete: catalogs.every((catalog) => catalog.complete),
+        error: catalogs.find((catalog) => catalog.error)?.error || "",
+      });
+    } catch {
+      if (events.signal.aborted || generation !== state.titleGeneration) return;
+      state.discoveryVolumeResults.set(key, {
+        items: previous?.items || [],
+        error:
+          "Could not load volumes. Try again or open the publisher website.",
+      });
+    } finally {
+      if (!events.signal.aborted) renderDiscovery();
+    }
   }
   const titleObserver = new IntersectionObserver(
     (entries) => {
@@ -2319,9 +2394,29 @@ export function mountCollection({
     const publisherLink = releaseLink("", item.url);
     copy.append(publisher, title, meta, error, publisherLink);
     const actions = node("div", "buttons");
+    const viewVolumes = node("button", "btn", "View volumes");
+    viewVolumes.type = "button";
+    const volumes = node("section", "discovery-volumes");
+    volumes.id = "discovery-volumes-" + requestId();
+    volumes.hidden = true;
+    volumes.setAttribute("aria-label", "Volumes in " + item.series);
+    viewVolumes.setAttribute("aria-controls", volumes.id);
+    viewVolumes.setAttribute("aria-expanded", "false");
+    let expanded = false;
+    let renderedVolumes: unknown;
+    let renderedVolumeState: string | undefined;
     const saveButton = node("button", "btn");
     let currentItem = item;
     let currentSaved = saved;
+    viewVolumes.addEventListener(
+      "click",
+      () => {
+        expanded = !expanded;
+        update(currentItem, currentSaved);
+        if (expanded) void loadDiscoveryVolumes(currentItem);
+      },
+      { signal: events.signal },
+    );
     saveButton.addEventListener(
       "click",
       () => void saveRelease(currentItem, !currentSaved.has(currentItem.id)),
@@ -2333,8 +2428,8 @@ export function mountCollection({
       () => openRelease(currentItem, releaseMatches(currentItem)),
       { signal: events.signal },
     );
-    actions.append(saveButton, add);
-    card.append(coverLink, copy, actions);
+    actions.append(viewVolumes, saveButton, add);
+    card.append(coverLink, copy, actions, volumes);
 
     const update = (nextItem, nextSaved: Set<string>) => {
       currentItem = nextItem;
@@ -2383,9 +2478,74 @@ export function mountCollection({
       saveButton.disabled = !nextItem.resolved || state.savingReleases.size > 0;
       saveButton.setAttribute("aria-pressed", String(isSaved));
       add.disabled = !nextItem.resolved || state.busy;
+      viewVolumes.textContent = expanded ? "Hide volumes" : "View volumes";
+      viewVolumes.setAttribute("aria-expanded", String(expanded));
       publisherLink.textContent = nextItem.resolved
         ? "Publisher book page ↗"
         : "Publisher title category ↗";
+      volumes.hidden = !expanded;
+      if (expanded) {
+        const result = state.discoveryVolumeResults.get(
+          discoveryVolumeKey(nextItem),
+        );
+        if (!result)
+          queueMicrotask(() => {
+            if (expanded && !events.signal.aborted)
+              void loadDiscoveryVolumes(currentItem);
+          });
+        const volumeState = JSON.stringify([
+          state.busy,
+          [...state.savingReleases].sort(),
+          [...nextSaved].sort(),
+        ]);
+        if (renderedVolumes === result && renderedVolumeState === volumeState)
+          return;
+        renderedVolumes = result;
+        renderedVolumeState = volumeState;
+        volumes.setAttribute("aria-busy", String(!result || !!result.loading));
+        const heading = node("div", "discovery-volumes-heading");
+        const status = node(
+          "p",
+          "hint",
+          !result || result.loading
+            ? "Loading volumes…"
+            : result.items.length
+              ? number(result.items.length) +
+                (result.items.length === 1 ? " listing" : " listings") +
+                " from the publisher"
+              : result.error || !result.complete
+                ? "Volume listings are unavailable."
+                : "No volumes are currently listed by the publisher.",
+        );
+        status.setAttribute("role", "status");
+        const refresh = node(
+          "button",
+          "btn",
+          result?.error ? "Retry volumes" : "Refresh volumes",
+        );
+        refresh.type = "button";
+        refresh.disabled = !result || !!result.loading;
+        refresh.addEventListener(
+          "click",
+          () => void loadDiscoveryVolumes(currentItem, true),
+          { signal: events.signal },
+        );
+        heading.append(node("h3", "", "Volumes"), refresh);
+        volumes.replaceChildren(heading, status);
+        if (result?.error)
+          volumes.append(node("p", "source-error", result.error));
+        else if (result && !result.loading && !result.complete)
+          volumes.append(
+            node("p", "hint", "This check may be missing some volumes."),
+          );
+        for (const volume of result?.items || [])
+          volumes.append(
+            releaseCard(volume, nextSaved.has(volume.id), { catalog: true }),
+          );
+      } else {
+        volumes.replaceChildren();
+        renderedVolumeState = undefined;
+      }
     };
     discoveryCardUpdates.set(card, update);
     update(item, saved);
@@ -3714,6 +3874,27 @@ export function mountCollection({
   $("price")?.addEventListener("input", enterSalePrice, {
     signal: events.signal,
   });
+  $("findBookPrices")?.addEventListener(
+    "click",
+    () => {
+      const isbn = canonical($("isbn").value);
+      if (!isbn) {
+        errorAt(
+          "formError",
+          new Error(
+            "Enter this book’s ISBN to compare the same edition across shops.",
+          ),
+        );
+        return;
+      }
+      window.open(
+        "/prices?isbn=" + encodeURIComponent(isbn),
+        "_blank",
+        "noopener,noreferrer",
+      );
+    },
+    { signal: events.signal },
+  );
   $("lookupButton")?.addEventListener("click", lookup, {
     signal: events.signal,
   });

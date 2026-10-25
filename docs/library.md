@@ -33,6 +33,12 @@ Animag supports A-Plus, G-Plus, Animag Books, Animag Comics and BeLOVED+ publish
 
 Lily House also recognizes books saved under Lilly House or ลิลลี่เฮ้าส์. Series checks search the full storefront by title; **Sources & catalog settings → Change search title** lets you use the publisher's spelling. Unrelated results and sets remain for review. Novels use the library's existing `LN` type, with Thai and English editions kept separate. Numbered series volumes can receive automatic covers without an ISBN.
 
+## Lowest price finder
+
+Open **Lowest prices** and enter an ISBN-10 or ISBN-13 to compare the exact edition at Naiin, Kinokuniya Thailand, Phoenix Next, First Page Pro, Animag and DEXpress. **Find lowest price** in the book form opens the comparison in a new tab while keeping your draft.
+
+The finder shows selling prices, stock status, product links and check times. The lowest confirmed in-stock price is highlighted separately for each currency; pre-orders, out-of-stock books, unknown stock and missing prices cannot win. Prices exclude shipping, membership discounts and checkout coupons. Failed shops are identified, with direct shop-search links available under **All shop checks**. Prices are cached for up to an hour; **Refresh prices** checks them again. Failed sources retain the shared 15-minute retry cooldown.
+
 ## Anime adaptations and seasonal books
 
 On a series page, **Anime adaptations** checks AniList’s book records for explicitly linked anime and shows their status, season, and AniList/MyAnimeList links. Exact title matches are shown directly; other results are labelled as possible matches. Search by the original, English, or romaji title when a translated shelf title does not match. The book-type menu separates manga and light novels. A missing link means AniList has no direct adaptation recorded for that entry.

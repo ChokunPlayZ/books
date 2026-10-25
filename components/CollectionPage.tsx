@@ -13,14 +13,18 @@ import {
 export default async function CollectionPage({
   view = "collection",
   series = null,
+  priceIsbn = "",
 }: {
   view?: CollectionView;
   series?: string | null;
+  priceIsbn?: string;
 }) {
   const { store } = getApp();
   if (!hasSession(store, (await cookies()).get(SESSION_COOKIE)?.value)) {
-    const destination =
+    let destination =
       series === null ? collectionPaths[view] : seriesPath(series);
+    if (view === "prices" && priceIsbn)
+      destination += "?isbn=" + encodeURIComponent(priceIsbn);
     redirect(
       destination === "/"
         ? "/login"
@@ -30,7 +34,12 @@ export default async function CollectionPage({
   const data = store.api.getCollection();
   return (
     <>
-      <CollectionShell view={view} series={series} data={data} />
+      <CollectionShell
+        view={view}
+        series={series}
+        data={data}
+        priceIsbn={priceIsbn}
+      />
       {view !== "stats" && <CollectionController view={view} series={series} />}
     </>
   );

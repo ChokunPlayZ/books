@@ -13,6 +13,11 @@ import type { ScraperContext, ScraperDefinition } from "./types.ts";
 export const firstpage: ScraperDefinition = {
   id: "firstpage",
   hosts: ["www.firstpagepro.com"],
+  priceSource: {
+    name: "First Page Pro",
+    currency: "THB",
+    searchUrl: (isbn) => "https://www.firstpagepro.com/search?q=" + isbn,
+  },
   redirectIdentity: (url) => publisherRedirectIdentity("firstpage", url),
   isbnPriority: 30,
   isbnWarning: "First Page Pro is unavailable right now.",

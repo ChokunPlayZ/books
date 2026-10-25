@@ -1,5 +1,5 @@
 import { canonicalIsbn } from "./isbn.ts";
-import { meta, textHtml } from "./html.ts";
+import { meta, structuredBooks, textHtml } from "./html.ts";
 import { releaseItem } from "./releases.ts";
 import { safeProductUrl, safeCoverUrl } from "./urls.ts";
 
@@ -23,6 +23,12 @@ export function phoenixBook(html: string, isbn: string, productUrl: string) {
     /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(html)?.[1] || meta(html, "og:title"),
   );
   if (!title) throw new Error("Phoenix product details changed.");
+  const product = structuredBooks(html).find(
+    (book) => safeProductUrl(book.url, "phoenix") === url,
+  );
+  const offer = Array.isArray(product?.offers)
+    ? product.offers[0]
+    : product?.offers;
   return {
     ...releaseItem(
       "phoenix",
@@ -32,6 +38,9 @@ export function phoenixBook(html: string, isbn: string, productUrl: string) {
       canonical,
     ),
     isbn: canonical,
+    currency: meta(html, "product:price:currency") || "THB",
+    availability:
+      meta(html, "product:availability") || offer?.availability || "",
     coverUrl: safeCoverUrl(meta(html, "og:image")),
   };
 }

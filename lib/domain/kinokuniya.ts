@@ -53,7 +53,9 @@ export function kinokuniyaBook(html: string, isbn: string) {
     authors: [...authors].filter(Boolean).join(", "),
     releaseDate: fields.get("publication date") || "",
     source: "Kinokuniya",
-    price: Number.isFinite(price) && price >= 0 ? price : "",
+    price: Number.isFinite(price) && price >= 0 ? price : ("" as const),
+    currency: offer?.priceCurrency || "THB",
+    availability: offer?.availability || "",
     url,
     coverUrl: safeCoverUrl(product.image, url),
   };

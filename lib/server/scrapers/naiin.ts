@@ -10,6 +10,7 @@ import {
   specialSet,
   splitBookTitle,
   structuredBooks,
+  textHtml,
 } from "../../domain.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
 import type {
@@ -21,6 +22,11 @@ import type {
 export const naiin: ScraperDefinition = {
   id: "naiin",
   hosts: ["www.naiin.com"],
+  priceSource: {
+    name: "Naiin",
+    currency: "THB",
+    searchUrl: (isbn) => "https://www.naiin.com/search-result?title=" + isbn,
+  },
   isbnPriority: 10,
   isbnWarning:
     "Naiin is unavailable right now. You can still search it using the link below.",
@@ -59,6 +65,25 @@ export const naiin: ScraperDefinition = {
         const page = await fetchText_(url, refresh, SCRAPE_TTL.product),
           data = structuredBooks(page);
         const exact = data.find(function (b) {
+          // A recommended book on this page cannot verify this listing's price.
+          if (!b.url) {
+            if (
+              data.length !== 1 ||
+              textHtml(b.name) !== textHtml(candidate.ProductName)
+            )
+              return false;
+          } else {
+            try {
+              const productUrl = new URL(b.url);
+              if (
+                productUrl.origin + productUrl.pathname.replace(/\/$/, "") !==
+                url
+              )
+                return false;
+            } catch {
+              return false;
+            }
+          }
           return [b.isbn, b.gtin13, b.sku].some(function (code) {
             return canonicalIsbn(code) === canonical;
           });
@@ -71,7 +96,14 @@ export const naiin: ScraperDefinition = {
         const parsed = splitBookTitle(title);
         const regularPrice =
           candidate.PriceFull === "" ? NaN : Number(candidate.PriceFull ?? NaN);
+        const salePrice = candidate.PriceDiscount ?? candidate.PriceFull;
+        const price = salePrice === "" ? NaN : Number(salePrice ?? NaN);
+        const quantity =
+          candidate.Quantity == null || candidate.Quantity === ""
+            ? NaN
+            : Number(candidate.Quantity);
         return {
+          isbn: canonical,
           title: title,
           series: parsed.series,
           volume: parsed.volume,
@@ -79,6 +111,16 @@ export const naiin: ScraperDefinition = {
           publisher: names(book.publisher) || candidate.PublisherName || "",
           authors: names(book.author) || candidate.AuthorName || "",
           source: "Naiin",
+          price: Number.isFinite(price) && price >= 0 ? price : "",
+          currency: "THB",
+          availability:
+            Number(candidate.IsPreOrder) === 1
+              ? "Pre-order"
+              : !Number.isFinite(quantity) || quantity < 0
+                ? "Check availability"
+                : quantity > 0
+                  ? "In stock"
+                  : "Out of stock",
           url: url,
           releaseDate: meta(page, "book:release_date"),
           regularPrice:

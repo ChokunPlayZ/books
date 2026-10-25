@@ -12,6 +12,11 @@ const base = "https://www.dexpress-shop.com";
 export const dexpress: ScraperDefinition = {
   id: "dexpress",
   hosts: ["www.dexpress-shop.com"],
+  priceSource: {
+    name: "DEXpress",
+    currency: "THB",
+    searchUrl: (isbn) => base + "/search?q=" + isbn,
+  },
   redirectIdentity: (url) => publisherRedirectIdentity("dexpress", url),
   isbnPriority: 45,
   isbnWarning: "DEXpress is unavailable right now.",

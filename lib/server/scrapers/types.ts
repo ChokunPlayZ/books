@@ -65,6 +65,7 @@ export type IsbnSearchResult = {
 };
 
 export type BookDetails = {
+  isbn?: string;
   title: string;
   publisher?: string;
   authors?: string;
@@ -76,6 +77,9 @@ export type BookDetails = {
   type?: string;
   releaseDate?: string;
   regularPrice?: number | "";
+  price?: number | "";
+  currency?: string;
+  availability?: string;
 };
 
 export type CoverOption = {
@@ -118,6 +122,11 @@ export type Scraper = {
 export type ScraperDefinition = {
   id: string;
   hosts: readonly string[];
+  priceSource?: {
+    name: string;
+    currency: string;
+    searchUrl(isbn: string): string;
+  };
   redirectIdentity?(url: URL): string;
   // Lower numbers are preferred, independently of request completion order.
   isbnPriority?: number;

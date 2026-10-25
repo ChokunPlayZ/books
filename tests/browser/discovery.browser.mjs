@@ -106,6 +106,10 @@ let firstpageResult = { ...upcomingResult };
 let fail = false,
   calls = 0;
 const titleCalls = [];
+const volumeCalls = [];
+let failVolumes = false;
+let emptyVolumes = false;
+let flatDirectory = false;
 let releaseDelayedTitle;
 const delayedTitle = new Promise((resolve) => {
   releaseDelayedTitle = resolve;
@@ -145,9 +149,37 @@ try {
       return route.fulfill({
         json: { row: request.arg.row, coverId: items[0].coverId },
       });
+    if (request.name === "getPublisherCatalog") {
+      volumeCalls.push(request.arg);
+      if (failVolumes)
+        return route.fulfill({
+          status: 503,
+          json: { message: "Test volume outage" },
+        });
+      const title = titles.find((title) =>
+        title.categories.some((category) => category.url === request.arg.url),
+      );
+      const volumes = items.filter((item) => item.series === title?.series);
+      return route.fulfill({
+        json: {
+          items: emptyVolumes ? [] : [...volumes, ...volumes],
+          complete: true,
+          stale: false,
+          checkedAt: "2026-10-14T05:00:00Z",
+          error: "",
+        },
+      });
+    }
     if (request.name === "getSeriesCatalog")
       return route.fulfill({
-        json: { items: [], complete: true, checkedAt: "2026-10-14T05:00:00Z" },
+        json: {
+          items:
+            flatDirectory && request.arg.series === "Discovery later"
+              ? [items[4], make("later-4", "(มังงะ) Discovery later เล่ม 4")]
+              : [],
+          complete: true,
+          checkedAt: "2026-10-14T05:00:00Z",
+        },
       });
     if (request.name === "getPublisherReleases")
       return route.fulfill({
@@ -193,8 +225,9 @@ try {
     );
     return route.fulfill({
       json: {
-        titles: firstpage ? [firstpageUpcoming] : titles,
-        items: [],
+        ...(flatDirectory
+          ? { items }
+          : { titles: firstpage ? [firstpageUpcoming] : titles, items: [] }),
         url: request.arg.url,
         publisherId: firstpage ? "firstpage" : "phoenix",
         title: firstpage ? "First Page Pro titles" : "Girl’s Love",
@@ -293,6 +326,89 @@ try {
     true,
     "First-volume metadata must update the existing card",
   );
+  // Browse a title without adding it, then choose a specific publisher volume.
+  assert.equal(volumeCalls.length, 0, "Volume lists load only when opened");
+  await fresh()
+    .getByRole("button", { name: "View volumes", exact: true })
+    .click();
+  const volumes = fresh().getByRole("region", {
+    name: "Volumes in Discovery fresh",
+  });
+  await volumes
+    .getByText("3 listings from the publisher", { exact: true })
+    .waitFor();
+  assert.deepEqual(
+    await volumes.locator(".release-card .book-title").allTextContents(),
+    [items[3].title, items[2].title, items[1].title],
+    "Volume listings are deduplicated and ordered by volume and edition",
+  );
+  assert.equal(volumeCalls[0].url, titles[1].categories[0].url);
+  const thirdVolume = () =>
+    volumes.locator(".release-card").filter({
+      has: page.getByRole("heading", { name: items[1].title, exact: true }),
+    });
+  await thirdVolume().getByRole("button", { name: "Save for later" }).click();
+  await thirdVolume().getByRole("button", { name: "Saved · Unsave" }).waitFor();
+  await thirdVolume().getByRole("button", { name: "Saved · Unsave" }).click();
+  await thirdVolume().getByRole("button", { name: "Save for later" }).waitFor();
+  await thirdVolume().getByRole("button", { name: "Add to shelf" }).click();
+  assert.equal(await page.locator("#series").inputValue(), "Discovery fresh");
+  assert.equal(await page.locator("#volume").inputValue(), "3");
+  assert.equal(await page.locator("#publisherUrl").inputValue(), items[1].url);
+  await page.locator("#cancelBook").click();
+  failVolumes = true;
+  await volumes.getByRole("button", { name: "Refresh volumes" }).click();
+  await volumes.getByText(/Could not load volumes/).waitFor();
+  assert.equal(await volumes.locator(".release-card").count(), 3);
+  failVolumes = false;
+  await volumes.getByRole("button", { name: "Retry volumes" }).click();
+  await volumes.getByRole("button", { name: "Refresh volumes" }).waitFor();
+  assert.equal(volumeCalls.at(-1).refresh, true);
+  await fresh()
+    .getByRole("button", { name: "Hide volumes", exact: true })
+    .click();
+  const cachedVolumeCalls = volumeCalls.length;
+  await fresh()
+    .getByRole("button", { name: "View volumes", exact: true })
+    .click();
+  await volumes
+    .getByText("3 listings from the publisher", { exact: true })
+    .waitFor();
+  assert.equal(volumeCalls.length, cachedVolumeCalls);
+  await page.locator("#toast").waitFor({ state: "hidden" });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+    true,
+  );
+  await page.screenshot({
+    path: fileURLToPath(
+      new URL(
+        "../../outputs/browser-discovery-volumes-phone.png",
+        import.meta.url,
+      ),
+    ),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+    true,
+  );
+  await page.screenshot({
+    path: fileURLToPath(
+      new URL(
+        "../../outputs/browser-discovery-volumes-desktop.png",
+        import.meta.url,
+      ),
+    ),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.locator("#refreshDiscovery").click();
   await page.waitForFunction(
     () => !window.bookCollection?.state.discoveryLoading,
@@ -300,7 +416,29 @@ try {
   await fresh().scrollIntoViewIfNeeded();
   await fresh()
     .getByText(/Volume 1/)
+    .first()
     .waitFor();
+  await volumes
+    .getByText("3 listings from the publisher", { exact: true })
+    .waitFor();
+  assert.equal(volumeCalls.length, cachedVolumeCalls + 1);
+  await fresh()
+    .getByRole("button", { name: "Hide volumes", exact: true })
+    .click();
+  const standalone = page.locator(".discovery-card").filter({
+    has: page.getByRole("heading", { name: "Discovery one-shot", exact: true }),
+  });
+  emptyVolumes = true;
+  await standalone
+    .getByRole("button", { name: "View volumes", exact: true })
+    .click();
+  await standalone
+    .getByText("No volumes are currently listed by the publisher.")
+    .waitFor();
+  emptyVolumes = false;
+  await standalone
+    .getByRole("button", { name: "Hide volumes", exact: true })
+    .click();
   assert.equal(
     await freshCover.evaluate((img) => img.isConnected && img.complete),
     true,
@@ -606,10 +744,43 @@ try {
       .isEnabled(),
     true,
   );
+  // Product-based catalogs should load the full series, beyond the category preview.
+  flatDirectory = true;
+  await page
+    .locator("#discoveryPreset")
+    .selectOption("https://www.phoenixnext.com/gl.html");
+  await page.waitForFunction(
+    () => !window.bookCollection?.state.discoveryLoading,
+  );
+  const flatTitle = page.locator(".discovery-card").filter({
+    has: page.getByRole("heading", { name: "Discovery later", exact: true }),
+  });
+  await flatTitle
+    .getByRole("button", { name: "View volumes", exact: true })
+    .click();
+  const flatVolumes = flatTitle.getByRole("region", {
+    name: "Volumes in Discovery later",
+  });
+  await flatVolumes
+    .getByText("2 listings from the publisher", { exact: true })
+    .waitFor();
+  await flatVolumes
+    .locator(".release-card")
+    .filter({
+      has: page.getByRole("heading", {
+        name: "(มังงะ) Discovery later เล่ม 4",
+        exact: true,
+      }),
+    })
+    .getByRole("button", { name: "Add to shelf" })
+    .click();
+  assert.equal(await page.locator("#volume").inputValue(), "4");
+  assert.equal(await page.locator("#series").inputValue(), "Discovery later");
+  await page.locator("#cancelBook").click();
   assert.deepEqual(errors, []);
   assert.deepEqual(externalImages, []);
   console.log(
-    "PASS discovery deduplication, ownership, stable covers during title loads/refresh/save, filters, First Page rating presets and persistence, cached outage, save/add, image fallback and phone/desktop layout",
+    "PASS discovery volume browsing, per-volume save/add, retry, empty states and refresh; deduplication, ownership, stable covers, filters, presets, cached outage and phone/desktop layout",
   );
 } finally {
   releaseDelayedTitle();

@@ -20,6 +20,7 @@ import {
   specialSet,
 } from "../domain.ts";
 import { publisherCovers } from "./publisher-covers.ts";
+import { createPriceFinder } from "./prices.ts";
 import { SCRAPE_TTL } from "./scrape-cache.ts";
 import { createScraperContext } from "./scrapers/http.ts";
 import { createScraperRegistry, SCRAPER_SOURCES } from "./scrapers/registry.ts";
@@ -782,6 +783,10 @@ export function createCatalogService(
 
   return {
     lookupIsbn,
+    findLowestPrices: createPriceFinder(
+      scrapers.priceProviders,
+      context.scrapeCache,
+    ),
     searchPublisherIsbn,
     getBookCover,
     getBookCoverOptions,

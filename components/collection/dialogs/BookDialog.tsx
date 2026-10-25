@@ -201,6 +201,13 @@ export default function BookDialog() {
                   />
                   <p className={"hint"}>{"Use your collection’s currency."}</p>
                   <p id="listedPriceHint" className="hint" hidden />
+                  <button
+                    id="findBookPrices"
+                    className="text-btn price-form-link"
+                    type="button"
+                  >
+                    Find lowest price ↗
+                  </button>
                 </div>
                 <details
                   id={"priceCalculator"}

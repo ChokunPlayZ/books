@@ -6,6 +6,11 @@ import type { ScraperContext, ScraperDefinition } from "./types.ts";
 export const kinokuniya: ScraperDefinition = {
   id: "kinokuniya",
   hosts: ["kinokuniya.co.th"],
+  priceSource: {
+    name: "Kinokuniya",
+    currency: "THB",
+    searchUrl: (isbn) => "https://kinokuniya.co.th/search?q=" + isbn,
+  },
   isbnPriority: 70,
   isbnWarning: "Kinokuniya is unavailable right now.",
   coverPriority: 40,

@@ -399,6 +399,7 @@ try {
     "theme.browser.mjs",
     "collection-filters.browser.mjs",
     "pricing.browser.mjs",
+    "price-finder.browser.mjs",
     "mobile-adding.browser.mjs",
     "series-entry.browser.mjs",
     "series-edit.browser.mjs",

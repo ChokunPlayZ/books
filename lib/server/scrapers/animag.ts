@@ -18,6 +18,11 @@ import type { ScraperContext, ScraperDefinition } from "./types.ts";
 export const animag: ScraperDefinition = {
   id: "animag",
   hosts: ["www.animagshop.com"],
+  priceSource: {
+    name: "Animag",
+    currency: "THB",
+    searchUrl: (isbn) => "https://www.animagshop.com/search?q=" + isbn,
+  },
   redirectIdentity: (url) => publisherRedirectIdentity("animag", url),
   isbnPriority: 40,
   isbnWarning: "Animag is unavailable right now.",
@@ -105,6 +110,8 @@ export const animag: ScraperDefinition = {
             ),
             source: "Animag",
             authors: names(product.author),
+            currency: offer?.priceCurrency || "THB",
+            availability: offer?.availability || candidate.availability,
           };
           if (!item.isbn || item.bundle) continue;
           return {
