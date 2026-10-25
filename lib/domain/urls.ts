@@ -10,6 +10,32 @@ export function kinokuniyaSearchUrl(query: string): string {
 
 export function safeSeriesCatalogUrl(raw, id) {
   const url = decodeHtml(String(raw || "").trim());
+  if (id === "dexpress") {
+    try {
+      const parsed = new URL(url);
+      if (
+        parsed.origin !== "https://www.dexpress-shop.com" ||
+        parsed.username ||
+        parsed.password ||
+        parsed.hash
+      )
+        return "";
+      const category = /^\/category\/(\d+)(?:\/[^?#]*)?\/?$/.exec(
+        parsed.pathname,
+      );
+      if (category && !parsed.search)
+        return parsed.origin + "/category/" + category[1];
+      if (
+        parsed.pathname === "/search" &&
+        [...parsed.searchParams.keys()].join() === "q"
+      ) {
+        const query = parsed.searchParams.get("q").trim();
+        if (query && query.length <= 500)
+          return parsed.origin + "/search?q=" + encodeURIComponent(query);
+      }
+    } catch {}
+    return "";
+  }
   if (id === "animag") {
     const category =
       /^https:\/\/www\.animagshop\.com\/category\/(\d+)(?:\/[^?#]*)?\/?$/.exec(
@@ -77,7 +103,14 @@ export function safeSeriesCatalogUrl(raw, id) {
 
 export function publisherCatalogSource(raw) {
   const url = decodeHtml(String(raw || "").trim());
-  for (const id of ["phoenix", "firstpage", "yaakz", "yenpress", "animag"]) {
+  for (const id of [
+    "phoenix",
+    "firstpage",
+    "yaakz",
+    "yenpress",
+    "animag",
+    "dexpress",
+  ]) {
     const category = safePublisherTitleUrl(url, id);
     if (category) return { publisherId: id, url: category };
   }
@@ -101,8 +134,13 @@ export function publisherCatalogSource(raw) {
     url === "https://www.animagshop.com/category"
   )
     return { publisherId: "animag", url: "https://www.animagshop.com/" };
+  if (
+    url === "https://www.dexpress-shop.com/" ||
+    url === "https://www.dexpress-shop.com"
+  )
+    return { publisherId: "dexpress", url: "https://www.dexpress-shop.com/" };
   throw new Error(
-    "Use an Animag, Phoenix Next, First Page Pro, Yaakz or Yen Press category or series URL.",
+    "Use a DEXpress, Animag, Phoenix Next, First Page Pro, Yaakz or Yen Press category or series URL.",
   );
 }
 
@@ -164,6 +202,10 @@ export function publisherKey(name) {
     .replace(/[^\p{L}\p{N}\p{M}]/gu, "");
   if (/phoenix|ฟีนิกซ์/.test(key)) return "phoenix";
   if (/firstpage|เฟิร์สเพจ/.test(key)) return "firstpage";
+  if (
+    /^(?:dexpress|dex|เดกซ์เพรส|เดกซ์เพรสส์|เด็กซ์เพรส|เด็กซ์เพรสส์)$/.test(key)
+  )
+    return "dexpress";
   if (/luckpim|รักพิมพ์/.test(key)) return "luckpim";
   if (/yaakz|siaminter|สยามอินเตอร์|^sic$/.test(key)) return "yaakz";
   if (/^(?:yenpress|yenon|izepress|jy)$/.test(key)) return "yenpress";
@@ -188,6 +230,7 @@ export function safePublisherUrl(raw, publisher) {
       yaakz: "www.yaakz.com",
       yenpress: "yenpress.com",
       animag: "www.animagshop.com",
+      dexpress: "www.dexpress-shop.com",
     };
     if (
       url.protocol !== "https:" ||
@@ -215,18 +258,20 @@ export function safeProductUrl(raw, id) {
     yenpress: /^https:\/\/yenpress\.com\/titles\/\d{13}-[a-zA-Z0-9-]+\/?$/,
     animag:
       /^https:\/\/www\.animagshop\.com\/product\/(\d+)(?:\/[^?#]*)?(?:\?pid=(\d+))?$/,
+    dexpress:
+      /^https:\/\/www\.dexpress-shop\.com\/product\/(\d+)(?:\/[^?#]*)?(?:\?pid=(\d+))?$/,
   };
   if (!patterns[id] || !patterns[id].test(url)) return "";
   if (id === "yaakz")
     return (
       "https://www.yaakz.com/product/" + url.replace(/\/$/, "").split("/").pop()
     );
-  if (id === "firstpage" || id === "animag")
+  if (id === "firstpage" || id === "animag" || id === "dexpress")
     return (
       new URL(url).origin +
       "/product/" +
       url.match(patterns[id])[1] +
-      (id === "animag" && url.match(patterns[id])[2]
+      ((id === "animag" || id === "dexpress") && url.match(patterns[id])[2]
         ? "?pid=" + url.match(patterns[id])[2]
         : "")
     );

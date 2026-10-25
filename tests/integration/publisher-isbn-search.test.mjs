@@ -16,6 +16,8 @@ const url = "https://www.phoenixnext.com/ln0838-01.html";
 function scanRemote(calls, overrides = {}) {
   return async (address) => {
     calls.push(address);
+    if (address.includes("dexpress-shop.com/search"))
+      return new Response(fixture("dexpress-empty.html"));
     if (address.includes("animagshop.com/search"))
       return new Response(fixture("animag-empty.html"));
     if (address.includes("naiin.com"))

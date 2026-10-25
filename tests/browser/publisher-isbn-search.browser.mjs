@@ -22,13 +22,19 @@ try {
         ? "https://www.phoenixnext.com/ln0838-01.html"
         : publisherId === "animag"
           ? "https://www.animagshop.com/product/1169"
-          : "https://www.firstpagepro.com/product/1152",
+          : publisherId === "dexpress"
+            ? "https://www.dexpress-shop.com/product/240"
+            : "https://www.firstpagepro.com/product/1152",
       175,
       publisherId === "firstpage" ? "" : isbn,
     );
   const phoenix = make("phoenix", "(LN) ISBN outside loaded category เล่ม 7");
   const firstpage = make("firstpage", "การ์ตูน First Page ISBN search เล่ม 2");
   const animag = make("animag", "Animag Full catalog ISBN search NOVEL เล่ม 6");
+  const dexpress = make(
+    "dexpress",
+    "[DEXPRESS] นิยาย DEXpress ISBN search เล่ม 1",
+  );
   let fail = false;
   await page.route("**/api/rpc", async (route) => {
     const request = route.request().postDataJSON();
@@ -63,13 +69,17 @@ try {
               ? "https://www.phoenixnext.com/catalogsearch/result/?q=" + isbn
               : request.arg.publisherId === "animag"
                 ? "https://www.animagshop.com/search?q=" + isbn
-                : "https://www.firstpagepro.com/search?q=" + isbn,
+                : request.arg.publisherId === "dexpress"
+                  ? "https://www.dexpress-shop.com/search?q=" + isbn
+                  : "https://www.firstpagepro.com/search?q=" + isbn,
           items: [
             request.arg.publisherId === "phoenix"
               ? phoenix
               : request.arg.publisherId === "animag"
                 ? animag
-                : firstpage,
+                : request.arg.publisherId === "dexpress"
+                  ? dexpress
+                  : firstpage,
           ],
           warnings:
             request.arg.publisherId === "firstpage"
@@ -151,6 +161,24 @@ try {
   assert.equal(await page.locator("#volume").inputValue(), "6");
   assert.equal(await page.locator("#publisherUrl").inputValue(), animag.url);
   await page.locator("#cancelBook").click();
+  await page
+    .locator("#discoveryPreset")
+    .selectOption("https://www.dexpress-shop.com/category/3");
+  await page
+    .locator("#discoveryList .release-card")
+    .filter({ hasText: "DEXpress ISBN search" })
+    .waitFor();
+  assert.equal(calls.at(-1).publisherId, "dexpress");
+  await page
+    .locator("#discoveryList .release-card")
+    .getByRole("button", { name: "Add to shelf", exact: true })
+    .click();
+  assert.equal(await page.locator("#isbn").inputValue(), isbn);
+  assert.equal(await page.locator("#publisher").inputValue(), "DEXpress");
+  assert.equal(await page.locator("#type").inputValue(), "LN (TH)");
+  assert.equal(await page.locator("#volume").inputValue(), "1");
+  assert.equal(await page.locator("#publisherUrl").inputValue(), dexpress.url);
+  await page.locator("#cancelBook").click();
   assert.equal(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -185,6 +213,12 @@ try {
     .filter({ hasText: "Full catalog ISBN search" })
     .waitFor();
   assert.equal(calls.at(-1).publisherId, "animag");
+  await page.locator("#releasePublisher").selectOption("dexpress");
+  await page
+    .locator("#releaseList .release-card")
+    .filter({ hasText: "DEXpress ISBN search" })
+    .waitFor();
+  assert.equal(calls.at(-1).publisherId, "dexpress");
   for (const [width, height] of [
     [390, 844],
     [1280, 900],
@@ -203,7 +237,7 @@ try {
   }
   assert.deepEqual(errors, []);
   console.log(
-    "PASS Animag/Phoenix/First Page Pro full-catalog ISBN search, canonical input, review form, source errors and responsive release search",
+    "PASS DEXpress/Animag/Phoenix/First Page Pro full-catalog ISBN search, canonical input, review form, source errors and responsive release search",
   );
 } finally {
   await browser.close();

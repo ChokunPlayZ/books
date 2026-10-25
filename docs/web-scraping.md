@@ -21,7 +21,7 @@ Explicit `refresh: true` bypasses fresh catalog and page/API entries. Failed req
 
 ## Publisher ISBN search
 
-`searchPublisherIsbn({ publisherId, isbn, refresh })` supports Animag, Phoenix Next and First Page Pro independently of loaded discovery categories and recent releases. ISBN-10, ISBN-13, prefixes and hyphens share a canonical ISBN-13 cache entry for 24 hours. Requests use the same source allowlists, retry cooldown and stored-cover service as other catalog features.
+`searchPublisherIsbn({ publisherId, isbn, refresh })` supports DEXpress, Animag, Phoenix Next and First Page Pro independently of loaded discovery categories and recent releases. ISBN-10, ISBN-13, prefixes and hyphens share a canonical ISBN-13 cache entry for 24 hours. Requests use the same source allowlists, retry cooldown and stored-cover service as other catalog features.
 
 Phoenix requests `/catalogsearch/result/?q=<isbn>`, then checks at most four product candidates. `lib/domain/phoenix.ts` requires the main product’s labeled Barcode/ISBN attribute or `book:isbn` metadata to match; preview and recommendation links cannot confirm the ISBN. First Page Pro requests `/search?q=<isbn>` and returns up to 24 search candidates with blank ISBN fields and a review note, because product details omit ISBNs. The browser carries the user’s search ISBN into the add form explicitly as unconfirmed input. A First Page Pro search result never becomes an automatic exact-ISBN ownership match. Confirmed empty searches are cached; unavailable sources and unrecognized result markup remain errors.
 
@@ -40,6 +40,19 @@ Animag also supports full-catalog ISBN search through `/search?q=<isbn>`, indepe
 
 Trimmed live fixtures were captured on October 24, 2026. At inspection, the search directory contained 212 book categories, and the Re:ZERO category exposed 39 listings, including box sets and side stories. These are current listings, not a guarantee that removed or out-of-print books remain available.
 
+## DEXpress
+
+[DEXpress](https://www.dexpress-shop.com/) supports recent releases, discovery, series and missing-volume checks, saved listings, exact ISBN lookup, and cover galleries. Both server and browser matching recognize DEXpress, DEX and Thai publisher aliases.
+
+- Releases read `/showroom/new` and `?tskp=2`, deduplicating up to 60 catalog listings. Cards supply titles, sale prices, availability and cover thumbnails. Unlabeled regular books use their product details to resolve the format; unavailable details leave the listing for review. These are recent listings, not publication dates.
+- Discovery browses the complete manga category `/category/2`, novel category `/category/3`, or both through the all-titles preset. Each category traverses up to 20 pages. The explicit product total must equal the number of unique listings before a result is complete. Manga and novel discovery cards remain separate, including when one format is already owned.
+- DEXpress has format categories rather than series categories. Series checks search `/search?q=<title>` separately with `category_id=2` and `category_id=3`, following `&tskp=N` pagination. Related stories remain flagged for review. Empty searches ask for the publisher's title; incomplete or failed refreshes preserve a previously complete result and its check time. Explicit links accept HTTPS numeric categories or a search URL with one nonempty `q` parameter.
+- Product URLs canonicalize to `/product/<id>`, preserving an optional numeric `pid`. Autograph time-slot variants retain distinct links but have no guessed volume or format. Autograph sets and multi-volume packs cannot identify a regular owned volume. `[DEXPRESS]` and format labels are removed from parsed series names; `Lv.5`, decimal volumes and explicit single-volume labels are recognized.
+- Exact ISBN search checks up to four regular product candidates. `lib/domain/dexpress.ts` parses the storefront's JSON `payload.pdata` literal without executing scripts, and requires its product ID and full URL to match the candidate. Only that product's checksum-valid `barcode` or `isbn` confirms a match. Shop SKU codes, recommendations, bundles and selectable parent products cannot confirm an ISBN. A failed candidate does not hide a later verified book. Confirmed misses use the 24-hour cache; failures use the shared 15-minute cooldown and allow other metadata providers to continue.
+- Product galleries read only the matched main product's `images`. Images use the existing `lnwfile.com` allowlist and permanent cover storage. Series catalogs can supply automatic covers without an ISBN. ISBN and cover-miss cache versions were advanced so earlier misses do not hide the new provider.
+
+Trimmed live fixtures were captured on October 25, 2026. The inspected series search contained 57 listings across both formats, including related stories and autograph variants; the manga results required a second page. The fixture tests cover pagination, format separation, edition review, exact barcodes, redirects, caching and outages.
+
 ## Dedicated series catalogs
 
 Opening a series immediately renders gaps from the recorded shelf and calls `getSeriesCatalog({ series, publisherId, type, refresh })` for each supported publisher/type owned in that series. It does not call the recent-release feeds. Returning to a series reuses its loaded result. **Refresh catalog** reloads the shelf first, then bypasses catalog reuse and refreshes the category directory when finding an automatic match. Each response is stored under the requesting series and edition, so navigation during a fetch cannot show another series' result.
@@ -49,6 +62,7 @@ Opening a series immediately renders gaps from the recorded shelf and calls `get
 | Phoenix Next   | Anchors in [the series directory](https://www.phoenixnext.com/book-series.html) | `/book-series/<slug>.html`                            | `?p=N`, at most 20 pages                                                       |
 | First Page Pro | Category anchors in [the site navigation](https://www.firstpagepro.com/)        | `/category/<numeric-id>`                              | `?tskp=N`, at most 20 pages                                                    |
 | Luckpim        | Full title search; its categories group formats and genres                      | `/get/search_pin/key?page=1&limit=-1&keyword=<title>` | The site's full search response, without the suggestions-only `take` parameter |
+| DEXpress       | Format-filtered public title search                                             | `/search?q=<title>&category_id=2` and `category_id=3` | `&tskp=N`, at most 20 pages per format                                         |
 | Yen Press      | Paginated public series search index                                            | `/series/<slug>`                                      | Print-only `/series/get_more/<same-slug>` continuations, at most 20 pages      |
 
 `parseSeriesCategories()` extracts category titles and allowed URLs. `matchSeriesCategory()` requires one exact normalized title or English slug match. A unique category ending with an explicit volume label such as `เล่ม 01` can also match the series without that suffix; numbers within series names are preserved. The same suffix rule applies when checking whether a linked category's listings are variants. First Page Pro's manga/light-novel URL prefixes identify the category format and disambiguate same-name categories. Normalization ignores punctuation, spacing, supported leading format labels and `@COMIC`; type is compared separately. It does not guess translations or choose a fuzzy match.
@@ -68,6 +82,7 @@ Catalog records retain `catalogSeries`, the local shelf title, so explicitly lin
 | `phoenix`    | [Phoenix Next new releases](https://www.phoenixnext.com/new-release.html)                        | First page, then `?p=2`                               | Two pages, capped at 72 listings |
 | `firstpage`  | [First Page Pro new arrivals](https://www.firstpagepro.com/showroom/new)                         | First page, then `?tskp=2`                            | Two pages, capped at 40 listings |
 | `luckpim`    | [Luckpim monthly new releases](https://www.luckpim.com/product/list/new) and its catalog request | `page=1` and, when needed, `page=2`, with `limit=100` | Up to 200 listings               |
+| `dexpress`   | [DEXpress new arrivals](https://www.dexpress-shop.com/showroom/new)                              | First page, then `?tskp=2`                            | Two pages, capped at 60 listings |
 
 These limits describe recent catalog listings. They do not provide a complete release history, and the lists can include pre-orders and special sets. `checkedAt` is the time the app successfully checked a feed, not a publication date.
 

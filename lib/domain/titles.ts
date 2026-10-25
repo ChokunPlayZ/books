@@ -181,3 +181,25 @@ export function splitAnimagTitle(raw: string) {
   if (parsed.volume === "" && /เล่มเดียวจบ/.test(title)) parsed.volume = 1;
   return { ...parsed, type: type || parsed.type };
 }
+
+export function splitDexpressTitle(raw: string) {
+  const title = decodeHtml(String(raw || ""))
+    .replace(/^\s*\[(?:PRE[- ]?ORDER|พรีออ(?:ร์)?เดอร์)\]\s*/i, "")
+    .replace(/^\s*\[DEXPRESS\]\s*/i, "")
+    .trim();
+  const type = /ฉบับการ์ตูน|มังงะ|\bmanga\b/i.test(title)
+    ? "Manga (TH)"
+    : /นิยาย|\bnovel\b/i.test(title)
+      ? "LN (TH)"
+      : "";
+  const parsed = splitBookTitle(
+    title
+      .replace(/^(?:(?:Animate\s+)?Limited\s+set|AUTOGRAPH\s+SET)\s*/i, "")
+      .replace(/\s*ฉบับการ์ตูน\s*/gi, " ")
+      .replace(/\bLv\.\s*(\d+(?:\.\d+)?)/i, "เล่ม $1")
+      .replace(/\s*\((?:จบ|เล่มเดียวจบ)\)\s*$/i, ""),
+  );
+  parsed.series = parsed.series.replace(/\s*เล่มเดียวจบ.*$/, "").trim();
+  if (parsed.volume === "" && /เล่มเดียวจบ/.test(title)) parsed.volume = 1;
+  return { ...parsed, type: type || parsed.type };
+}

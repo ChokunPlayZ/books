@@ -82,6 +82,15 @@ export default function DiscoveryPanel() {
               <option value="https://www.animagshop.com/category/190">
                 Animag · BeLOVED+
               </option>
+              <option value="https://www.dexpress-shop.com/">
+                DEXpress · All titles
+              </option>
+              <option value="https://www.dexpress-shop.com/category/2">
+                DEXpress · Manga
+              </option>
+              <option value="https://www.dexpress-shop.com/category/3">
+                DEXpress · Light novels
+              </option>
               <option value="">Another category URL</option>
             </select>
           </label>
@@ -138,8 +147,9 @@ export default function DiscoveryPanel() {
           </select>
         </div>
         <p className="hint">
-          Enter an ISBN to search the full Animag, Phoenix Next or First Page
-          Pro catalog. ISBN searches also include series already on your shelf.
+          Enter an ISBN to search the full DEXpress, Animag, Phoenix Next or
+          First Page Pro catalog. ISBN searches also include series already on
+          your shelf.
         </p>
         <p id="discoveryCount" className="release-note" role="status"></p>
         <div id="discoveryList" className="discovery-grid"></div>

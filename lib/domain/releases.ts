@@ -6,12 +6,14 @@ import {
   splitBookTitle,
   splitFirstPageTitle,
   splitAnimagTitle,
+  splitDexpressTitle,
   releaseBundle,
 } from "./titles.ts";
 import { digest } from "./hash.ts";
 import { PUBLISHERS } from "./constants.ts";
 import { canonicalIsbn } from "./isbn.ts";
 import { animagCategories, animagProducts, animagTotal } from "./animag.ts";
+import { lnwProducts, lnwTotal } from "./lnwshop.ts";
 
 export function parsePublisherTitles(id, html, sourceUrl) {
   if (id === "animag")
@@ -144,6 +146,7 @@ export function splitFirstPageTitles<
 
 export function catalogTotal(id, html) {
   if (id === "animag") return animagTotal(html);
+  if (id === "dexpress") return lnwTotal(html);
   const pattern =
     id === "phoenix"
       ? /<span\b[^>]*class=["'][^"']*\btoolbar-number\b[^"']*["'][^>]*>\s*([\d,]+)\s*<\/span>/i
@@ -252,11 +255,16 @@ export function releaseItem(
       ? splitFirstPageTitle(title)
       : id === "animag"
         ? splitAnimagTitle(title)
-        : splitBookTitle(title);
+        : id === "dexpress"
+          ? splitDexpressTitle(title)
+          : splitBookTitle(title);
+  const selectable = id === "dexpress" && /\?pid=\d+$/.test(url);
   const special =
+    selectable ||
     /(?:special|complete|ultimate)(?:\s+combo)?\s*(?:set|edition)|box\s*set|limited|เซต|ชุด|ฉบับพิเศษ|ปกพิเศษ/i.test(
       title,
-    );
+    ) ||
+    (id === "dexpress" && /AUTOGRAPH\s+SET/i.test(title));
   const p = PUBLISHERS.find(function (p) {
     return p.id === id;
   });
@@ -266,8 +274,12 @@ export function releaseItem(
     publisher: p.name,
     title: decodeHtml(title),
     series: parsed.series,
-    volume: parsed.volume,
-    type: id === "firstpage" ? parsed.type || type || "" : type || parsed.type,
+    volume: selectable ? "" : parsed.volume,
+    type: selectable
+      ? ""
+      : id === "firstpage"
+        ? parsed.type || type || ""
+        : type || parsed.type,
     url: url,
     isbn: special ? "" : canonicalIsbn(isbn) || "",
     price:
@@ -279,19 +291,27 @@ export function releaseItem(
         ? Number(price)
         : "",
     special: special,
-    bundle: releaseBundle(title),
+    bundle:
+      releaseBundle(title) ||
+      (id === "dexpress" && /AUTOGRAPH\s+SET|แพ(?:็ค|็ก|ค|ก)ชุด/i.test(title)),
     availability: "",
   };
 }
 
-export function parseCatalog(id, html) {
-  if (id === "animag") {
+export function parseCatalog(id, html, sourceUrl = "") {
+  if (id === "animag" || id === "dexpress") {
     const products = new Map(
-      animagProducts(html).map((product) => [
-        safeProductUrl(product.url, id),
-        product,
-      ]),
+      (id === "animag" ? animagProducts(html) : lnwProducts(html, id)).map(
+        (product) => [safeProductUrl(product.url, id), product],
+      ),
     );
+    const page = id === "dexpress" && sourceUrl ? new URL(sourceUrl) : null;
+    const category =
+      page &&
+      (/^\/category\/(\d+)/.exec(page.pathname)?.[1] ||
+        page.searchParams.get("category_id"));
+    const categoryType =
+      category === "2" ? "Manga (TH)" : category === "3" ? "LN (TH)" : "";
     const items = [];
     for (const card of html
       .split(
@@ -309,7 +329,10 @@ export function parseCatalog(id, html) {
       if (
         !url ||
         !title ||
-        !/\b(?:NOVEL|COMIC|MANGA|Animag)\b|นิยาย|การ์ตูน|ไลท์โนเวล/i.test(title)
+        (id === "animag" &&
+          !/\b(?:NOVEL|COMIC|MANGA|Animag)\b|นิยาย|การ์ตูน|ไลท์โนเวล/i.test(
+            title,
+          ))
       )
         continue;
       const priceTag =
@@ -330,6 +353,7 @@ export function parseCatalog(id, html) {
         url,
         priceTag ? attr(priceTag, "realprice") : offer?.price,
         product?.sku || textHtml(code || ""),
+        categoryType,
       );
       if (/เลือกแบบสินค้า/.test(card)) item.variantGroup = true;
       item.coverUrl = safeCoverUrl(

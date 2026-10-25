@@ -38,10 +38,9 @@ export function createHtmlCatalog(
     for (let page = 1; page <= 20; page++) {
       let html;
       try {
-        html = await fetchText_(
-          url + (page > 1 ? "?" + pagination + "=" + page : ""),
-          refresh,
-        );
+        const endpoint = new URL(url);
+        if (page > 1) endpoint.searchParams.set(pagination, String(page));
+        html = await fetchText_(endpoint.href, refresh);
       } catch (error) {
         if (!items.size) throw error;
         break;
@@ -55,7 +54,7 @@ export function createHtmlCatalog(
           ? textHtml(heading[1]).replace(headingPrefix || /^$/, "")
           : "";
       }
-      const parsed = parseCatalog(id, html),
+      const parsed = parseCatalog(id, html, url),
         before = listingIds.size;
       parsed.forEach((item) => listingIds.add(item.id));
       const expanded = expand ? await expand(parsed, refresh) : parsed;
@@ -100,7 +99,7 @@ export function createHtmlCatalog(
       const url = endpoint.href;
       // Phoenix uses p, First Page Pro uses tskp.
       const html = await fetchText_(url, refresh, SCRAPE_TTL.releases);
-      const parsed = parseCatalog(id, html);
+      const parsed = parseCatalog(id, html, url);
       if (!parsed.length) {
         if (page === 1) throw new Error("Catalog unavailable");
         break;

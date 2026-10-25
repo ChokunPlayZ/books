@@ -1259,7 +1259,9 @@ export function mountCollection({
             ? "https://yenpress.com/series/…"
             : spec.publisherId === "animag"
               ? "https://www.animagshop.com/category/…"
-              : "https://www.firstpagepro.com/category/…";
+              : spec.publisherId === "dexpress"
+                ? "https://www.dexpress-shop.com/search?q=…"
+                : "https://www.firstpagepro.com/category/…";
       manual.value = editor.url || "";
       field("Or paste the series category URL", manual);
       manual.addEventListener(
@@ -1820,6 +1822,7 @@ export function mountCollection({
       luckpim: "www.luckpim.com",
       yaakz: "www.yaakz.com",
       animag: "www.animagshop.com",
+      dexpress: "www.dexpress-shop.com",
       yenpress: "yenpress.com",
     };
     let safe = false;
@@ -2123,7 +2126,9 @@ export function mountCollection({
         ? "firstpage"
         : state.discoveryUrl.startsWith("https://www.animagshop.com/")
           ? "animag"
-          : "";
+          : state.discoveryUrl.startsWith("https://www.dexpress-shop.com/")
+            ? "dexpress"
+            : "";
     const isbnSearch = publisherIsbnSearch.get(
       publisherId,
       $("discoverySearch").value,
@@ -3329,6 +3334,11 @@ export function mountCollection({
         releaseLink(
           "Search this ISBN at Animag ↗",
           "https://www.animagshop.com/search?q=" + canonical(result.isbn),
+        ),
+        document.createTextNode("\n"),
+        releaseLink(
+          "Search this ISBN at DEXpress ↗",
+          "https://www.dexpress-shop.com/search?q=" + canonical(result.isbn),
         ),
         document.createTextNode("\n"),
         releaseLink(

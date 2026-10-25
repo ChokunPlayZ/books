@@ -34,6 +34,8 @@ function database(t) {
 function remote(calls, overrides = {}) {
   return async (url, options) => {
     calls.push({ url, options });
+    if (url.includes("dexpress-shop.com/search"))
+      return new Response(fixture("dexpress-empty.html"));
     if (url.includes("animagshop.com/search"))
       return new Response(fixture("animag-empty.html"));
     if (url.includes("naiin.com"))
@@ -189,7 +191,7 @@ test("ISBN lookup uses Yen Press before generic providers and shares cached requ
   assert.ok(results.every((result) => result.details?.source === "Yen Press"));
   assert.deepEqual(results[0].warnings, []);
   assert.equal(results[0].details.publisher, "Ize Press");
-  assert.equal(calls.length, 11);
+  assert.equal(calls.length, 12);
   const apiRequest = calls.find((call) =>
     call.url.includes("enterprise-search"),
   );
@@ -203,7 +205,7 @@ test("ISBN lookup uses Yen Press before generic providers and shares cached requ
   assert.equal(JSON.parse(apiRequest.options.body).query, printIsbn);
   service = createCatalogService(store, fetchImpl);
   await service.lookupIsbn(printIsbn);
-  assert.equal(calls.length, 11);
+  assert.equal(calls.length, 12);
   assert.ok(
     !JSON.stringify(store.db.prepare("SELECT value FROM cache").all()).includes(
       "search-publicfixture",

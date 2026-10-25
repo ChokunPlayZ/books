@@ -52,6 +52,7 @@ export default function ReleasesPanel() {
           <option value={"yaakz"}>{"Siam Inter Comics (Yaakz)"}</option>
           <option value="yenpress">Yen Press</option>
           <option value="animag">Animag</option>
+          <option value="dexpress">DEXpress</option>
         </select>
         <label htmlFor={"releaseScope"} className={"sr-only"}>
           {"Release list"}

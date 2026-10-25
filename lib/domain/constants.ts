@@ -38,6 +38,12 @@ export const BOOK_APP = Object.freeze({
 
 export const PUBLISHERS = Object.freeze([
   {
+    id: "dexpress",
+    name: "DEXpress",
+    url: "https://www.dexpress-shop.com/showroom/new",
+    scope: "Latest 60 catalog listings",
+  },
+  {
     id: "animag",
     name: "Animag",
     url: "https://www.animagshop.com/category?sortby=new",

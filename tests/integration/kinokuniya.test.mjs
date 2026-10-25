@@ -29,6 +29,8 @@ function database(t) {
 function remote(calls, overrides = {}) {
   return async (url) => {
     calls.push(url);
+    if (url.includes("dexpress-shop.com/search"))
+      return new Response(fixture("dexpress-empty.html"));
     if (url.includes("animagshop.com/search"))
       return new Response(fixture("animag-empty.html"));
     if (url.includes("naiin.com"))
