@@ -122,6 +122,8 @@ interface LibraryElements {
   editionField: HTMLDivElement;
   formError: HTMLDivElement;
   hideSpecialReleases: HTMLButtonElement;
+  hideSavedReleases: HTMLButtonElement;
+  hideOwnedReleases: HTMLButtonElement;
   "i-books": HTMLElement;
   "i-check": HTMLElement;
   "i-close": HTMLElement;

@@ -159,11 +159,18 @@
 }
 
 .release-filters .btn {
-  min-height: 40px;
+  min-height: 44px;
   font-size: 12px;
 }
 
-#hideSpecialReleases[aria-pressed="true"] {
+.release-visibility-filters {
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.release-visibility-filters .btn[aria-pressed="true"] {
   @apply bg-soft;
   border-color: var(--success-line);
 }

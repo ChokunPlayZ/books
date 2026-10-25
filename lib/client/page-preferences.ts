@@ -10,6 +10,8 @@ export function restorePagePreferences(view: CollectionView) {
           "releaseScope",
           "releaseType",
           "hideSpecialReleases",
+          "hideSavedReleases",
+          "hideOwnedReleases",
         ] as const)
       : view === "discover"
         ? ([
@@ -32,7 +34,7 @@ export function restorePagePreferences(view: CollectionView) {
         const value = values[id],
           control = $(id);
         if (!control || typeof value !== "string") continue;
-        if (id === "hideSpecialReleases")
+        if (control.hasAttribute("aria-pressed"))
           control.setAttribute("aria-pressed", String(value === "true"));
         else if (
           !(control instanceof HTMLSelectElement) ||
@@ -53,7 +55,7 @@ export function restorePagePreferences(view: CollectionView) {
           ? [
               [
                 id,
-                id === "hideSpecialReleases"
+                control.hasAttribute("aria-pressed")
                   ? control.getAttribute("aria-pressed")
                   : control.value,
               ],

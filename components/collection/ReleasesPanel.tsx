@@ -74,15 +74,39 @@ export default function ReleasesPanel() {
           <option value={"LN"}>{"Light novels (LN)"}</option>
           <option value={"Manga"}>{"Manga"}</option>
         </select>
-        <button
-          id={"hideSpecialReleases"}
-          className={"btn"}
-          type={"button"}
-          aria-pressed={"false"}
-          aria-controls={"releaseList"}
+        <div
+          className={"buttons release-visibility-filters"}
+          role={"group"}
+          aria-label={"Release visibility"}
         >
-          {"Hide special editions"}
-        </button>
+          <button
+            id={"hideSpecialReleases"}
+            className={"btn"}
+            type={"button"}
+            aria-pressed={"false"}
+            aria-controls={"releaseList"}
+          >
+            {"Hide special editions"}
+          </button>
+          <button
+            id={"hideSavedReleases"}
+            className={"btn"}
+            type={"button"}
+            aria-pressed={"false"}
+            aria-controls={"releaseList"}
+          >
+            {"Hide saved for later"}
+          </button>
+          <button
+            id={"hideOwnedReleases"}
+            className={"btn"}
+            type={"button"}
+            aria-pressed={"false"}
+            aria-controls={"releaseList"}
+          >
+            {"Hide owned"}
+          </button>
+        </div>
       </div>
       <p
         id={"releaseOwnershipSummary"}

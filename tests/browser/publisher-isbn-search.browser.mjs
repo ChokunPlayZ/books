@@ -207,6 +207,33 @@ try {
   assert.equal(await page.locator("#releaseList .release-card").count(), 0);
   await page.locator("#releaseScope").selectOption("all");
   assert.equal(await page.locator("#releaseList .release-card").count(), 1);
+  const releaseCard = page.locator("#releaseList .release-card");
+  await releaseCard
+    .getByRole("button", { name: "Save for later", exact: true })
+    .click();
+  await releaseCard
+    .getByRole("button", { name: "Saved · Unsave", exact: true })
+    .waitFor();
+  await page.locator("#hideSavedReleases").click();
+  assert.equal(
+    await releaseCard.count(),
+    0,
+    "Saved ISBN results can be hidden",
+  );
+  await page.locator("#hideOwnedReleases").click();
+  await page.locator("#hideSavedReleases").click();
+  assert.equal(
+    await releaseCard.count(),
+    1,
+    "Unowned ISBN results remain visible",
+  );
+  await page.locator("#hideOwnedReleases").click();
+  await releaseCard
+    .getByRole("button", { name: "Saved · Unsave", exact: true })
+    .click();
+  await releaseCard
+    .getByRole("button", { name: "Save for later", exact: true })
+    .waitFor();
   await page.locator("#releasePublisher").selectOption("animag");
   await page
     .locator("#releaseList .release-card")

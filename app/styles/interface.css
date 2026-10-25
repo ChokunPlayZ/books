@@ -472,7 +472,8 @@ h3 {
   min-height: 44px;
   font-size: 13px;
 }
-.discovery-card:has(> .discovery-volumes:not([hidden])) {
+.discovery-card:has(> .discovery-volumes:not([hidden])),
+.release-card:has(> .discovery-volumes:not([hidden])) {
   grid-column: 1 / -1;
 }
 .discovery-volumes {

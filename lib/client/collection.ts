@@ -99,6 +99,10 @@ export function mountCollection({
           .forEach((card) => titleObserver.unobserve(card)),
       )
     : null;
+  const releaseCardUpdates = new WeakMap<
+    Node,
+    (item, saved: boolean) => void
+  >();
   const discoveryCardUpdates = new WeakMap<
     Node,
     (item, saved: Set<string>) => void
@@ -2045,7 +2049,7 @@ export function mountCollection({
 
   function discoveryTitleKey(item) {
     return JSON.stringify(
-      item.categories.map((category) => category.url).sort(),
+      (item.categories || []).map((category) => category.url).sort(),
     );
   }
   function discoveryVolumeKey(item) {
@@ -2067,6 +2071,7 @@ export function mountCollection({
       loading: true,
     });
     renderDiscovery();
+    renderReleases();
     try {
       const catalogs = item.directory
         ? await Promise.all(
@@ -2119,7 +2124,10 @@ export function mountCollection({
           "Could not load volumes. Try again or open the publisher website.",
       });
     } finally {
-      if (!events.signal.aborted) renderDiscovery();
+      if (!events.signal.aborted) {
+        renderDiscovery();
+        renderReleases();
+      }
     }
   }
   const titleObserver = new IntersectionObserver(
@@ -2337,30 +2345,25 @@ export function mountCollection({
       panel === "discovery" ? $("discoveryList") : $("releaseList");
     const count =
       panel === "discovery" ? $("discoveryCount") : $("releaseResultCount");
-    const items = result.items.filter(
-      (item) => !type || item.type.startsWith(type),
-    );
+    const items = result.items
+      .filter((item) => !type || item.type.startsWith(type))
+      .map((item) => ({
+        ...item,
+        ...(["firstpage", "lilyhouse"].includes(result.publisherId)
+          ? { searchedIsbn: result.isbn }
+          : {}),
+      }));
     const saved = new Set(state.data.savedReleases.map((item) => item.id));
     count.textContent = result.loading
       ? "Searching the publisher for ISBN " + result.isbn + "…"
       : `${number(items.length)} ${items.length === 1 ? "book" : "books"} for ISBN ${result.isbn}`;
-    list.render(
-      items,
-      (item) =>
-        releaseCard(
-          {
-            ...item,
-            ...(["firstpage", "lilyhouse"].includes(result.publisherId)
-              ? { searchedIsbn: result.isbn }
-              : {}),
-          },
-          saved.has(item.id),
-        ),
-      {
-        key: "isbn:" + result.publisherId + ":" + result.isbn + ":" + type,
-        label: "books",
-      },
-    );
+    list.render(items, (item) => releaseCard(item, saved.has(item.id)), {
+      key: "isbn:" + result.publisherId + ":" + result.isbn + ":" + type,
+      label: "books",
+      itemKey: (item) => JSON.stringify([item.id, item.type]),
+      updateItem: (card, item) =>
+        releaseCardUpdates.get(card)(item, saved.has(item.id)),
+    });
     const status = node("div", "publisher-isbn-status");
     if (result.error) {
       const error = node("p", "source-error", result.error);
@@ -2381,19 +2384,7 @@ export function mountCollection({
       status.append(releaseLink("Open publisher ISBN search ↗", result.url));
     element.prepend(status);
   }
-  function discoveryCard(item, saved: Set<string>) {
-    const card = node("article", "discovery-card");
-    const coverLink = releaseLink("", item.url);
-    const cover = coverImage(item.coverId, item.title, "discovery-cover");
-    coverLink.append(cover);
-    const copy = node("div", "publisher-copy");
-    const publisher = node("p", "eyebrow");
-    const title = node("h2", "book-title");
-    const meta = node("p", "release-meta");
-    const error = node("p", "source-error");
-    const publisherLink = releaseLink("", item.url);
-    copy.append(publisher, title, meta, error, publisherLink);
-    const actions = node("div", "buttons");
+  function createVolumeBrowser(item) {
     const viewVolumes = node("button", "btn", "View volumes");
     viewVolumes.type = "button";
     const volumes = node("section", "discovery-volumes");
@@ -2405,84 +2396,22 @@ export function mountCollection({
     let expanded = false;
     let renderedVolumes: unknown;
     let renderedVolumeState: string | undefined;
-    const saveButton = node("button", "btn");
     let currentItem = item;
-    let currentSaved = saved;
+    let renderedBooks: StoredBook[] | undefined;
     viewVolumes.addEventListener(
       "click",
       () => {
         expanded = !expanded;
-        update(currentItem, currentSaved);
+        update(currentItem);
         if (expanded) void loadDiscoveryVolumes(currentItem);
       },
       { signal: events.signal },
     );
-    saveButton.addEventListener(
-      "click",
-      () => void saveRelease(currentItem, !currentSaved.has(currentItem.id)),
-      { signal: events.signal },
-    );
-    const add = node("button", "btn", "Add to shelf");
-    add.addEventListener(
-      "click",
-      () => openRelease(currentItem, releaseMatches(currentItem)),
-      { signal: events.signal },
-    );
-    actions.append(viewVolumes, saveButton, add);
-    card.append(coverLink, copy, actions, volumes);
-
-    const update = (nextItem, nextSaved: Set<string>) => {
+    const update = (nextItem) => {
       currentItem = nextItem;
-      currentSaved = nextSaved;
-      const result = state.discoveryTitleResults.get(
-        discoveryTitleKey(nextItem),
-      );
-      card._title = nextItem;
-      if (!nextItem.resolved && !result) titleObserver.observe(card);
-      else titleObserver.unobserve(card);
-      coverLink.href = publisherLink.href = nextItem.url;
-      coverLink.setAttribute(
-        "aria-label",
-        "Open " + nextItem.series + " on the publisher website",
-      );
-      // Keep the previous cover while refreshed title metadata is loading.
-      if (nextItem.resolved || nextItem.coverId)
-        setCoverImage(cover, nextItem.coverId, nextItem.title);
-      publisher.textContent = nextItem.publisher;
-      title.textContent = nextItem.series;
-      meta.textContent = !nextItem.resolved
-        ? result && !result.loading
-          ? result.complete && !result.item
-            ? "No current book listing"
-            : "Cover unavailable"
-          : "Loading first-volume cover…"
-        : [
-            nextItem.type,
-            nextItem.bundle
-              ? "Set listing"
-              : nextItem.volume === ""
-                ? "Single book / unnumbered"
-                : "Volume " + nextItem.volume,
-            nextItem.volume !== 1 && nextItem.volume !== ""
-              ? "Volume 1 not listed"
-              : "",
-            nextItem.special ? "Special edition" : "",
-          ]
-            .filter(Boolean)
-            .join(" · ");
-      error.hidden = !result?.error;
-      error.textContent = result?.error || "";
-      const isSaved = nextSaved.has(nextItem.id);
-      saveButton.classList.toggle("saved", isSaved);
-      saveButton.textContent = isSaved ? "Saved · Unsave" : "Save for later";
-      saveButton.disabled = !nextItem.resolved || state.savingReleases.size > 0;
-      saveButton.setAttribute("aria-pressed", String(isSaved));
-      add.disabled = !nextItem.resolved || state.busy;
       viewVolumes.textContent = expanded ? "Hide volumes" : "View volumes";
       viewVolumes.setAttribute("aria-expanded", String(expanded));
-      publisherLink.textContent = nextItem.resolved
-        ? "Publisher book page ↗"
-        : "Publisher title category ↗";
+      volumes.setAttribute("aria-label", "Volumes in " + nextItem.series);
       volumes.hidden = !expanded;
       if (expanded) {
         const result = state.discoveryVolumeResults.get(
@@ -2496,11 +2425,16 @@ export function mountCollection({
         const volumeState = JSON.stringify([
           state.busy,
           [...state.savingReleases].sort(),
-          [...nextSaved].sort(),
+          state.data.savedReleases.map((item) => item.id).sort(),
         ]);
-        if (renderedVolumes === result && renderedVolumeState === volumeState)
+        if (
+          renderedVolumes === result &&
+          renderedVolumeState === volumeState &&
+          renderedBooks === state.data.books
+        )
           return;
         renderedVolumes = result;
+        renderedBooks = state.data.books;
         renderedVolumeState = volumeState;
         volumes.setAttribute("aria-busy", String(!result || !!result.loading));
         const heading = node("div", "discovery-volumes-heading");
@@ -2571,6 +2505,92 @@ export function mountCollection({
         renderedVolumeState = undefined;
       }
     };
+    update(item);
+    return { button: viewVolumes, section: volumes, update };
+  }
+  function discoveryCard(item, saved: Set<string>) {
+    const card = node("article", "discovery-card");
+    const coverLink = releaseLink("", item.url);
+    const cover = coverImage(item.coverId, item.title, "discovery-cover");
+    coverLink.append(cover);
+    const copy = node("div", "publisher-copy");
+    const publisher = node("p", "eyebrow");
+    const title = node("h2", "book-title");
+    const meta = node("p", "release-meta");
+    const error = node("p", "source-error");
+    const publisherLink = releaseLink("", item.url);
+    copy.append(publisher, title, meta, error, publisherLink);
+    const actions = node("div", "buttons");
+    const volumeBrowser = createVolumeBrowser(item);
+    const saveButton = node("button", "btn");
+    let currentItem = item;
+    let currentSaved = saved;
+    saveButton.addEventListener(
+      "click",
+      () => void saveRelease(currentItem, !currentSaved.has(currentItem.id)),
+      { signal: events.signal },
+    );
+    const add = node("button", "btn", "Add to shelf");
+    add.addEventListener(
+      "click",
+      () => openRelease(currentItem, releaseMatches(currentItem)),
+      { signal: events.signal },
+    );
+    actions.append(volumeBrowser.button, saveButton, add);
+    card.append(coverLink, copy, actions, volumeBrowser.section);
+
+    const update = (nextItem, nextSaved: Set<string>) => {
+      currentItem = nextItem;
+      currentSaved = nextSaved;
+      const result = state.discoveryTitleResults.get(
+        discoveryTitleKey(nextItem),
+      );
+      card._title = nextItem;
+      if (!nextItem.resolved && !result) titleObserver.observe(card);
+      else titleObserver.unobserve(card);
+      coverLink.href = publisherLink.href = nextItem.url;
+      coverLink.setAttribute(
+        "aria-label",
+        "Open " + nextItem.series + " on the publisher website",
+      );
+      // Keep the previous cover while refreshed title metadata is loading.
+      if (nextItem.resolved || nextItem.coverId)
+        setCoverImage(cover, nextItem.coverId, nextItem.title);
+      publisher.textContent = nextItem.publisher;
+      title.textContent = nextItem.series;
+      meta.textContent = !nextItem.resolved
+        ? result && !result.loading
+          ? result.complete && !result.item
+            ? "No current book listing"
+            : "Cover unavailable"
+          : "Loading first-volume cover…"
+        : [
+            nextItem.type,
+            nextItem.bundle
+              ? "Set listing"
+              : nextItem.volume === ""
+                ? "Single book / unnumbered"
+                : "Volume " + nextItem.volume,
+            nextItem.volume !== 1 && nextItem.volume !== ""
+              ? "Volume 1 not listed"
+              : "",
+            nextItem.special ? "Special edition" : "",
+          ]
+            .filter(Boolean)
+            .join(" · ");
+      error.hidden = !result?.error;
+      error.textContent = result?.error || "";
+      const isSaved = nextSaved.has(nextItem.id);
+      saveButton.classList.toggle("saved", isSaved);
+      saveButton.textContent = isSaved ? "Saved · Unsave" : "Save for later";
+      saveButton.disabled = !nextItem.resolved || state.savingReleases.size > 0;
+      saveButton.setAttribute("aria-pressed", String(isSaved));
+      add.disabled = !nextItem.resolved || state.busy;
+      publisherLink.textContent = nextItem.resolved
+        ? "Publisher book page ↗"
+        : "Publisher title category ↗";
+      volumeBrowser.update(nextItem);
+    };
     discoveryCardUpdates.set(card, update);
     update(item, saved);
     return card;
@@ -2623,7 +2643,11 @@ export function mountCollection({
       scope = $("releaseScope").value,
       type = $("releaseType").value,
       hideSpecial =
-        $("hideSpecialReleases").getAttribute("aria-pressed") === "true";
+        $("hideSpecialReleases").getAttribute("aria-pressed") === "true",
+      hideSaved =
+        $("hideSavedReleases").getAttribute("aria-pressed") === "true",
+      hideOwned =
+        $("hideOwnedReleases").getAttribute("aria-pressed") === "true";
     const allItems = releaseItems(),
       totals = { unbought: 0, review: 0, owned: 0 };
     allItems.forEach((item) => {
@@ -2647,6 +2671,8 @@ export function mountCollection({
       const match = releaseMatches(item);
       return (
         (!hideSpecial || !item.special) &&
+        (!hideSaved || !saved.has(item.id)) &&
+        (!hideOwned || !match.owned.length) &&
         (scope !== "saved" || saved.has(item.id)) &&
         (scope !== "series" || match.series.length > 0) &&
         (scope !== "unbought" ||
@@ -2693,8 +2719,19 @@ export function mountCollection({
     $("releaseCount").textContent = number(releaseItems().length);
     $("releaseCount").hidden = !releaseItems().length;
     releaseList.render(items, (item) => releaseCard(item, saved.has(item.id)), {
-      key: JSON.stringify([query, publisher, scope, type, hideSpecial]),
+      key: JSON.stringify([
+        query,
+        publisher,
+        scope,
+        type,
+        hideSpecial,
+        hideSaved,
+        hideOwned,
+      ]),
       label: "releases",
+      itemKey: (item) => JSON.stringify([item.id, item.type]),
+      updateItem: (card, item) =>
+        releaseCardUpdates.get(card)(item, saved.has(item.id)),
     });
     if (!items.length) {
       const empty = node(
@@ -2703,7 +2740,9 @@ export function mountCollection({
       );
       const failed = [...state.releaseFeeds.values()].some((f) => f.error);
       const filtered =
-        (type || hideSpecial) && !failed && !state.releasesLoading;
+        (type || hideSpecial || hideSaved || hideOwned) &&
+        !failed &&
+        !state.releasesLoading;
       empty.append(
         node(
           "h2",
@@ -2728,7 +2767,7 @@ export function mountCollection({
           state.releasesLoading
             ? "Looking for the latest volumes. This may take a moment."
             : filtered
-              ? "Try All types, show special editions, or adjust the other filters."
+              ? "Try All types, turn off a hide option, or adjust the other filters."
               : scope === "saved"
                 ? "Save a release to keep it here, even after it leaves the latest listings."
                 : scope === "series"
@@ -2753,129 +2792,148 @@ export function mountCollection({
     } = {},
   ) {
     const card = node("article", "release-card"),
+      cover = coverImage(item.coverId, item.title, "release-cover"),
       copy = node("div", "publisher-copy"),
-      match = releaseMatches(item),
-      busy = state.savingReleases.size > 0 || state.busy;
-    card.append(coverImage(item.coverId, item.title, "release-cover"));
-    copy.append(
-      node("p", "eyebrow", item.publisher),
-      node("h2", "book-title", item.title),
+      buttons = node("div", "buttons"),
+      saveButton = node("button", "btn"),
+      add = node("button", "btn"),
+      volumeBrowser = view === "releases" ? createVolumeBrowser(item) : null;
+    let currentItem = item;
+    let currentSaved = saved;
+    saveButton.type = add.type = "button";
+    saveButton.addEventListener(
+      "click",
+      () => void saveRelease(currentItem, !currentSaved),
+      { signal: events.signal },
     );
-    const meta = [
-      item.type,
-      item.volume !== "" ? "Volume " + item.volume : "",
-      item.special ? "Special edition / set" : "",
-      item.availability,
-    ].filter(Boolean);
-    copy.append(node("p", "release-meta", meta.join(" · ")));
-    const facts = node("div", "publisher-facts");
-    if (item.price !== "")
-      facts.append(
-        node(
-          "p",
-          "release-price",
-          "Listed price ฿" + number(Number(item.price)),
-        ),
-      );
-    if (item.isbn) facts.append(node("p", "hint", "ISBN " + item.isbn));
-    if (facts.childElementCount) copy.append(facts);
-    if (
-      saved &&
-      !context.catalog &&
-      state.releasesLoaded &&
-      ![...state.releaseFeeds.values()].some((feed) =>
-        feed.items.some((release) => release.id === item.id),
-      )
-    )
-      copy.append(node("p", "hint", "Saved listing · Not in the latest check"));
-    if (match.owned.length)
-      copy.append(node("p", "release-match", "On your shelf · ISBN match"));
-    else if (match.possible.length)
-      copy.append(
-        node(
-          "p",
-          "release-match possible",
-          "Volume on your shelf · Check the edition",
-        ),
-      );
-    else if (context.review)
-      copy.append(
-        node(
-          "p",
-          "release-match possible",
-          "Other edition or set · Check the details",
-        ),
-      );
-    else
-      copy.append(
-        node("p", "release-match unbought", "Not bought yet · No shelf match"),
-      );
-    if (match.series.length && !match.owned.length)
-      copy.append(node("p", "hint", "A series you collect"));
-    const links = node("div", "release-links");
-    links.append(releaseLink("Publisher book page ↗", item.url));
-    if (item.isbn)
-      links.append(
-        releaseLink(
-          "Find at Naiin ↗",
-          "https://www.naiin.com/search-result?title=" +
-            encodeURIComponent(item.isbn),
-        ),
-        releaseLink("Find at Kinokuniya ↗", kinokuniyaSearchUrl(item.isbn)),
-      );
-    copy.append(links);
-    if (context.alternatives?.length) {
-      const alternatives = node("details", "publisher-details");
-      alternatives.append(
-        node(
-          "summary",
-          "",
-          "Other listings for this volume (" +
-            context.alternatives.length +
-            ")",
-        ),
-      );
-      context.alternatives.forEach((other) =>
-        alternatives.append(
-          node("p", "release-links"),
-          releaseLink(other.title + " ↗", other.url),
-        ),
-      );
-      copy.append(alternatives);
-    }
-    const buttons = node("div", "buttons"),
-      saveButton = node(
-        "button",
-        "btn" + (saved ? " saved" : ""),
-        state.savingReleases.has(item.id)
-          ? "Saving…"
-          : saved
-            ? "Saved · Unsave"
-            : "Save for later",
-      );
-    saveButton.disabled = busy;
-    saveButton.setAttribute("aria-pressed", String(saved));
-    saveButton.addEventListener("click", () => void saveRelease(item, !saved), {
-      signal: events.signal,
-    });
-    buttons.append(saveButton);
-    const add = node(
-      "button",
-      "btn",
-      match.owned.length ? "View owned series" : "Add to shelf",
-    );
-    add.disabled = busy;
     add.addEventListener(
       "click",
       () => {
-        if (match.owned.length) {
-          openSeries(seriesKey(match.owned[0]));
-        } else openRelease(item, match);
+        const match = releaseMatches(currentItem);
+        if (match.owned.length) openSeries(seriesKey(match.owned[0]));
+        else openRelease(currentItem, match);
       },
       { signal: events.signal },
     );
-    buttons.append(add);
-    card.append(copy, buttons);
+    if (volumeBrowser) buttons.append(volumeBrowser.button);
+    buttons.append(saveButton, add);
+    card.append(cover, copy, buttons);
+    if (volumeBrowser) card.append(volumeBrowser.section);
+    const update = (item, saved: boolean) => {
+      currentItem = item;
+      currentSaved = saved;
+      const match = releaseMatches(item),
+        busy = state.savingReleases.size > 0 || state.busy;
+      setCoverImage(cover, item.coverId, item.title);
+      copy.replaceChildren();
+      copy.append(
+        node("p", "eyebrow", item.publisher),
+        node("h2", "book-title", item.title),
+      );
+      const meta = [
+        item.type,
+        item.volume !== "" ? "Volume " + item.volume : "",
+        item.special ? "Special edition / set" : "",
+        item.availability,
+      ].filter(Boolean);
+      copy.append(node("p", "release-meta", meta.join(" · ")));
+      const facts = node("div", "publisher-facts");
+      if (item.price !== "")
+        facts.append(
+          node(
+            "p",
+            "release-price",
+            "Listed price ฿" + number(Number(item.price)),
+          ),
+        );
+      if (item.isbn) facts.append(node("p", "hint", "ISBN " + item.isbn));
+      if (facts.childElementCount) copy.append(facts);
+      if (
+        saved &&
+        !context.catalog &&
+        state.releasesLoaded &&
+        ![...state.releaseFeeds.values()].some((feed) =>
+          feed.items.some((release) => release.id === item.id),
+        )
+      )
+        copy.append(
+          node("p", "hint", "Saved listing · Not in the latest check"),
+        );
+      if (match.owned.length)
+        copy.append(node("p", "release-match", "On your shelf · ISBN match"));
+      else if (match.possible.length)
+        copy.append(
+          node(
+            "p",
+            "release-match possible",
+            "Volume on your shelf · Check the edition",
+          ),
+        );
+      else if (context.review)
+        copy.append(
+          node(
+            "p",
+            "release-match possible",
+            "Other edition or set · Check the details",
+          ),
+        );
+      else
+        copy.append(
+          node(
+            "p",
+            "release-match unbought",
+            "Not bought yet · No shelf match",
+          ),
+        );
+      if (match.series.length && !match.owned.length)
+        copy.append(node("p", "hint", "A series you collect"));
+      const links = node("div", "release-links");
+      links.append(releaseLink("Publisher book page ↗", item.url));
+      if (item.isbn)
+        links.append(
+          releaseLink(
+            "Find at Naiin ↗",
+            "https://www.naiin.com/search-result?title=" +
+              encodeURIComponent(item.isbn),
+          ),
+          releaseLink("Find at Kinokuniya ↗", kinokuniyaSearchUrl(item.isbn)),
+        );
+      copy.append(links);
+      if (context.alternatives?.length) {
+        const alternatives = node("details", "publisher-details");
+        alternatives.append(
+          node(
+            "summary",
+            "",
+            "Other listings for this volume (" +
+              context.alternatives.length +
+              ")",
+          ),
+        );
+        context.alternatives.forEach((other) =>
+          alternatives.append(
+            node("p", "release-links"),
+            releaseLink(other.title + " ↗", other.url),
+          ),
+        );
+        copy.append(alternatives);
+      }
+      saveButton.classList.toggle("saved", saved);
+      saveButton.textContent = state.savingReleases.has(item.id)
+        ? "Saving…"
+        : saved
+          ? "Saved · Unsave"
+          : "Save for later";
+      saveButton.disabled = busy;
+      saveButton.setAttribute("aria-pressed", String(saved));
+      add.textContent = match.owned.length
+        ? "View owned series"
+        : "Add to shelf";
+      add.disabled = busy;
+      volumeBrowser?.update(item);
+    };
+    releaseCardUpdates.set(card, update);
+    update(item, saved);
     return card;
   }
   async function saveRelease(item, saved) {
@@ -4208,18 +4266,20 @@ export function mountCollection({
       { signal: events.signal },
     ),
   );
-  $("hideSpecialReleases")?.addEventListener(
-    "click",
-    () => {
-      $("hideSpecialReleases").setAttribute(
-        "aria-pressed",
-        String(
-          $("hideSpecialReleases").getAttribute("aria-pressed") !== "true",
-        ),
-      );
-      renderReleases();
-    },
-    { signal: events.signal },
+  (
+    ["hideSpecialReleases", "hideSavedReleases", "hideOwnedReleases"] as const
+  ).forEach((id) =>
+    $(id)?.addEventListener(
+      "click",
+      () => {
+        $(id).setAttribute(
+          "aria-pressed",
+          String($(id).getAttribute("aria-pressed") !== "true"),
+        );
+        renderReleases();
+      },
+      { signal: events.signal },
+    ),
   );
   ([...COLLECTION_FILTERS, "collectionSort"] as const).forEach((id) =>
     $(id)?.addEventListener(
