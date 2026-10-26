@@ -34,6 +34,14 @@ Compose uses a project-prefixed volume name; the standalone command uses a separ
 
 Live camera access requires HTTPS or localhost. Taking or choosing barcode photos still uses the same local browser decoder and text recognition.
 
+## Install as an app
+
+Book Collection can be installed as a Progressive Web App (PWA) from a production deployment. In Chrome or Edge, use the browser's **Install app** option. On iPhone or iPad, open the library in Safari, tap **Share**, then **Add to Home Screen**. The installed app opens in its own window with the library's book icon.
+
+Installation and offline support require HTTPS, or localhost for local use. A plain HTTP address on your local network does not enable the service worker. Build with `npm run build` and run with `npm start`; service worker registration is disabled during `npm run dev`.
+
+After the first online visit, the app can show an offline screen when the library server cannot be reached. **Try again** reloads the same page when your connection returns. Viewing, editing, scanning lookups and backups still need a connection to the server. The service worker caches only the public offline screen; library pages, covers, authentication responses and API data are not stored in its offline cache.
+
 ## Backups and restoration
 
 Choose **Data & backups → Download library backup**. The JSON file contains owned books, removed books, saved releases, catalog links, dropdown choices and stored cover images. Download it regularly and keep a copy outside the server.

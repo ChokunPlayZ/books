@@ -106,6 +106,7 @@ async function runBrowserScenario(name, url) {
 let browser;
 try {
   const url = await start("protected", { BOOKS_PASSWORD: password });
+  await runBrowserScenario("pwa.browser.mjs", url);
   browser = await chromium.launch({
     headless: true,
     ...(executable ? { executablePath: executable } : {}),

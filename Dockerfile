@@ -18,7 +18,7 @@ ENV NODE_ENV=production \
     PORT=3000 \
     BOOKS_DATABASE_PATH=/app/data/books.sqlite
 RUN mkdir -p /app/data && chown node:node /app/data
-# The postbuild script includes .next/static in the standalone bundle.
+# The postbuild script includes .next/static and public in the standalone bundle.
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 USER node
 EXPOSE 3000

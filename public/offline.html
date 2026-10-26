@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f7f8fa" />
+    <title>You're offline · Book Collection</title>
+    <style>
+      :root {
+        font-family: system-ui, sans-serif;
+        color: #232936;
+        background: #f7f8fa;
+        --muted: #626c7b;
+        --primary: #3156c8;
+        --on-primary: #fff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        display: grid;
+        min-height: 100vh;
+        min-height: 100dvh;
+        margin: 0;
+        padding: 32px 24px;
+        place-items: center;
+      }
+      main {
+        max-width: 360px;
+        text-align: center;
+      }
+      svg {
+        width: 64px;
+        height: 64px;
+      }
+      .brand {
+        margin: 20px 0 36px;
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 600;
+      }
+      h1 {
+        margin: 0 0 16px;
+        font-size: 32px;
+        letter-spacing: -1px;
+      }
+      p {
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.7;
+      }
+      a {
+        display: inline-flex;
+        min-height: 48px;
+        align-items: center;
+        justify-content: center;
+        margin-top: 16px;
+        padding: 12px 28px;
+        border-radius: 8px;
+        background: var(--primary);
+        color: var(--on-primary);
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      a:focus-visible {
+        outline: 3px solid var(--primary);
+        outline-offset: 4px;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color: #e5e9f0;
+          background: #181b22;
+          --muted: #aab3c2;
+          --primary: #a9bfff;
+          --on-primary: #15234b;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <rect width="64" height="64" rx="16" fill="#345b46" />
+        <path
+          d="M32 20c-7-5-15-5-22-2v29c7-3 15-3 22 2 7-5 15-5 22-2V18c-7-3-15-3-22 2Zm0 0v29"
+          fill="none"
+          stroke="#f7f6f1"
+          stroke-width="3"
+          stroke-linejoin="round"
+        />
+      </svg>
+      <p class="brand">Book Collection</p>
+      <h1>You're offline</h1>
+      <p>
+        Connect to the internet to open your library. Viewing and updating your
+        collection needs a connection to your library server.
+      </p>
+      <a href="">Try again</a>
+    </main>
+  </body>
+</html>
