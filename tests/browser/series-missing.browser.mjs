@@ -49,8 +49,8 @@ const h = createTestLibrary([
   },
   { ...base, volume: 1, type: "LN (TH)" },
   { ...base, volume: 3, type: "LN (TH)" },
-  { ...base, series: other, publisher: "Kodansha", volume: 1 },
-  { ...base, series: other, publisher: "Kodansha", volume: 2 },
+  { ...base, series: other, publisher: "Unsupported publisher", volume: 1 },
+  { ...base, series: other, publisher: "Unsupported publisher", volume: 2 },
   {
     ...base,
     series: "Unnumbered story",
@@ -155,6 +155,7 @@ let feeds = {
     unrelated,
   ],
   firstpage: [],
+  kodansha: [],
   luckpim: [],
 };
 let releaseGate;
@@ -297,7 +298,7 @@ try {
   await page.waitForFunction(
     () => !window.bookCollection?.state.catalogLoading.size,
   );
-  assert.equal(feedCalls.length, 4);
+  assert.equal(feedCalls.length, 6);
   assert.equal(recentCalls, 0);
   assert.equal(
     await page.locator("#seriesReleaseList .release-card").count(),

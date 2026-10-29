@@ -8,6 +8,7 @@ import {
   splitAnimagTitle,
   splitDexpressTitle,
   splitLilyHouseTitle,
+  splitKodanshaTitle,
   releaseBundle,
 } from "./titles.ts";
 import { digest } from "./hash.ts";
@@ -260,15 +261,17 @@ export function releaseItem(
   type?: string,
 ): Release {
   const parsed =
-    id === "firstpage"
-      ? splitFirstPageTitle(title)
-      : id === "animag"
-        ? splitAnimagTitle(title)
-        : id === "dexpress"
-          ? splitDexpressTitle(title)
-          : id === "lilyhouse"
-            ? splitLilyHouseTitle(title)
-            : splitBookTitle(title);
+    id === "kodansha"
+      ? splitKodanshaTitle(title)
+      : id === "firstpage"
+        ? splitFirstPageTitle(title)
+        : id === "animag"
+          ? splitAnimagTitle(title)
+          : id === "dexpress"
+            ? splitDexpressTitle(title)
+            : id === "lilyhouse"
+              ? splitLilyHouseTitle(title)
+              : splitBookTitle(title);
   const selectable = id === "dexpress" && /\?pid=\d+$/.test(url);
   const special =
     selectable ||
@@ -277,7 +280,8 @@ export function releaseItem(
     ) ||
     (id === "dexpress" && /AUTOGRAPH\s+SET/i.test(title)) ||
     (id === "lilyhouse" &&
-      /sprayed\s+edges|ปกนักแสดง|\bspecial\b/i.test(title));
+      /sprayed\s+edges|ปกนักแสดง|\bspecial\b/i.test(title)) ||
+    (id === "kodansha" && /特装版|限定版|豪華版|セット|合本版/.test(title));
   const p = PUBLISHERS.find(function (p) {
     return p.id === id;
   });
@@ -308,7 +312,9 @@ export function releaseItem(
       releaseBundle(title) ||
       (id === "lilyhouse" &&
         /(?:ชุด\s*\d+\s*เล่ม|\d+\s*เล่มจบ|\bset\b)/i.test(title)) ||
-      (id === "dexpress" && /AUTOGRAPH\s+SET|แพ(?:็ค|็ก|ค|ก)ชุด/i.test(title)),
+      (id === "dexpress" &&
+        /AUTOGRAPH\s+SET|แพ(?:็ค|็ก|ค|ก)ชุด/i.test(title)) ||
+      (id === "kodansha" && /セット|合本版/.test(title)),
     availability: "",
   };
 }

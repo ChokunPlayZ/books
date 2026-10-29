@@ -64,6 +64,9 @@ export default function DiscoveryPanel() {
               <option value="https://yenpress.com/">
                 Yen Press · All titles
               </option>
+              <option value="https://www.kodansha.co.jp/comic/new-releases/p">
+                Kodansha JP · Recent print comics
+              </option>
               <option value="https://www.animagshop.com/">
                 Animag · All titles
               </option>

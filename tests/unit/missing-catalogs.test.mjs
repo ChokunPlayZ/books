@@ -141,9 +141,12 @@ test("catalog requests deduplicate publisher aliases and skip unsupported publis
   const specs = missingCatalogSpecs([
     book(1),
     book(2, { publisher: "Phoenix Next" }),
-    book(3, { publisher: "Kodansha" }),
+    book(3, { publisher: "Kodansha", type: "Manga (JP)" }),
+    book(4, { publisher: "講談社", type: "Manga (JP)" }),
+    book(5, { publisher: "Unsupported publisher" }),
   ]);
-  assert.equal(specs.length, 1);
+  assert.equal(specs.length, 2);
   assert.equal(specs[0].publisherId, "phoenix");
+  assert.equal(specs[1].publisherId, "kodansha");
   assert.deepEqual(collectionMissing([], []), []);
 });

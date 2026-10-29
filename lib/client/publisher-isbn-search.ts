@@ -35,9 +35,14 @@ export function createPublisherIsbnSearch({
       const isbn = canonicalIsbn(query);
       if (
         !isbn ||
-        !["phoenix", "firstpage", "animag", "dexpress", "lilyhouse"].includes(
-          publisherId,
-        )
+        ![
+          "phoenix",
+          "firstpage",
+          "animag",
+          "dexpress",
+          "lilyhouse",
+          "kodansha",
+        ].includes(publisherId)
       ) {
         cancel();
         return null;

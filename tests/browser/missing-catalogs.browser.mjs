@@ -98,7 +98,9 @@ try {
           ...base,
           series: series[name],
           volume,
-          ...(name === "Unsupported" ? { publisher: "Kodansha" } : {}),
+          ...(name === "Unsupported"
+            ? { publisher: "Unsupported publisher" }
+            : {}),
         },
       });
   await page.route("**/api/rpc", async (route) => {

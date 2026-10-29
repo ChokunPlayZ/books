@@ -1046,7 +1046,7 @@ export function mountCollection({
       pending || state.catalogRefreshing ? "Checking…" : "Refresh catalog";
     renderSeriesCatalogSources(specs);
     $("seriesReleaseStatus").textContent = !specs.length
-      ? "Catalog checks are available for Lily House, DEXpress, Animag, Phoenix Next, First Page Pro, Luckpim, Yaakz and Yen Press."
+      ? "Catalog checks are available for Kodansha JP, Lily House, DEXpress, Animag, Phoenix Next, First Page Pro, Luckpim, Yaakz and Yen Press."
       : pending
         ? "Checking the publisher’s series catalog…"
         : choose
@@ -1266,17 +1266,19 @@ export function mountCollection({
       manual = node("input");
       manual.type = "url";
       manual.placeholder =
-        spec.publisherId === "phoenix"
-          ? "https://www.phoenixnext.com/book-series/…"
-          : spec.publisherId === "yenpress"
-            ? "https://yenpress.com/series/…"
-            : spec.publisherId === "animag"
-              ? "https://www.animagshop.com/category/…"
-              : spec.publisherId === "dexpress"
-                ? "https://www.dexpress-shop.com/search?q=…"
-                : spec.publisherId === "lilyhouse"
-                  ? "https://lily-house.com/?s=…&post_type=product"
-                  : "https://www.firstpagepro.com/category/…";
+        spec.publisherId === "kodansha"
+          ? "https://www.kodansha.co.jp/titles/…"
+          : spec.publisherId === "phoenix"
+            ? "https://www.phoenixnext.com/book-series/…"
+            : spec.publisherId === "yenpress"
+              ? "https://yenpress.com/series/…"
+              : spec.publisherId === "animag"
+                ? "https://www.animagshop.com/category/…"
+                : spec.publisherId === "dexpress"
+                  ? "https://www.dexpress-shop.com/search?q=…"
+                  : spec.publisherId === "lilyhouse"
+                    ? "https://lily-house.com/?s=…&post_type=product"
+                    : "https://www.firstpagepro.com/category/…";
       manual.value = editor.url || "";
       field("Or paste the series category URL", manual);
       manual.addEventListener(
@@ -1845,6 +1847,7 @@ export function mountCollection({
       dexpress: "www.dexpress-shop.com",
       lilyhouse: "lily-house.com",
       yenpress: "yenpress.com",
+      kodansha: "www.kodansha.co.jp",
     };
     let safe = false;
     try {
@@ -2230,7 +2233,9 @@ export function mountCollection({
             ? "dexpress"
             : state.discoveryUrl.startsWith("https://lily-house.com/")
               ? "lilyhouse"
-              : "";
+              : state.discoveryUrl.startsWith("https://www.kodansha.co.jp/")
+                ? "kodansha"
+                : "";
     const isbnSearch = publisherIsbnSearch.get(
       publisherId,
       $("discoverySearch").value,

@@ -38,6 +38,12 @@ export const BOOK_APP = Object.freeze({
 
 export const PUBLISHERS = Object.freeze([
   {
+    id: "kodansha",
+    name: "Kodansha JP",
+    url: "https://www.kodansha.co.jp/comic/new-releases/p",
+    scope: "Latest 40 Japanese print comic listings",
+  },
+  {
     id: "lilyhouse",
     name: "Lily House",
     url: "https://lily-house.com/shop-2/?orderby=date",

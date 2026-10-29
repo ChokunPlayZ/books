@@ -10,6 +10,16 @@ export function kinokuniyaSearchUrl(query: string): string {
 
 export function safeSeriesCatalogUrl(raw, id) {
   const url = decodeHtml(String(raw || "").trim());
+  if (id === "kodansha") {
+    if (
+      /^https:\/\/www\.kodansha\.co\.jp\/titles\/\d+\/?(?:#publications)?$/.test(
+        url,
+      )
+    )
+      return url.replace(/#publications$/, "").replace(/\/$/, "");
+    if (url === "https://www.kodansha.co.jp/comic/new-releases/p") return url;
+    return "";
+  }
   if (id === "lilyhouse") {
     try {
       const parsed = new URL(url);
@@ -143,6 +153,7 @@ export function safeSeriesCatalogUrl(raw, id) {
 export function publisherCatalogSource(raw) {
   const url = decodeHtml(String(raw || "").trim());
   for (const id of [
+    "kodansha",
     "phoenix",
     "firstpage",
     "yaakz",
@@ -180,7 +191,7 @@ export function publisherCatalogSource(raw) {
   )
     return { publisherId: "dexpress", url: "https://www.dexpress-shop.com/" };
   throw new Error(
-    "Use a Lily House, DEXpress, Animag, Phoenix Next, First Page Pro, Yaakz or Yen Press category or series URL.",
+    "Use a Kodansha JP, Lily House, DEXpress, Animag, Phoenix Next, First Page Pro, Yaakz or Yen Press category or series URL.",
   );
 }
 
@@ -212,6 +223,7 @@ export function safeCoverUrl(raw, base?: string) {
       "books.googleusercontent.com",
       "covers.openlibrary.org",
       "img.hanmoto.com",
+      "dvs-cover.kodansha.co.jp",
       "images.yenpress.com",
       "kinokuniya.co.th",
       "lily-house.com",
@@ -222,6 +234,11 @@ export function safeCoverUrl(raw, base?: string) {
     )
       return "";
     if (host === "kinokuniya.co.th" && !url.pathname.startsWith("/cdn/shop/"))
+      return "";
+    if (
+      host === "dvs-cover.kodansha.co.jp" &&
+      !/^\/\d{10}\/[a-zA-Z0-9_-]+\.(?:jpg|jpeg|png|webp)$/.test(url.pathname)
+    )
       return "";
     if (
       host === "img.hanmoto.com" &&
@@ -263,6 +280,8 @@ export function publisherKey(name) {
   if (/luckpim|รักพิมพ์/.test(key)) return "luckpim";
   if (/yaakz|siaminter|สยามอินเตอร์|^sic$/.test(key)) return "yaakz";
   if (/^(?:yenpress|yenon|izepress|jy)$/.test(key)) return "yenpress";
+  if (/^(?:kodansha|kodanshajp|kodanshajapan|講談社)$/.test(key))
+    return "kodansha";
   if (
     /animag|อนิแม็ก|อนิแมก|^(?:aplus|gplus|agbook|agbooks|agcomic|agcomics|beloved|เอพลัส|จีพลัส|บีเลิฟด์พลัส)$/.test(
       key,
@@ -283,6 +302,7 @@ export function safePublisherUrl(raw, publisher) {
       luckpim: "www.luckpim.com",
       yaakz: "www.yaakz.com",
       yenpress: "yenpress.com",
+      kodansha: "www.kodansha.co.jp",
       animag: "www.animagshop.com",
       dexpress: "www.dexpress-shop.com",
       lilyhouse: "lily-house.com",
@@ -339,6 +359,8 @@ export function safeProductUrl(raw, id) {
     yaakz: /^https:\/\/www\.yaakz\.com\/product\/(?:[^/?#]+\/)*\d+\/?$/,
     luckpim: /^https:\/\/www\.luckpim\.com\/product\/detail\/\d+\/?$/,
     yenpress: /^https:\/\/yenpress\.com\/titles\/\d{13}-[a-zA-Z0-9-]+\/?$/,
+    kodansha:
+      /^https:\/\/www\.kodansha\.co\.jp\/(?:comic|book)\/products\/\d{10}$/,
     animag:
       /^https:\/\/www\.animagshop\.com\/product\/(\d+)(?:\/[^?#]*)?(?:\?pid=(\d+))?$/,
     dexpress:

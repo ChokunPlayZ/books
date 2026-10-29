@@ -24,6 +24,13 @@
         "files": ["lib/domain/lilyhouse.ts"],
         "createdAt": "2026-10-25T11:51:10.342Z",
         "reason": "Codex: these img tokens are regular expressions parsing remote HTML; this module renders no images."
+      },
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": ["lib/domain/kodansha.ts"],
+        "createdAt": "2026-10-29T17:53:34.525Z",
+        "reason": "Codex: this server-side HTML parser inspects publisher img markup as text; it does not render an image element. Empty fallback input is validated and rejected by kodanshaCover."
       }
     ]
   }

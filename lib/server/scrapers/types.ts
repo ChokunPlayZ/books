@@ -101,6 +101,7 @@ export type Scraper = {
   directoryAsCatalog?(url: string): boolean;
   seriesDirectory?: {
     url: string;
+    manual?: boolean;
     fromPublisherDirectory?: boolean;
     load?(refresh?: boolean): Promise<Category[]>;
   };

@@ -212,6 +212,18 @@ The saved comic, digital and novel fixtures in `tests/fixtures/publishers/yenpre
 
 Fixtures include a 15-volume comic series, a longer novel series with a collector edition and continuation page, paginated directory records, and a release calendar containing print, digital-only, chapter and audio examples. They cover source changes, unsafe links, incomplete pagination, offline reuse, publisher aliases and the publisher UI.
 
+## Kodansha Japan
+
+[Kodansha JP](https://www.kodansha.co.jp/comic/new-releases/p) is a publisher source for Japanese print comics. Releases and discovery read the first two print-only listing pages, up to 40 books. This is a recent catalog window; discovery reports incomplete coverage. Yen prices are left blank in the app's baht fields. Digital-only entries are excluded, Japanese parenthesized volume numbers are recognized, and special editions and sets require review. Prose and other book-category products retain `Other` rather than being labeled manga.
+
+For a full series comparison, choose **Choose series category** and paste its official `https://www.kodansha.co.jp/titles/<id>` URL. The site's `#publications` anchor is accepted. There is no assumed mapping between Japanese titles and translated shelf names. The source reads the title page's total and its public `/titles/<id>/api?count=N` continuation, up to 20 pages. The nineteenth record is a next-page sentinel; digital records count toward traversal completeness but are excluded from the offered print books. Repeated pages, inconsistent totals, failures and changed response shapes remain incomplete. Previously complete catalogs survive incomplete refreshes.
+
+Product galleries verify both the main product URL and the paper edition's ISBN before offering a cover. Images must use `dvs-cover.kodansha.co.jp/<same-product-code>/` and use normal permanent cover storage. Manga types and publisher aliases (`Kodansha`, `Kodansha JP`, `Kodansha Japan`, `講談社`) are recognized in server and browser matching; language and format still separate editions.
+
+Exact ISBN lookup uses the site's public `/products/search?keywords=<isbn>` and verifies candidate product pages, sharing the usual 24-hour ISBN cache and 15-minute failure cooldown. Automatic lookup is limited to the `978406` ISBN prefix. During inspection on October 30, 2026, the search endpoint returned an empty HTTP 202 response; this remains an unavailable-source error rather than a confirmed miss, and Hanmoto and other metadata providers continue to work. Search candidates never confirm an ISBN by themselves. Positive search-response tests use representative listing markup; live search success remains unverified.
+
+Trimmed live fixtures cover two print-release pages, a print product and all five pages of an 86-listing series, including ebooks, related prose, special editions and bundles.
+
 ## Japanese covers from Hanmoto
 
 [Hanmoto](https://www.hanmoto.com/) supplies exact-ISBN metadata and cover choices for Japanese books, including Kodansha manga. Requests use `/bd/isbn/<isbn>` for canonical ISBNs beginning with `9784`; missing ISBNs and other language groups require no request. The source is registered for automatic ISBN cover lookup and **Pull covers**, after Kinokuniya and before Google Books in metadata preference. It does not require an API key.
@@ -234,14 +246,14 @@ The scraper boundary is defined in `lib/server/scrapers/types.ts`. Each `Scraper
 
 Implement only the capabilities the source supports:
 
-| Capability                                        | Purpose                                                                             |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `releases`                                        | Recent publisher listings                                                           |
-| `catalog`                                         | A full category or series catalog, including completeness and page counts           |
-| `directory`, `seriesDirectory`, `searchSeriesUrl` | Discover titles, choose series categories, or search by series name                 |
-| `searchIsbn`                                      | Publisher ISBN search, including unverified candidates and review warnings          |
-| `lookupIsbn`                                      | Verified barcode metadata; `isbnPriority` sets provider preference                  |
-| `gallery`, `coverOptions`                         | Product galleries and supplementary cover sources; `coverPriority` sets their order |
+| Capability                                        | Purpose                                                                                                                                                           |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `releases`                                        | Recent publisher listings                                                                                                                                         |
+| `catalog`                                         | A full category or series catalog, including completeness and page counts                                                                                         |
+| `directory`, `seriesDirectory`, `searchSeriesUrl` | Discover titles, choose series categories, or search by series name; `seriesDirectory.manual` supports explicit links when no public title directory is available |
+| `searchIsbn`                                      | Publisher ISBN search, including unverified candidates and review warnings                                                                                        |
+| `lookupIsbn`                                      | Verified barcode metadata; `isbnPriority` sets provider preference                                                                                                |
+| `gallery`, `coverOptions`                         | Product galleries and supplementary cover sources; `coverPriority` sets their order                                                                               |
 
 `createHtmlCatalog()` shares bounded listing pagination; each source supplies its page parameter, release limit and optional variant expansion. `createIsbnSearch()` shares search caching and malformed-result checks while the source verifies candidate products. Source options also preserve parser-specific series names, complete catalogs and cached-directory upgrades where needed. Shared code must not infer these capabilities from publisher IDs.
 

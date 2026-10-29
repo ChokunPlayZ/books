@@ -4,6 +4,7 @@ import { firstpage } from "./firstpage.ts";
 import { googleBooks } from "./google-books.ts";
 import { hanmoto } from "./hanmoto.ts";
 import { kinokuniya } from "./kinokuniya.ts";
+import { kodansha } from "./kodansha.ts";
 import { luckpim } from "./luckpim.ts";
 import { lilyhouse } from "./lilyhouse.ts";
 import { naiin } from "./naiin.ts";
@@ -22,6 +23,7 @@ export const SCRAPER_SOURCES: readonly ScraperDefinition[] = Object.freeze([
   googleBooks,
   hanmoto,
   kinokuniya,
+  kodansha,
   luckpim,
   lilyhouse,
   naiin,

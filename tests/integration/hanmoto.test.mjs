@@ -233,7 +233,7 @@ test("Hanmoto 404s are cached, while malformed pages and unsafe redirects remain
 test("default application finds and stores Hanmoto covers with the existing publisher link and offline reuse", async (t) => {
   const store = database(t),
     calls = [];
-  const publisherUrl = "https://www.kodansha.co.jp/book/products/" + isbn;
+  const publisherUrl = "https://www.kodansha.co.jp/comic/products/0000019214";
   save(store, { publisherUrl });
   const fetchImpl = async (url) => {
     calls.push(url);

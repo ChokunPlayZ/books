@@ -70,6 +70,8 @@ export function publisherKey(name: string) {
   if (/luckpim|รักพิมพ์/.test(key)) return "luckpim";
   if (/yaakz|siaminter|สยามอินเตอร์|^sic$/.test(key)) return "yaakz";
   if (/^(?:yenpress|yenon|izepress|jy)$/.test(key)) return "yenpress";
+  if (/^(?:kodansha|kodanshajp|kodanshajapan|講談社)$/.test(key))
+    return "kodansha";
   if (
     /animag|อนิแม็ก|อนิแมก|^(?:aplus|gplus|agbook|agbooks|agcomic|agcomics|beloved|เอพลัส|จีพลัส|บีเลิฟด์พลัส)$/.test(
       key,
@@ -190,7 +192,7 @@ export function discoverTitles<T extends Release>(
       item.publisherId +
       ":" +
       releaseSeriesKey(item.series) +
-      (["yenpress", "firstpage", "dexpress", "lilyhouse"].includes(
+      (["yenpress", "firstpage", "dexpress", "lilyhouse", "kodansha"].includes(
         item.publisherId,
       )
         ? ":" + matchingBookType(item.type)
@@ -217,7 +219,7 @@ export function discoverTitles<T extends Release>(
               (canonical(item.isbn) &&
                 canonical(item.isbn) === canonical(book.isbn)) ||
               (publisherKey(book.publisher) === item.publisherId &&
-                (!["firstpage", "dexpress", "lilyhouse"].includes(
+                (!["firstpage", "dexpress", "lilyhouse", "kodansha"].includes(
                   item.publisherId,
                 ) ||
                   !item.type ||

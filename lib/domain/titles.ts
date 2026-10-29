@@ -137,6 +137,20 @@ export function splitBookTitle(raw): {
   return { series: series, volume: match ? Number(match[1]) : "", type: type };
 }
 
+export function splitKodanshaTitle(raw: string) {
+  const title = decodeHtml(raw).normalize("NFKC").replace(/\s+/g, " ").trim();
+  const volume = /\((\d+(?:\.\d+)?)\)/.exec(title);
+  return {
+    series: volume ? title.slice(0, volume.index).trim() : title,
+    volume: volume ? Number(volume[1]) : ("" as const),
+    type: /小説|ノベライズ|ノベル/.test(title)
+      ? "Other"
+      : /FULL COLOR|フルカラー/i.test(title)
+        ? "Manga (JP) (Color)"
+        : "Manga (JP)",
+  };
+}
+
 export function splitFirstPageTitle(raw: string) {
   let title = decodeHtml(String(raw || ""))
     .replace(/\s+/g, " ")

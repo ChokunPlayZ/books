@@ -414,6 +414,7 @@ try {
     "yaakz.browser.mjs",
     "yenpress.browser.mjs",
     "kinokuniya.browser.mjs",
+    "kodansha.browser.mjs",
     "lilyhouse.browser.mjs",
     "navigation.browser.mjs",
   ])
