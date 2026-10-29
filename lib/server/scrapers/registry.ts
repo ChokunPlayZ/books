@@ -2,6 +2,7 @@ import { animag } from "./animag.ts";
 import { dexpress } from "./dexpress.ts";
 import { firstpage } from "./firstpage.ts";
 import { googleBooks } from "./google-books.ts";
+import { hanmoto } from "./hanmoto.ts";
 import { kinokuniya } from "./kinokuniya.ts";
 import { luckpim } from "./luckpim.ts";
 import { lilyhouse } from "./lilyhouse.ts";
@@ -19,6 +20,7 @@ export const SCRAPER_SOURCES: readonly ScraperDefinition[] = Object.freeze([
   dexpress,
   firstpage,
   googleBooks,
+  hanmoto,
   kinokuniya,
   luckpim,
   lilyhouse,

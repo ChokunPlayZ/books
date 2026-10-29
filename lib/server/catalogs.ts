@@ -119,7 +119,7 @@ export function createCatalogService(
     if (!isbn) throw new Error("Enter or scan an ISBN first.");
     const canonical = canonicalIsbn(isbn);
 
-    const cached = cache.get("isbn:v10:" + canonical);
+    const cached = cache.get("isbn:v11:" + canonical);
     if (cached) return JSON.parse(cached);
     const providers = scrapers.isbnProviders;
     // Start independent sources together, then keep the existing source preference
@@ -152,7 +152,7 @@ export function createCatalogService(
     };
     // Cache confirmed misses too; transient provider failures get a shorter TTL.
     cache.put(
-      "isbn:v10:" + canonical,
+      "isbn:v11:" + canonical,
       JSON.stringify(result),
       warnings.length ? SCRAPE_TTL.retry : SCRAPE_TTL.isbn,
     );
@@ -202,7 +202,7 @@ export function createCatalogService(
       );
       return { row, token: book.token, coverUrl: match?.coverUrl || "" };
     }
-    if (!isbn || cache.get("cover:miss:v7:" + isbn))
+    if (!isbn || cache.get("cover:miss:v8:" + isbn))
       return { row, token: book.token, coverUrl: "" };
     if (!pendingCovers.has(isbn)) {
       const pending = lookupIsbn(isbn)
@@ -210,7 +210,7 @@ export function createCatalogService(
           const cover = safeCoverUrl(result.details?.coverUrl);
           if (cover) cache.put(key, cover, 2592000);
           else if (!result.warnings.length)
-            cache.put("cover:miss:v7:" + isbn, "1", 86400);
+            cache.put("cover:miss:v8:" + isbn, "1", 86400);
           return cover;
         })
         .finally(() => pendingCovers.delete(isbn));

@@ -211,6 +211,7 @@ export function safeCoverUrl(raw, base?: string) {
       "books.google.com",
       "books.googleusercontent.com",
       "covers.openlibrary.org",
+      "img.hanmoto.com",
       "images.yenpress.com",
       "kinokuniya.co.th",
       "lily-house.com",
@@ -221,6 +222,11 @@ export function safeCoverUrl(raw, base?: string) {
     )
       return "";
     if (host === "kinokuniya.co.th" && !url.pathname.startsWith("/cdn/shop/"))
+      return "";
+    if (
+      host === "img.hanmoto.com" &&
+      !/^\/bd\/img\/97[89]\d{10}(?:_(?:600|0))?\.jpg$/.test(url.pathname)
+    )
       return "";
     if (
       host === "lily-house.com" &&

@@ -212,6 +212,16 @@ The saved comic, digital and novel fixtures in `tests/fixtures/publishers/yenpre
 
 Fixtures include a 15-volume comic series, a longer novel series with a collector edition and continuation page, paginated directory records, and a release calendar containing print, digital-only, chapter and audio examples. They cover source changes, unsafe links, incomplete pagination, offline reuse, publisher aliases and the publisher UI.
 
+## Japanese covers from Hanmoto
+
+[Hanmoto](https://www.hanmoto.com/) supplies exact-ISBN metadata and cover choices for Japanese books, including Kodansha manga. Requests use `/bd/isbn/<isbn>` for canonical ISBNs beginning with `9784`; missing ISBNs and other language groups require no request. The source is registered for automatic ISBN cover lookup and **Pull covers**, after Kinokuniya and before Google Books in metadata preference. It does not require an API key.
+
+The parser verifies both the page's `books:isbn` metadata and its main book's ISBN field. Titles omit ruby pronunciation readings. Cover images must come from `img.hanmoto.com/bd/img/` and their filename must match the requested ISBN; placeholders, logos and other volumes' images are excluded. Source links identify the Hanmoto page while retaining the book's saved publisher link. Images use permanent SQLite storage and normal backup behavior.
+
+Parsed results and confirmed 404s are reused for 24 hours across ISBN lookup and cover choices. Refresh bypasses fresh data; failures retain the durable 15-minute retry cooldown and allow other metadata providers to supply a result. Lookup and cover-miss cache versions were advanced so earlier misses do not suppress the new source.
+
+Trimmed live fixtures cover Domestic na Kanojo volumes 1 and 28. On October 30, 2026, all 26 ISBN-bearing volumes in the supplied series export returned matching Hanmoto book pages and downloadable JPEG covers. Volumes 20 and 21 had no ISBN and were left unchanged.
+
 ## Ownership and covers
 
 `lib/client/matching.ts` contains the shelf-gap, release-ownership and discovery rules. ISBN matches use canonical ISBN-13 values. Series matching keeps publisher, language and format separate, while colored and regular manga share volume coverage. A single-volume special edition can satisfy its regular volume; multi-volume sets require review. Saved catalog aliases retain the mapping between a shelf title and the publisher’s name.
