@@ -3,30 +3,31 @@ export default function SeriesEditor() {
     <form id="seriesEditor" className="series-editor" hidden>
       <div className="series-editor-heading">
         <h2 id="seriesEditorTitle" tabIndex={-1}>
-          Edit purchase details
+          Edit volume details
         </h2>
         <p id="seriesEditorHint" className="hint">
-          Update dates, prices and stores for any owned volume. Changes are
-          saved together when you’re ready.
+          Edit reading status and purchases in the table. Open Book details on
+          any row to edit its volume number, ISBN, edition, notes and cover
+          links. Save all changes together.
         </p>
       </div>
       <div
         className="series-edit-scroll"
         role="region"
-        aria-label="Editable volume purchase details"
+        aria-label="Editable owned volumes"
+        aria-describedby="seriesEditorHint"
         tabIndex={0}
       >
-        <table
-          className="series-edit-table"
-          aria-describedby="seriesEditorHint"
-        >
-          <caption className="sr-only">Owned volume purchase details</caption>
+        <table className="series-edit-table">
+          <caption className="sr-only">Owned volume details</caption>
           <thead>
             <tr>
               <th scope="col">Volume / edition</th>
+              <th scope="col">Reading status</th>
               <th scope="col">Purchase date</th>
               <th scope="col">Price paid (฿)</th>
               <th scope="col">Bought from</th>
+              <th scope="col">Book details</th>
             </tr>
           </thead>
           <tbody id="seriesEditRows" />

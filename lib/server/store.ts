@@ -324,6 +324,67 @@ export function openStore(
       stableJson([series, rows.map((row) => [row.id, row.revision])]),
     );
   }
+  function saveBookChange(request) {
+    const values = normalizeBook(request.book || {});
+    const data = Object.fromEntries(
+      fields.map((field, index) => [field, values[index]]),
+    );
+    if (data.date !== "")
+      data.date = new Date(
+        Date.UTC(1899, 11, 30) + Number(data.date) * 86400000,
+      )
+        .toISOString()
+        .slice(0, 10);
+    const existing = request.row == null ? null : current(request);
+    Object.assign(
+      data,
+      bookMetadata({
+        publisher: data.publisher,
+        coverUrl: request.book.coverUrl ?? existing?.cover_url ?? "",
+        publisherUrl:
+          request.book.publisherUrl ?? existing?.publisher_url ?? "",
+      }),
+    );
+    if (request.book.coverId !== undefined) data.coverId = request.book.coverId;
+    if (
+      existing &&
+      !existing.cover_url &&
+      !data.coverUrl &&
+      (!data.coverId || data.coverId === existing.cover_id) &&
+      (canonicalIsbn(data.isbn) !== existing.canonical_isbn ||
+        data.series !== existing.series ||
+        data.type !== existing.type ||
+        data.publisher !== existing.publisher ||
+        (data.volume === "" ? null : data.volume) !== existing.volume)
+    )
+      data.coverId = "";
+    if (
+      !request.allowDuplicate &&
+      duplicate(canonicalIsbn(data.isbn), existing?.id)
+    )
+      throw new AppError(
+        "That ISBN is already in your collection. Select Another copy to save a second copy.",
+        409,
+      );
+    let id;
+    if (existing) {
+      const args = fields.map((field) =>
+        data[field] === "" && ["volume", "price"].includes(field)
+          ? null
+          : data[field],
+      );
+      run(
+        `UPDATE books SET ${columns.map((c) => c + "=?").join(",")},canonical_isbn=?,revision=revision+1 WHERE id=?`,
+        ...args,
+        canonicalIsbn(data.isbn),
+        existing.id,
+      );
+      rememberOptions(data);
+      id = existing.id;
+      writeMetadata(id, data);
+    } else id = insertBook(data);
+    return { row: id, action: existing ? "updated" : "added" };
+  }
   const api = {
     getCollection: collection,
     updateBooks(request: {
@@ -624,66 +685,56 @@ export function openStore(
     },
     saveBook(request) {
       return receipt("save", request, () => {
-        const values = normalizeBook(request.book || {});
-        const data = Object.fromEntries(
-          fields.map((field, index) => [field, values[index]]),
-        );
-        if (data.date !== "")
-          data.date = new Date(
-            Date.UTC(1899, 11, 30) + Number(data.date) * 86400000,
+        return saveBookChange(request);
+      });
+    },
+    saveSeriesVolumes(request: {
+      requestId: string;
+      series: string;
+      changes: { row: number; token: string; book: Partial<Book> }[];
+    }) {
+      return receipt("series-volumes", request, () => {
+        if (
+          typeof request.series !== "string" ||
+          !request.series ||
+          !Array.isArray(request.changes) ||
+          !request.changes.length
+        )
+          throw new AppError("Choose volumes in this series to update.");
+        const seen = new Set<number>();
+        for (const change of request.changes) {
+          if (!change || typeof change !== "object" || seen.has(change.row))
+            throw new AppError("Include each volume only once.");
+          seen.add(change.row);
+          const row = current(change);
+          if ((row.series.trim() || "Untitled series") !== request.series)
+            throw new AppError("Choose volumes from the same series.");
+          if (
+            !change.book ||
+            typeof change.book !== "object" ||
+            Array.isArray(change.book)
           )
-            .toISOString()
-            .slice(0, 10);
-        const existing = request.row == null ? null : current(request);
-        Object.assign(
-          data,
-          bookMetadata({
-            publisher: data.publisher,
-            coverUrl: request.book.coverUrl ?? existing?.cover_url ?? "",
-            publisherUrl:
-              request.book.publisherUrl ?? existing?.publisher_url ?? "",
-          }),
-        );
-        if (request.book.coverId !== undefined)
-          data.coverId = request.book.coverId;
-        if (
-          existing &&
-          !existing.cover_url &&
-          !data.coverUrl &&
-          (!data.coverId || data.coverId === existing.cover_id) &&
-          (canonicalIsbn(data.isbn) !== existing.canonical_isbn ||
-            data.series !== existing.series ||
-            data.type !== existing.type ||
-            data.publisher !== existing.publisher ||
-            (data.volume === "" ? null : data.volume) !== existing.volume)
-        )
-          data.coverId = "";
-        if (
-          !request.allowDuplicate &&
-          duplicate(canonicalIsbn(data.isbn), existing?.id)
-        )
-          throw new AppError(
-            "That ISBN is already in your collection. Select Another copy to save a second copy.",
-            409,
+            throw new AppError("Enter the volume details to update.");
+          // Title renames belong to Edit title details; each copy stays in this series.
+          const updates = Object.fromEntries(
+            [
+              ...fields.filter((field) => field !== "series"),
+              "coverUrl",
+              "publisherUrl",
+            ]
+              .filter((field) => Object.hasOwn(change.book, field))
+              .map((field) => [field, change.book[field]]),
           );
-        let id;
-        if (existing) {
-          const args = fields.map((field) =>
-            data[field] === "" && ["volume", "price"].includes(field)
-              ? null
-              : data[field],
-          );
-          run(
-            `UPDATE books SET ${columns.map((c) => c + "=?").join(",")},canonical_isbn=?,revision=revision+1 WHERE id=?`,
-            ...args,
-            canonicalIsbn(data.isbn),
-            existing.id,
-          );
-          rememberOptions(data);
-          id = existing.id;
-          writeMetadata(id, data);
-        } else id = insertBook(data);
-        return { row: id, action: existing ? "updated" : "added" };
+          const { coverId, ...existing } = book(row);
+          saveBookChange({
+            row: change.row,
+            token: change.token,
+            book: { ...existing, ...updates },
+            // Existing owned copies can intentionally share ISBNs.
+            allowDuplicate: true,
+          });
+        }
+        return { volumes: seen.size, action: "volumes updated" };
       });
     },
     saveSeriesPurchases(request: {
@@ -951,11 +1002,40 @@ export function openStore(
       );
       return row ? JSON.parse(row.data) : null;
     },
-    exportData() {
+    exportData(series?: string) {
       return transaction(() => {
         const data = collection();
+        const matches = (record: { series: string }) =>
+          (record.series.trim() || "Untitled series") === series;
+        if (series !== undefined) {
+          data.books = data.books.filter(matches);
+          if (!data.books.length)
+            throw new AppError(
+              "This series has no owned volumes to export.",
+              404,
+            );
+          data.trash = [];
+          data.savedReleases = data.savedReleases.filter(matches);
+          data.seriesCatalogs = data.seriesCatalogs.filter(matches);
+          for (const field of Object.keys(data.options))
+            data.options[field] = [
+              ...new Set(data.books.map((book) => book[field]).filter(Boolean)),
+            ].sort();
+        }
+        const coverIds = new Set(
+          [...data.books, ...data.savedReleases]
+            .map((record) => record.coverId)
+            .filter(Boolean),
+        );
+        const imageFilter =
+          series === undefined
+            ? ""
+            : ` WHERE id IN (${[...coverIds].map(() => "?").join(",") || "NULL"})`;
         return {
-          covers: all<CoverRow>("SELECT * FROM covers").map((image) => ({
+          covers: all<CoverRow>(
+            "SELECT * FROM covers" + imageFilter,
+            ...(series === undefined ? [] : [...coverIds]),
+          ).map((image) => ({
             id: image.id,
             contentType: image.content_type,
             data: Buffer.from(image.body).toString("base64"),
@@ -970,9 +1050,7 @@ export function openStore(
           books: data.books,
           trash: data.trash,
           savedReleases: data.savedReleases,
-          seriesCatalogs: all("SELECT data FROM series_catalogs").map((row) =>
-            JSON.parse(row.data),
-          ),
+          seriesCatalogs: data.seriesCatalogs,
           options: data.options,
         };
       });

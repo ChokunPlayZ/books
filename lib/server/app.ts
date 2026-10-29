@@ -14,14 +14,17 @@ const applicationGlobal = globalThis as typeof globalThis & {
   __bookCollectionApp?: BookApplication;
 };
 const API_VERSION = 3;
+// Reopen the store when its in-memory methods change during development.
+const STORE_VERSION = 4;
 
 // Next development reloads modules; keep one connection per process.
 export function getApp(): BookApplication {
-  if (applicationGlobal.__bookCollectionApp?.storageVersion !== 3) {
+  if (applicationGlobal.__bookCollectionApp?.storageVersion !== STORE_VERSION) {
+    applicationGlobal.__bookCollectionApp?.store.close();
     const store = openStore();
     const covers = createCoverService(store);
     applicationGlobal.__bookCollectionApp = {
-      storageVersion: 3,
+      storageVersion: STORE_VERSION,
       apiVersion: API_VERSION,
       store,
       covers,

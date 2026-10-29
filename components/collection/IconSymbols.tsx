@@ -2,6 +2,9 @@ export default function IconSymbols() {
   return (
     <svg className={"sr-only"} aria-hidden={"true"}>
       <defs>
+        <symbol id="i-download" viewBox="0 0 24 24">
+          <path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" />
+        </symbol>
         <symbol id={"i-books"} viewBox={"0 0 24 24"}>
           <path
             d={"M4 4h4v16H4zM10 6h4v14h-4zM16 4l4-1 4 16-4 1zM4 8h4M10 10h4"}

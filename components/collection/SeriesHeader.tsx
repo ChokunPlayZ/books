@@ -19,6 +19,19 @@ export default function SeriesHeader({
       <div className="series-title-line">
         <h1 id={"seriesTitle"}>{series}</h1>
         <div className="series-header-actions">
+          <a
+            id="exportSeriesButton"
+            className="btn"
+            href={"/api/backup?series=" + encodeURIComponent(series)}
+            download
+            hidden={!owned.length}
+            title="Download this series as JSON, including saved covers"
+          >
+            <svg aria-hidden="true">
+              <use href="#i-download" />
+            </svg>
+            Export series
+          </a>
           <button
             id="editTitleButton"
             className="btn"

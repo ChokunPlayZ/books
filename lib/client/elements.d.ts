@@ -120,6 +120,7 @@ interface LibraryElements {
   editTitleButton: HTMLButtonElement;
   editVolumesButton: HTMLButtonElement;
   editionField: HTMLDivElement;
+  exportSeriesButton: HTMLAnchorElement;
   formError: HTMLDivElement;
   hideSpecialReleases: HTMLButtonElement;
   hideSavedReleases: HTMLButtonElement;
