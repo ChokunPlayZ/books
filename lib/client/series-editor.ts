@@ -1,4 +1,6 @@
-import { $, node, requestId } from "./dom.ts";
+import { $, node, requestId, fillOptions } from "./dom.ts";
+import { bookSourceApplies } from "../domain/book-sources.ts";
+import { publisherKey } from "./matching.ts";
 import type { CollectionState } from "./state.ts";
 import type { StoredBook } from "../types.ts";
 
@@ -204,6 +206,29 @@ export function createSeriesEditor({
         input.max = "9999-12-31";
       } else if (field === "publisher" || field === "source") {
         input.setAttribute("list", field + "Options");
+        if (field === "publisher") {
+          const updatePublisherSuggestions = () => {
+            delete $("publisherOptions").dataset.context;
+            fillOptions(
+              "publisherOptions",
+              state.data!.options.publisher.filter((name) =>
+                bookSourceApplies(publisherKey(name), {
+                  isbn: inputs.isbn.value,
+                  type: inputs.type.value,
+                }),
+              ),
+            );
+          };
+          input.addEventListener("focus", updatePublisherSuggestions, {
+            signal,
+          });
+          inputs.type.addEventListener("change", updatePublisherSuggestions, {
+            signal,
+          });
+          inputs.isbn.addEventListener("input", updatePublisherSuggestions, {
+            signal,
+          });
+        }
         input.placeholder =
           field === "source"
             ? "Store or seller"

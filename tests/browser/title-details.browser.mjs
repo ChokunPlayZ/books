@@ -18,6 +18,14 @@ try {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("https://cdn.jsdelivr.net/**", (route) => route.abort());
+  await page.route("**/api/rpc", async (route) => {
+    if (route.request().postDataJSON().name !== "getCollection")
+      return route.continue();
+    const response = await route.fetch();
+    const data = await response.json();
+    data.options.publisher.push("Yen Press", "Phoenix Next", "Kodansha JP");
+    return route.fulfill({ json: data });
+  });
   await page.goto(url);
   await page.waitForFunction(
     () => !document.getElementById("addButton").disabled,
@@ -71,6 +79,24 @@ try {
     await page.locator("#titleSaveHint").textContent(),
     /all 3 owned volumes/,
   );
+  const suggestions = () =>
+    page
+      .locator("#publisherOptions option")
+      .evaluateAll((options) => options.map((option) => option.value));
+  await page.locator("#titleEditionPublisher0").focus();
+  assert.equal((await suggestions()).includes("Yen Press"), false);
+  assert.equal((await suggestions()).includes("Phoenix Next"), true);
+  assert.equal((await suggestions()).includes("Kodansha JP"), false);
+  await page.locator("#titleEditionPublisher1").focus();
+  assert.equal((await suggestions()).includes("Yen Press"), false);
+  assert.equal((await suggestions()).includes("Kodansha JP"), true);
+  assert.equal((await suggestions()).includes("Phoenix Next"), false);
+  await page.locator("#titleEditionType1").selectOption("Manga (EN)");
+  await page.locator("#titleEditionPublisher1").focus();
+  assert.equal((await suggestions()).includes("Yen Press"), true);
+  assert.equal((await suggestions()).includes("Phoenix Next"), false);
+  assert.equal((await suggestions()).includes("Kodansha JP"), false);
+  await page.locator("#titleEditionType1").selectOption("Manga (JP)");
   await page.locator("#titleSeries").fill("Canceled name");
   await page.locator("#cancelTitle").click();
   assert.equal(await page.locator("#seriesTitle").textContent(), original);

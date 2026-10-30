@@ -37,6 +37,19 @@ const catalog = (items, extra = {}) => ({
   ...extra,
 });
 
+test("catalog checks omit publishers that cannot supply the recorded edition", () => {
+  const specs = missingCatalogSpecs([
+    book(1, { publisher: "Yen Press", type: "Manga (JP)" }),
+    book(2, { publisher: "Ize Press", type: "LN (TH)" }),
+    book(3, { publisher: "Yen Press", isbn: "4063951375", type: "Manga (EN)" }),
+    book(4, { publisher: "Yen Press", type: "Manga (EN)" }),
+  ]);
+  assert.deepEqual(
+    specs.map((spec) => [spec.publisherId, spec.type]),
+    [["yenpress", "Manga (EN)"]],
+  );
+});
+
 test("unowned catalog volumes appear even when every owned volume is consecutive", () => {
   const result = collectionMissing(
     [book(1), book(2)],

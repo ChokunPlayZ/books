@@ -31,7 +31,7 @@ const exact = item(
     "phoenix",
     marker + " known เล่ม 2",
     "release-check-2",
-    "0140328726",
+    "9748585476",
     "LN (TH)",
   ),
   possible = item(
@@ -46,7 +46,7 @@ const exact = item(
     "phoenix",
     "Special Set " + marker + " known เล่ม 2",
     "release-check-set",
-    "0140328726",
+    "9748585476",
     "LN (TH)",
   ),
   first = item(
@@ -111,7 +111,7 @@ try {
       type: "LN (TH)",
       publisher: "PHOENIX Next",
       volume: 2,
-      isbn: "9780140328721",
+      isbn: "9789748585475",
     },
     {
       series: marker + " known",
@@ -188,7 +188,7 @@ try {
   assert.equal(await page.locator(".release-card").count(), 1);
   assert.match(await page.locator(".release-card").textContent(), /Pre-order/);
   await page.locator("#releasePublisher").selectOption("");
-  await page.locator("#releaseSearch").fill("9780140328721");
+  await page.locator("#releaseSearch").fill("9789748585475");
   assert.equal(await page.locator(".release-card").count(), 1);
   await page.locator("#releaseSearch").fill("");
   console.log(

@@ -116,7 +116,7 @@ test("price comparison only checks applicable shops and omits skipped source sta
     });
 });
 
-test("cover choices skip unrelated ISBN sources even when the saved type disagrees", async (t) => {
+test("cover choices require compatible ISBN prefixes and recorded title languages", async (t) => {
   for (const [isbn, type, expected] of [
     [
       "9786166247275",
@@ -125,7 +125,11 @@ test("cover choices skip unrelated ISBN sources even when the saved type disagre
     ],
     ["0140328726", "Manga (EN)", ["yenpress.com", "kinokuniya.co.th"]],
     ["4063951375", "Manga (JP)", ["kinokuniya.co.th", "www.hanmoto.com"]],
-    ["4063951375", "Manga (EN)", ["kinokuniya.co.th", "www.hanmoto.com"]],
+    ["4063951375", "Manga (EN)", ["kinokuniya.co.th"]],
+    ["4063951375", "Manga (TH)", ["kinokuniya.co.th"]],
+    ["9786166247275", "Manga (EN)", ["kinokuniya.co.th"]],
+    ["9786166247275", "Manga (JP)", ["kinokuniya.co.th"]],
+    ["0140328726", "Manga (JP)", ["kinokuniya.co.th"]],
     [withChecksum("979110000000"), "Manga (EN)", ["kinokuniya.co.th"]],
   ])
     await t.test(isbn + " " + type, async (t) => {

@@ -162,9 +162,8 @@ export default function DiscoveryPanel() {
           </select>
         </div>
         <p className="hint">
-          Enter an ISBN to search the full DEXpress, Animag, Phoenix Next or
-          First Page Pro catalog. ISBN searches also include series already on
-          your shelf.
+          Enter an ISBN to search the selected publisher’s catalog. ISBN
+          searches also include series already on your shelf.
         </p>
         <p id="discoveryCount" className="release-note" role="status"></p>
         <div id="discoveryList" className="discovery-grid"></div>

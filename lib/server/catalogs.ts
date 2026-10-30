@@ -21,6 +21,7 @@ import {
   parsePageCount,
 } from "../domain.ts";
 import { publisherCovers } from "./publisher-covers.ts";
+import { bookSourceApplies } from "../domain/book-sources.ts";
 import { createPriceFinder } from "./prices.ts";
 import { SCRAPE_TTL } from "./scrape-cache.ts";
 import { createScraperContext } from "./scrapers/http.ts";
@@ -356,7 +357,11 @@ export function createCatalogService(
     if (catalog.error) warnings.push(catalog.error);
     const isbn = canonicalIsbn(book.isbn);
     for (const source of scrapers.coverProviders) {
-      if (isbn && !supportsIsbn(source, isbn)) continue;
+      if (
+        !bookSourceApplies(source.id, book) ||
+        (isbn && !supportsIsbn(source, isbn))
+      )
+        continue;
       try {
         for (const item of await source.coverOptions(book, request.refresh))
           add(item.coverUrl, item);

@@ -1,4 +1,5 @@
 import { canonicalIsbn } from "../domain/isbn.ts";
+import { bookSourceApplies } from "../domain/book-sources.ts";
 import type { Release } from "../types.ts";
 
 type SearchResult = {
@@ -35,6 +36,7 @@ export function createPublisherIsbnSearch({
       const isbn = canonicalIsbn(query);
       if (
         !isbn ||
+        !bookSourceApplies(publisherId, { isbn }) ||
         ![
           "phoenix",
           "firstpage",

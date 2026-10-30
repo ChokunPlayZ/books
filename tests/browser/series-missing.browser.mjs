@@ -284,9 +284,9 @@ try {
     await page.locator("#seriesGaps").textContent(),
     /No gaps through volume 2/,
   );
-  assert.match(
+  assert.equal(
     await page.locator("#seriesReleaseStatus").textContent(),
-    /available for .*Animag/,
+    "No catalog check is available for this edition’s publisher.",
   );
   assert.equal(await page.locator("#seriesMissing").isVisible(), false);
   assert.equal(await page.locator("#seriesCatalogToggle").isVisible(), false);

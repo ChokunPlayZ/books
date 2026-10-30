@@ -1,4 +1,5 @@
 import { PUBLISHERS } from "../domain/constants.ts";
+import { bookSourceApplies } from "../domain/book-sources.ts";
 import type { Release } from "../types.ts";
 import {
   matchingBookType,
@@ -31,7 +32,11 @@ export function missingCatalogSpecs(books: MatchBook[]) {
   const specs = new Map<string, MissingCatalog>();
   for (const book of books) {
     const publisherId = publisherKey(book.publisher);
-    if (!PUBLISHERS.some((publisher) => publisher.id === publisherId)) continue;
+    if (
+      !PUBLISHERS.some((publisher) => publisher.id === publisherId) ||
+      !bookSourceApplies(publisherId, book)
+    )
+      continue;
     const spec = {
       series: book.series.trim() || "Untitled series",
       publisherId,

@@ -46,7 +46,7 @@ try {
       return route.fulfill({ json: { items: [], complete: true } });
     if (request.name === "searchPublisherIsbn") {
       calls.push(request.arg);
-      if (request.arg.isbn === "9780140328721") {
+      if (request.arg.isbn === "9786166247275") {
         await new Promise((resolve) => setTimeout(resolve, 700));
         return route.fulfill({
           json: {
@@ -111,7 +111,7 @@ try {
   assert.equal(await page.locator("#isbn").inputValue(), isbn);
   assert.equal(await page.locator("#volume").inputValue(), "7");
   await page.locator("#cancelBook").click();
-  await page.locator("#discoverySearch").fill("0140328726");
+  await page.locator("#discoverySearch").fill("9786166247275");
   await page.waitForFunction(() =>
     document.getElementById("discoveryCount").textContent.includes("Searching"),
   );

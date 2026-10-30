@@ -193,6 +193,8 @@ Kinokuniya, Google Books and Open Library remain eligible for every group, withi
 
 Applicable metadata sources start concurrently and retain their configured preference and warning order. Skipped sources make no request and contribute no outage warning or price-comparison status. Unknown groups retain the multilingual fallbacks. Supplementary cover lookups without an ISBN retain their existing title-based matching. Explicit publisher searches and product/series links use the selected publisher. The aggregate ISBN cache uses a new version so previously cached unrelated warnings are discarded.
 
+Publisher suggestions, ISBN search links, release source choices and discovery categories hide sources that do not support the entered ISBN. When a title has a recorded TH/EN/JP language, a source must support that language as well as the ISBN: Thai-only publishers stay hidden for EN/JP titles, and Japanese-only publishers stay hidden for TH/EN titles, even if the ISBN conflicts with the recorded language. Without a valid ISBN, suggestions use the recorded language alone. Publisher choices and search links update when either field changes. Unknown publishers remain editable. A discovery ISBN search moves to an applicable category and never automatically searches an incompatible publisher. Lily House remains available for its Thai and English catalogs. Series catalog checks and supplementary cover choices also skip publishers that do not support the edition.
+
 ## Naiin ISBN lookup
 
 `lookupIsbn()` first validates the input and converts equivalent ISBN-10/ISBN-13 values to a canonical ISBN-13 for lookup and caching. `lookupNaiin_()` then:

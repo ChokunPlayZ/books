@@ -13,6 +13,7 @@ import type { StoredBook } from "../types.ts";
 import { createScanner } from "./scanner.ts";
 import { canonicalIsbn as canonical } from "../domain/isbn.ts";
 import { kinokuniyaSearchUrl } from "../domain/urls.ts";
+import { bookSourceApplies, isbnSearchLinks } from "../domain/book-sources.ts";
 import {
   releaseSeriesKey,
   matchingBookType,
@@ -186,6 +187,7 @@ export function mountCollection({
       (["series", "publisher", "source"] as const).forEach((k) =>
         fillOptions(k + "Options", state.data.options[k]),
       );
+      delete $("publisherOptions").dataset.context;
       (["type", "status"] as const).forEach((k) => {
         if ($(`${k}Filter`))
           fillOptions(
@@ -694,7 +696,7 @@ export function mountCollection({
         const publisher = state.data.publishers.find(
           (p) => p.id === publisherKey(b.publisher),
         );
-        if (!publisher) return;
+        if (!publisher || !bookSourceApplies(publisher.id, b)) return;
         const spec = {
           series,
           publisherId: publisher.id,
@@ -1047,7 +1049,7 @@ export function mountCollection({
       pending || state.catalogRefreshing ? "Checking…" : "Refresh catalog";
     renderSeriesCatalogSources(specs);
     $("seriesReleaseStatus").textContent = !specs.length
-      ? "Catalog checks are available for Kodansha JP, Lily House, DEXpress, Animag, Phoenix Next, First Page Pro, Luckpim, Yaakz and Yen Press."
+      ? "No catalog check is available for this edition’s publisher."
       : pending
         ? "Checking the publisher’s series catalog…"
         : choose
@@ -1401,6 +1403,21 @@ export function mountCollection({
       publisher.value = edition.publisher;
       publisher.maxLength = 500;
       publisher.setAttribute("list", "publisherOptions");
+      const updatePublisherSuggestions = () => {
+        delete $("publisherOptions").dataset.context;
+        fillOptions(
+          "publisherOptions",
+          state.data.options.publisher.filter((name) =>
+            bookSourceApplies(publisherKey(name), { type: type.value }),
+          ),
+        );
+      };
+      publisher.addEventListener("focus", updatePublisherSuggestions, {
+        signal: events.signal,
+      });
+      type.addEventListener("change", updatePublisherSuggestions, {
+        signal: events.signal,
+      });
       for (const [label, input] of [
         ["Type *", type],
         ["Publisher", publisher],
@@ -1529,6 +1546,35 @@ export function mountCollection({
     renderBookDetails();
   }
   function renderBookDetails() {
+    const publisherContext = JSON.stringify([
+      $("isbn").value,
+      $("type").value,
+      state.data?.options.publisher,
+    ]);
+    if (
+      state.data &&
+      $("publisherOptions").dataset.context !== publisherContext
+    ) {
+      fillOptions(
+        "publisherOptions",
+        state.data.options.publisher.filter((name) =>
+          bookSourceApplies(publisherKey(name), {
+            isbn: $("isbn").value,
+            type: $("type").value,
+          }),
+        ),
+      );
+      $("publisherOptions").dataset.context = publisherContext;
+    }
+    const searchLinks = $("lookupResult").querySelector("[data-isbn-search]");
+    if (searchLinks) {
+      searchLinks.replaceChildren();
+      for (const source of isbnSearchLinks($("isbn").value, $("type").value))
+        searchLinks.append(
+          document.createTextNode("\n"),
+          releaseLink("Search this ISBN at " + source.name + " ↗", source.url),
+        );
+    }
     const quick = !!state.formSeries && !state.editing;
     const matched = state.lookupMatched && !state.editing;
     $("bookForm").classList.toggle(
@@ -2187,6 +2233,28 @@ export function mountCollection({
   }
   function renderDiscovery() {
     if (!state.data || !$("discoverPanel")) return;
+    const preset = $("discoveryPreset");
+    for (const option of preset.options) {
+      const publisher = option.value
+        ? state.data.publishers.find(
+            (source) =>
+              new URL(source.url).hostname === new URL(option.value).hostname,
+          )
+        : null;
+      option.hidden = option.disabled =
+        !!publisher &&
+        !bookSourceApplies(publisher.id, { isbn: $("discoverySearch").value });
+    }
+    if (preset.selectedOptions[0]?.disabled && !state.discoveryLoading) {
+      preset.value =
+        [...preset.options].find((option) => option.value && !option.disabled)
+          ?.value || "";
+      if (preset.value) {
+        $("discoveryUrl").value = preset.value;
+        void loadDiscovery();
+        return;
+      }
+    }
     const customCatalog = $("discoveryPreset").value === "";
     $("discoveryCustom").hidden = !customCatalog;
     $("loadDiscovery").hidden = !customCatalog;
@@ -2200,6 +2268,16 @@ export function mountCollection({
       : "Refresh titles";
     const source = $("discoverySource");
     source.replaceChildren();
+    const hasApplicableCategory = [...preset.options].some(
+      (option) => option.value && !option.disabled,
+    );
+    if (!hasApplicableCategory && canonical($("discoverySearch").value)) {
+      publisherIsbnSearch.get("", "");
+      $("discoveryList").replaceChildren();
+      $("discoveryCount").textContent =
+        "No publisher catalog supports this ISBN. Look up the book from Add book.";
+      return;
+    }
     if (feed) {
       source.append(
         releaseLink((feed.title || "Publisher category") + " ↗", feed.url),
@@ -2631,15 +2709,24 @@ export function mountCollection({
   }
   function renderReleases() {
     if (!state.data || !$("releasesPanel")) return;
+    const query = $("releaseSearch").value.trim().toLocaleLowerCase();
+    const publishers = state.data.publishers.filter((source) =>
+      bookSourceApplies(source.id, { isbn: query }),
+    );
+    for (const option of $("releasePublisher").options)
+      option.hidden = option.disabled =
+        !!option.value && !bookSourceApplies(option.value, { isbn: query });
+    if ($("releasePublisher").selectedOptions[0]?.disabled)
+      $("releasePublisher").value = "";
     $("refreshReleases").disabled = state.releasesLoading;
     $("refreshReleases").textContent = state.releasesLoading
       ? "Checking publishers…"
       : "Refresh releases";
     const sources = $("publisherSources");
     sources.replaceChildren();
-    state.data.publishers.forEach((p) => sources.append(publisherSource(p)));
-    const failures = [...state.releaseFeeds.values()].filter(
-      (feed) => feed.error,
+    publishers.forEach((p) => sources.append(publisherSource(p)));
+    const failures = publishers.filter(
+      (source) => state.releaseFeeds.get(source.id)?.error,
     ).length;
     $("publisherCheckSummary").textContent =
       "Publisher sources & check times" +
@@ -2651,7 +2738,6 @@ export function mountCollection({
     const saved = new Set(
         (state.data.savedReleases || []).map((item) => item.id),
       ),
-      query = $("releaseSearch").value.trim().toLocaleLowerCase(),
       publisher = $("releasePublisher").value,
       scope = $("releaseScope").value,
       type = $("releaseType").value,
@@ -2661,7 +2747,9 @@ export function mountCollection({
         $("hideSavedReleases").getAttribute("aria-pressed") === "true",
       hideOwned =
         $("hideOwnedReleases").getAttribute("aria-pressed") === "true";
-    const allItems = releaseItems(),
+    const allItems = releaseItems().filter((item) =>
+        bookSourceApplies(item.publisherId, { isbn: query }),
+      ),
       totals = { unbought: 0, review: 0, owned: 0 };
     allItems.forEach((item) => {
       const match = releaseMatches(item);
@@ -3616,40 +3704,7 @@ export function mountCollection({
       $("lookupResult").append(node("p", "lookup-message", message));
       const searchLinks = node("div");
       searchLinks.setAttribute("data-lookup-detail", "");
-      if (result.searchUrl) {
-        searchLinks.append(
-          document.createTextNode("\n"),
-          releaseLink("Search this ISBN at Naiin ↗", result.searchUrl),
-        );
-      }
-      searchLinks.append(
-        document.createTextNode("\n"),
-        releaseLink(
-          "Search this ISBN at Phoenix Next ↗",
-          "https://www.phoenixnext.com/catalogsearch/result/?q=" +
-            canonical(result.isbn),
-        ),
-        document.createTextNode("\n"),
-        releaseLink(
-          "Search this ISBN at First Page Pro ↗",
-          "https://www.firstpagepro.com/search?q=" + canonical(result.isbn),
-        ),
-        document.createTextNode("\n"),
-        releaseLink(
-          "Search this ISBN at Animag ↗",
-          "https://www.animagshop.com/search?q=" + canonical(result.isbn),
-        ),
-        document.createTextNode("\n"),
-        releaseLink(
-          "Search this ISBN at DEXpress ↗",
-          "https://www.dexpress-shop.com/search?q=" + canonical(result.isbn),
-        ),
-        document.createTextNode("\n"),
-        releaseLink(
-          "Search this ISBN at Kinokuniya ↗",
-          kinokuniyaSearchUrl(canonical(result.isbn)),
-        ),
-      );
+      searchLinks.setAttribute("data-isbn-search", "");
       $("lookupResult").append(searchLinks);
       renderBookDetails();
       if (state.lookupMatched && !state.editing) {

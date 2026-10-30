@@ -81,7 +81,7 @@ try {
 
   // Exercise the actual server parser through ISBN search, not hand-coded types.
   await page.locator("#discoveryType").selectOption("LN");
-  await page.locator("#discoverySearch").fill("9780140328721");
+  await page.locator("#discoverySearch").fill("9786166247275");
   await page.locator("#discoveryList .release-card").waitFor();
   assert.equal(await page.locator("#discoveryList .release-card").count(), 1);
   assert.match(

@@ -404,6 +404,10 @@ try {
     await start("merge-series", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
   );
   await runBrowserScenario(
+    "book-sources.browser.mjs",
+    await start("book-sources", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
+  );
+  await runBrowserScenario(
     "publisher-isbn-search.browser.mjs",
     await start("publisher-isbn-search", {
       BOOKS_ALLOW_UNAUTHENTICATED: "true",
