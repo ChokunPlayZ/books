@@ -1,5 +1,6 @@
 import { attr, meta, textHtml } from "./html.ts";
 import { canonicalIsbn } from "./isbn.ts";
+import { splitKodanshaTitle } from "./titles.ts";
 import { safeCoverUrl } from "./urls.ts";
 
 export function hanmotoBook(html: string, isbn: string) {
@@ -46,6 +47,7 @@ export function hanmotoBook(html: string, isbn: string) {
   return {
     isbn,
     title,
+    volume: splitKodanshaTitle(title).volume,
     publisher: attr(publishers || "", "data-book-publisher"),
     authors: [...new Set(authors)].join(", "),
     releaseDate: attr(published || "", "content"),

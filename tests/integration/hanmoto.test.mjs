@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { hanmotoBook } from "../../lib/domain/hanmoto.ts";
+import { digest } from "../../lib/domain/hash.ts";
 import { safeCoverUrl } from "../../lib/domain/urls.ts";
 import { hanmoto } from "../../lib/server/scrapers/hanmoto.ts";
 import { googleBooks } from "../../lib/server/scrapers/google-books.ts";
@@ -50,6 +51,7 @@ function save(store, overrides = {}) {
 test("Hanmoto reads real Japanese edition covers and omits ruby readings from the title", () => {
   const details = hanmotoBook(first, isbn);
   assert.equal(details.title, "ドメスティックな彼女（1）");
+  assert.equal(details.volume, 1);
   assert.equal(details.publisher, "講談社");
   assert.equal(details.authors, "流石 景");
   assert.equal(details.releaseDate, "2014-07-17");
@@ -61,7 +63,73 @@ test("Hanmoto reads real Japanese edition covers and omits ruby readings from th
   );
   const final = hanmotoBook(last, "9784065203385");
   assert.equal(final.title, "ドメスティックな彼女（28）");
+  assert.equal(final.volume, 28);
   assert.match(final.coverUrl, /9784065203385_600\.jpg/);
+});
+
+test("Hanmoto recognizes full-width and ASCII volume notation without guessing from title numbers or ruby readings", () => {
+  for (const [title, volume] of [
+    ["ドメスティックな彼女（１３）", 13],
+    ["ドメスティックな彼女(13)", 13],
+    ["ドメスティックな彼女（１３．５）", 13.5],
+    ["五等分の花嫁 フルカラー版", ""],
+    ["3月のライオン", ""],
+  ]) {
+    const html = first
+      .replaceAll("ドメスティックな彼女（1）", title)
+      .replaceAll("ドメスティックナカノジョ1", "ヨミ（99）");
+    const details = hanmotoBook(html, isbn);
+    assert.equal(details.title, title);
+    assert.equal(details.volume, volume, title);
+  }
+});
+
+test("Hanmoto ISBN lookups return the reported volumes despite old metadata caches and reuse the corrected result offline", async (t) => {
+  for (const [reportedIsbn, title, volume] of [
+    ["9784065211557", "五等分の花嫁 フルカラー版（14）", 14],
+    ["9784063959420", "ドメスティックな彼女（13）", 13],
+  ]) {
+    const store = database(t);
+    const html = first
+      .replaceAll(isbn, reportedIsbn)
+      .replaceAll("ドメスティックな彼女（1）", title);
+    const oldDetails = { ...hanmotoBook(html, reportedIsbn) };
+    delete oldDetails.volume;
+    store.cache.put(
+      "isbn:v13:" + reportedIsbn,
+      JSON.stringify({ found: true, details: oldDetails, warnings: [] }),
+      86400,
+    );
+    store.cache.put(
+      "scrape:v1:" + digest("hanmoto-isbn:v1:" + reportedIsbn),
+      JSON.stringify({ value: oldDetails, checkedAt: Date.now() }),
+      86400,
+    );
+    const calls = [];
+    const service = createCatalogService(
+      store,
+      async (url) => {
+        calls.push(url);
+        return new Response(html);
+      },
+      [hanmoto],
+    );
+    const lookup = await service.lookupIsbn(reportedIsbn);
+    assert.equal(lookup.found, true);
+    assert.equal(lookup.details.title, title);
+    assert.equal(lookup.details.volume, volume);
+    assert.equal(lookup.details.source, "Hanmoto");
+    assert.deepEqual(lookup.warnings, []);
+    assert.deepEqual(calls, [
+      "https://www.hanmoto.com/bd/isbn/" + reportedIsbn,
+    ]);
+    const offline = createCatalogService(
+      store,
+      () => assert.fail("Use the corrected cached volume"),
+      [hanmoto],
+    );
+    assert.deepEqual(await offline.lookupIsbn(reportedIsbn), lookup);
+  }
 });
 
 test("Hanmoto rejects wrong editions, changed identities, placeholders and recommendation covers", () => {
