@@ -52,6 +52,19 @@ try {
       "bookDialogTitle",
     );
     assert.equal(await page.locator("#bookExtras").getAttribute("open"), null);
+    await page.locator("#bookExtras > summary").click();
+    assert.equal(
+      await page.locator("#metadataManager").evaluate((fieldset) => {
+        const style = getComputedStyle(fieldset);
+        return (
+          style.borderTopWidth !== "0px" &&
+          style.paddingTop === style.paddingBottom
+        );
+      }),
+      true,
+      "Data-page maintenance styles must not reach the Book metadata fieldset",
+    );
+    await page.locator("#bookExtras > summary").click();
     assert.equal(
       await page.locator("#priceCalculator").getAttribute("open"),
       null,

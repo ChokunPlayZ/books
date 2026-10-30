@@ -3,6 +3,7 @@ import {
   animagVariants,
   releaseItem,
   names,
+  parsePageCount,
   safeCoverUrl,
   safeProductUrl,
   textHtml,
@@ -112,6 +113,7 @@ export const animag: ScraperDefinition = {
             ),
             source: "Animag",
             authors: names(product.author),
+            pageCount: parsePageCount(product.numberOfPages),
             currency: offer?.priceCurrency || "THB",
             availability: offer?.availability || candidate.availability,
           };

@@ -35,7 +35,7 @@ export const yenpress: ScraperDefinition = {
   }: ScraperContext) {
     async function lookupYenPress_(canonical: string, refresh = false) {
       return scrapeCache.get(
-        "yenpress-isbn:v1:" + canonical,
+        "yenpress-isbn:v2:" + canonical,
         { maxAge: SCRAPE_TTL.isbn, refresh },
         async () => {
           const data = await searchYenPress_(await yenPressKey_(), {

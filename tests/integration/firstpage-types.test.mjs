@@ -145,7 +145,7 @@ test("old merged directories and incorrect cached releases/ISBN results are corr
     );
     const isbn = "9780140328721";
     await createScrapeCache(store.cache).get(
-      "publisher-isbn:v1:firstpage:" + isbn,
+      "publisher-isbn:v2:firstpage:" + isbn,
       { maxAge: 86400 },
       async () => ({
         publisherId: "firstpage",

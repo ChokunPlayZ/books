@@ -58,6 +58,7 @@ interface LibraryElements {
   bookDialogTitle: HTMLHeadingElement;
   bookEdition: HTMLSelectElement;
   bookExtras: HTMLDetailsElement;
+  pageCount: HTMLInputElement;
   bookForm: HTMLFormElement;
   bookList: HTMLElement;
   cancelBook: HTMLButtonElement;

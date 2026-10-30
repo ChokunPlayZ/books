@@ -2,6 +2,7 @@ import { attr, meta, textHtml } from "./html.ts";
 import { canonicalIsbn } from "./isbn.ts";
 import { splitKodanshaTitle } from "./titles.ts";
 import { safeCoverUrl } from "./urls.ts";
+import { parsePageCount } from "./page-count.ts";
 
 export function hanmotoBook(html: string, isbn: string) {
   const statedIsbn = canonicalIsbn(meta(html, "books:isbn"));
@@ -51,6 +52,12 @@ export function hanmotoBook(html: string, isbn: string) {
     publisher: attr(publishers || "", "data-book-publisher"),
     authors: [...new Set(authors)].join(", "),
     releaseDate: attr(published || "", "content"),
+    pageCount: parsePageCount(
+      attr(
+        tags.find((tag) => attr(tag, "itemprop") === "numberOfPages") || "",
+        "content",
+      ),
+    ),
     source: "Hanmoto",
     url: "https://www.hanmoto.com/bd/isbn/" + isbn,
     coverUrl,

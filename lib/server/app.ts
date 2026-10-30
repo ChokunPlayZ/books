@@ -13,7 +13,7 @@ type BookApplication = {
 const applicationGlobal = globalThis as typeof globalThis & {
   __bookCollectionApp?: BookApplication;
 };
-const API_VERSION = 3;
+const API_VERSION = 4;
 // Reopen the store when its in-memory methods change during development.
 const STORE_VERSION = 4;
 

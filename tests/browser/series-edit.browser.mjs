@@ -109,6 +109,7 @@ try {
   await input(0, "isbn").fill("0140328726");
   await input(0, "type").selectOption("LN (EN)");
   await input(0, "publisher").fill("Updated press");
+  await input(0, "pageCount").fill("260");
   await input(0, "note").fill("Updated notes, including =literal text");
   await input(0, "coverUrl").fill(
     "https://www.phoenixnext.com/media/catalog/product/cached-test.png",
@@ -265,6 +266,7 @@ try {
   assert.equal(saved[0].isbn, "0140328726");
   assert.equal(saved[0].type, "LN (EN)");
   assert.equal(saved[0].publisher, "Updated press");
+  assert.equal(saved[0].pageCount, 260);
   assert.equal(saved[0].note, "Updated notes, including =literal text");
   assert.equal(saved[1].volume, "");
   const afterExport = await (
@@ -285,6 +287,7 @@ try {
   assert.equal(await input(0, "price").inputValue(), "0");
   assert.equal(await input(1, "price").inputValue(), "");
   await details(0).click();
+  assert.equal(await input(0, "pageCount").inputValue(), "260");
   assert.equal(
     await input(0, "note").inputValue(),
     "Updated notes, including =literal text",

@@ -2,6 +2,7 @@ import { attr, textHtml } from "./html.ts";
 import { canonicalIsbn } from "./isbn.ts";
 import { safeCoverUrl, safeProductUrl } from "./urls.ts";
 import { splitBookTitle } from "./titles.ts";
+import { parsePageCount } from "./page-count.ts";
 
 export function yenPressSearchKey(html: string): string {
   const raw = /\bvar\s+_elastic\s*=\s*(\{[^;]+\});/.exec(html)?.[1];
@@ -77,7 +78,7 @@ export function yenPressBook(html: string, isbn: string, url: string) {
     const block = details.slice(starts[index].index, starts[index + 1]?.index);
     const fields = new Map<string, string>();
     for (const field of block.matchAll(
-      /<span\b[^>]*>\s*(Series|ISBN|Release Date|Imprint)\s*<\/span>\s*<p\b[^>]*>([\s\S]*?)<\/p>/gi,
+      /<span\b[^>]*>\s*(Series|ISBN|Release Date|Imprint|Page Count)\s*<\/span>\s*<p\b[^>]*>([\s\S]*?)<\/p>/gi,
     )) {
       const label = field[1].toLowerCase();
       if (!fields.has(label)) fields.set(label, textHtml(field[2]));
@@ -108,6 +109,7 @@ export function yenPressBook(html: string, isbn: string, url: string) {
       publisher: fields.get("imprint") || "Yen Press",
       authors: [...authors].join(", "),
       releaseDate: fields.get("release date") || "",
+      pageCount: parsePageCount(fields.get("page count")),
       source: "Yen Press",
       url,
       coverUrl: image

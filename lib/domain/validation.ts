@@ -1,6 +1,7 @@
 import { BOOK_APP, PUBLISHERS } from "./constants.ts";
 import { normalizeIsbn } from "./isbn.ts";
 import { safeCoverUrl, safePublisherUrl } from "./urls.ts";
+import { normalizePageCount } from "./page-count.ts";
 
 export function normalizeBook(b) {
   const values: (string | number)[] = BOOK_APP.fields.map(function (key) {
@@ -70,7 +71,11 @@ export function bookMetadata(input) {
     );
   if (input.publisherUrl && !publisherUrl)
     throw new Error("Use an HTTPS link on this publisher’s website.");
-  return { coverUrl, publisherUrl };
+  return {
+    coverUrl,
+    publisherUrl,
+    pageCount: normalizePageCount(input.pageCount),
+  };
 }
 
 export function seriesCatalogRequest(request) {

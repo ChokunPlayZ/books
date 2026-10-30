@@ -31,6 +31,13 @@
         "files": ["lib/domain/kodansha.ts"],
         "createdAt": "2026-10-29T17:53:34.525Z",
         "reason": "Codex: this server-side HTML parser inspects publisher img markup as text; it does not render an image element. Empty fallback input is validated and rejected by kodanshaCover."
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": ["app/styles/layout.css"],
+        "createdAt": "2026-10-30T03:00:01.505Z",
+        "reason": "Agent review: the pre-existing .book-spine border depicts a literal book spine rather than a card accent; this selector is unused by current components and client code. The page-count change only adds spacing between metadata fields."
       }
     ]
   }

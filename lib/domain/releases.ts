@@ -14,6 +14,7 @@ import {
 import { digest } from "./hash.ts";
 import { PUBLISHERS } from "./constants.ts";
 import { canonicalIsbn } from "./isbn.ts";
+import { parsePageCount } from "./page-count.ts";
 import { animagCategories, animagProducts, animagTotal } from "./animag.ts";
 import { lnwProducts, lnwTotal } from "./lnwshop.ts";
 import { lilyHousePage, lilyHouseTotal } from "./lilyhouse.ts";
@@ -240,6 +241,8 @@ export function cleanRelease(input) {
     throw new Error("Invalid release volume.");
   item.availability = String(input.availability || "").slice(0, 100);
   item.coverUrl = safeCoverUrl(input.coverUrl);
+  const pageCount = parsePageCount(input.pageCount);
+  if (pageCount !== "") item.pageCount = pageCount;
   if (p.id === "lilyhouse" && input.variantGroup) {
     item.variantGroup = true;
     item.special = true;
@@ -489,6 +492,8 @@ export function animagVariants(html: string, parentUrl: string) {
       offer?.price,
       product.isbn || product.gtin13 || product.gtin || product.sku,
     );
+    const pageCount = parsePageCount(product.numberOfPages);
+    if (pageCount !== "") item.pageCount = pageCount;
     item.coverUrl = safeCoverUrl(
       Array.isArray(product.image) ? product.image[0] : product.image,
       url,

@@ -520,6 +520,10 @@ select {
   font-weight: 600;
 }
 
+.metadata-manager > .field + .field {
+  margin-top: 14px;
+}
+
 .cover-editor {
   @apply flex;
   gap: 14px;

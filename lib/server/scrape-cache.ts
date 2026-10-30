@@ -52,7 +52,7 @@ export function createScrapeCache(cache: Cache) {
           .then((value) => {
             cache.put(
               key,
-              JSON.stringify({ value, checkedAt: Date.now() }),
+              JSON.stringify({ value, checkedAt: Date.now(), source, maxAge }),
               SCRAPE_TTL.retention,
             );
             return value;

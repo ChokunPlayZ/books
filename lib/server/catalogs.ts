@@ -18,6 +18,7 @@ import {
   safePublisherUrl,
   publisherKey,
   specialSet,
+  parsePageCount,
 } from "../domain.ts";
 import { publisherCovers } from "./publisher-covers.ts";
 import { createPriceFinder } from "./prices.ts";
@@ -119,19 +120,20 @@ export function createCatalogService(
     return catalog;
   }
   async function lookupIsbn(raw) {
-    const isbn = normalizeIsbn(raw);
+    const refresh = typeof raw === "object" && raw?.refresh === true;
+    const isbn = normalizeIsbn(typeof raw === "object" ? raw?.isbn : raw);
     if (!isbn) throw new Error("Enter or scan an ISBN first.");
     const canonical = canonicalIsbn(isbn);
 
-    const cached = cache.get("isbn:v14:" + canonical);
-    if (cached) return JSON.parse(cached);
+    const cached = cache.get("isbn:v15:" + canonical);
+    if (cached && !refresh) return JSON.parse(cached);
     const providers = scrapers.isbnProviders.filter((source) =>
       supportsIsbn(source, canonical),
     );
     // Start independent sources together, then keep the existing source preference
     // and warnings regardless of the order in which requests finish.
     const results = await Promise.allSettled(
-      providers.map((provider) => provider.lookupIsbn(canonical)),
+      providers.map((provider) => provider.lookupIsbn(canonical, refresh)),
     );
     const warnings = [];
     let details = null;
@@ -147,18 +149,36 @@ export function createCatalogService(
         break;
       }
     }
+    if (details) {
+      // Every lookup verifies this ISBN. Fill only the missing page count while
+      // retaining the preferred source's title, edition and other metadata.
+      const pageCount =
+        results
+          .filter((result) => result.status === "fulfilled" && result.value)
+          .map((result) => {
+            if (result.status !== "fulfilled") return "";
+            const book = result.value;
+            if (book.isbn && canonicalIsbn(book.isbn) !== canonical) return "";
+            return parsePageCount(book.pageCount);
+          })
+          .find((count) => count !== "") ?? "";
+      details = { ...details, pageCount };
+    }
+    if (!details && warnings.length && cached && refresh)
+      return { ...JSON.parse(cached), stale: true, warnings };
     const result = {
       isbn: isbn,
       found: !!details,
       details: details,
       warnings: warnings,
+      stale: false,
       searchUrl:
         "https://www.naiin.com/search-result?title=" +
         encodeURIComponent(canonical),
     };
     // Cache confirmed misses too; transient provider failures get a shorter TTL.
     cache.put(
-      "isbn:v14:" + canonical,
+      "isbn:v15:" + canonical,
       JSON.stringify(result),
       warnings.length ? SCRAPE_TTL.retry : SCRAPE_TTL.isbn,
     );

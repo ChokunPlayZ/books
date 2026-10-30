@@ -1,0 +1,316 @@
+.data-sections,
+.metadata-actions,
+.metadata-summary,
+.metadata-heading,
+.metadata-cache-toolbar,
+.metadata-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.data-sections {
+  gap: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+.data-sections a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  text-underline-offset: 4px;
+}
+.metadata-maintenance {
+  padding: 28px 0 36px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  margin-bottom: 24px;
+  scroll-margin-top: 100px;
+}
+#library-backups {
+  scroll-margin-top: 100px;
+}
+.metadata-heading {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.metadata-maintenance h2 {
+  font-size: 24px;
+  margin: 0 0 8px;
+}
+.metadata-maintenance h3 {
+  font-size: 18px;
+  margin: 0 0 8px;
+}
+.metadata-maintenance p {
+  margin: 0 0 16px;
+  line-height: 1.6;
+  max-width: 74ch;
+}
+.metadata-heading p,
+.metadata-crawl > p,
+.metadata-cache > p {
+  color: var(--muted);
+}
+.metadata-summary {
+  gap: 12px 24px;
+  padding: 20px 0 24px;
+  color: var(--muted);
+  font-size: 13px;
+  border-bottom: 1px solid var(--line);
+}
+.metadata-summary strong {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.metadata-crawl {
+  padding: 24px 0;
+  border-bottom: 1px solid var(--line);
+}
+.metadata-coverage {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  margin-bottom: 20px;
+}
+.metadata-crawl-fields,
+.metadata-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 16px;
+  margin: 16px 0;
+}
+.metadata-filters {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+.metadata-crawl-fields label,
+.metadata-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.metadata-maintenance select,
+.metadata-maintenance input[type="search"] {
+  width: 100%;
+  max-width: none;
+  min-height: 48px;
+  font-size: 16px;
+}
+.metadata-fill {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin: 20px 0;
+  font-size: 14px;
+  cursor: pointer;
+}
+.metadata-fill input {
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.metadata-fill small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.6;
+  max-width: 74ch;
+  font-size: 12px;
+}
+.metadata-actions {
+  gap: 8px;
+}
+.metadata-crawl > .hint {
+  margin-top: 12px;
+}
+.metadata-progress {
+  margin: 20px 0 0;
+}
+.metadata-progress progress {
+  width: 100%;
+  height: 8px;
+  accent-color: var(--primary);
+}
+.metadata-progress p {
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+.metadata-results {
+  margin-top: 20px;
+}
+.metadata-maintenance summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding: 12px 0;
+}
+.metadata-results ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.metadata-results li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+.metadata-results li span {
+  color: var(--muted);
+}
+.metadata-results li .metadata-failed {
+  color: var(--red);
+}
+.metadata-cache {
+  padding-top: 24px;
+}
+.metadata-cache-toolbar {
+  justify-content: space-between;
+  margin: 16px 0;
+}
+.metadata-cache-toolbar .check {
+  min-height: 44px;
+}
+.metadata-notice {
+  margin-top: 20px !important;
+  padding: 12px 14px;
+  background: var(--soft);
+  border-radius: 8px;
+}
+.metadata-confirm {
+  background: var(--surface-inset);
+  padding: 16px;
+  border-radius: 8px;
+  margin: 16px 0;
+}
+.metadata-records {
+  padding: 0;
+  list-style: none;
+  margin: 12px 0 0;
+}
+.metadata-record {
+  border-bottom: 1px solid var(--line);
+}
+.metadata-record summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.metadata-record summary::before {
+  content: "";
+  color: var(--primary);
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  margin: 0 7px 0 2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+}
+.metadata-record details[open] > summary::before {
+  transform: rotate(45deg);
+}
+.metadata-record-label {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 600;
+}
+.metadata-record-label small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.metadata-record-state {
+  color: var(--muted);
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.metadata-record-body {
+  padding: 0 0 20px 28px;
+}
+.metadata-record-body dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 32px;
+  font-size: 12px;
+  margin: 4px 0 16px;
+}
+.metadata-record-body dt {
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.metadata-record-body dd {
+  margin: 0;
+}
+.metadata-key {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  color: var(--muted);
+}
+.metadata-record-body pre {
+  max-height: 280px;
+  padding: 16px;
+  background: var(--surface-inset);
+  overflow: auto;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.metadata-record-body .btn {
+  margin-top: 12px;
+}
+.metadata-empty {
+  margin: 16px 0 !important;
+  padding: 24px 16px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+}
+.metadata-pagination {
+  justify-content: space-between;
+  margin-top: 16px;
+  font-size: 13px;
+}
+@media (max-width: 600px) {
+  .metadata-heading > .btn {
+    margin-top: 0;
+  }
+  .metadata-crawl-fields,
+  .metadata-filters {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .metadata-summary {
+    gap: 12px 20px;
+  }
+  .metadata-maintenance h2 {
+    font-size: 22px;
+  }
+  .metadata-record-body {
+    padding-left: 0;
+  }
+  .metadata-actions {
+    width: 100%;
+  }
+  .metadata-cache-toolbar {
+    gap: 4px;
+  }
+  .metadata-cache-toolbar .btn {
+    flex: 1;
+  }
+  .metadata-heading .btn {
+    width: auto;
+  }
+}

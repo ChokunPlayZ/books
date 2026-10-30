@@ -24,7 +24,7 @@ export const kodansha: ScraperDefinition = {
     async function search(raw: string, refresh = false) {
       const isbn = canonicalIsbn(raw);
       return context.scrapeCache.get(
-        "kodansha-isbn:v1:" + isbn,
+        "kodansha-isbn:v2:" + isbn,
         { maxAge: SCRAPE_TTL.isbn, refresh },
         async () => {
           const response = await context.requestRemote(searchUrl(isbn));

@@ -22,7 +22,7 @@ export function createIsbnSearch(
   return async (isbn: string, refresh = false): Promise<IsbnSearchResult> => {
     const url = options.url(isbn);
     const result = await context.scrapeCache.get(
-      "publisher-isbn:v1:" + options.id + ":" + isbn,
+      "publisher-isbn:v2:" + options.id + ":" + isbn,
       { maxAge: SCRAPE_TTL.isbn, refresh },
       async () => {
         const html = await context.fetchText(url, refresh, SCRAPE_TTL.isbn);

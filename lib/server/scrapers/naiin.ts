@@ -4,6 +4,7 @@ import {
   catalogSeriesKey,
   meta,
   names,
+  parsePageCount,
   publisherKey,
   releaseBundle,
   safeCoverUrl,
@@ -112,6 +113,15 @@ export const naiin: ScraperDefinition = {
           type: parsed.type,
           publisher: names(book.publisher) || candidate.PublisherName || "",
           authors: names(book.author) || candidate.AuthorName || "",
+          pageCount:
+            parsePageCount(book.numberOfPages) ||
+            parsePageCount(
+              textHtml(
+                /<label\b[^>]*>\s*จำนวนหน้า\s*<\/label>\s*<p\b[^>]*>([\s\S]*?)<\/p>/i.exec(
+                  page,
+                )?.[1] || "",
+              ),
+            ),
           source: "Naiin",
           price: Number.isFinite(price) && price >= 0 ? price : "",
           currency: "THB",

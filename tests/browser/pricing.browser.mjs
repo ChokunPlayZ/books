@@ -109,6 +109,7 @@ try {
       "price",
       "date",
       "note",
+      "pageCount",
     ].sort(),
   );
   for (const field of [base, discount, sale])

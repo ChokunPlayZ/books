@@ -2,6 +2,7 @@ import { canonicalIsbn } from "./isbn.ts";
 import { meta, structuredBooks, textHtml } from "./html.ts";
 import { releaseItem } from "./releases.ts";
 import { safeProductUrl, safeCoverUrl } from "./urls.ts";
+import { parsePageCount } from "./page-count.ts";
 
 // Read the main product's labeled barcode, never a recommendation's ISBN.
 export function phoenixBook(html: string, isbn: string, productUrl: string) {
@@ -38,6 +39,7 @@ export function phoenixBook(html: string, isbn: string, productUrl: string) {
       canonical,
     ),
     isbn: canonical,
+    pageCount: parsePageCount(product?.numberOfPages),
     currency: meta(html, "product:price:currency") || "THB",
     availability:
       meta(html, "product:availability") || offer?.availability || "",

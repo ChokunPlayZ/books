@@ -2,6 +2,7 @@ import { createCatalogService, knownBookCoverUrl } from "./catalogs.ts";
 import { canonicalIsbn, volumeCoverKey } from "../domain.ts";
 import { createAnimeService } from "./anime.ts";
 import { createSeasonalDiscoveryService } from "./seasonal-discovery.ts";
+import { createMetadataService } from "./metadata.ts";
 
 async function eachLimit(items, action, limit = 4) {
   let cursor = 0;
@@ -122,5 +123,5 @@ export function createApplicationApi(
       book.coverId = (await covers.ensure(book.coverUrl)).id;
     return store.api.saveBook({ ...request, book });
   };
-  return api;
+  return { ...api, ...createMetadataService(store, catalogs) };
 }

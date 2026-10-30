@@ -45,6 +45,7 @@ export function mountCollection({
     "price",
     "date",
     "note",
+    "pageCount",
   ] as const;
 
   const COLLECTION_FILTERS = [
@@ -1978,6 +1979,7 @@ export function mountCollection({
     series?: string;
     volume?: number | string;
     coverId?: string;
+    pageCount?: number | "";
   }) {
     const title = details.title || details.series || "Untitled book",
       preview = node("div", "book-preview"),
@@ -1995,6 +1997,8 @@ export function mountCollection({
           : "Volume not provided",
       ),
     );
+    if (details.pageCount)
+      info.append(node("p", "hint", details.pageCount + " pages"));
     preview.append(cover, info);
     return preview;
   }
@@ -2979,6 +2983,7 @@ export function mountCollection({
       isbn: item.isbn || item.searchedIsbn,
       type: item.type || "Other",
       publisher: item.publisher,
+      pageCount: item.pageCount,
     });
     // A publisher listing identifies this edition, including its language.
     $("type").value = item.type || "Other";
@@ -3589,6 +3594,8 @@ export function mountCollection({
           $("volume").value = d.volume;
         if (d.type && !state.formSeries && !state.editing && !state.typeTouched)
           $("type").value = d.type;
+        if (d.pageCount && !$("pageCount").value)
+          $("pageCount").value = String(d.pageCount);
         fillListedPrice(d);
         state.lookupMatched = !!$("series").value.trim();
         state.lookupDetailsExpanded = false;

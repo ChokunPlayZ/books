@@ -34,7 +34,12 @@ const service = createApplicationApi(store, covers, async (url) => {
         : '<span class="tsk-all">0</span>',
     );
   if (url.includes("firstpagepro.com/product"))
-    return new Response(fixture("firstpage-isbn-product.html"));
+    return new Response(
+      fixture("firstpage-isbn-product.html").replace(
+        '"description": ""',
+        '"numberOfPages": 192, "description": ""',
+      ),
+    );
   if (url.includes("phoenixnext.com/catalogsearch"))
     return new Response(fixture("phoenix.html"));
   if (url.includes("phoenixnext.com/"))
@@ -158,6 +163,10 @@ try {
   assert.equal(await page.locator("#regularPrice").inputValue(), "180");
   await page.locator("#toggleLookupDetails").click();
   assert.equal(
+    await page.getByLabel("Pages", { exact: true }).inputValue(),
+    "192",
+  );
+  assert.equal(
     await page
       .getByRole("link", { name: "Search this ISBN at First Page Pro ↗" })
       .getAttribute("href"),
@@ -188,6 +197,7 @@ try {
   assert.equal(saved.publisher, "First Page Pro");
   assert.equal(saved.source, "");
   assert.equal(saved.price, "");
+  assert.equal(saved.pageCount, 192);
   await page.locator("#checkBookButton").click();
   await page.locator("#checkScanButton").click();
   await page

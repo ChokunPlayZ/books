@@ -83,6 +83,7 @@ function objectBook(input, warnings, location) {
       ...data,
       coverUrl: input.coverUrl,
       publisherUrl: input.publisherUrl,
+      pageCount: input.pageCount,
     }),
   );
 }

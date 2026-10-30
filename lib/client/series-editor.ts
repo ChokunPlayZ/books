@@ -4,6 +4,7 @@ import type { StoredBook } from "../types.ts";
 
 const labels = {
   volume: "Volume number",
+  pageCount: "Pages",
   status: "Reading status",
   date: "Purchase date",
   price: "Price paid (฿)",
@@ -66,11 +67,11 @@ export function createSeriesEditor({
   function fieldChanged(row: EditRow, field: Field) {
     const input = row.inputs[field];
     const value = input.value.trim();
-    if (field === "price" || field === "volume")
+    if (field === "price" || field === "volume" || field === "pageCount")
       return (
         input.validity.badInput ||
         (value === ""
-          ? row.book[field] !== ""
+          ? row.book[field] != null && row.book[field] !== ""
           : row.book[field] === "" || Number(value) !== row.book[field])
       );
     return value !== row.book[field];
@@ -180,7 +181,7 @@ export function createSeriesEditor({
       wrapper.classList.add("span-2");
     } else {
       input = node("input");
-      input.type = ["volume", "price"].includes(field)
+      input.type = ["volume", "price", "pageCount"].includes(field)
         ? "number"
         : field === "date"
           ? "date"
@@ -193,6 +194,11 @@ export function createSeriesEditor({
         input.step = "any";
         input.inputMode = "decimal";
         input.placeholder = field === "volume" ? "Unnumbered" : "Not recorded";
+      } else if (field === "pageCount") {
+        input.min = "1";
+        input.step = "1";
+        input.inputMode = "numeric";
+        input.placeholder = "Not recorded";
       } else if (field === "date") {
         input.min = "1900-01-01";
         input.max = "9999-12-31";
@@ -211,7 +217,7 @@ export function createSeriesEditor({
     }
     input.id = id;
     input.name = field;
-    input.value = String(book[field]);
+    input.value = String(book[field] ?? "");
     inputs[field] = input;
     wrapper.append(label, input);
     return wrapper;
@@ -267,6 +273,7 @@ export function createSeriesEditor({
           "isbn",
           "type",
           "publisher",
+          "pageCount",
           "note",
           "coverUrl",
           "publisherUrl",

@@ -3,6 +3,7 @@ import { canonicalIsbn } from "./isbn.ts";
 import { releaseItem } from "./releases.ts";
 import { safeCoverUrl, safeProductUrl } from "./urls.ts";
 import type { Release } from "../types.ts";
+import { parsePageCount } from "./page-count.ts";
 
 export const KODANSHA = "https://www.kodansha.co.jp";
 export const KODANSHA_RELEASES = KODANSHA + "/comic/new-releases/p";
@@ -153,6 +154,7 @@ export function kodanshaBook(html: string, rawIsbn: string, rawUrl: string) {
     ...item,
     isbn,
     source: "Kodansha JP",
+    pageCount: parsePageCount(fields.get("ページ数")),
     authors: [...new Set(authors)].join(", "),
     releaseDate: date
       ? `${date[1]}-${date[2].padStart(2, "0")}-${date[3].padStart(2, "0")}`

@@ -282,14 +282,26 @@ export default function BookDialog() {
               data-lookup-detail
               open
             >
-              <summary>Cover, notes &amp; duplicate copy</summary>
+              <summary>Pages, cover, notes &amp; duplicate copy</summary>
               <div className="form-grid">
                 <fieldset
                   id="metadataManager"
                   className="metadata-manager span-2"
                   data-series-detail
                 >
-                  <legend>Cover &amp; publisher</legend>
+                  <legend>Book metadata</legend>
+                  <div className="field">
+                    <label htmlFor="pageCount">Pages</label>
+                    <input
+                      id="pageCount"
+                      name="pageCount"
+                      type="number"
+                      inputMode="numeric"
+                      min="1"
+                      step="1"
+                      placeholder="Not recorded"
+                    />
+                  </div>
                   <div className="field">
                     <label htmlFor="publisherUrl">Publisher page</label>
                     <input

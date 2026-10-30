@@ -69,6 +69,7 @@ export type BookDetails = {
   title: string;
   publisher?: string;
   authors?: string;
+  pageCount?: number | "";
   source?: string;
   url?: string;
   coverUrl?: string;

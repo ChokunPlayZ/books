@@ -4,6 +4,8 @@ The Next.js server fetches publisher pages using native `fetch`. `lib/server/cat
 
 Requests have a 15-second timeout and an 8 MB response bound. Source and redirect allowlists reject unexpected hosts and credentials. External markup is parsed as data and never executed. The browser displays titles as text.
 
+ISBN metadata includes an optional page count from Google Books, Open Library, Naiin, Kinokuniya, Yen Press and Japanese publisher records, plus matching structured product data when provided. Counts belong to the verified ISBN and edition; unknown, zero and malformed counts stay blank. When the preferred source omits pages, another successful lookup for the same ISBN can supply them without replacing the preferred title or other details. The Pages field can be edited or cleared in Book metadata and the series volume editor, and is preserved in JSON backups. Existing copies can fill a missing count using ISBN lookup in the book form.
+
 Publisher requests use the following freshness windows, defined in `SCRAPE_TTL`:
 
 | Data                                            | Reuse window |
@@ -18,6 +20,18 @@ Publisher requests use the following freshness windows, defined in `SCRAPE_TTL`:
 Successful catalog and page/API responses are retained for 30 days and survive restarts. Requests for the same resource share one in-flight operation, including concurrent refreshes. Shared results are copied before series-specific annotation. Opening the cover picker reuses catalogs and gallery pages instead of forcing another scrape. Stored image bytes remain permanent.
 
 Explicit `refresh: true` bypasses fresh catalog and page/API entries. Failed requests impose a durable 15-minute cooldown on that resource, including explicit refreshes, so repeated views or restarts cannot hammer an unavailable source. Failed cover downloads use the same durable cooldown per image URL, so loading cached listings does not repeatedly wait on unavailable images. Stored images remain available during a cooldown. HTTP errors and invalid JSON are not cached as successful responses. Failed catalog refreshes keep previous records and their original check time with a stale warning. Saved releases and explicit series links are independent database records, so cache expiry does not remove them. SQLite owns this cache; outgoing `fetch` still uses `no-store` to avoid an additional framework cache overriding refresh behavior.
+
+## Metadata and cache maintenance
+
+Open **Data & backups → Metadata & cache** to inspect cached records, search by ISBN, title, URL or key, filter categories, and preview cached content. Previews are displayed as text and limited to 16,000 characters. The list distinguishes expired retention from the source-specific freshness windows above; a retained response may already need a new check. New page/API cache records include their source identifier and original check time, while older opaque keys remain readable until fetched again.
+
+**Purge expired** removes expired records matching the active filters. **Purge filtered records** asks for confirmation, then removes all matching disposable entries across every page. An expanded record can also be purged individually. Purging keeps library books, removed books, saved releases, explicit catalog links, and stored image bytes. Retry cooldowns for scrapers, image downloads, and AniList are protected even when purging the entire cache. Other requests already in progress can populate cache entries again.
+
+**Re-crawl sources** supports unique owned or previously cached ISBNs, linked and previously checked series, and previously checked release feeds, publisher categories and directories. Choose one source or a source type, or run the whole queue. Requests are sequential, reuse the existing allowlists and timeouts, and bypass both the high-level metadata cache and underlying page/API freshness checks. Failed source cooldowns still apply. Failed refreshes retain previous successful catalog results and, when still retained, ISBN results, with warnings. The queue reports each source's outcome and can stop after the active source. Keep the page open; the remaining queue is not a background job.
+
+The optional **Fill missing book metadata** checkbox defaults to off. When enabled, exact ISBN matches can fill blank page counts, cover URLs and publisher links on owned copies. It preserves populated fields, series names, editions, purchases, reading state and notes. Books without an ISBN and removed books are excluded. Generic provider titles never rename collection records. Existing duplicate copies share one lookup and keep their separate records.
+
+`lib/server/metadata.ts` implements `getMetadataOverview`, `getMetadataCacheEntry`, `purgeMetadataCache` and `recrawlMetadata` through the authenticated, same-origin RPC route. `lookupIsbn` continues to accept a plain ISBN and additionally accepts `{ isbn, refresh: true }` for explicit maintenance. No cache purge or crawl runs automatically when opening the management page.
 
 ## Publisher ISBN search
 

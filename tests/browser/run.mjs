@@ -10,6 +10,7 @@ import { chromium } from "playwright";
 import { createCoverService, coverDigest } from "../../lib/server/covers.ts";
 import { openStore } from "../../lib/server/store.ts";
 import { seriesPath } from "../../lib/domain/navigation.ts";
+import { seedMetadataMaintenance } from "../helpers/metadata.mjs";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const directory = mkdtempSync(join(tmpdir(), "book-collection-e2e-"));
@@ -42,8 +43,9 @@ async function port() {
   await new Promise((resolve) => socket.close(resolve));
   return value;
 }
-async function start(name, extra = {}) {
+async function start(name, extra = {}, seed) {
   const seeded = openStore(join(directory, `${name}.sqlite`));
+  if (seed) seed(seeded);
   const seedCovers = createCoverService(seeded, {
     fetchImpl: async () => new Response(coverBytes),
   });
@@ -118,6 +120,13 @@ try {
   const post = (body) => page.request.post(url + "/api/rpc", { data: body });
   assert.equal((await post({ name: "getCollection" })).status(), 401);
   assert.equal((await page.request.get(url + "/api/backup")).status(), 401);
+  for (const name of [
+    "getMetadataOverview",
+    "getMetadataCacheEntry",
+    "purgeMetadataCache",
+    "recrawlMetadata",
+  ])
+    assert.equal((await post({ name, arg: {} })).status(), 401);
   assert.equal((await page.request.get(url + coverPath)).status(), 401);
   assert.equal((await page.request.post(url + "/api/import")).status(), 401);
   await page.goto(url);
@@ -268,6 +277,7 @@ try {
   await page.locator("#pullPublisherCovers").click();
   await page.locator(".cover-choice").nth(1).waitFor();
   await page.locator(".cover-choice").first().click();
+  await page.getByLabel("Pages", { exact: true }).fill("208");
   assert.equal(await page.locator("#coverUrl").inputValue(), alternateCover);
   assert.equal(
     await page.locator("#metadataPublisherLink").getAttribute("href"),
@@ -279,6 +289,9 @@ try {
       .evaluate((dialog) => dialog.scrollWidth <= dialog.clientWidth),
     true,
   );
+  await page.locator("#pageCount").evaluate((input) => {
+    input.closest(".dialog-body").scrollTop -= 60;
+  });
   await page.screenshot({
     path: join(root, "outputs", "next-metadata-phone.png"),
   });
@@ -293,6 +306,7 @@ try {
   await page.locator("#pullPublisherCovers").click();
   await page.locator(".cover-choice").nth(1).click();
   await page.locator("#note").fill("Selected publisher cover");
+  await page.getByLabel("Pages", { exact: true }).fill("208");
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.locator("#metadataManager").scrollIntoViewIfNeeded();
   await page.screenshot({
@@ -308,6 +322,7 @@ try {
   assert.equal(metadataBook.coverUrl, coverSource);
   assert.equal(metadataBook.publisherUrl, publisherPage);
   assert.equal(metadataBook.note, "Selected publisher cover");
+  assert.equal(metadataBook.pageCount, 208);
   await page.locator(".book-row img").waitFor();
   assert.equal(
     await page.locator(".book-row img").getAttribute("src"),
@@ -354,6 +369,14 @@ try {
   await browser.close();
   browser = null;
 
+  await runBrowserScenario(
+    "metadata-management.browser.mjs",
+    await start(
+      "metadata-maintenance",
+      { BOOKS_ALLOW_UNAUTHENTICATED: "true" },
+      seedMetadataMaintenance,
+    ),
+  );
   const fixturesUrl = await start("ui-regressions", {
     BOOKS_ALLOW_UNAUTHENTICATED: "true",
   });
@@ -418,7 +441,12 @@ try {
     "lilyhouse.browser.mjs",
     "navigation.browser.mjs",
   ])
-    await runBrowserScenario(name, fixturesUrl);
+    await runBrowserScenario(
+      name,
+      name === "publishers.browser.mjs"
+        ? await start("publishers", { BOOKS_ALLOW_UNAUTHENTICATED: "true" })
+        : fixturesUrl,
+    );
   await runBrowserScenario(
     "yenpress-publisher.browser.mjs",
     await start("yenpress-publisher", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),

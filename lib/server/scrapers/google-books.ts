@@ -1,4 +1,4 @@
-import { canonicalIsbn, safeCoverUrl } from "../../domain.ts";
+import { canonicalIsbn, safeCoverUrl, parsePageCount } from "../../domain.ts";
 import type { ScraperContext, ScraperDefinition } from "./types.ts";
 type GoogleBooksResponse = {
   items?: {
@@ -6,6 +6,7 @@ type GoogleBooksResponse = {
       title?: string;
       publisher?: string;
       authors?: string[];
+      pageCount?: number;
       industryIdentifiers?: { identifier?: string }[];
       imageLinks?: { thumbnail?: string; smallThumbnail?: string };
     };
@@ -19,11 +20,12 @@ export const googleBooks: ScraperDefinition = {
   isbnWarning: "Google Books is unavailable right now.",
   create({ fetchJson: fetchJson_ }: ScraperContext) {
     return {
-      lookupIsbn: async (canonical) => {
+      lookupIsbn: async (canonical, refresh = false) => {
         const data = await fetchJson_<GoogleBooksResponse>(
           "https://www.googleapis.com/books/v1/volumes?q=isbn:" +
             encodeURIComponent(canonical) +
             "&maxResults=5",
+          refresh,
         );
         const found = (data.items || []).find(function (item) {
           return ((item.volumeInfo || {}).industryIdentifiers || []).some(
@@ -38,6 +40,7 @@ export const googleBooks: ScraperDefinition = {
           title: v.title || "",
           publisher: v.publisher || "",
           authors: (v.authors || []).join(", "),
+          pageCount: parsePageCount(v.pageCount),
           source: "Google Books",
           coverUrl: safeCoverUrl(
             v.imageLinks?.thumbnail || v.imageLinks?.smallThumbnail,

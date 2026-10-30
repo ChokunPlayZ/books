@@ -23,6 +23,7 @@ export type Book = {
   note: string;
   coverUrl: string;
   publisherUrl: string;
+  pageCount?: number | "";
   coverId?: string;
 };
 
@@ -57,6 +58,7 @@ export type Release = {
   url: string;
   isbn: string;
   price: number | "";
+  pageCount?: number | "";
   special: boolean;
   bundle: boolean;
   availability: string;

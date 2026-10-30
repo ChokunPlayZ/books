@@ -83,7 +83,7 @@ export function openStore(
   );
   // Add subsequent schema versions here; startup never drops or reseeds user data.
   const version = Number(db.prepare("PRAGMA user_version").get().user_version);
-  if (version > 3) {
+  if (version > 4) {
     db.close();
     throw new Error("This database needs a newer version of Book Collection.");
   }
@@ -128,6 +128,13 @@ export function openStore(
       PRAGMA user_version=3;
       COMMIT;
     `);
+  if (version < 4)
+    db.exec(`
+      BEGIN IMMEDIATE;
+      ALTER TABLE books ADD COLUMN page_count INTEGER CHECK (page_count IS NULL OR page_count > 0);
+      PRAGMA user_version=4;
+      COMMIT;
+    `);
   const run = (sql: string, ...args: SQLInputValue[]) =>
     db.prepare(sql).run(...args);
   const all = <T = DatabaseRow>(sql: string, ...args: SQLInputValue[]) =>
@@ -151,6 +158,7 @@ export function openStore(
     ) as Book;
     data.coverUrl = row.cover_url;
     data.publisherUrl = row.publisher_url;
+    data.pageCount = row.page_count == null ? "" : Number(row.page_count);
     return {
       ...data,
       coverId: row.cover_id || "",
@@ -241,10 +249,11 @@ export function openStore(
     if (coverId && !covers.get(coverId))
       throw new AppError("Choose an available stored cover.");
     run(
-      "UPDATE books SET cover_url=?,publisher_url=?,cover_id=? WHERE id=?",
+      "UPDATE books SET cover_url=?,publisher_url=?,cover_id=?,page_count=? WHERE id=?",
       metadata.coverUrl,
       metadata.publisherUrl,
       coverId || null,
+      metadata.pageCount === "" ? null : metadata.pageCount,
       id,
     );
   }
@@ -343,6 +352,7 @@ export function openStore(
         coverUrl: request.book.coverUrl ?? existing?.cover_url ?? "",
         publisherUrl:
           request.book.publisherUrl ?? existing?.publisher_url ?? "",
+        pageCount: request.book.pageCount ?? existing?.page_count ?? "",
       }),
     );
     if (request.book.coverId !== undefined) data.coverId = request.book.coverId;
@@ -721,6 +731,7 @@ export function openStore(
               ...fields.filter((field) => field !== "series"),
               "coverUrl",
               "publisherUrl",
+              "pageCount",
             ]
               .filter((field) => Object.hasOwn(change.book, field))
               .map((field) => [field, change.book[field]]),

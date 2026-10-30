@@ -2,6 +2,7 @@ import { attr, names, structuredBooks, textHtml } from "./html.ts";
 import { canonicalIsbn } from "./isbn.ts";
 import { safeCoverUrl } from "./urls.ts";
 import { splitBookTitle } from "./titles.ts";
+import { parsePageCount } from "./page-count.ts";
 
 export function kinokuniyaBook(html: string, isbn: string) {
   const fields = new Map<string, string>();
@@ -52,6 +53,7 @@ export function kinokuniyaBook(html: string, isbn: string) {
     publisher: fields.get("publisher") || names(product.brand),
     authors: [...authors].filter(Boolean).join(", "),
     releaseDate: fields.get("publication date") || "",
+    pageCount: parsePageCount(fields.get("pages")),
     source: "Kinokuniya",
     price: Number.isFinite(price) && price >= 0 ? price : ("" as const),
     currency: offer?.priceCurrency || "THB",

@@ -38,13 +38,19 @@ test("volume metadata survives restart, edits, trash, restore and JSON backup im
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const path = join(directory, "books.sqlite");
   let store = openStore(path);
-  save(store, { ...book, coverUrl: image("chosen"), publisherUrl: product });
+  save(store, {
+    ...book,
+    coverUrl: image("chosen"),
+    publisherUrl: product,
+    pageCount: 208,
+  });
   store.close();
   store = openStore(path);
   try {
     let volume = store.api.getCollection().books[0];
     assert.equal(volume.coverUrl, image("chosen"));
     assert.equal(volume.publisherUrl, product);
+    assert.equal(volume.pageCount, 208);
     const service = createCatalogService(store, () =>
       assert.fail("Manual covers must not use the network"),
     );
@@ -59,6 +65,11 @@ test("volume metadata survives restart, edits, trash, restore and JSON backup im
     );
     volume = store.api.getCollection().books[0];
     assert.equal(volume.coverUrl, image("chosen"));
+    assert.equal(
+      volume.pageCount,
+      208,
+      "Edits from older clients preserve pages",
+    );
     const removed = store.api.removeBook({
       row: volume.row,
       token: volume.token,
@@ -66,6 +77,7 @@ test("volume metadata survives restart, edits, trash, restore and JSON backup im
     });
     const backup = store.exportData();
     assert.equal(backup.trash[0].book.coverUrl, image("chosen"));
+    assert.equal(backup.trash[0].book.pageCount, 208);
     const restored = openStore(":memory:");
     try {
       const plan = parseImport(
@@ -79,6 +91,7 @@ test("volume metadata survives restart, edits, trash, restore and JSON backup im
         requestId: "metadata_restore_1",
       });
       assert.equal(restored.api.getCollection().books[0].publisherUrl, product);
+      assert.equal(restored.api.getCollection().books[0].pageCount, 208);
       assert.equal(
         restored.api.getCollection().books[0].coverUrl,
         image("chosen"),
@@ -91,8 +104,13 @@ test("volume metadata survives restart, edits, trash, restore and JSON backup im
       requestId: "metadata_restore_2",
     });
     volume = store.api.getCollection().books[0];
-    save(store, { ...book, coverUrl: "", publisherUrl: "" }, volume);
+    save(
+      store,
+      { ...book, coverUrl: "", publisherUrl: "", pageCount: "" },
+      volume,
+    );
     assert.equal(store.api.getCollection().books[0].coverUrl, "");
+    assert.equal(store.api.getCollection().books[0].pageCount, "");
   } finally {
     store.close();
   }
@@ -104,20 +122,28 @@ test("version 1 databases migrate without losing books and invalid metadata roll
   let store = openStore(path);
   save(store, book);
   store.db.exec(
-    "ALTER TABLE books DROP COLUMN cover_id; DROP TABLE cover_sources; DROP TABLE covers; ALTER TABLE books DROP COLUMN cover_url; ALTER TABLE books DROP COLUMN publisher_url; PRAGMA user_version=1;",
+    "ALTER TABLE books DROP COLUMN page_count; ALTER TABLE books DROP COLUMN cover_id; DROP TABLE cover_sources; DROP TABLE covers; ALTER TABLE books DROP COLUMN cover_url; ALTER TABLE books DROP COLUMN publisher_url; PRAGMA user_version=1;",
   );
   store.close();
   store = openStore(path);
   try {
-    assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 3);
+    assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 4);
     const volume = store.api.getCollection().books[0];
     assert.equal(volume.series, book.series);
     assert.equal(volume.coverUrl, "");
+    assert.equal(volume.pageCount, "");
     for (const data of [
       { coverUrl: "https://evil.test/cover.jpg" },
       { publisherUrl: "javascript:alert(1)" },
       { publisherUrl: "https://www.phoenixnext.com.evil.test/book.html" },
       { publisherUrl: "https://www.firstpagepro.com/product/1" },
+      { pageCount: -1 },
+      { pageCount: 0 },
+      { pageCount: 1.5 },
+      { pageCount: "many" },
+      { pageCount: true },
+      { pageCount: [] },
+      { pageCount: Number.MAX_SAFE_INTEGER + 1 },
     ])
       assert.throws(() => save(store, { ...book, ...data }, volume));
     assert.equal(store.api.getCollection().books[0].token, volume.token);

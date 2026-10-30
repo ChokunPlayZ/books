@@ -3,14 +3,21 @@ import { useState } from "react";
 import Icon from "./Icon";
 import LibraryBrand from "./LibraryBrand";
 import ThemeToggle from "./ThemeToggle";
+import MetadataManager from "./MetadataManager";
+import type { MetadataOverview } from "../lib/metadata";
 import type { ImportResult, ImportReview } from "../lib/types";
 
 type DataManagerProps = {
   counts: { books: number; trash: number; savedReleases: number };
   canSignOut: boolean;
+  metadata: MetadataOverview;
 };
 
-export default function DataManager({ counts, canSignOut }: DataManagerProps) {
+export default function DataManager({
+  counts,
+  canSignOut,
+  metadata,
+}: DataManagerProps) {
   const [file, setFile] = useState<File | null>(null),
     [review, setReview] = useState<ImportReview | null>(null),
     [result, setResult] = useState<ImportResult | null>(null),
@@ -69,7 +76,8 @@ export default function DataManager({ counts, canSignOut }: DataManagerProps) {
             Data &amp; backups<span className="heading-dot">.</span>
           </h1>
           <p className="intro">
-            Your stories, safely kept. Bring them with you wherever you go.
+            Manage source metadata, maintain your cache, and keep a copy of your
+            library.
           </p>
         </div>
         <div className="data-overview" aria-label="Library records">
@@ -83,7 +91,12 @@ export default function DataManager({ counts, canSignOut }: DataManagerProps) {
             <strong>{counts.savedReleases}</strong> saved releases
           </span>
         </div>
-        <div className="data-grid">
+        <nav className="data-sections" aria-label="Data management">
+          <a href="#metadata-maintenance">Metadata &amp; cache</a>
+          <a href="#library-backups">Backups &amp; import</a>
+        </nav>
+        <MetadataManager initial={metadata} />
+        <div id="library-backups" className="data-grid">
           <section className="data-card backup-card">
             <span className="data-icon">
               <Icon name="download" />

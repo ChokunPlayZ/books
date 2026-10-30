@@ -11,7 +11,7 @@ import DataManager from "../../components/DataManager";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export default async function DataPage() {
-  const { store } = getApp();
+  const { store, api } = getApp();
   if (!hasSession(store, (await cookies()).get(SESSION_COOKIE)?.value))
     redirect("/login");
   const data = store.api.getCollection();
@@ -23,6 +23,7 @@ export default async function DataPage() {
         savedReleases: data.savedReleases.length,
       }}
       canSignOut={passwordRequired()}
+      metadata={await api.getMetadataOverview()}
     />
   );
 }

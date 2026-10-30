@@ -18,7 +18,7 @@ export const kinokuniya: ScraperDefinition = {
   create({ scrapeCache, requestRemote }: ScraperContext) {
     async function lookupKinokuniya_(canonical: string, refresh = false) {
       return scrapeCache.get(
-        "kinokuniya-isbn:v2:" + canonical,
+        "kinokuniya-isbn:v3:" + canonical,
         { maxAge: SCRAPE_TTL.isbn, refresh },
         async () => {
           const response = await requestRemote(
