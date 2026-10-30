@@ -13,6 +13,7 @@ import {
   textHtml,
 } from "../../domain.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
+import { ISBN_GROUP_PREFIXES } from "../../domain/isbn.ts";
 import type {
   BookDetails,
   ScraperContext,
@@ -28,6 +29,7 @@ export const naiin: ScraperDefinition = {
     searchUrl: (isbn) => "https://www.naiin.com/search-result?title=" + isbn,
   },
   isbnPriority: 10,
+  isbnPrefixes: ISBN_GROUP_PREFIXES.thai,
   isbnWarning:
     "Naiin is unavailable right now. You can still search it using the link below.",
   coverPriority: 10,

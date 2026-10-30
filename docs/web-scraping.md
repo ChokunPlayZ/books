@@ -164,6 +164,21 @@ Special-edition detection recognizes markers including `Special Set`, `Complete 
 
 `safeProductUrl()` accepts only the configured publishers' HTTPS product URL patterns. `getPublisherReleases()` accepts a known publisher ID rather than a caller-supplied fetch URL. Saved releases are validated again by `cleanRelease()`. Phoenix and First Page Pro results are deduplicated by release ID after pagination; the browser also merges all feed and saved records by ID, preferring a current feed record over its saved snapshot.
 
+## ISBN source selection
+
+Automatic metadata lookup, supplementary ISBN cover choices and price comparison select sources using canonical ISBN-13 prefixes. A source declares optional `isbnPrefixes` alongside its capabilities; omitted prefixes mean the source serves multiple countries/languages. ISBN-10 inputs use the same routing after conversion.
+
+| Registration group                                         | Applicable local sources                                     |
+| ---------------------------------------------------------- | ------------------------------------------------------------ |
+| Thailand: `978-611`, `978-616`, `978-974`                  | Naiin, Yaakz, First Page Pro, Animag, DEXpress, Phoenix Next |
+| English-speaking: `978-0`, `978-1`; United States: `979-8` | Yen Press                                                    |
+| Japan: `978-4`                                             | Hanmoto; Kodansha JP additionally requires `978406`          |
+| Other groups                                               | Multilingual sources only                                    |
+
+Kinokuniya, Google Books and Open Library remain eligible for every group, within their supported capabilities. In particular, `979-10`/`11`/`12`/`13` do not match the English `978-1` group. The International ISBN Agency documents the distinction between [English-speaking `978-0`/`978-1` and US `979-8`](https://www.isbn-international.org/index.php/content/changes-united-states-isbn-prefixes); Thailand's National Library documents its [country registration groups](https://www.nlt.go.th/storage/contents/file/TjLGCPVzFahIvMgSlxnKfrwbyg9mGhWLk19PvhR8.pdf).
+
+Applicable metadata sources start concurrently and retain their configured preference and warning order. Skipped sources make no request and contribute no outage warning or price-comparison status. Unknown groups retain the multilingual fallbacks. Supplementary cover lookups without an ISBN retain their existing title-based matching. Explicit publisher searches and product/series links use the selected publisher. The aggregate ISBN cache uses a new version so previously cached unrelated warnings are discarded.
+
 ## Naiin ISBN lookup
 
 `lookupIsbn()` first validates the input and converts equivalent ISBN-10/ISBN-13 values to a canonical ISBN-13 for lookup and caching. `lookupNaiin_()` then:
@@ -174,9 +189,9 @@ Special-edition detection recognizes markers including `Special Set`, `Complete 
 4. Parses `application/ld+json` script contents as JSON, including arrays and `@graph` records. A candidate must have an exact canonical ISBN match in `isbn`, `gtin13`, or `sku`, or in the page's `book:isbn` meta tag. A search result alone is insufficient.
 5. Returns the matched title, parsed series/volume/type, publisher, authors, product URL, and `book:release_date` when present. Publisher/author names can fall back to the search record after the detail page confirms the ISBN.
 
-If Naiin has no confirmed candidate, the app tries Yaakz, Yen Press, Kinokuniya, Google Books, then Open Library. Yaakz verifies the ISBN of an individual product variant. Google Books also requires a matching ISBN in `industryIdentifiers`; Open Library is queried by the canonical ISBN key. Naiin and Kinokuniya search links remain available even if all metadata providers fail. Suggested details are reviewed in the form before saving.
+For Thai registration groups, metadata preference is Naiin, Yaakz, First Page Pro, Animag, DEXpress, Phoenix Next, Kinokuniya, Google Books, then Open Library. Yaakz verifies the ISBN of an individual product variant. Google Books also requires a matching ISBN in `industryIdentifiers`; Open Library is queried by the canonical ISBN key. Naiin and Kinokuniya search links remain available even if all metadata providers fail. Suggested details are reviewed in the form before saving.
 
-An HTTP error or parsing failure ends that provider's attempt and adds an availability warning before trying the fallbacks. Candidate-page errors are not retried individually. Up to five Naiin requests are made per uncached lookup: one search and four detail pages. Each fallback uses its own bounded requests.
+An HTTP error or parsing failure ends that provider's attempt and adds an availability warning if it precedes the selected result in source preference. Candidate-page errors are not retried individually. Up to five Naiin requests are made per uncached lookup: one search and four detail pages. Each fallback uses its own bounded requests.
 
 ## Kinokuniya Thailand ISBN lookup and covers
 
@@ -261,7 +276,7 @@ To add a source:
 
 1. Save a minimal representative response under `tests/fixtures/publishers/` or `tests/fixtures/series-catalogs/`.
 2. Add a source module under `lib/server/scrapers/`, using a nearby source as an example. Keep pure parsing and URL validation in `lib/domain/`.
-3. Import the definition and add it to `SCRAPER_SOURCES` in `registry.ts`. Host permissions, ISBN lookup and cover capabilities are registered together. Set `isbnPriority`/`isbnWarning` or `coverPriority`/`coverWarning` when providing those features.
+3. Import the definition and add it to `SCRAPER_SOURCES` in `registry.ts`. Host permissions, ISBN lookup and cover capabilities are registered together. Set `isbnPriority`/`isbnWarning` or `coverPriority`/`coverWarning` when providing those features. Set `isbnPrefixes` for sources restricted to particular registration groups or publisher prefixes; omit it for multilingual sources.
 4. For a publisher exposed in the app, add its display metadata to browser-safe `PUBLISHERS` in `lib/domain/constants.ts`. Add publisher aliases, allowed product/category/image URLs and title parsing rules in the relevant domain modules. Metadata-only providers do not need a `PUBLISHERS` entry. Never import the server registry into browser code.
 5. Add fixture regressions for pagination, exact editions, incomplete responses and stale-cache fallback. `tests/integration/scraper-registry.test.mjs` also checks registration, removal, provider ordering and host restrictions.
 6. Run `npm run check`. For publisher UI changes, also run `npm run build` and `npm run test:e2e`; browser scenarios use isolated temporary databases and fixed responses.

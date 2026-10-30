@@ -13,6 +13,7 @@ import { publisherRedirectIdentity } from "./http.ts";
 import { createHtmlCatalog, htmlDirectory } from "./html-catalog.ts";
 import { createIsbnSearch } from "./isbn-search.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
+import { ISBN_GROUP_PREFIXES } from "../../domain/isbn.ts";
 import type { ScraperContext, ScraperDefinition } from "./types.ts";
 
 export const animag: ScraperDefinition = {
@@ -25,6 +26,7 @@ export const animag: ScraperDefinition = {
   },
   redirectIdentity: (url) => publisherRedirectIdentity("animag", url),
   isbnPriority: 40,
+  isbnPrefixes: ISBN_GROUP_PREFIXES.thai,
   isbnWarning: "Animag is unavailable right now.",
   create(context: ScraperContext) {
     async function expandAnimag_(items: Release[], refresh: boolean) {

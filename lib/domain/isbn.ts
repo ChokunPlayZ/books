@@ -1,3 +1,11 @@
+// Registration groups used by the language-specific catalog sources.
+// 978-0/1 are English-speaking groups; 979-8 is assigned to the US.
+export const ISBN_GROUP_PREFIXES = Object.freeze({
+  thai: ["978611", "978616", "978974"],
+  japanese: ["9784"],
+  english: ["9780", "9781", "9798"],
+});
+
 export function normalizeIsbn(raw) {
   const value = String(raw === undefined || raw === null ? "" : raw)
     .trim()

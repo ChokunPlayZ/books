@@ -8,6 +8,7 @@ import { publisherRedirectIdentity } from "./http.ts";
 import { createHtmlCatalog, htmlDirectory } from "./html-catalog.ts";
 import { createIsbnSearch } from "./isbn-search.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
+import { ISBN_GROUP_PREFIXES } from "../../domain/isbn.ts";
 import type { ScraperContext, ScraperDefinition } from "./types.ts";
 
 export const firstpage: ScraperDefinition = {
@@ -20,6 +21,7 @@ export const firstpage: ScraperDefinition = {
   },
   redirectIdentity: (url) => publisherRedirectIdentity("firstpage", url),
   isbnPriority: 30,
+  isbnPrefixes: ISBN_GROUP_PREFIXES.thai,
   isbnWarning: "First Page Pro is unavailable right now.",
   create(context: ScraperContext) {
     const searchIsbn = createIsbnSearch(context, {

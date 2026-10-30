@@ -191,7 +191,7 @@ test("ISBN lookup uses Yen Press before generic providers and shares cached requ
   assert.ok(results.every((result) => result.details?.source === "Yen Press"));
   assert.deepEqual(results[0].warnings, []);
   assert.equal(results[0].details.publisher, "Ize Press");
-  assert.equal(calls.length, 12);
+  assert.equal(calls.length, 6);
   const apiRequest = calls.find((call) =>
     call.url.includes("enterprise-search"),
   );
@@ -205,7 +205,7 @@ test("ISBN lookup uses Yen Press before generic providers and shares cached requ
   assert.equal(JSON.parse(apiRequest.options.body).query, printIsbn);
   service = createCatalogService(store, fetchImpl);
   await service.lookupIsbn(printIsbn);
-  assert.equal(calls.length, 12);
+  assert.equal(calls.length, 6);
   assert.ok(
     !JSON.stringify(store.db.prepare("SELECT value FROM cache").all()).includes(
       "search-publicfixture",

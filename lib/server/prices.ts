@@ -1,7 +1,10 @@
 import { canonicalIsbn } from "../domain/isbn.ts";
 import { priceAvailability, sortPriceOffers } from "../domain/prices.ts";
 import type { PriceComparison, PriceOffer } from "../types.ts";
-import type { createScraperRegistry } from "./scrapers/registry.ts";
+import {
+  supportsIsbn,
+  type createScraperRegistry,
+} from "./scrapers/registry.ts";
 import type { ScraperContext } from "./scrapers/types.ts";
 
 export function createPriceFinder(
@@ -15,8 +18,11 @@ export function createPriceFinder(
     const isbn = canonicalIsbn(request?.isbn);
     if (!isbn)
       throw new Error("Enter a valid ISBN-10 or ISBN-13 to compare prices.");
+    const applicable = providers.filter((provider) =>
+      supportsIsbn(provider, isbn),
+    );
     const results = await Promise.allSettled(
-      providers.map((provider) =>
+      applicable.map((provider) =>
         scrapeCache.get(
           "book-price:v1:" + provider.id + ":" + isbn,
           { maxAge: 3600, refresh: request.refresh === true },
@@ -66,7 +72,7 @@ export function createPriceFinder(
     );
     const offers: PriceOffer[] = [];
     const sources: PriceComparison["sources"] = results.map((result, index) => {
-      const provider = providers[index];
+      const provider = applicable[index];
       if (result.status === "fulfilled" && result.value.offer)
         offers.push(result.value.offer);
       return {

@@ -1,4 +1,4 @@
-import { canonicalIsbn } from "../../domain/isbn.ts";
+import { canonicalIsbn, ISBN_GROUP_PREFIXES } from "../../domain/isbn.ts";
 import {
   yenPressBook,
   yenPressCandidates,
@@ -24,6 +24,7 @@ export const yenpress: ScraperDefinition = {
   id: "yenpress",
   hosts: ["yenpress.com", "enterprise-search.yenpress.com"],
   isbnPriority: 60,
+  isbnPrefixes: ISBN_GROUP_PREFIXES.english,
   isbnWarning: "Yen Press is unavailable right now.",
   coverPriority: 30,
   coverWarning: "Could not check Yen Press for this ISBN.",

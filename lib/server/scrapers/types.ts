@@ -129,6 +129,8 @@ export type ScraperDefinition = {
     searchUrl(isbn: string): string;
   };
   redirectIdentity?(url: URL): string;
+  // Canonical ISBN-13 prefixes served by this source; omit for multilingual sources.
+  isbnPrefixes?: readonly string[];
   // Lower numbers are preferred, independently of request completion order.
   isbnPriority?: number;
   isbnWarning?: string;

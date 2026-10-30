@@ -10,6 +10,7 @@ import { yaakzProducts, yaakzItems } from "../yaakz.ts";
 import { cachedJson as cachedJson_, cacheJson as cacheJson_ } from "./cache.ts";
 import { publisherRedirectIdentity } from "./http.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
+import { ISBN_GROUP_PREFIXES } from "../../domain/isbn.ts";
 import type { ScraperContext, ScraperDefinition } from "./types.ts";
 
 export const yaakz: ScraperDefinition = {
@@ -17,6 +18,7 @@ export const yaakz: ScraperDefinition = {
   hosts: ["www.yaakz.com"],
   redirectIdentity: (url) => publisherRedirectIdentity("yaakz", url),
   isbnPriority: 20,
+  isbnPrefixes: ISBN_GROUP_PREFIXES.thai,
   isbnWarning: "Yaakz is unavailable right now.",
   coverPriority: 20,
   coverWarning: "Could not check Yaakz for this volume.",

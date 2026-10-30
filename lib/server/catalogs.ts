@@ -23,7 +23,11 @@ import { publisherCovers } from "./publisher-covers.ts";
 import { createPriceFinder } from "./prices.ts";
 import { SCRAPE_TTL } from "./scrape-cache.ts";
 import { createScraperContext } from "./scrapers/http.ts";
-import { createScraperRegistry, SCRAPER_SOURCES } from "./scrapers/registry.ts";
+import {
+  createScraperRegistry,
+  SCRAPER_SOURCES,
+  supportsIsbn,
+} from "./scrapers/registry.ts";
 import {
   cachedJson as cachedJson_,
   cacheJson as cacheJson_,
@@ -119,9 +123,11 @@ export function createCatalogService(
     if (!isbn) throw new Error("Enter or scan an ISBN first.");
     const canonical = canonicalIsbn(isbn);
 
-    const cached = cache.get("isbn:v12:" + canonical);
+    const cached = cache.get("isbn:v13:" + canonical);
     if (cached) return JSON.parse(cached);
-    const providers = scrapers.isbnProviders;
+    const providers = scrapers.isbnProviders.filter((source) =>
+      supportsIsbn(source, canonical),
+    );
     // Start independent sources together, then keep the existing source preference
     // and warnings regardless of the order in which requests finish.
     const results = await Promise.allSettled(
@@ -152,7 +158,7 @@ export function createCatalogService(
     };
     // Cache confirmed misses too; transient provider failures get a shorter TTL.
     cache.put(
-      "isbn:v12:" + canonical,
+      "isbn:v13:" + canonical,
       JSON.stringify(result),
       warnings.length ? SCRAPE_TTL.retry : SCRAPE_TTL.isbn,
     );
@@ -328,7 +334,9 @@ export function createCatalogService(
         }),
       );
     if (catalog.error) warnings.push(catalog.error);
+    const isbn = canonicalIsbn(book.isbn);
     for (const source of scrapers.coverProviders) {
+      if (isbn && !supportsIsbn(source, isbn)) continue;
       try {
         for (const item of await source.coverOptions(book, request.refresh))
           add(item.coverUrl, item);

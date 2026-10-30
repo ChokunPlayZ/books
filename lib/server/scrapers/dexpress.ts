@@ -2,6 +2,7 @@ import { canonicalIsbn, safeSeriesCatalogUrl } from "../../domain.ts";
 import { dexpressProduct } from "../../domain/dexpress.ts";
 import type { Release } from "../../types.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
+import { ISBN_GROUP_PREFIXES } from "../../domain/isbn.ts";
 import { createHtmlCatalog } from "./html-catalog.ts";
 import { publisherRedirectIdentity } from "./http.ts";
 import { createIsbnSearch } from "./isbn-search.ts";
@@ -19,6 +20,7 @@ export const dexpress: ScraperDefinition = {
   },
   redirectIdentity: (url) => publisherRedirectIdentity("dexpress", url),
   isbnPriority: 45,
+  isbnPrefixes: ISBN_GROUP_PREFIXES.thai,
   isbnWarning: "DEXpress is unavailable right now.",
   create(context) {
     const readProduct = async (url: string, refresh = false) =>

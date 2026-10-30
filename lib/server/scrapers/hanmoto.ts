@@ -1,5 +1,5 @@
 import { hanmotoBook } from "../../domain/hanmoto.ts";
-import { canonicalIsbn } from "../../domain/isbn.ts";
+import { canonicalIsbn, ISBN_GROUP_PREFIXES } from "../../domain/isbn.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
 import type { ScraperContext, ScraperDefinition } from "./types.ts";
 
@@ -7,6 +7,7 @@ export const hanmoto: ScraperDefinition = {
   id: "hanmoto",
   hosts: ["www.hanmoto.com"],
   isbnPriority: 75,
+  isbnPrefixes: ISBN_GROUP_PREFIXES.japanese,
   isbnWarning: "Hanmoto is unavailable right now.",
   coverPriority: 45,
   coverWarning: "Could not check Hanmoto for this ISBN.",

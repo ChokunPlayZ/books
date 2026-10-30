@@ -249,8 +249,9 @@ test("scan lookup uses verified Phoenix metadata and covers, bypasses old misses
       .length,
     1,
   );
-  for (const source of ["yenpress", "kinokuniya", "googleapis", "openlibrary"])
+  for (const source of ["kinokuniya", "googleapis", "openlibrary"])
     assert.ok(calls.some((address) => address.includes(source)));
+  assert.ok(!calls.some((address) => address.includes("yenpress")));
   const offline = createCatalogService(store, () =>
     assert.fail("Use durable cached metadata"),
   );

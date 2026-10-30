@@ -18,7 +18,6 @@ const sources = [
   "www.animagshop.com",
   "www.dexpress-shop.com",
   "www.phoenixnext.com",
-  "yenpress.com",
   "kinokuniya.co.th",
   "www.googleapis.com",
   "openlibrary.org",
@@ -80,7 +79,7 @@ async function controlledLookup(t, respond = emptyResponse) {
   return { store, gates, calls, completed, result };
 }
 
-test("ISBN sources start together and keep source preference when a generic match finishes first", async (t) => {
+test("applicable ISBN sources start together and keep source preference when a generic match finishes first", async (t) => {
   const { store, gates, calls, completed, result } = await controlledLookup(
     t,
     (address) => {
@@ -101,7 +100,7 @@ test("ISBN sources start together and keep source preference when a generic matc
   assert.deepEqual(
     calls.map((address) => new URL(address).hostname).sort(),
     [...sources].sort(),
-    "Every source must start before any response is released",
+    "Every applicable source must start before any response is released",
   );
   assert.equal(completed.size, 0);
   gates.forEach((gate, source) => {

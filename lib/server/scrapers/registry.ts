@@ -35,6 +35,16 @@ export const SCRAPER_SOURCES: readonly ScraperDefinition[] = Object.freeze([
 
 type RegisteredScraper = Scraper & Omit<ScraperDefinition, "create">;
 
+export function supportsIsbn(
+  source: Pick<ScraperDefinition, "isbnPrefixes">,
+  canonical: string,
+) {
+  return (
+    !source.isbnPrefixes ||
+    source.isbnPrefixes.some((prefix) => canonical.startsWith(prefix))
+  );
+}
+
 export function createScraperRegistry(
   context: ScraperContext,
   definitions: readonly ScraperDefinition[] = SCRAPER_SOURCES,

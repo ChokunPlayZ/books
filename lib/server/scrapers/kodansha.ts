@@ -16,6 +16,7 @@ export const kodansha: ScraperDefinition = {
   id: "kodansha",
   hosts: ["www.kodansha.co.jp"],
   isbnPriority: 65,
+  isbnPrefixes: ["978406"],
   isbnWarning: "Kodansha JP is unavailable right now.",
   create(context) {
     const searchUrl = (isbn: string) =>
