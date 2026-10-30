@@ -159,16 +159,6 @@ textarea:focus {
   display: block;
 }
 
-#dataLink {
-  font-size: 12px;
-  margin-right: 8px;
-}
-
-#dataLink svg {
-  width: 16px;
-  height: 16px;
-}
-
 .heading-dot {
   color: var(--gold);
 }

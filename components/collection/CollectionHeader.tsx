@@ -1,4 +1,3 @@
-import Icon from "../Icon";
 import LibraryBrand from "../LibraryBrand";
 import ThemeToggle from "../ThemeToggle";
 
@@ -13,10 +12,6 @@ export default function CollectionHeader({
         <LibraryBrand />
         <div className={"top-actions"}>
           <div className="header-links">
-            <a id={"dataLink"} className={"text-btn"} href={"/data"}>
-              <Icon name="archive" />
-              <span>Data &amp; backups</span>
-            </a>
             <ThemeToggle />
           </div>
         </div>

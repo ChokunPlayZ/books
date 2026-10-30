@@ -111,13 +111,6 @@ h3 {
 .header-links {
   gap: 4px;
 }
-#dataLink {
-  font-size: 13px;
-  margin: 0;
-}
-#dataLink svg {
-  display: block;
-}
 .theme-toggle {
   width: 44px;
   height: 44px;
@@ -719,9 +712,6 @@ dialog::backdrop {
     margin-right: 0;
     padding: 28px 24px;
   }
-  #dataLink span {
-    display: none;
-  }
 }
 @media (max-width: 760px) {
   html {
@@ -742,24 +732,6 @@ dialog::backdrop {
   }
   .top-actions {
     width: auto;
-  }
-  #dataLink {
-    display: flex;
-    width: 44px;
-    height: 44px;
-    padding: 10px;
-  }
-  #dataLink svg {
-    display: block;
-    width: 19px;
-    height: 19px;
-  }
-  #dataLink span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
   }
   .header-links .theme-toggle {
     width: 44px;

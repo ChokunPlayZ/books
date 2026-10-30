@@ -89,6 +89,10 @@ export default function CollectionTabs({
           {data.trash.length}
         </span>
       </a>
+      <a id="dataLink" className="tab" href="/data">
+        <Icon name="archive" />
+        <span className="tab-label">Data &amp; backups</span>
+      </a>
     </nav>
   );
 }

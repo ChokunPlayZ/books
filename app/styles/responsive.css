@@ -72,13 +72,6 @@
     padding-inline: 12px;
     font-size: 12px;
   }
-  #dataLink {
-    margin-right: 0;
-    font-size: 11px;
-  }
-  #dataLink svg {
-    @apply hidden;
-  }
   .stat,
   .stat:first-child,
   .stat:last-child {
@@ -190,10 +183,6 @@
   .brand-caption {
     font-size: 8px;
     letter-spacing: 0.07em;
-  }
-  #dataLink {
-    font-size: 10px;
-    padding: 8px 0;
   }
   .header-links {
     grid-column: 2;
@@ -512,21 +501,6 @@
     @apply w-full;
     font-size: 12px;
     padding-inline: 10px;
-  }
-}
-
-@media (max-width: 380px) {
-  #dataLink {
-    width: 36px;
-    height: 44px;
-    padding: 8px;
-    margin: 0;
-  }
-  #dataLink svg {
-    display: block;
-  }
-  #dataLink span {
-    @apply sr-only;
   }
 }
 

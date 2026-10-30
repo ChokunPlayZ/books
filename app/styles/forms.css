@@ -385,13 +385,6 @@ summary:focus-visible {
   .top-actions {
     display: contents;
   }
-  #dataLink {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
-    font-size: 12px;
-    padding: 6px 0;
-  }
   .top-actions .btn {
     grid-row: 2;
     padding: 8px 10px;
