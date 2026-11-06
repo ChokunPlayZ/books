@@ -3,6 +3,8 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";
 import { THEME_INIT_SCRIPT } from "../lib/theme";
+import PreferencesProvider from "../components/PreferencesProvider";
+import { accountPreferences } from "../lib/server/preferences.ts";
 
 export const metadata: Metadata = {
   title: "Book Collection",
@@ -24,14 +26,28 @@ export const viewport: Viewport = {
     { media: "(prefers-color-scheme: dark)", color: "#181b22" },
   ],
 };
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const { userId, preferences } = await accountPreferences();
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang={preferences.locale}
+      data-account-theme={userId === null ? undefined : preferences.theme}
+      data-theme={
+        preferences.theme === "system" ? undefined : preferences.theme
+      }
+      suppressHydrationWarning
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body>
-        {children}
+        <PreferencesProvider userId={userId} initial={preferences}>
+          {children}
+        </PreferencesProvider>
         <ServiceWorkerRegistration />
       </body>
     </html>

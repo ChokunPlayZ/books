@@ -22,8 +22,9 @@ import CheckDialog from "./collection/dialogs/CheckDialog";
 import IsbnDialog from "./collection/dialogs/IsbnDialog";
 import type { CollectionView } from "../lib/domain/navigation.ts";
 import type { Store } from "../lib/server/store.ts";
+import { getTranslations } from "../lib/server/preferences.ts";
 
-export default function CollectionShell({
+export default async function CollectionShell({
   view,
   series,
   data,
@@ -34,12 +35,13 @@ export default function CollectionShell({
   data: Awaited<ReturnType<Store["api"]["getCollection"]>>;
   priceIsbn?: string;
 }) {
+  const t = await getTranslations();
   const shelf = view === "collection" || view === "trash";
   const overview = shelf && series === null;
   return (
     <>
       <a className="skip-link" href="#libraryMain">
-        Skip to library
+        {t("Skip to library")}
       </a>
       <IconSymbols />
       <CollectionHeader series={series} />
@@ -82,12 +84,12 @@ export default function CollectionShell({
         )}
         {view === "collection" && series === null && (
           <details className="spending-disclosure">
-            <summary>Collection spending</summary>
+            <summary>{t("Collection spending")}</summary>
             <CollectionSpending />
           </details>
         )}
         <footer className={"footer"}>
-          <span id={"syncNote"}>{"Saved in your library"}</span>
+          <span id={"syncNote"}>{t("Saved in your library")}</span>
         </footer>
       </main>
       <TitleDialog />

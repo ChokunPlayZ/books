@@ -1,5 +1,6 @@
 import { canonicalIsbn as canonical } from "../domain/isbn.ts";
 import { barcodeRegions, barcodeRetry } from "./scanner-image.ts";
+import { t } from "./i18n.ts";
 
 type ScannerBindings = {
   state: ScannerState;
@@ -152,25 +153,28 @@ export function createScanner({
     stopScanner();
     $("scannerArea").replaceChildren();
     state.scanPurpose = purpose;
-    $("scanTitle").textContent =
+    $("scanTitle").textContent = t(
       purpose === "check"
         ? "Check a bookstore book"
         : purpose === "link"
           ? "Scan the ISBN for this volume"
-          : "Scan a book";
-    $("scanMessage").textContent =
-      "Take or choose a photo including the barcode and printed ISBN. Photos stay on your device.";
+          : "Scan a book",
+    );
+    $("scanMessage").textContent = t(
+      "Take or choose a photo including the barcode and printed ISBN. Photos stay on your device.",
+    );
     $("scanDialog").showModal();
   }
   async function acceptScan(raw, generation) {
     if (!scanActive(generation)) return;
     const isbn = canonical(raw);
     if (!isbn) {
-      $("scanMessage").textContent =
-        "This barcode is not an ISBN. Take a photo that also includes the printed ISBN.";
+      $("scanMessage").textContent = t(
+        "This barcode is not an ISBN. Take a photo that also includes the printed ISBN.",
+      );
       return;
     }
-    $("scanMessage").textContent = "ISBN found: " + isbn;
+    $("scanMessage").textContent = t("ISBN found: {isbn}", { isbn });
     const purpose = state.scanPurpose;
     closeScanner();
     if (purpose === "check") {
@@ -194,11 +198,17 @@ export function createScanner({
     const choices = $("scanCandidates");
     choices.replaceChildren();
     choices.hidden = false;
-    $("scanMessage").textContent = printed
-      ? "Printed ISBN found. Check these digits against the cover, then choose Use ISBN."
-      : "Several ISBNs found. Choose the one for this book.";
+    $("scanMessage").textContent = t(
+      printed
+        ? "Printed ISBN found. Check these digits against the cover, then choose Use ISBN."
+        : "Several ISBNs found. Choose the one for this book.",
+    );
     isbns.forEach((isbn) => {
-      const button = node("button", "btn primary", "Use ISBN " + isbn);
+      const button = node(
+        "button",
+        "btn primary",
+        t("Use ISBN {isbn}", { isbn }),
+      );
       button.type = "button";
       button.addEventListener("click", () => void acceptScan(isbn, generation));
       choices.append(button);
@@ -266,8 +276,9 @@ export function createScanner({
     ]);
   }
   async function readPrintedIsbns(canvas, generation, task) {
-    $("scanMessage").textContent =
-      "Looking for the printed ISBN… The first text scan may take a moment.";
+    $("scanMessage").textContent = t(
+      "Looking for the printed ISBN… The first text scan may take a moment.",
+    );
     if (typeof Tesseract === "undefined")
       await photoStep(
         loadScannerScript(
@@ -356,12 +367,14 @@ export function createScanner({
     $("scannerArea").replaceChildren();
     const generation = state.scanGeneration;
     if (!navigator.mediaDevices?.getUserMedia) {
-      $("scanMessage").textContent =
-        "Live camera access is unavailable here. Use Take photo or Choose photo.";
+      $("scanMessage").textContent = t(
+        "Live camera access is unavailable here. Use Take photo or Choose photo.",
+      );
       return;
     }
-    $("scanMessage").textContent =
-      "Allow camera access, then hold the ISBN barcode steady.";
+    $("scanMessage").textContent = t(
+      "Allow camera access, then hold the ISBN barcode steady.",
+    );
     $("startCamera").disabled = true;
     // Request permission directly from the button gesture, before any library loading.
     let pending, stream;
@@ -416,8 +429,9 @@ export function createScanner({
       state.cameraRunning = true;
       $("startCamera").hidden = true;
       $("stopCamera").hidden = false;
-      $("scanMessage").textContent =
-        "Hold the barcode and printed ISBN steady. If the bars are unclear, the camera will try the printed digits too.";
+      $("scanMessage").textContent = t(
+        "Hold the barcode and printed ISBN steady. If the bars are unclear, the camera will try the printed digits too.",
+      );
       let liveAttempt = 0,
         nextTextScan = performance.now() + 3000;
       const frame = async () => {
@@ -468,8 +482,9 @@ export function createScanner({
                   if (state.photoTask === task) state.photoTask = null;
                   nextTextScan = performance.now() + 15000;
                 }
-                $("scanMessage").textContent =
-                  "Still scanning. Keep the whole barcode in view, avoid glare, or take a closer photo including the printed ISBN.";
+                $("scanMessage").textContent = t(
+                  "Still scanning. Keep the whole barcode in view, avoid glare, or take a closer photo including the printed ISBN.",
+                );
               }
             } finally {
               canvas.width = canvas.height = 1;
@@ -478,9 +493,10 @@ export function createScanner({
         } catch (error) {
           if (scanActive(generation)) {
             stopScanner();
-            $("scanMessage").textContent =
+            $("scanMessage").textContent = t(
               error.message ||
-              "The camera reader is unavailable. Use Take photo or type the ISBN.";
+                "The camera reader is unavailable. Use Take photo or type the ISBN.",
+            );
           }
           return;
         }
@@ -491,10 +507,11 @@ export function createScanner({
       stream?.getTracks().forEach((track) => track.stop());
       if (scanActive(generation)) {
         stopScanner();
-        $("scanMessage").textContent =
+        $("scanMessage").textContent = t(
           error.name === "NotAllowedError"
             ? "Live camera access was blocked by the browser or this embedded page. Use Take photo or Choose photo."
-            : "The live camera could not start. Use Take photo or Choose photo, or open the app in Safari.";
+            : "The live camera could not start. Use Take photo or Choose photo, or open the app in Safari.",
+        );
       }
     } finally {
       if (state.cameraStart === pending) state.cameraStart = null;
@@ -510,7 +527,7 @@ export function createScanner({
       task = createPhotoTask();
     state.photoTask = task;
     $("scannerArea").replaceChildren();
-    $("scanMessage").textContent = "Reading the barcode in your photo…";
+    $("scanMessage").textContent = t("Reading the barcode in your photo…");
     const url = URL.createObjectURL(file),
       image = new Image();
     let canvas;
@@ -546,16 +563,19 @@ export function createScanner({
         reviewScan(printed, generation, true);
         return;
       }
-      $("scanMessage").textContent = results.length
-        ? "The barcode is a shop code, and the printed ISBN could not be read. Retake a closer photo including the ISBN above the barcode, or type it."
-        : "Could not read an ISBN from this photo. Retake a closer, sharp photo including the barcode and printed ISBN, or type it.";
+      $("scanMessage").textContent = t(
+        results.length
+          ? "The barcode is a shop code, and the printed ISBN could not be read. Retake a closer photo including the ISBN above the barcode, or type it."
+          : "Could not read an ISBN from this photo. Retake a closer, sharp photo including the barcode and printed ISBN, or type it.",
+      );
     } catch (error) {
       if (scanActive(generation))
-        $("scanMessage").textContent =
+        $("scanMessage").textContent = t(
           error.name === "EncodingError"
             ? "This photo format could not be opened. Choose a JPEG or PNG photo, or type the ISBN."
             : error.message ||
-              "The photo reader could not finish. Try again or type the ISBN.";
+                "The photo reader could not finish. Try again or type the ISBN.",
+        );
     } finally {
       URL.revokeObjectURL(url);
       image.removeAttribute("src");

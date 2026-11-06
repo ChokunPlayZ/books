@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CACHE_GROUPS } from "../lib/metadata";
+import { useTranslations } from "./PreferencesProvider";
 import type {
   CacheEntry,
   CrawlResult,
@@ -41,6 +42,7 @@ function CachedRecord({
   disabled: boolean;
   onPurge: () => void;
 }) {
+  const t = useTranslations();
   const [preview, setPreview] = useState<{
     content: string;
     truncated: boolean;
@@ -70,49 +72,55 @@ function CachedRecord({
           <span className="metadata-record-label">
             {entry.label}
             <small>
-              {CACHE_GROUPS[entry.group]} · {size(entry.bytes)}
+              {t(CACHE_GROUPS[entry.group])} · {size(entry.bytes)}
             </small>
           </span>
           <span className="metadata-record-state">
-            {entry.expired
-              ? "Expired"
-              : entry.group === "cooldowns"
-                ? "Cooling down"
-                : "Retained"}
+            {t(
+              entry.expired
+                ? "Expired"
+                : entry.group === "cooldowns"
+                  ? "Cooling down"
+                  : "Retained",
+            )}
           </span>
         </summary>
         <div className="metadata-record-body">
           <dl>
             <div>
-              <dt>Last checked</dt>
+              <dt>{t("Last checked")}</dt>
               <dd>{timestamp(entry.checkedAt)}</dd>
             </div>
             <div>
               <dt>
-                {entry.group === "cooldowns" ? "Retry after" : "Retained until"}
+                {t(
+                  entry.group === "cooldowns"
+                    ? "Retry after"
+                    : "Retained until",
+                )}
               </dt>
               <dd>
                 {entry.expiresAt === 0
-                  ? "Permanent · admin refresh only"
+                  ? t("Permanent · admin refresh only")
                   : timestamp(entry.expiresAt)}
               </dd>
             </div>
           </dl>
           <p className="metadata-key">{entry.key}</p>
-          {loading && <p role="status">Loading cached content…</p>}
+          {loading && <p role="status">{t("Loading cached content…")}</p>}
           {error && (
             <p className="form-error" role="alert">
-              {error}
+              {t(error)}
             </p>
           )}
           {preview && (
             <>
-              <pre tabIndex={0} aria-label="Cached content">
+              <pre tabIndex={0} aria-label={t("Cached content")}>
                 {preview.content}
               </pre>
               {preview.truncated && (
                 <p className="hint">
-                  Preview limited to the first 16,000 characters.
+                  {t("Preview limited to the first 16,000 characters.")}
                 </p>
               )}
             </>
@@ -123,7 +131,7 @@ function CachedRecord({
               disabled={disabled}
               onClick={onPurge}
             >
-              Purge this record
+              {t("Purge this record")}
             </button>
           )}
         </div>
@@ -137,6 +145,7 @@ export default function MetadataManager({
 }: {
   initial: MetadataOverview;
 }) {
+  const t = useTranslations();
   const [overview, setOverview] = useState(initial);
   const [query, setQuery] = useState<MetadataQuery>({
     group: "all",
@@ -211,7 +220,12 @@ export default function MetadataManager({
         ...(key ? { key } : {}),
       });
       setNotice(
-        `Purged ${result.purged} cached record${result.purged === 1 ? "" : "s"}.`,
+        t(
+          result.purged === 1
+            ? "Purged {count} cached record."
+            : "Purged {count} cached records.",
+          { count: result.purged },
+        ),
       );
       await reload();
     } catch (error) {
@@ -259,7 +273,11 @@ export default function MetadataManager({
       }
       if (mounted.current) {
         setNotice(
-          `${stop.current ? "Stopped" : "Re-crawl finished"}. Checked ${done} of ${selected.length} sources.`,
+          t("{status}. Checked {done} of {total} sources.", {
+            status: t(stop.current ? "Stopped" : "Re-crawl finished"),
+            done,
+            total: selected.length,
+          }),
         );
         await reload();
       }
@@ -286,10 +304,11 @@ export default function MetadataManager({
     >
       <div className="metadata-heading">
         <div>
-          <h2 id="metadata-title">Metadata &amp; cache</h2>
+          <h2 id="metadata-title">{t("Metadata & cache")}</h2>
           <p>
-            Inspect saved source data, refresh catalogs, and fill gaps in your
-            books.
+            {t(
+              "Inspect saved source data, refresh catalogs, and fill gaps in your books.",
+            )}
           </p>
         </div>
         <button
@@ -300,64 +319,74 @@ export default function MetadataManager({
             void reload();
           }}
         >
-          {loading ? "Reloading…" : "Reload status"}
+          {t(loading ? "Reloading…" : "Reload status")}
         </button>
       </div>
-      <div className="metadata-summary" aria-label="Cache status">
+      <div className="metadata-summary" aria-label={t("Cache status")}>
         <span>
-          <strong>{overview.summary.count}</strong> cached records
+          <strong>{overview.summary.count}</strong> {t("cached records")}
         </span>
         <span>
-          <strong>{size(overview.summary.bytes)}</strong> stored
+          <strong>{size(overview.summary.bytes)}</strong> {t("stored")}
         </span>
         <span>
-          <strong>{overview.summary.expired}</strong> expired
+          <strong>{overview.summary.expired}</strong> {t("expired")}
         </span>
         <span>
-          <strong>{overview.summary.cooldowns}</strong> sources cooling down
+          <strong>{overview.summary.cooldowns}</strong>{" "}
+          {t("sources cooling down")}
         </span>
       </div>
       <div className="metadata-crawl">
-        <h3>Re-crawl sources</h3>
+        <h3>{t("Re-crawl sources")}</h3>
         <p>
-          Fetch fresh data for your library ISBNs, linked series, and previously
-          checked publisher feeds. Failed sources keep their retry cooldown.
+          {t(
+            "Fetch fresh data for your library ISBNs, linked series, and previously checked publisher feeds. Failed sources keep their retry cooldown.",
+          )}
         </p>
         <div className="metadata-coverage">
-          {overview.coverage.books} owned books · {overview.coverage.withIsbn}{" "}
-          with an ISBN · {overview.coverage.missingPages} missing pages ·{" "}
-          {overview.coverage.missingCover} missing a cover ·{" "}
-          {overview.coverage.missingLink} missing a publisher link
+          {t(
+            "{books} owned books · {isbn} with an ISBN · {pages} missing pages · {covers} missing a cover · {links} missing a publisher link",
+            {
+              books: overview.coverage.books,
+              isbn: overview.coverage.withIsbn,
+              pages: overview.coverage.missingPages,
+              covers: overview.coverage.missingCover,
+              links: overview.coverage.missingLink,
+            },
+          )}
         </div>
         <div className="metadata-crawl-fields">
           <label>
-            Source type
+            {t("Source type")}
             <select
               value={kind}
-              aria-label="Source type"
+              aria-label={t("Source type")}
               disabled={locked}
               onChange={(event) => {
                 setKind(event.target.value as typeof kind);
                 setTargetId("all");
               }}
             >
-              <option value="all">All source types</option>
-              <option value="isbn">ISBN metadata</option>
-              <option value="series">Linked series</option>
-              <option value="releases">Release feeds</option>
-              <option value="catalog">Publisher categories</option>
-              <option value="directory">Publisher directories</option>
+              <option value="all">{t("All source types")}</option>
+              <option value="isbn">{t("ISBN metadata")}</option>
+              <option value="series">{t("Linked series")}</option>
+              <option value="releases">{t("Release feeds")}</option>
+              <option value="catalog">{t("Publisher categories")}</option>
+              <option value="directory">{t("Publisher directories")}</option>
             </select>
           </label>
           <label>
-            Source
+            {t("Source")}
             <select
               value={targetId}
-              aria-label="Source"
+              aria-label={t("Source")}
               disabled={locked}
               onChange={(event) => setTargetId(event.target.value)}
             >
-              <option value="all">All {eligible.length} sources</option>
+              <option value="all">
+                {t("All {count} sources", { count: eligible.length })}
+              </option>
               {eligible.map((target) => (
                 <option key={target.id} value={target.id}>
                   {target.label} · {target.detail}
@@ -374,11 +403,11 @@ export default function MetadataManager({
             onChange={(event) => setFillMissing(event.target.checked)}
           />
           <span>
-            Fill missing book metadata
+            {t("Fill missing book metadata")}
             <small>
-              For exact ISBN matches, fill blank pages, covers, and publisher
-              links. Existing values and collection details stay as you entered
-              them.
+              {t(
+                "For exact ISBN matches, fill blank pages, covers, and publisher links. Existing values and collection details stay as you entered them.",
+              )}
             </small>
           </span>
         </label>
@@ -389,8 +418,13 @@ export default function MetadataManager({
             onClick={() => void recrawl()}
           >
             {running
-              ? `Checking ${Math.min(progress.done + 1, progress.total)} of ${progress.total}…`
-              : `Re-crawl ${queue.length === 1 ? "source" : `${queue.length} sources`}`}
+              ? t("Checking {done} of {total}…", {
+                  done: Math.min(progress.done + 1, progress.total),
+                  total: progress.total,
+                })
+              : queue.length === 1
+                ? t("Re-crawl source")
+                : t("Re-crawl {count} sources", { count: queue.length })}
           </button>
           {running && (
             <button
@@ -402,15 +436,16 @@ export default function MetadataManager({
               }}
             >
               {stopping
-                ? "Stopping after this source…"
-                : "Stop after current source"}
+                ? t("Stopping after this source…")
+                : t("Stop after current source")}
             </button>
           )}
         </div>
         {!overview.targets.length && (
           <p className="hint">
-            Add a book with an ISBN, link a series catalog, or check a publisher
-            feed to make it available here.
+            {t(
+              "Add a book with an ISBN, link a series catalog, or check a publisher feed to make it available here.",
+            )}
           </p>
         )}
         {running && (
@@ -418,28 +453,33 @@ export default function MetadataManager({
             <progress
               value={progress.done}
               max={progress.total}
-              aria-label="Re-crawl progress"
+              aria-label={t("Re-crawl progress")}
             />
             <p>
-              {progress.done} of {progress.total} checked · {progress.label}
-              {stopping ? " · Stopping after this source" : ""}
+              {t("{done} of {total} checked", {
+                done: progress.done,
+                total: progress.total,
+              })}{" "}
+              · {progress.label}
+              {stopping ? " · " + t("Stopping after this source") : ""}
             </p>
             <p className="hint">
-              Keep this page open. Leaving stops the remaining queue after the
-              current source.
+              {t(
+                "Keep this page open. Leaving stops the remaining queue after the current source.",
+              )}
             </p>
           </div>
         )}
         {results.length > 0 && (
           <details className="metadata-results" open>
             <summary>
-              Re-crawl results ·{" "}
+              {t("Re-crawl results")} ·{" "}
               {results.filter((result) => result.status === "updated").length}{" "}
-              updated ·{" "}
+              {t("updated")} ·{" "}
               {results.filter((result) => result.status === "warning").length}{" "}
-              with warnings ·{" "}
+              {t("with warnings")} ·{" "}
               {results.filter((result) => result.status === "failed").length}{" "}
-              failed
+              {t("failed")}
             </summary>
             <ul>
               {results.map((result) => (
@@ -450,12 +490,14 @@ export default function MetadataManager({
                       result.status === "failed" ? "metadata-failed" : ""
                     }
                   >
-                    {result.status === "updated"
-                      ? "Updated"
-                      : result.status === "warning"
-                        ? "Warning"
-                        : "Failed"}{" "}
-                    · {result.message}
+                    {t(
+                      result.status === "updated"
+                        ? "Updated"
+                        : result.status === "warning"
+                          ? "Warning"
+                          : "Failed",
+                    )}{" "}
+                    · {t(result.message)}
                   </span>
                 </li>
               ))}
@@ -465,7 +507,7 @@ export default function MetadataManager({
       </div>
       {error && (
         <p className="form-error" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
       {notice && (
@@ -474,29 +516,29 @@ export default function MetadataManager({
         </p>
       )}
       <div className="metadata-cache">
-        <h3>Cached records</h3>
+        <h3>{t("Cached records")}</h3>
         <p>
-          Purging removes downloaded responses and lookup results. Your books,
-          saved releases, catalog links, and stored cover images are kept.
-          Cooldowns are protected.
+          {t(
+            "Purging removes downloaded responses and lookup results. Your books, saved releases, catalog links, and stored cover images are kept. Cooldowns are protected.",
+          )}
         </p>
         <div className="metadata-filters">
           <label>
-            Search records
+            {t("Search records")}
             <input
               type="search"
               value={query.search}
-              placeholder="ISBN, title, URL, or cache key"
+              placeholder={t("ISBN, title, URL, or cache key")}
               onChange={(event) =>
                 setQuery({ ...query, search: event.target.value, page: 1 })
               }
             />
           </label>
           <label>
-            Category
+            {t("Category")}
             <select
               value={query.group}
-              aria-label="Category"
+              aria-label={t("Category")}
               onChange={(event) =>
                 setQuery({
                   ...query,
@@ -505,10 +547,10 @@ export default function MetadataManager({
                 })
               }
             >
-              <option value="all">All categories</option>
+              <option value="all">{t("All categories")}</option>
               {overview.groups.map((group) => (
                 <option key={group.id} value={group.id}>
-                  {CACHE_GROUPS[group.id]} ({group.count})
+                  {t(CACHE_GROUPS[group.id])} ({group.count})
                 </option>
               ))}
             </select>
@@ -527,7 +569,7 @@ export default function MetadataManager({
                 })
               }
             />
-            Expired only
+            {t("Expired only")}
           </label>
           <div className="metadata-actions">
             <button
@@ -540,22 +582,23 @@ export default function MetadataManager({
               }
               onClick={() => void purge(undefined, true)}
             >
-              Purge expired
+              {t("Purge expired")}
             </button>
             <button
               className="btn danger"
               disabled={locked || loading || !purgeable}
               onClick={() => setConfirmPurge(true)}
             >
-              Purge filtered records
+              {t("Purge filtered records")}
             </button>
           </div>
         </div>
         {confirmPurge && (
           <div className="metadata-confirm">
             <p>
-              Purge the records matching these filters? They will be fetched
-              again when needed. Retry cooldowns will be kept.
+              {t(
+                "Purge the records matching these filters? They will be fetched again when needed. Retry cooldowns will be kept.",
+              )}
             </p>
             <div className="metadata-actions">
               <button
@@ -563,18 +606,20 @@ export default function MetadataManager({
                 disabled={locked || loading}
                 onClick={() => void purge()}
               >
-                Confirm purge
+                {t("Confirm purge")}
               </button>
               <button className="btn" onClick={() => setConfirmPurge(false)}>
-                Cancel
+                {t("Cancel")}
               </button>
             </div>
           </div>
         )}
         <div aria-busy={loading || purging}>
           <p className="hint">
-            {overview.total} matching records · Values are retained for reuse;
-            each source has its own refresh interval.
+            {t(
+              "{count} matching records · Values are retained for reuse; each source has its own refresh interval.",
+              { count: overview.total },
+            )}
           </p>
           {overview.entries.length ? (
             <ul className="metadata-records">
@@ -589,30 +634,38 @@ export default function MetadataManager({
             </ul>
           ) : (
             <p className="metadata-empty">
-              {query.search || query.group !== "all" || query.expiredOnly
-                ? "No records match these filters. Clear the search or choose another category."
-                : "No cached records yet. ISBN lookups and publisher checks will appear here."}
+              {t(
+                query.search || query.group !== "all" || query.expiredOnly
+                  ? "No records match these filters. Clear the search or choose another category."
+                  : "No cached records yet. ISBN lookups and publisher checks will appear here.",
+              )}
             </p>
           )}
         </div>
         {overview.pages > 1 && (
-          <nav className="metadata-pagination" aria-label="Cached record pages">
+          <nav
+            className="metadata-pagination"
+            aria-label={t("Cached record pages")}
+          >
             <button
               className="btn"
               disabled={loading || overview.page === 1}
               onClick={() => setQuery({ ...query, page: overview.page - 1 })}
             >
-              Previous
+              {t("Previous")}
             </button>
             <span>
-              Page {overview.page} of {overview.pages}
+              {t("Page {page} of {pages}", {
+                page: overview.page,
+                pages: overview.pages,
+              })}
             </span>
             <button
               className="btn"
               disabled={loading || overview.page === overview.pages}
               onClick={() => setQuery({ ...query, page: overview.page + 1 })}
             >
-              Next
+              {t("Next")}
             </button>
           </nav>
         )}

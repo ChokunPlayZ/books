@@ -3,14 +3,16 @@ import { seriesPath } from "../../lib/domain/navigation.ts";
 import type { StoredBook } from "../../lib/types.ts";
 import { shelfCoverBook, coverTint } from "../../lib/domain/shelf.ts";
 import { LIST_BATCH_SIZE } from "../../lib/domain/lists.ts";
+import { getTranslations } from "../../lib/server/preferences.ts";
 
-function Cover({
+async function Cover({
   book,
   gallery = null,
 }: {
   book: StoredBook;
   gallery?: "series" | "volume" | null;
 }) {
+  const t = await getTranslations();
   const series = book.series.trim() || "Untitled series";
   const title =
     gallery === "volume" && book.volume !== ""
@@ -34,7 +36,7 @@ function Cover({
           {gallery && (
             <>
               <span className="placeholder-title">{title}</span>
-              <span className="placeholder-label">No cover</span>
+              <span className="placeholder-label">{t("No cover")}</span>
             </>
           )}
         </span>
@@ -43,7 +45,7 @@ function Cover({
   );
 }
 
-export default function ShelfEntries({
+export default async function ShelfEntries({
   books,
   series,
   removed,
@@ -52,6 +54,7 @@ export default function ShelfEntries({
   series: string | null;
   removed: boolean;
 }) {
+  const t = await getTranslations();
   const visible =
     series === null
       ? books
@@ -62,16 +65,20 @@ export default function ShelfEntries({
     return (
       <div className="empty">
         <h2>
-          {removed
-            ? "Nothing removed"
-            : series === null
-              ? "Your shelf starts here"
-              : "No volumes found"}
+          {t(
+            removed
+              ? "Nothing removed"
+              : series === null
+                ? "Your shelf starts here"
+                : "No volumes found",
+          )}
         </h2>
         <p>
-          {removed
-            ? "Removed books will be kept here until you restore them."
-            : "Add a book to your shelf to get started."}
+          {t(
+            removed
+              ? "Removed books will be kept here until you restore them."
+              : "Add a book to your shelf to get started.",
+          )}
         </p>
       </div>
     );
@@ -92,12 +99,20 @@ export default function ShelfEntries({
           href={seriesPath(name)}
           key={name}
           title={name}
-          aria-label={`Open ${name}, ${owned.length} owned ${owned.length === 1 ? "volume" : "volumes"}`}
+          aria-label={t(
+            owned.length === 1
+              ? "Open {name}, {count} owned volume"
+              : "Open {name}, {count} owned volumes",
+            {
+              name,
+              count: owned.length,
+            },
+          )}
         >
           <Cover book={shelfCoverBook(owned)} gallery="series" />
           <span className="shelf-caption">{name}</span>
           <span className="shelf-detail">
-            {owned.length} {owned.length === 1 ? "volume" : "volumes"}
+            {owned.length} {t(owned.length === 1 ? "volume" : "volumes")}
           </span>
         </a>
       ));
@@ -119,14 +134,22 @@ export default function ShelfEntries({
         title={
           book.series + (book.volume !== "" ? ", volume " + book.volume : "")
         }
-        aria-label={`Edit ${book.series}${book.volume !== "" ? ", volume " + book.volume : ""}`}
+        aria-label={t("Edit {name}", {
+          name:
+            book.series +
+            (book.volume !== ""
+              ? ", " + t("Volume {volume}", { volume: book.volume })
+              : ""),
+        })}
         aria-haspopup="dialog"
       >
         <Cover book={book} gallery="volume" />
         <span className="shelf-caption">
-          {book.volume === "" ? book.series : "Volume " + book.volume}
+          {book.volume === ""
+            ? book.series
+            : t("Volume {volume}", { volume: book.volume })}
         </span>
-        <span className="shelf-detail">{book.status || "No status"}</span>
+        <span className="shelf-detail">{t(book.status || "No status")}</span>
       </button>
     ) : (
       <article className="book-row" key={book.row}>
@@ -150,7 +173,7 @@ export default function ShelfEntries({
                   : "")
             }
           >
-            {book.status || "No status"}
+            {t(book.status || "No status")}
           </span>
         </div>
         <div className="price">{book.price === "" ? "—" : book.price}</div>

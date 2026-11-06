@@ -1,5 +1,6 @@
 import { LIST_BATCH_SIZE } from "../domain/lists.ts";
 import { node, number } from "./dom.ts";
+import { t } from "./i18n.ts";
 
 // Keep existing rows mounted while the next batch approaches the viewport.
 export function createInfiniteList(
@@ -91,8 +92,18 @@ export function createInfiniteList(
         status.hidden = !items.length;
         status.textContent =
           visibleCount < items.length
-            ? `Showing ${number(visibleCount)} of ${number(items.length)} ${label}. More load as you scroll.`
-            : `All ${number(items.length)} ${label} loaded.`;
+            ? t(
+                "Showing {shown} of {total} {label}. More load as you scroll.",
+                {
+                  shown: number(visibleCount),
+                  total: number(items.length),
+                  label: t(label),
+                },
+              )
+            : t("All {total} {label} loaded.", {
+                total: number(items.length),
+                label: t(label),
+              });
         // Re-observing also fills tall viewports when a batch is still too short.
         observer.disconnect();
         if (visibleCount < items.length) observer.observe(status);

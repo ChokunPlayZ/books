@@ -1,4 +1,5 @@
 import { $, node, requestId, fillOptions } from "./dom.ts";
+import { t } from "./i18n.ts";
 import { bookSourceApplies } from "../domain/book-sources.ts";
 import { publisherKey } from "./matching.ts";
 import type { CollectionState } from "./state.ts";
@@ -109,17 +110,21 @@ export function createSeriesEditor({
     ] as const)
       $(id).disabled = state.busy || active || !state.data;
     $("saveSeriesEdits").disabled = state.busy || !count;
-    $("saveSeriesEdits").textContent = state.busy ? "Saving…" : "Save changes";
+    $("saveSeriesEdits").textContent = t(
+      state.busy ? "Saving…" : "Save changes",
+    );
     $("cancelSeriesEdit").disabled = state.busy;
-    $("cancelSeriesEdit").textContent = count ? "Discard changes" : "Done";
+    $("cancelSeriesEdit").textContent = t(count ? "Discard changes" : "Done");
     $("seriesSaveStatus").textContent = state.busy
-      ? "Saving your changes…"
+      ? t("Saving your changes…")
       : count
-        ? `Unsaved changes · ${count} ${count === 1 ? "volume" : "volumes"}`
-        : "No unsaved changes";
-    $("seriesSaveHint").textContent = count
-      ? "Save your changes before leaving this page."
-      : "Your edits stay here until you save.";
+        ? t("Unsaved changes · {count} volumes", { count })
+        : t("No unsaved changes");
+    $("seriesSaveHint").textContent = t(
+      count
+        ? "Save your changes before leaving this page."
+        : "Your edits stay here until you save.",
+    );
     $("seriesSaveBar").classList.toggle("is-dirty", count > 0);
     for (const row of rows) {
       row.element.classList.toggle("is-dirty", changed(row));
@@ -127,7 +132,7 @@ export function createSeriesEditor({
       row.toggle.disabled = state.busy;
       const volume = row.inputs.volume.value.trim();
       row.heading.textContent =
-        volume === "" ? "Unnumbered" : `Volume ${volume}`;
+        volume === "" ? t("Unnumbered") : t("Volume {volume}", { volume });
       row.metadata.textContent = [
         row.inputs.type.value,
         row.inputs.publisher.value.trim(),
@@ -143,7 +148,7 @@ export function createSeriesEditor({
   function showDetails(row: EditRow, expanded: boolean) {
     row.details.hidden = !expanded;
     row.toggle.setAttribute("aria-expanded", String(expanded));
-    row.toggle.textContent = expanded ? "Hide details" : "Book details";
+    row.toggle.textContent = t(expanded ? "Hide details" : "Book details");
   }
 
   function editField(
@@ -153,7 +158,7 @@ export function createSeriesEditor({
     compact = false,
   ) {
     const wrapper = node("div", "field");
-    const label = node("label", "", labels[field]);
+    const label = node("label", "", t(labels[field]));
     const id = `volume-${book.row}-${field}`;
     label.htmlFor = id;
     if (compact) {
@@ -170,7 +175,7 @@ export function createSeriesEditor({
         const option = node(
           "option",
           "",
-          value || "Choose " + (field === "type" ? "a type" : "a status"),
+          t(value || (field === "type" ? "Choose a type" : "Choose a status")),
         );
         option.value = value;
         input.append(option);
@@ -195,12 +200,14 @@ export function createSeriesEditor({
         input.min = "0";
         input.step = "any";
         input.inputMode = "decimal";
-        input.placeholder = field === "volume" ? "Unnumbered" : "Not recorded";
+        input.placeholder = t(
+          field === "volume" ? "Unnumbered" : "Not recorded",
+        );
       } else if (field === "pageCount") {
         input.min = "1";
         input.step = "1";
         input.inputMode = "numeric";
-        input.placeholder = "Not recorded";
+        input.placeholder = t("Not recorded");
       } else if (field === "date") {
         input.min = "1900-01-01";
         input.max = "9999-12-31";
@@ -310,13 +317,19 @@ export function createSeriesEditor({
           node(
             "p",
             "hint",
-            "Edition changes apply to this copy only. Use supported publisher or book metadata links for covers; clear the cover URL to use automatic artwork.",
+            t(
+              "Edition changes apply to this copy only. Use supported publisher or book metadata links for covers; clear the cover URL to use automatic artwork.",
+            ),
           ),
         );
         detailsCell.append(detailsBody);
         details.append(detailsCell);
         const toggleCell = node("td");
-        const toggle = node("button", "btn series-edit-toggle", "Book details");
+        const toggle = node(
+          "button",
+          "btn series-edit-toggle",
+          t("Book details"),
+        );
         toggle.type = "button";
         toggle.setAttribute("aria-controls", details.id);
         toggle.setAttribute("aria-expanded", "false");
@@ -373,18 +386,20 @@ export function createSeriesEditor({
       const result = await rpc("saveSeriesVolumes", pending.request);
       close();
       notify(
-        `Details saved for ${result.volumes} ${result.volumes === 1 ? "volume" : "volumes"}.`,
+        t("Details saved for {count} volumes.", { count: result.volumes }),
       );
       try {
         await reload();
       } catch {
-        $("pageError").textContent =
-          "Your changes were saved, but the list could not refresh. Press Refresh to see them.";
+        $("pageError").textContent = t(
+          "Your changes were saved, but the list could not refresh. Press Refresh to see them.",
+        );
         $("pageError").hidden = false;
       }
     } catch (error) {
-      $("seriesEditError").textContent =
-        error instanceof Error ? error.message : String(error);
+      $("seriesEditError").textContent = t(
+        error instanceof Error ? error.message : String(error),
+      );
       $("seriesEditError").hidden = false;
     } finally {
       setBusy(false);

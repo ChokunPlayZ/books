@@ -20,6 +20,7 @@
 @import "./styles/interface.css" layer(components);
 @import "./styles/prices.css" layer(components);
 @import "./styles/metadata.css" layer(components);
+@import "./styles/preferences.css" layer(components);
 @source "../components";
 @source "../lib/client";
 

@@ -5,16 +5,22 @@ import {
   type CollectionView,
 } from "../../lib/domain/navigation.ts";
 import type { Store } from "../../lib/server/store.ts";
+import { getTranslations } from "../../lib/server/preferences.ts";
 
-export default function CollectionTabs({
+export default async function CollectionTabs({
   view,
   data,
 }: {
   view: CollectionView;
   data: Awaited<ReturnType<Store["api"]["getCollection"]>>;
 }) {
+  const t = await getTranslations();
   return (
-    <nav id="libraryNavigation" className="tabs" aria-label="Collection views">
+    <nav
+      id="libraryNavigation"
+      className="tabs"
+      aria-label={t("Collection views")}
+    >
       <NavigationPosition view={view} />
       <a
         id="collectionTab"
@@ -23,7 +29,7 @@ export default function CollectionTabs({
         aria-current={view === "collection" ? "page" : undefined}
       >
         <Icon name="books" />
-        <span className="tab-label">Collection</span>
+        <span className="tab-label">{t("Collection")}</span>
         <span id="activeCount" className="sr-only">
           {data.books.length}
         </span>
@@ -35,7 +41,7 @@ export default function CollectionTabs({
         aria-current={view === "missing" ? "page" : undefined}
       >
         <Icon name="missing" />
-        <span className="tab-label">What’s missing</span>
+        <span className="tab-label">{t("What’s missing")}</span>
       </a>
       <a
         id="releasesTab"
@@ -44,7 +50,7 @@ export default function CollectionTabs({
         aria-current={view === "releases" ? "page" : undefined}
       >
         <Icon name="spark" />
-        <span className="tab-label">New releases</span>
+        <span className="tab-label">{t("New releases")}</span>
         <span id="releaseCount" className="tab-count" hidden>
           —
         </span>
@@ -56,7 +62,7 @@ export default function CollectionTabs({
         aria-current={view === "discover" ? "page" : undefined}
       >
         <Icon name="compass" />
-        <span className="tab-label">Discover titles</span>
+        <span className="tab-label">{t("Discover titles")}</span>
       </a>
       <a
         id="pricesTab"
@@ -65,7 +71,7 @@ export default function CollectionTabs({
         aria-current={view === "prices" ? "page" : undefined}
       >
         <Icon name="wallet" />
-        <span className="tab-label">Lowest prices</span>
+        <span className="tab-label">{t("Lowest prices")}</span>
       </a>
       <a
         id="statsTab"
@@ -74,24 +80,24 @@ export default function CollectionTabs({
         aria-current={view === "stats" ? "page" : undefined}
       >
         <Icon name="chart" />
-        <span className="tab-label">Statistics</span>
+        <span className="tab-label">{t("Statistics")}</span>
       </a>
       <a
         id="trashTab"
         className={"tab" + (view === "trash" ? " active" : "")}
         href={collectionPaths.trash}
         aria-current={view === "trash" ? "page" : undefined}
-        aria-label="Recently removed"
+        aria-label={t("Recently removed")}
       >
         <Icon name="archive" />
-        <span className="tab-label">Removed</span>
+        <span className="tab-label">{t("Removed")}</span>
         <span id="trashCount" className="tab-count" hidden={!data.trash.length}>
           {data.trash.length}
         </span>
       </a>
       <a id="dataLink" className="tab" href="/data">
         <Icon name="archive" />
-        <span className="tab-label">Data &amp; backups</span>
+        <span className="tab-label">{t("Data & backups")}</span>
       </a>
     </nav>
   );

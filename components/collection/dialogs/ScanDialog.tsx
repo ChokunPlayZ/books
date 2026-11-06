@@ -1,15 +1,18 @@
-export default function ScanDialog() {
+import { getTranslations } from "../../../lib/server/preferences.ts";
+
+export default async function ScanDialog() {
+  const t = await getTranslations();
   return (
     <dialog id={"scanDialog"} aria-labelledby={"scanTitle"}>
       <div className={"dialog-head"}>
         <div>
-          <h2 id={"scanTitle"}>{"Scan a book"}</h2>
-          <p>{"Include the barcode and any printed ISBN above it."}</p>
+          <h2 id={"scanTitle"}>{t("Scan a book")}</h2>
+          <p>{t("Include the barcode and any printed ISBN above it.")}</p>
         </div>
         <button
           id={"closeScan"}
           className={"close"}
-          aria-label={"Close scanner"}
+          aria-label={t("Close scanner")}
         >
           <svg aria-hidden={"true"}>
             <use href={"#i-close"} />
@@ -20,35 +23,35 @@ export default function ScanDialog() {
         <div id={"scannerArea"} className={"scanner-area"}></div>
         <div className={"buttons scan-buttons"}>
           <label className={"btn primary file"}>
-            {"Take photo"}
+            {t("Take photo")}
             <input
               id={"barcodePhoto"}
               type={"file"}
               accept={"image/*"}
               capture={"environment"}
-              aria-label={"Take a barcode photo"}
+              aria-label={t("Take a barcode photo")}
             />
           </label>
           <label className={"btn file"}>
-            {"Choose photo"}
+            {t("Choose photo")}
             <input
               id={"chooseBarcodePhoto"}
               type={"file"}
               accept={"image/*"}
-              aria-label={"Choose a barcode photo"}
+              aria-label={t("Choose a barcode photo")}
             />
           </label>
           <button id={"startCamera"} className={"btn"} type={"button"}>
-            {"Live camera"}
+            {t("Live camera")}
           </button>
           <button id={"stopCamera"} className={"btn"} type={"button"} hidden>
-            {"Stop camera"}
+            {t("Stop camera")}
           </button>
         </div>
         <p id={"scanMessage"} className={"scanner-note"} role={"status"}>
-          {
-            "Take or choose a photo, or use the live camera. Photos stay on your device."
-          }
+          {t(
+            "Take or choose a photo, or use the live camera. Photos stay on your device.",
+          )}
         </p>
         <div
           id={"scanCandidates"}

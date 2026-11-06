@@ -1,8 +1,9 @@
 import type { Store } from "../../lib/server/store.ts";
 import ShelfEntries from "./ShelfEntries";
 import BulkActions, { SelectionToggle } from "./BulkActions";
+import { getTranslations } from "../../lib/server/preferences.ts";
 
-export default function ShelfBrowser({
+export default async function ShelfBrowser({
   data,
   series,
   removed,
@@ -11,6 +12,7 @@ export default function ShelfBrowser({
   series: string | null;
   removed: boolean;
 }) {
+  const t = await getTranslations();
   const count = removed
     ? data.trash.length
     : series === null
@@ -29,31 +31,31 @@ export default function ShelfBrowser({
             <use href={"#i-search"} />
           </svg>
           <label htmlFor={"search"} className={"sr-only"}>
-            {"Search your collection"}
+            {t("Search your collection")}
           </label>
           <input
             id={"search"}
             type={"search"}
-            placeholder={"Search series, ISBN, publisher or notes…"}
+            placeholder={t("Search series, ISBN, publisher or notes…")}
             autoComplete={"off"}
           />
         </div>
         <label htmlFor={"typeFilter"} className={"filter-label"}>
-          {"Filter by type"}
+          {t("Filter by type")}
         </label>
         <select id={"typeFilter"}>
-          <option value={""}>{"All types"}</option>
+          <option value={""}>{t("All types")}</option>
         </select>
         <label htmlFor={"statusFilter"} className={"filter-label"}>
-          {"Filter by status"}
+          {t("Filter by status")}
         </label>
         <select id={"statusFilter"}>
-          <option value={""}>{"All statuses"}</option>
+          <option value={""}>{t("All statuses")}</option>
         </select>
         <button
           id={"refreshButton"}
           className={"btn refresh"}
-          aria-label={"Refresh collection"}
+          aria-label={t("Refresh collection")}
         >
           <svg aria-hidden={"true"}>
             <use href={"#i-refresh"} />
@@ -62,91 +64,94 @@ export default function ShelfBrowser({
       </div>
       <details id="collectionFilters" className="collection-filters">
         <summary id="collectionFiltersSummary">
-          More filters &amp; sorting
+          {t("More filters & sorting")}
         </summary>
         <div className="collection-filter-grid">
           <div className="field">
-            <label htmlFor="publisherFilter">Publisher</label>
+            <label htmlFor="publisherFilter">{t("Publisher")}</label>
             <select id="publisherFilter">
-              <option value="">All publishers</option>
+              <option value="">{t("All publishers")}</option>
             </select>
           </div>
           <div className="field">
-            <label htmlFor="sourceFilter">Bought from</label>
+            <label htmlFor="sourceFilter">{t("Bought from")}</label>
             <select id="sourceFilter">
-              <option value="">All stores</option>
+              <option value="">{t("All stores")}</option>
             </select>
           </div>
           <div className="field">
             <label htmlFor="isbnFilter">ISBN</label>
             <select id="isbnFilter">
-              <option value="">Any ISBN</option>
-              <option value="present">With ISBN</option>
-              <option value="missing">Missing ISBN</option>
+              <option value="">{t("Any ISBN")}</option>
+              <option value="present">{t("With ISBN")}</option>
+              <option value="missing">{t("Missing ISBN")}</option>
             </select>
           </div>
           <div className="field">
-            <label htmlFor="priceFilter">Recorded price</label>
+            <label htmlFor="priceFilter">{t("Recorded price")}</label>
             <select id="priceFilter">
-              <option value="">Any price</option>
-              <option value="present">With price</option>
-              <option value="missing">Missing price</option>
+              <option value="">{t("Any price")}</option>
+              <option value="present">{t("With price")}</option>
+              <option value="missing">{t("Missing price")}</option>
             </select>
           </div>
           <div className="field">
-            <label htmlFor="minPriceFilter">Minimum paid (฿)</label>
+            <label htmlFor="minPriceFilter">{t("Minimum paid (฿)")}</label>
             <input
               id="minPriceFilter"
               type="number"
               min="0"
               step="any"
               inputMode="decimal"
-              placeholder="No minimum"
+              placeholder={t("No minimum")}
             />
           </div>
           <div className="field">
-            <label htmlFor="maxPriceFilter">Maximum paid (฿)</label>
+            <label htmlFor="maxPriceFilter">{t("Maximum paid (฿)")}</label>
             <input
               id="maxPriceFilter"
               type="number"
               min="0"
               step="any"
               inputMode="decimal"
-              placeholder="No maximum"
+              placeholder={t("No maximum")}
             />
           </div>
           <div className="field">
-            <label htmlFor="dateFromFilter">Bought on or after</label>
+            <label htmlFor="dateFromFilter">{t("Bought on or after")}</label>
             <input id="dateFromFilter" type="date" />
           </div>
           <div className="field">
-            <label htmlFor="dateToFilter">Bought on or before</label>
+            <label htmlFor="dateToFilter">{t("Bought on or before")}</label>
             <input id="dateToFilter" type="date" />
           </div>
           <div className="field">
-            <label htmlFor="collectionSort">Sort by</label>
+            <label htmlFor="collectionSort">{t("Sort by")}</label>
             <select id="collectionSort">
-              <option value="default">Series A–Z</option>
-              <option value="spent">Most spent</option>
-              <option value="books">Most books</option>
-              <option value="recent">Recently bought</option>
+              <option value="default">{t("Series A–Z")}</option>
+              <option value="spent">{t("Most spent")}</option>
+              <option value="books">{t("Most books")}</option>
+              <option value="recent">{t("Recently bought")}</option>
             </select>
           </div>
         </div>
         <p id="collectionFilterHint" className="hint">
-          Filters match individual books. Series show only matching books;
-          opening a series shows all owned volumes.
+          {t(
+            "Filters match individual books. Series show only matching books; opening a series shows all owned volumes.",
+          )}
         </p>
       </details>
       <div className={"list-label"}>
         <div className="collection-results">
           <span id={"resultCount"} role="status">
             {count}{" "}
-            {removed
-              ? "removed books"
-              : series === null
-                ? "series"
-                : "owned volumes"}
+            {t(
+              removed
+                ? "removed books"
+                : series === null
+                  ? "series"
+                  : "owned volumes",
+            )}
           </span>
           <button
             id="clearCollectionFilters"
@@ -154,16 +159,18 @@ export default function ShelfBrowser({
             type="button"
             hidden
           >
-            Clear filters
+            {t("Clear filters")}
           </button>
         </div>
         <div className="selection-tools">
           <span id={"listRight"}>
-            {removed
-              ? "Ready to restore"
-              : series === null
-                ? "Open a cover for details"
-                : "Ordered by volume"}
+            {t(
+              removed
+                ? "Ready to restore"
+                : series === null
+                  ? "Open a cover for details"
+                  : "Ordered by volume",
+            )}
           </span>
           <SelectionToggle grouped={!removed && series === null} />
         </div>
@@ -172,13 +179,14 @@ export default function ShelfBrowser({
       <section
         id={"bookList"}
         className={"collection" + (gallery ? " cover-grid" : "")}
-        aria-label={
+        aria-label={t(
           removed
             ? "Removed books"
             : series === null
               ? "Series"
-              : "Owned volumes in " + series
-        }
+              : "Owned volumes in {series}",
+          { series: series ?? "" },
+        )}
       >
         <ShelfEntries
           books={removed ? data.trash.map((entry) => entry.book) : data.books}

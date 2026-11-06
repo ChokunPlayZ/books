@@ -1,4 +1,7 @@
-export default function SeriesCatalogPanel() {
+import { getTranslations } from "../../lib/server/preferences.ts";
+
+export default async function SeriesCatalogPanel() {
+  const t = await getTranslations();
   return (
     <section
       id={"seriesMissing"}
@@ -6,15 +9,15 @@ export default function SeriesCatalogPanel() {
       aria-labelledby={"seriesMissingTitle"}
       hidden
     >
-      <h2 id={"seriesMissingTitle"}>{"What you’re missing"}</h2>
+      <h2 id={"seriesMissingTitle"}>{t("What you’re missing")}</h2>
       <p id={"seriesMissingSummary"} className={"hint"} role={"status"}></p>
       <div id={"seriesGaps"} className={"missing-editions"}></div>
       <div id={"seriesCatalogHeading"} className={"series-release-head"}>
         <div>
-          <h3>{"Publisher catalog"}</h3>
+          <h3>{t("Publisher catalog")}</h3>
         </div>
         <button id={"refreshSeriesReleases"} className={"btn"}>
-          {"Refresh catalog"}
+          {t("Refresh catalog")}
         </button>
       </div>
       <div
@@ -25,12 +28,12 @@ export default function SeriesCatalogPanel() {
       ></div>
       <p id={"seriesReleaseStatus"} className={"hint"} role={"status"}></p>
       <details id={"seriesCatalogDetails"} className={"publisher-details"}>
-        <summary>{"Sources & catalog settings"}</summary>
+        <summary>{t("Sources & catalog settings")}</summary>
         <div id={"seriesReleaseSources"} className={"publisher-sources"}></div>
         <p className={"hint release-note"}>
-          {
-            "Shelf gaps use whole volume numbers up to your highest owned volume. Catalog checks include older listings in the publisher’s series category, or Luckpim’s full title search. Removed listings and unrecorded purchases can affect the comparison."
-          }
+          {t(
+            "Shelf gaps use whole volume numbers up to your highest owned volume. Catalog checks include older listings in the publisher’s series category, or Luckpim’s full title search. Removed listings and unrecorded purchases can affect the comparison.",
+          )}
         </p>
       </details>
       <div id={"seriesReleaseList"} className={"release-grid"}></div>

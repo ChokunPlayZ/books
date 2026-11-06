@@ -1,18 +1,22 @@
-export default function TitleDialog() {
+import { getTranslations } from "../../../lib/server/preferences.ts";
+
+export default async function TitleDialog() {
+  const t = await getTranslations();
   return (
     <dialog id="titleDialog" aria-labelledby="titleDialogTitle">
       <div className="dialog-head">
         <div>
-          <h2 id="titleDialogTitle">Title details</h2>
+          <h2 id="titleDialogTitle">{t("Title details")}</h2>
           <p>
-            Shared by all volumes. Each edition keeps its own type and
-            publisher.
+            {t(
+              "Shared by all volumes. Each edition keeps its own type and publisher.",
+            )}
           </p>
         </div>
         <button
           id="closeTitle"
           className="close"
-          aria-label="Close title details"
+          aria-label={t("Close title details")}
         >
           <svg aria-hidden="true">
             <use href="#i-close" />
@@ -23,7 +27,7 @@ export default function TitleDialog() {
         <div className="dialog-body">
           <div id="titleError" className="form-error" role="alert" hidden />
           <div className="field">
-            <label htmlFor="titleSeries">Series name *</label>
+            <label htmlFor="titleSeries">{t("Series name *")}</label>
             <input id="titleSeries" required maxLength={500} />
           </div>
           <div id="titleEditions" className="title-editions" />
@@ -32,10 +36,10 @@ export default function TitleDialog() {
         <div className="dialog-foot">
           <div className="buttons">
             <button id="cancelTitle" className="btn" type="button">
-              Cancel
+              {t("Cancel")}
             </button>
             <button id="saveTitleButton" className="btn primary" type="submit">
-              Save title details
+              {t("Save title details")}
             </button>
           </div>
         </div>

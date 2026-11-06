@@ -1,15 +1,18 @@
-export default function CheckDialog() {
+import { getTranslations } from "../../../lib/server/preferences.ts";
+
+export default async function CheckDialog() {
+  const t = await getTranslations();
   return (
     <dialog id={"checkDialog"} aria-labelledby={"checkTitle"}>
       <div className={"dialog-head"}>
         <div>
-          <h2 id={"checkTitle"}>{"Do I own this book?"}</h2>
-          <p>{"A quick shelf check while you're in the bookstore."}</p>
+          <h2 id={"checkTitle"}>{t("Do I own this book?")}</h2>
+          <p>{t("A quick shelf check while you're in the bookstore.")}</p>
         </div>
         <button
           id={"closeCheck"}
           className={"close"}
-          aria-label={"Close ownership checker"}
+          aria-label={t("Close ownership checker")}
         >
           <svg aria-hidden={"true"}>
             <use href={"#i-close"} />
@@ -19,17 +22,17 @@ export default function CheckDialog() {
       <div className={"dialog-body"}>
         <form id={"checkForm"}>
           <div className={"field"}>
-            <label htmlFor={"checkIsbn"}>{"Bookstore ISBN"}</label>
+            <label htmlFor={"checkIsbn"}>{t("Bookstore ISBN")}</label>
             <div className={"isbn-line"}>
               <input
                 id={"checkIsbn"}
                 type={"text"}
-                placeholder={"978… or ISBN-10"}
+                placeholder={t("978… or ISBN-10")}
                 maxLength={40}
                 autoComplete={"off"}
               />
               <button id={"checkIsbnButton"} className={"btn"} type={"submit"}>
-                {"Check"}
+                {t("Check")}
               </button>
               <button
                 id={"checkScanButton"}
@@ -39,13 +42,13 @@ export default function CheckDialog() {
                 <svg aria-hidden={"true"}>
                   <use href={"#i-scan"} />
                 </svg>
-                {"Scan barcode"}
+                {t("Scan barcode")}
               </button>
             </div>
           </div>
         </form>
         <p className={"hint check-hint"}>
-          {"Scan with your camera, choose a barcode photo, or type an ISBN."}
+          {t("Scan with your camera, choose a barcode photo, or type an ISBN.")}
         </p>
         <div
           id={"checkError"}
@@ -56,16 +59,16 @@ export default function CheckDialog() {
         <div id={"ownershipResult"} role={"status"} hidden></div>
         <div className={"store-search"}>
           <label htmlFor={"checkSearch"}>
-            {"Search owned series or volumes"}
+            {t("Search owned series or volumes")}
           </label>
           <input
             id={"checkSearch"}
             type={"search"}
-            placeholder={"Series name, volume, or publisher…"}
+            placeholder={t("Series name, volume, or publisher…")}
             autoComplete={"off"}
           />
           <p id={"checkSearchHint"} className={"store-result-note"}>
-            {"Useful for books you haven't added an ISBN to yet."}
+            {t("Useful for books you haven't added an ISBN to yet.")}
           </p>
           <div id={"checkSearchResults"}></div>
         </div>
@@ -75,10 +78,10 @@ export default function CheckDialog() {
           <svg aria-hidden={"true"}>
             <use href={"#i-scan"} />
           </svg>
-          {"Scan next book"}
+          {t("Scan next book")}
         </button>
         <button id={"doneCheck"} className={"btn"}>
-          {"Done"}
+          {t("Done")}
         </button>
       </div>
     </dialog>

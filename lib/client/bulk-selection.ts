@@ -1,4 +1,5 @@
 import { $, node, number, fillOptions, requestId } from "./dom.ts";
+import { t } from "./i18n.ts";
 import { selectRange } from "./selection.ts";
 import { createSeriesMerge } from "./series-merge.ts";
 import type { CollectionState } from "./state.ts";
@@ -38,7 +39,7 @@ export function createBulkSelection({
   let pending: { key: string; request: BatchRequest } | null = null;
   const list = $("bookList");
   const options = { signal };
-  const grouped = $("toggleSelection")?.textContent.includes("series");
+  const grouped = $("toggleSelection")?.dataset.grouped === "true";
   const seriesMerge = createSeriesMerge({
     signal,
     getCollection,
@@ -70,14 +71,16 @@ export function createBulkSelection({
       count = selectedBooks().length;
     $("bulkActions").hidden = !mode;
     $("toggleSelection").setAttribute("aria-pressed", String(mode));
-    $("toggleSelection").textContent = mode
-      ? "Done selecting"
-      : grouped
-        ? "Select series"
-        : "Select books";
+    $("toggleSelection").textContent = t(
+      mode ? "Done selecting" : grouped ? "Select series" : "Select books",
+    );
     $("selectionCount").textContent =
-      `${number(count)} ${count === 1 ? "book" : "books"} selected` +
-      (grouped && selected.size ? ` in ${number(selected.size)} series` : "");
+      t(count === 1 ? "{count} book selected" : "{count} books selected", {
+        count: number(count),
+      }) +
+      (grouped && selected.size
+        ? t(" in {count} series", { count: number(selected.size) })
+        : "");
     list.classList.toggle("is-selecting", mode);
     for (const row of list.querySelectorAll<HTMLElement>(
       "[data-selection-key]",

@@ -3,9 +3,12 @@ import { useState } from "react";
 import Icon from "./Icon";
 import LibraryBrand from "./LibraryBrand";
 import ThemeToggle from "./ThemeToggle";
+import LanguageSelect from "./LanguageSelect";
+import AccountPreferences from "./AccountPreferences";
 import MetadataManager from "./MetadataManager";
 import type { MetadataOverview } from "../lib/metadata";
 import type { ImportResult, ImportReview } from "../lib/types";
+import { useTranslations } from "./PreferencesProvider";
 
 type DataManagerProps = {
   counts: { books: number; trash: number; savedReleases: number };
@@ -18,6 +21,7 @@ export default function DataManager({
   canSignOut,
   metadata,
 }: DataManagerProps) {
+  const t = useTranslations();
   const [file, setFile] = useState<File | null>(null),
     [review, setReview] = useState<ImportReview | null>(null),
     [result, setResult] = useState<ImportResult | null>(null),
@@ -45,7 +49,7 @@ export default function DataManager({
       }
     } catch (err: unknown) {
       setError(
-        err instanceof Error ? err.message : "Import failed. Try again.",
+        t(err instanceof Error ? err.message : "Import failed. Try again."),
       );
     } finally {
       setBusy(false);
@@ -61,84 +65,91 @@ export default function DataManager({
         <div className="top-inner flex items-center justify-between">
           <LibraryBrand />
           <div className="header-links">
+            <LanguageSelect />
             <ThemeToggle />
             <a className="btn return-link" href="/">
               <Icon name="arrow" />
-              Your collection
+              {t("Your collection")}
             </a>
           </div>
         </div>
       </header>
       <main className="data-page">
         <div className="data-heading">
-          <p className="eyebrow">Keep your library yours</p>
+          <p className="eyebrow">{t("Keep your library yours")}</p>
           <h1>
-            Data &amp; backups<span className="heading-dot">.</span>
+            {t("Data & backups")}
+            <span className="heading-dot">.</span>
           </h1>
           <p className="intro">
-            Manage source metadata, maintain your cache, and keep a copy of your
-            library.
+            {t(
+              "Manage source metadata, maintain your cache, and keep a copy of your library.",
+            )}
           </p>
         </div>
-        <div className="data-overview" aria-label="Library records">
+        <div className="data-overview" aria-label={t("Library records")}>
           <span>
-            <strong>{counts.books}</strong> owned books
+            <strong>{counts.books}</strong> {t("owned books")}
           </span>
           <span>
-            <strong>{counts.trash}</strong> recently removed
+            <strong>{counts.trash}</strong> {t("recently removed")}
           </span>
           <span>
-            <strong>{counts.savedReleases}</strong> saved releases
+            <strong>{counts.savedReleases}</strong> {t("saved releases")}
           </span>
         </div>
-        <nav className="data-sections" aria-label="Data management">
-          {metadata && <a href="#metadata-maintenance">Metadata &amp; cache</a>}
-          <a href="#library-backups">Backups &amp; import</a>
+        <nav className="data-sections" aria-label={t("Data management")}>
+          <a href="#account-preferences">{t("Account preferences")}</a>
+          {metadata && (
+            <a href="#metadata-maintenance">{t("Metadata & cache")}</a>
+          )}
+          <a href="#library-backups">{t("Backups & import")}</a>
         </nav>
+        <AccountPreferences />
         {metadata && <MetadataManager initial={metadata} />}
         <div id="library-backups" className="data-grid">
           <section className="data-card backup-card">
             <span className="data-icon">
               <Icon name="download" />
             </span>
-            <p className="eyebrow">Take a copy with you</p>
-            <h2>Download a backup</h2>
+            <p className="eyebrow">{t("Take a copy with you")}</p>
+            <h2>{t("Download a backup")}</h2>
             <p>
-              Save your books, recently removed volumes, saved releases, catalog
-              links and dropdown choices in one file. You can restore it into an
-              empty library.
+              {t(
+                "Save your books, recently removed volumes, saved releases, catalog links and dropdown choices in one file. You can restore it into an empty library.",
+              )}
             </p>
             <a className="btn primary" href="/api/backup" download>
               <Icon name="download" />
-              Download library backup
+              {t("Download library backup")}
             </a>
             <p className="backup-note">
               <Icon name="archive" />
-              One file. Your whole library.
+              {t("One file. Your whole library.")}
             </p>
           </section>
           <section className="data-card">
             <span className="data-icon">
               <Icon name="upload" />
             </span>
-            <p className="eyebrow">Give your books a new home</p>
-            <h2>Bring over your collection</h2>
+            <p className="eyebrow">{t("Give your books a new home")}</p>
+            <h2>{t("Bring over your collection")}</h2>
             <p>
-              In Google Sheets, choose{" "}
-              <strong>File → Download → Microsoft Excel (.xlsx)</strong>. The
-              full workbook includes the helper tabs for recently removed books,
-              saved releases and linked series catalogs. CSV imports owned books
-              only. A library JSON backup works too.
+              {t(
+                "In Google Sheets, choose File → Download → Microsoft Excel (.xlsx). The full workbook includes the helper tabs for recently removed books, saved releases and linked series catalogs. CSV imports owned books only. A library JSON backup works too.",
+              )}
             </p>
             <p>
-              Imports require an empty library and keep duplicate copies, gifts
-              with a price of zero, blank prices and decimal volumes. Review the
-              contents before saving.
+              {t(
+                "Imports require an empty library and keep duplicate copies, gifts with a price of zero, blank prices and decimal volumes. Review the contents before saving.",
+              )}
             </p>
             <div className="import-picker">
-              <label htmlFor="importFile">Choose your collection file</label>
+              <label htmlFor="importFile">
+                {t("Choose your collection file")}
+              </label>
               <p id="importFormats" className="hint">
-                Excel workbook, CSV or a library JSON backup
+                {t("Excel workbook, CSV or a library JSON backup")}
               </p>
               <input
                 id="importFile"
@@ -160,7 +171,7 @@ export default function DataManager({
                 disabled={!file || busy}
                 onClick={() => upload("preview")}
               >
-                {busy ? "Reading file…" : "Review import"}
+                {t(busy ? "Reading file…" : "Review import")}
               </button>
             </div>
             {error && (
@@ -170,29 +181,39 @@ export default function DataManager({
             )}
             {review && (
               <div className="import-review" aria-live="polite">
-                <h3>Ready to import</h3>
+                <h3>{t("Ready to import")}</h3>
                 <p>
-                  {review.books} owned books · {review.trash} removed books ·{" "}
-                  {review.savedReleases} saved releases ·{" "}
-                  {review.seriesCatalogs} catalog links
+                  {t(
+                    "{books} owned books · {trash} removed books · {releases} saved releases · {catalogs} catalog links",
+                    {
+                      books: review.books,
+                      trash: review.trash,
+                      releases: review.savedReleases,
+                      catalogs: review.seriesCatalogs,
+                    },
+                  )}
                 </p>
                 <ul>
                   {review.sample.map((book, index) => (
                     <li key={index}>
                       {book.series} ·{" "}
                       {book.volume === ""
-                        ? "Unnumbered"
-                        : `Volume ${book.volume}`}{" "}
+                        ? t("Unnumbered")
+                        : t("Volume {volume}", { volume: book.volume })}{" "}
                       · {book.type}
                     </li>
                   ))}
                 </ul>
                 {review.warnings.length > 0 && (
                   <details>
-                    <summary>{review.warnings.length} things to check</summary>
+                    <summary>
+                      {t("{count} things to check", {
+                        count: review.warnings.length,
+                      })}
+                    </summary>
                     <ul>
                       {review.warnings.map((warning, index) => (
-                        <li key={index}>{warning}</li>
+                        <li key={index}>{t(warning)}</li>
                       ))}
                     </ul>
                   </details>
@@ -202,16 +223,16 @@ export default function DataManager({
                   disabled={busy}
                   onClick={() => upload("import")}
                 >
-                  Import this collection
+                  {t("Import this collection")}
                 </button>
               </div>
             )}
             {result && (
               <p className="import-success" role="status">
                 {result.alreadyImported
-                  ? "This file was already imported."
-                  : `Imported ${result.books} books.`}{" "}
-                <a href="/">Open your shelf →</a>
+                  ? t("This file was already imported.")
+                  : t("Imported {count} books.", { count: result.books })}{" "}
+                <a href="/">{t("Open your shelf →")}</a>
               </p>
             )}
           </section>
@@ -219,12 +240,12 @@ export default function DataManager({
         <footer className="data-footer">
           <span>
             <Icon name="lock" />
-            Stored in your library. Always yours.
+            {t("Stored in your library. Always yours.")}
           </span>
           {canSignOut && (
             <button className="text-btn" onClick={logout}>
               <Icon name="logout" />
-              Sign out
+              {t("Sign out")}
             </button>
           )}
         </footer>

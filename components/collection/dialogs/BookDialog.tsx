@@ -1,19 +1,22 @@
-export default function BookDialog() {
+import { getTranslations } from "../../../lib/server/preferences.ts";
+
+export default async function BookDialog() {
+  const t = await getTranslations();
   return (
     <dialog id={"bookDialog"} aria-labelledby={"bookDialogTitle"}>
       <div className={"dialog-head"}>
         <div>
           <h2 id={"bookDialogTitle"} tabIndex={-1}>
-            {"Add to your shelf"}
+            {t("Add to your shelf")}
           </h2>
           <p id={"bookDialogSubtitle"}>
-            {"Scan an ISBN or fill in the details yourself."}
+            {t("Scan an ISBN or fill in the details yourself.")}
           </p>
         </div>
         <button
           className={"close"}
           id={"closeBook"}
-          aria-label={"Close book form"}
+          aria-label={t("Close book form")}
         >
           <svg aria-hidden={"true"}>
             <use href={"#i-close"} />
@@ -30,7 +33,7 @@ export default function BookDialog() {
       >
         <span className="isbn-lookup-spinner" aria-hidden="true" />
         <div>
-          <strong>Looking up ISBN…</strong>
+          <strong>{t("Looking up ISBN…")}</strong>
           <p id="isbnLookupMessage" />
         </div>
       </div>
@@ -50,7 +53,7 @@ export default function BookDialog() {
             >
               <label htmlFor={"isbn"}>
                 {"ISBN "}
-                <span className={"hint"}>{"optional"}</span>
+                <span className={"hint"}>{t("optional")}</span>
               </label>
               <div className={"isbn-line"}>
                 <input
@@ -59,22 +62,22 @@ export default function BookDialog() {
                   type={"text"}
                   inputMode={"text"}
                   enterKeyHint={"search"}
-                  placeholder={"978… or ISBN-10"}
+                  placeholder={t("978… or ISBN-10")}
                   maxLength={40}
                   autoComplete={"off"}
                 />
                 <button id={"lookupButton"} className={"btn"} type={"button"}>
-                  {"Look up"}
+                  {t("Look up")}
                 </button>
                 <button id={"scanButton"} className={"btn"} type={"button"}>
                   <svg aria-hidden={"true"}>
                     <use href={"#i-scan"} />
                   </svg>
-                  {"Scan"}
+                  {t("Scan")}
                 </button>
               </div>
               <p className={"hint"}>
-                {"Scan a barcode or enter its ISBN to fill in book details."}
+                {t("Scan a barcode or enter its ISBN to fill in book details.")}
               </p>
             </div>
             <div
@@ -90,39 +93,39 @@ export default function BookDialog() {
               aria-expanded="false"
               hidden
             >
-              Edit book details
+              {t("Edit book details")}
             </button>
             <fieldset
               id="titleEntry"
               className="title-entry span-2"
               data-lookup-detail
             >
-              <legend>Title details</legend>
+              <legend>{t("Title details")}</legend>
               <div className="form-grid">
                 <div id="titleNameField" className="field span-2">
-                  <label htmlFor="series">Series name *</label>
+                  <label htmlFor="series">{t("Series name *")}</label>
                   <input
                     id="series"
                     name="series"
                     list="seriesOptions"
                     required
                     maxLength={500}
-                    placeholder="Choose a title or enter a new one"
+                    placeholder={t("Choose a title or enter a new one")}
                   />
                   <datalist id="seriesOptions" />
                 </div>
                 <div className="field" data-title-field>
-                  <label htmlFor="type">Type *</label>
+                  <label htmlFor="type">{t("Type *")}</label>
                   <select id="type" name="type" required />
                 </div>
                 <div className="field" data-title-field>
-                  <label htmlFor="publisher">Publisher</label>
+                  <label htmlFor="publisher">{t("Publisher")}</label>
                   <input
                     id="publisher"
                     name="publisher"
                     list="publisherOptions"
                     maxLength={500}
-                    placeholder="Choose or enter a publisher"
+                    placeholder={t("Choose or enter a publisher")}
                   />
                   <datalist id="publisherOptions" />
                 </div>
@@ -136,21 +139,23 @@ export default function BookDialog() {
             >
               <p id="seriesDefaultsText" role="status" />
               <div id="editionField" className="field">
-                <label htmlFor="bookEdition">Edition</label>
+                <label htmlFor="bookEdition">{t("Edition")}</label>
                 <select id="bookEdition" />
               </div>
-              <p className="hint">Edit shared details from the title page.</p>
+              <p className="hint">
+                {t("Edit shared details from the title page.")}
+              </p>
               <button
                 id="toggleBookDetails"
                 className="text-btn"
                 type="button"
                 aria-expanded="false"
               >
-                Edit other volume details
+                {t("Edit other volume details")}
               </button>
             </div>
             <div className={"field"} data-lookup-detail>
-              <label htmlFor={"volume"}>{"Volume"}</label>
+              <label htmlFor={"volume"}>{t("Volume")}</label>
               <input
                 id={"volume"}
                 name={"volume"}
@@ -158,38 +163,38 @@ export default function BookDialog() {
                 inputMode={"decimal"}
                 min={"0"}
                 step={"any"}
-                placeholder={"e.g. 1 or 4.5"}
+                placeholder={t("e.g. 1 or 4.5")}
               />
             </div>
             <div className={"field"} data-lookup-detail>
-              <label htmlFor={"status"}>{"Reading status *"}</label>
+              <label htmlFor={"status"}>{t("Reading status *")}</label>
               <select id={"status"} name={"status"} required></select>
             </div>
             <div className={"field purchase-field"}>
-              <label htmlFor={"source"}>{"Bought from"}</label>
+              <label htmlFor={"source"}>{t("Bought from")}</label>
               <input
                 id={"source"}
                 name={"source"}
                 list={"sourceOptions"}
                 maxLength={500}
                 autoComplete="off"
-                placeholder={"Shop, book fair, or gift"}
+                placeholder={t("Shop, book fair, or gift")}
                 aria-describedby="sourceHint"
               />
               <datalist id={"sourceOptions"}></datalist>
               <p id="sourceHint" className="hint">
-                Enter where you bought this copy.
+                {t("Enter where you bought this copy.")}
               </p>
             </div>
             <div className={"field purchase-field"} data-lookup-detail>
-              <label htmlFor={"date"}>{"Date bought"}</label>
+              <label htmlFor={"date"}>{t("Date bought")}</label>
               <input id={"date"} name={"date"} type={"date"} />
             </div>
             <fieldset className={"purchase-price span-2"}>
-              <legend>{"Purchase price"}</legend>
+              <legend>{t("Purchase price")}</legend>
               <div className={"form-grid"}>
                 <div className={"field span-2"}>
-                  <label htmlFor={"price"}>{"Price paid"}</label>
+                  <label htmlFor={"price"}>{t("Price paid")}</label>
                   <input
                     id={"price"}
                     name={"price"}
@@ -199,14 +204,16 @@ export default function BookDialog() {
                     step={"any"}
                     placeholder={"0.00"}
                   />
-                  <p className={"hint"}>{"Use your collection’s currency."}</p>
+                  <p className={"hint"}>
+                    {t("Use your collection’s currency.")}
+                  </p>
                   <p id="listedPriceHint" className="hint" hidden />
                   <button
                     id="findBookPrices"
                     className="text-btn price-form-link"
                     type="button"
                   >
-                    Find lowest price ↗
+                    {t("Find lowest price ↗")}
                   </button>
                 </div>
                 <details
@@ -215,12 +222,12 @@ export default function BookDialog() {
                   open
                   data-lookup-detail
                 >
-                  <summary>{"Calculate a discounted price"}</summary>
+                  <summary>{t("Calculate a discounted price")}</summary>
                   <div className={"form-grid"}>
                     <div className={"field"}>
                       <label htmlFor={"regularPrice"}>
-                        {"Regular price "}
-                        <span className={"hint"}>{"optional"}</span>
+                        {t("Regular price")}{" "}
+                        <span className={"hint"}>{t("optional")}</span>
                       </label>
                       <input
                         id={"regularPrice"}
@@ -228,13 +235,13 @@ export default function BookDialog() {
                         inputMode={"decimal"}
                         min={"0"}
                         step={"any"}
-                        placeholder={"Before discount"}
+                        placeholder={t("Before discount")}
                       />
                     </div>
                     <div className={"field"}>
                       <label htmlFor={"discount"}>
-                        {"Discount "}
-                        <span className={"hint"}>{"optional"}</span>
+                        {t("Discount")}{" "}
+                        <span className={"hint"}>{t("optional")}</span>
                       </label>
                       <div className={"discount-line"}>
                         <input
@@ -249,20 +256,20 @@ export default function BookDialog() {
                         />
                         <select
                           id={"discountType"}
-                          aria-label={"Discount type"}
+                          aria-label={t("Discount type")}
                         >
-                          <option value={"percent"}>{"% off"}</option>
-                          <option value={"amount"}>{"Amount off"}</option>
+                          <option value={"percent"}>{t("% off")}</option>
+                          <option value={"amount"}>{t("Amount off")}</option>
                         </select>
                       </div>
                       <p id={"discountHint"} className={"hint"}>
-                        {"Enter a percentage from 0 to 100."}
+                        {t("Enter a percentage from 0 to 100.")}
                       </p>
                     </div>
                     <p className={"hint span-2"}>
-                      {
-                        "Regular price and discount are used only for this calculation."
-                      }
+                      {t(
+                        "Regular price and discount are used only for this calculation.",
+                      )}
                     </p>
                   </div>
                 </details>
@@ -282,16 +289,16 @@ export default function BookDialog() {
               data-lookup-detail
               open
             >
-              <summary>Pages, cover, notes &amp; duplicate copy</summary>
+              <summary>{t("Pages, cover, notes & duplicate copy")}</summary>
               <div className="form-grid">
                 <fieldset
                   id="metadataManager"
                   className="metadata-manager span-2"
                   data-series-detail
                 >
-                  <legend>Book metadata</legend>
+                  <legend>{t("Book metadata")}</legend>
                   <div className="field">
-                    <label htmlFor="msrp">MSRP / list price</label>
+                    <label htmlFor="msrp">{t("MSRP / list price")}</label>
                     <input
                       id="msrp"
                       name="msrp"
@@ -299,14 +306,16 @@ export default function BookDialog() {
                       min="0"
                       step="any"
                       inputMode="decimal"
-                      placeholder="Not available"
+                      placeholder={t("Not available")}
                     />
                     <p className="hint">
-                      Separate from the shop price and your private price paid.
+                      {t(
+                        "Separate from the shop price and your private price paid.",
+                      )}
                     </p>
                   </div>
                   <div className="field">
-                    <label htmlFor="msrpCurrency">MSRP currency</label>
+                    <label htmlFor="msrpCurrency">{t("MSRP currency")}</label>
                     <input
                       id="msrpCurrency"
                       name="msrpCurrency"
@@ -315,19 +324,19 @@ export default function BookDialog() {
                     />
                   </div>
                   <div className="field">
-                    <label htmlFor="edition">Edition details</label>
+                    <label htmlFor="edition">{t("Edition details")}</label>
                     <input
                       id="edition"
                       name="edition"
                       maxLength={500}
-                      placeholder="Language, colour or edition"
+                      placeholder={t("Language, colour or edition")}
                     />
                     <p className="hint">
-                      Your edition label is private to your library.
+                      {t("Your edition label is private to your library.")}
                     </p>
                   </div>
                   <div className="field">
-                    <label htmlFor="pageCount">Pages</label>
+                    <label htmlFor="pageCount">{t("Pages")}</label>
                     <input
                       id="pageCount"
                       name="pageCount"
@@ -335,11 +344,11 @@ export default function BookDialog() {
                       inputMode="numeric"
                       min="1"
                       step="1"
-                      placeholder="Not recorded"
+                      placeholder={t("Not recorded")}
                     />
                   </div>
                   <div className="field">
-                    <label htmlFor="publisherUrl">Publisher page</label>
+                    <label htmlFor="publisherUrl">{t("Publisher page")}</label>
                     <input
                       id="publisherUrl"
                       type="url"
@@ -352,29 +361,32 @@ export default function BookDialog() {
                       rel="noopener noreferrer"
                       hidden
                     >
-                      Open publisher site ↗
+                      {t("Open publisher site ↗")}
                     </a>
                   </div>
                   <div className="cover-editor">
                     <div id="metadataCoverPreview" />
                     <div className="field">
-                      <label htmlFor="coverUrl">Cover image URL</label>
+                      <label htmlFor="coverUrl">{t("Cover image URL")}</label>
                       <input
                         id="coverUrl"
                         type="url"
                         maxLength={2000}
-                        placeholder="Use automatic cover, or enter an image URL"
+                        placeholder={t(
+                          "Use automatic cover, or enter an image URL",
+                        )}
                       />
                       <p className="hint">
-                        Leave blank to use the automatic cover. New image URLs
-                        are downloaded when you save.
+                        {t(
+                          "Leave blank to use the automatic cover. New image URLs are downloaded when you save.",
+                        )}
                       </p>
                       <button
                         id="pullPublisherCovers"
                         className="btn"
                         type="button"
                       >
-                        Pull covers
+                        {t("Pull covers")}
                       </button>
                       <p
                         id="publisherCoversStatus"
@@ -386,24 +398,24 @@ export default function BookDialog() {
                   <div
                     id="publisherCoverChoices"
                     className="cover-choices"
-                    aria-label="Publisher and bookstore cover choices"
+                    aria-label={t("Publisher and bookstore cover choices")}
                   />
                   <p className="hint">
-                    Choose a cover, then save your changes.
+                    {t("Choose a cover, then save your changes.")}
                   </p>
                 </fieldset>
                 <div className={"field span-2"} data-series-detail>
-                  <label htmlFor={"note"}>{"Notes"}</label>
+                  <label htmlFor={"note"}>{t("Notes")}</label>
                   <textarea
                     id={"note"}
                     name={"note"}
                     maxLength={2000}
-                    placeholder={"Special edition, a gift, a good find…"}
+                    placeholder={t("Special edition, a gift, a good find…")}
                   ></textarea>
                 </div>
                 <label className={"check span-2"} data-series-detail>
                   <input type={"checkbox"} id={"allowDuplicate"} />
-                  {"Another copy of an ISBN already on my shelf"}
+                  {t("Another copy of an ISBN already on my shelf")}
                 </label>
               </div>
             </details>
@@ -412,7 +424,9 @@ export default function BookDialog() {
         <div className={"dialog-foot book-dialog-foot"}>
           <label className={"check span-2"} id={"keepAddingLabel"}>
             <input type={"checkbox"} id={"keepAdding"} />
-            <span id={"keepAddingText"}>{"Add another book after saving"}</span>
+            <span id={"keepAddingText"}>
+              {t("Add another book after saving")}
+            </span>
           </label>
           <button
             id={"removeButton"}
@@ -420,14 +434,14 @@ export default function BookDialog() {
             type={"button"}
             hidden
           >
-            {"Remove book"}
+            {t("Remove book")}
           </button>
           <div className={"buttons book-save-actions"}>
             <button id={"cancelBook"} className={"btn"} type={"button"}>
-              {"Cancel"}
+              {t("Cancel")}
             </button>
             <button id={"saveButton"} className={"btn primary"} type={"submit"}>
-              {"Add book"}
+              {t("Add book")}
             </button>
           </div>
         </div>

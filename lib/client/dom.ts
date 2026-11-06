@@ -1,3 +1,5 @@
+import { t, formatLocale } from "./i18n.ts";
+
 export function $<K extends keyof LibraryElements>(id: K): LibraryElements[K] {
   return document.getElementById(id) as LibraryElements[K];
 }
@@ -29,7 +31,7 @@ export function requestId() {
 }
 
 export function number(value) {
-  return new Intl.NumberFormat(undefined, {
+  return new Intl.NumberFormat(formatLocale(), {
     maximumFractionDigits: 2,
   }).format(value);
 }
@@ -39,12 +41,19 @@ export function fillOptions(id, values, placeholder?: string) {
     previous = e.value;
   e.replaceChildren();
   if (placeholder !== undefined) {
-    const o = node("option", "", placeholder);
+    const o = node("option", "", t(placeholder));
     o.value = "";
     e.append(o);
   }
   values.forEach((v) => {
-    const o = node("option", "", v);
+    const localized = [
+      "type",
+      "status",
+      "typeFilter",
+      "statusFilter",
+      "bulkStatus",
+    ].includes(id);
+    const o = node("option", "", localized ? t(v) : v);
     o.value = v;
     e.append(o);
   });

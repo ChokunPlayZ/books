@@ -1,15 +1,18 @@
-export default function RemoveDialog() {
+import { getTranslations } from "../../../lib/server/preferences.ts";
+
+export default async function RemoveDialog() {
+  const t = await getTranslations();
   return (
     <dialog id={"removeDialog"} aria-labelledby={"removeTitle"}>
       <div className={"dialog-head"}>
         <div>
-          <h2 id={"removeTitle"}>{"Remove from your shelf?"}</h2>
-          <p>{"You can restore this book from Recently removed."}</p>
+          <h2 id={"removeTitle"}>{t("Remove from your shelf?")}</h2>
+          <p>{t("You can restore this book from Recently removed.")}</p>
         </div>
         <button
           id={"closeRemove"}
           className={"close"}
-          aria-label={"Cancel removal"}
+          aria-label={t("Cancel removal")}
         >
           <svg aria-hidden={"true"}>
             <use href={"#i-close"} />
@@ -19,7 +22,7 @@ export default function RemoveDialog() {
       <div className={"dialog-body"}>
         <p id={"removeName"} className={"remove-name"}></p>
         <p className={"hint"}>
-          {"Its price will be removed from your collection total."}
+          {t("Its price will be removed from your collection total.")}
         </p>
         <div
           id={"removeError"}
@@ -31,10 +34,10 @@ export default function RemoveDialog() {
       <div className={"dialog-foot"}>
         <div className={"buttons"}>
           <button id={"cancelRemove"} className={"btn"}>
-            {"Keep book"}
+            {t("Keep book")}
           </button>
           <button id={"confirmRemove"} className={"btn danger"}>
-            {"Remove book"}
+            {t("Remove book")}
           </button>
         </div>
       </div>

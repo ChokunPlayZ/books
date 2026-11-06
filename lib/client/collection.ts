@@ -1,4 +1,5 @@
 import { $, node, icon, fillOptions, number, requestId } from "./dom.ts";
+import { t, formatLocale } from "./i18n.ts";
 import { createCollectionState } from "./state.ts";
 import { restorePagePreferences } from "./page-preferences.ts";
 import { createInfiniteList } from "./infinite-list.ts";
@@ -148,11 +149,11 @@ export function mountCollection({
   function errorAt(id, error) {
     const e = $(id);
     if (!e) return;
-    e.textContent = error?.message || String(error);
+    e.textContent = t(error?.message || String(error));
     e.hidden = false;
   }
   function notify(text) {
-    $("toast").textContent = text;
+    $("toast").textContent = t(text);
     $("toast").hidden = false;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => ($("toast").hidden = true), 4200);
@@ -221,12 +222,14 @@ export function mountCollection({
       if ($("editTitleButton")) $("editTitleButton").disabled = state.busy;
       seriesEditor.syncControls();
       $("syncNote").textContent =
-        "Updated " +
-        new Date().toLocaleTimeString([], {
+        t("Updated") +
+        " " +
+        new Date().toLocaleTimeString(formatLocale(), {
           hour: "2-digit",
           minute: "2-digit",
         }) +
-        " · Saved in your library";
+        " · " +
+        t("Saved in your library");
       render();
       animeBrowser.update();
       if (state.view === "missing") {
@@ -442,17 +445,22 @@ export function mountCollection({
       const read = books.filter((b) => b.status === "Read").length;
       $("readCount").textContent = number(read);
       $("readNote").textContent = books.length
-        ? Math.round((read / books.length) * 100) + "% of your shelf"
-        : "Your next read awaits";
+        ? t("{count}% of your shelf", {
+            count: Math.round((read / books.length) * 100),
+          })
+        : t("Your next read awaits");
       $("readProgress").style.width =
         (books.length ? (read / books.length) * 100 : 0) + "%";
       const prices = books.filter((book) => recordedPrice(book) !== null);
       $("spent").textContent = number(spendingTotal(books));
       const missingPrices = books.length - prices.length;
       $("priceNote").textContent = missingPrices
-        ? number(missingPrices) +
-          (missingPrices === 1 ? " book has" : " books have") +
-          " no price"
+        ? t(
+            missingPrices === 1
+              ? "{count} book has no price"
+              : "{count} books have no price",
+            { count: number(missingPrices) },
+          )
         : "";
     }
     if (releases) {
@@ -472,11 +480,13 @@ export function mountCollection({
       matches = (book) => matchesCollectionBook(book, filters);
     const grouped =
       state.view === "collection" && state.selectedSeries === null;
-    $("collectionSort").options[0].textContent = grouped
-      ? "Series A–Z"
-      : state.view === "trash"
-        ? "Recently removed"
-        : "Volume order";
+    $("collectionSort").options[0].textContent = t(
+      grouped
+        ? "Series A–Z"
+        : state.view === "trash"
+          ? "Recently removed"
+          : "Volume order",
+    );
     $("collectionSort").querySelector<HTMLOptionElement>(
       '[value="books"]',
     ).disabled = !grouped;
@@ -487,12 +497,16 @@ export function mountCollection({
         COLLECTION_FILTERS.slice(3).filter((id) => filters[id]).length +
         Number(sort !== "default");
     $("collectionFiltersSummary").textContent =
-      "More filters & sorting" +
-      (advancedCount ? " · " + advancedCount + " active" : "");
+      t("More filters & sorting") +
+      (advancedCount
+        ? " · " + t("{count} active", { count: advancedCount })
+        : "");
     $("clearCollectionFilters").hidden = !filtered && sort === "default";
-    $("collectionFilterHint").textContent = grouped
-      ? "Filters match individual books. Series show only matching books; opening a series shows all owned volumes."
-      : "Filters apply to the books shown below. Spending summaries always use your whole collection.";
+    $("collectionFilterHint").textContent = t(
+      grouped
+        ? "Filters match individual books. Series show only matching books; opening a series shows all owned volumes."
+        : "Filters apply to the books shown below. Spending summaries always use your whole collection.",
+    );
     const owned =
       state.selectedSeries !== null
         ? books.filter((b) => seriesKey(b) === state.selectedSeries)
@@ -525,17 +539,21 @@ export function mountCollection({
       entries.sort((a, b) => compareCollectionEntries(a, b, sort, grouped));
     $("resultCount").textContent =
       number(entries.length) +
-      (grouped
-        ? " series"
-        : state.selectedSeries !== null
-          ? entries.length === 1
-            ? " owned volume"
-            : " owned volumes"
-          : entries.length === 1
-            ? " removed book"
-            : " removed books") +
-      (filtered ? " found" : "");
-    $("listRight").textContent =
+      " " +
+      t(
+        (grouped
+          ? " series"
+          : state.selectedSeries !== null
+            ? entries.length === 1
+              ? " owned volume"
+              : " owned volumes"
+            : entries.length === 1
+              ? " removed book"
+              : " removed books"
+        ).trim(),
+      ) +
+      (filtered ? " " + t("found") : "");
+    $("listRight").textContent = t(
       sort === "spent"
         ? "Most spent first"
         : sort === "recent"
@@ -544,14 +562,18 @@ export function mountCollection({
             ? "Open a cover for details"
             : state.view === "collection"
               ? "Ordered by volume"
-              : "Ready to restore";
+              : "Ready to restore",
+    );
     $("bookList").setAttribute(
       "aria-label",
-      grouped
-        ? "Series"
-        : state.selectedSeries !== null
-          ? "Owned volumes in " + state.selectedSeries
-          : "Removed books",
+      t(
+        grouped
+          ? "Series"
+          : state.selectedSeries !== null
+            ? "Owned volumes in {series}"
+            : "Removed books",
+        { series: state.selectedSeries ?? "" },
+      ),
     );
     if ($("collectionSpending")) renderCollectionSpending(books);
     if (state.selectedSeries !== null) {
@@ -578,12 +600,14 @@ export function mountCollection({
     $("addButton").replaceChildren(
       icon("plus"),
       document.createTextNode(
-        state.selectedSeries !== null ? "Add volume" : "Add book",
+        t(state.selectedSeries !== null ? "Add volume" : "Add book"),
       ),
     );
-    $("search").placeholder = grouped
-      ? "Search series, ISBN, publisher or notes…"
-      : "Search volumes, ISBN, publisher or notes…";
+    $("search").placeholder = t(
+      grouped
+        ? "Search series, ISBN, publisher or notes…"
+        : "Search volumes, ISBN, publisher or notes…",
+    );
     const selectionKey = JSON.stringify([
       state.view,
       state.selectedSeries,
@@ -621,31 +645,37 @@ export function mountCollection({
         node(
           "h2",
           "",
-          state.view === "trash"
-            ? "Nothing removed"
-            : grouped
-              ? books.length
-                ? "No series found"
-                : "Your shelf starts here"
-              : "No volumes found",
+          t(
+            state.view === "trash"
+              ? "Nothing removed"
+              : grouped
+                ? books.length
+                  ? "No series found"
+                  : "Your shelf starts here"
+                : "No volumes found",
+          ),
         ),
         node(
           "p",
           "",
-          state.view === "trash"
-            ? "Removed books will be kept here until you restore them."
-            : "Try a different search or add a book to your shelf.",
+          t(
+            state.view === "trash"
+              ? "Removed books will be kept here until you restore them."
+              : "Try a different search or add a book to your shelf.",
+          ),
         ),
       );
       if (state.view !== "trash") {
         const action = node(
           "button",
           "btn primary",
-          filtered
-            ? "Clear filters"
-            : books.length
-              ? "Add a book"
-              : "Add your first book",
+          t(
+            filtered
+              ? "Clear filters"
+              : books.length
+                ? "Add a book"
+                : "Add your first book",
+          ),
         );
         action.addEventListener(
           "click",
@@ -677,12 +707,12 @@ export function mountCollection({
     button.title = group.series;
     button.setAttribute(
       "aria-label",
-      "Open " +
-        group.series +
-        ", " +
-        group.books.length +
-        (group.filtered ? " matching " : " owned ") +
-        (group.books.length === 1 ? "volume" : "volumes"),
+      t(
+        group.filtered
+          ? "Open {name}, {count} matching volumes"
+          : "Open {name}, {count} owned volumes",
+        { name: group.series, count: group.books.length },
+      ),
     );
     button.append(
       bookCover(shelfCoverBook(group.books), "shelf-cover series-cover"),
@@ -691,7 +721,8 @@ export function mountCollection({
         "span",
         "shelf-detail",
         group.books.length +
-          (group.books.length === 1 ? " volume" : " volumes"),
+          " " +
+          t(group.books.length === 1 ? "volume" : "volumes"),
       ),
     );
     return bulkSelection.decorate(button, group.series);
@@ -1397,7 +1428,9 @@ export function mountCollection({
     state.editingTitle.editions.forEach((edition, index) => {
       const group = node("fieldset", "title-entry"),
         grid = node("div", "form-grid");
-      group.append(node("legend", "", "Edition " + (index + 1)));
+      group.append(
+        node("legend", "", t("Edition {count}", { count: index + 1 })),
+      );
       const type = node("select"),
         publisher = node("input");
       type.id = "titleEditionType" + index;
@@ -1405,7 +1438,7 @@ export function mountCollection({
       [...new Set([...state.data.options.type, edition.type])]
         .filter(Boolean)
         .forEach((value) => {
-          const option = node("option", "", value);
+          const option = node("option", "", t(value));
           option.value = value;
           type.append(option);
         });
@@ -1434,7 +1467,7 @@ export function mountCollection({
         ["Publisher", publisher],
       ] as const) {
         const field = node("div", "field"),
-          caption = node("label", "", label);
+          caption = node("label", "", t(label));
         caption.htmlFor = input.id;
         field.append(caption, input);
         grid.append(field);
@@ -1444,20 +1477,20 @@ export function mountCollection({
         node(
           "p",
           "hint",
-          edition.books.length +
-            " owned " +
-            (edition.books.length === 1 ? "volume" : "volumes"),
+          t("{count} owned volumes", { count: edition.books.length }),
         ),
       );
       $("titleEditions").append(group);
     });
-    $("titleSaveHint").textContent =
-      "Changes apply to all " +
-      state.editingTitle.editions.reduce(
-        (count, edition) => count + edition.books.length,
-        0,
-      ) +
-      " owned volumes in this title.";
+    $("titleSaveHint").textContent = t(
+      "Changes apply to all {count} owned volumes in this title.",
+      {
+        count: state.editingTitle.editions.reduce(
+          (count, edition) => count + edition.books.length,
+          0,
+        ),
+      },
+    );
     $("titleDialog").showModal();
     $("titleSeries").focus();
   }
@@ -1499,7 +1532,7 @@ export function mountCollection({
       };
     $("titleError").hidden = true;
     setBusy(true);
-    $("saveTitleButton").textContent = "Saving…";
+    $("saveTitleButton").textContent = t("Saving…");
     try {
       const result = await rpc("saveTitle", state.pendingTitle.request);
       $("titleDialog").close();
@@ -1512,7 +1545,11 @@ export function mountCollection({
       state.seriesCatalogs.clear();
       state.catalogEditors.clear();
       resetCollectionFilters();
-      notify("Title details saved for " + result.volumes + " owned volumes.");
+      notify(
+        t("Title details saved for {count} owned volumes.", {
+          count: result.volumes,
+        }),
+      );
       try {
         await load();
       } catch {
@@ -1525,7 +1562,7 @@ export function mountCollection({
       errorAt("titleError", error);
     } finally {
       setBusy(false);
-      $("saveTitleButton").textContent = "Save title details";
+      $("saveTitleButton").textContent = t("Save title details");
     }
   }
   function syncSeriesSelection() {
@@ -1593,9 +1630,9 @@ export function mountCollection({
       matched && !state.lookupDetailsExpanded,
     );
     $("toggleLookupDetails").hidden = !matched;
-    $("toggleLookupDetails").textContent = state.lookupDetailsExpanded
-      ? "Hide book details"
-      : "Edit book details";
+    $("toggleLookupDetails").textContent = t(
+      state.lookupDetailsExpanded ? "Hide book details" : "Edit book details",
+    );
     $("toggleLookupDetails").setAttribute(
       "aria-expanded",
       String(state.lookupDetailsExpanded),
@@ -1622,7 +1659,7 @@ export function mountCollection({
       $("bookEdition").append(option);
     });
     if (!state.editing) {
-      const option = node("option", "", "Add another edition…");
+      const option = node("option", "", t("Add another edition…"));
       option.value = "new";
       $("bookEdition").append(option);
     }
@@ -1641,29 +1678,33 @@ export function mountCollection({
       state.formSeries +
       " · " +
       [$("type").value, $("publisher").value].filter(Boolean).join(" · ");
-    $("toggleBookDetails").textContent = state.detailsExpanded
-      ? "Hide other volume details"
-      : "Edit other volume details";
+    $("toggleBookDetails").textContent = t(
+      state.detailsExpanded
+        ? "Hide other volume details"
+        : "Edit other volume details",
+    );
     $("toggleBookDetails").hidden = !!state.editing || matched;
     $("toggleBookDetails").setAttribute(
       "aria-expanded",
       String(!!state.detailsExpanded),
     );
-    $("bookDialogSubtitle").textContent = state.editing
-      ? "Edit this volume’s ISBN, reading status and purchase details."
-      : matched
-        ? "Book found. Add where you bought it and what you paid."
-        : quick
-          ? "Title details are filled in. Add your volume below."
-          : "Scan a book or enter the details below.";
-    $("keepAddingText").textContent = quick
-      ? "Add another volume after saving"
-      : "Add another book after saving";
-    $("saveButton").textContent = state.editing
-      ? "Save changes"
-      : quick
-        ? "Add volume"
-        : "Add book";
+    $("bookDialogSubtitle").textContent = t(
+      state.editing
+        ? "Edit this volume’s ISBN, reading status and purchase details."
+        : matched
+          ? "Book found. Add where you bought it and what you paid."
+          : quick
+            ? "Title details are filled in. Add your volume below."
+            : "Scan a book or enter the details below.",
+    );
+    $("keepAddingText").textContent = t(
+      quick
+        ? "Add another volume after saving"
+        : "Add another book after saving",
+    );
+    $("saveButton").textContent = t(
+      state.editing ? "Save changes" : quick ? "Add volume" : "Add book",
+    );
   }
   function bookRow(entry) {
     if (state.view === "collection") {
@@ -1673,7 +1714,7 @@ export function mountCollection({
       const button = node("button", "book-row book-card");
       button.type = "button";
       button.title = label;
-      button.setAttribute("aria-label", "Edit " + label);
+      button.setAttribute("aria-label", t("Edit {name}", { name: label }));
       button.setAttribute("aria-haspopup", "dialog");
       button.disabled = state.busy;
       button.append(bookCover(book, "shelf-cover volume-cover"));
@@ -1681,9 +1722,11 @@ export function mountCollection({
         node(
           "span",
           "shelf-caption",
-          book.volume === "" ? book.series : "Volume " + book.volume,
+          book.volume === ""
+            ? book.series
+            : t("Volume {volume}", { volume: book.volume }),
         ),
-        node("span", "shelf-detail", book.status || "No status"),
+        node("span", "shelf-detail", t(book.status || "No status")),
       );
       bulkSelection.decorate(button, String(book.row));
       button.addEventListener("click", () => openBook(book), {
@@ -1726,7 +1769,7 @@ export function mountCollection({
       ),
     );
     row.append(statusWrap);
-    const restore = node("button", "btn restore", "Restore book");
+    const restore = node("button", "btn restore", t("Restore book"));
     restore.disabled = state.busy;
     restore.addEventListener("click", () => restoreEntry(entry, restore), {
       signal: events.signal,
@@ -1824,7 +1867,7 @@ export function mountCollection({
       : null;
     placeholder.dataset.tint = coverTint(String(galleryTitle || title));
     placeholder.setAttribute("aria-label", "No cover available");
-    placeholder.append(node("span", "placeholder-label", "No cover"));
+    placeholder.append(node("span", "placeholder-label", t("No cover")));
     placeholder.prepend(icon("books"));
     if (galleryTitle)
       placeholder.insertBefore(
@@ -2274,9 +2317,9 @@ export function mountCollection({
     $("loadDiscovery").disabled = state.discoveryLoading;
     $("discoveryPreset").disabled = state.discoveryLoading;
     $("discoveryUrl").disabled = state.discoveryLoading;
-    $("refreshDiscovery").textContent = state.discoveryLoading
-      ? "Checking category…"
-      : "Refresh titles";
+    $("refreshDiscovery").textContent = t(
+      state.discoveryLoading ? "Checking category…" : "Refresh titles",
+    );
     const source = $("discoverySource");
     source.replaceChildren();
     const hasApplicableCategory = [...preset.options].some(
@@ -2285,8 +2328,9 @@ export function mountCollection({
     if (!hasApplicableCategory && canonical($("discoverySearch").value)) {
       publisherIsbnSearch.get("", "");
       $("discoveryList").replaceChildren();
-      $("discoveryCount").textContent =
-        "No publisher catalog supports this ISBN. Look up the book from Add book.";
+      $("discoveryCount").textContent = t(
+        "No publisher catalog supports this ISBN. Look up the book from Add book.",
+      );
       return;
     }
     if (feed) {
@@ -2391,10 +2435,10 @@ export function mountCollection({
           String(item.type || "").startsWith(type)),
     );
     $("discoveryCount").textContent = state.discoveryLoading
-      ? "Reading the publisher category…"
-      : number(items.length) +
-        (items.length === 1 ? " title" : " titles") +
-        " you haven’t started";
+      ? t("Reading the publisher category…")
+      : t("{count} titles you haven’t started", {
+          count: number(items.length),
+        });
     const list = $("discoveryList");
     const saved = new Set(
       (state.data.savedReleases || []).map((item) => item.id),
@@ -2414,20 +2458,24 @@ export function mountCollection({
         node(
           "h2",
           "",
-          state.discoveryLoading
-            ? "Finding your next series…"
-            : !feed || feed.stale
-              ? "Load a publisher category"
-              : query || type
-                ? "No titles match these filters"
-                : "No new titles in this category",
+          t(
+            state.discoveryLoading
+              ? "Finding your next series…"
+              : !feed || feed.stale
+                ? "Load a publisher category"
+                : query || type
+                  ? "No titles match these filters"
+                  : "No new titles in this category",
+          ),
         ),
         node(
           "p",
           "",
-          state.discoveryLoading
-            ? "Checking category pages for titles and first volumes."
-            : "Try another category or adjust your filters. Titles already on your shelf are hidden.",
+          t(
+            state.discoveryLoading
+              ? "Checking category pages for titles and first volumes."
+              : "Try another category or adjust your filters. Titles already on your shelf are hidden.",
+          ),
         ),
       );
       list.append(empty);
@@ -2453,8 +2501,11 @@ export function mountCollection({
       }));
     const saved = new Set(state.data.savedReleases.map((item) => item.id));
     count.textContent = result.loading
-      ? "Searching the publisher for ISBN " + result.isbn + "…"
-      : `${number(items.length)} ${items.length === 1 ? "book" : "books"} for ISBN ${result.isbn}`;
+      ? t("Searching the publisher for ISBN {isbn}…", { isbn: result.isbn })
+      : t("{count} books for ISBN {isbn}", {
+          count: number(items.length),
+          isbn: result.isbn,
+        });
     list.render(items, (item) => releaseCard(item, saved.has(item.id)), {
       key: "isbn:" + result.publisherId + ":" + result.isbn + ":" + type,
       label: "books",
@@ -2475,20 +2526,25 @@ export function mountCollection({
         node(
           "p",
           "hint",
-          "No matching books found. Try another ISBN or change the type filter.",
+          t(
+            "No matching books found. Try another ISBN or change the type filter.",
+          ),
         ),
       );
     if (result.url)
-      status.append(releaseLink("Open publisher ISBN search ↗", result.url));
+      status.append(releaseLink(t("Open publisher ISBN search ↗"), result.url));
     element.prepend(status);
   }
   function createVolumeBrowser(item) {
-    const viewVolumes = node("button", "btn", "View volumes");
+    const viewVolumes = node("button", "btn", t("View volumes"));
     viewVolumes.type = "button";
     const volumes = node("section", "discovery-volumes");
     volumes.id = "discovery-volumes-" + requestId();
     volumes.hidden = true;
-    volumes.setAttribute("aria-label", "Volumes in " + item.series);
+    volumes.setAttribute(
+      "aria-label",
+      t("Volumes in {series}", { series: item.series }),
+    );
     viewVolumes.setAttribute("aria-controls", volumes.id);
     viewVolumes.setAttribute("aria-expanded", "false");
     let expanded = false;
@@ -2507,9 +2563,12 @@ export function mountCollection({
     );
     const update = (nextItem) => {
       currentItem = nextItem;
-      viewVolumes.textContent = expanded ? "Hide volumes" : "View volumes";
+      viewVolumes.textContent = t(expanded ? "Hide volumes" : "View volumes");
       viewVolumes.setAttribute("aria-expanded", String(expanded));
-      volumes.setAttribute("aria-label", "Volumes in " + nextItem.series);
+      volumes.setAttribute(
+        "aria-label",
+        t("Volumes in {series}", { series: nextItem.series }),
+      );
       volumes.hidden = !expanded;
       if (expanded) {
         const result = state.discoveryVolumeResults.get(
@@ -2632,7 +2691,7 @@ export function mountCollection({
       () => void saveRelease(currentItem, !currentSaved.has(currentItem.id)),
       { signal: events.signal },
     );
-    const add = node("button", "btn", "Add to shelf");
+    const add = node("button", "btn", t("Add to shelf"));
     add.addEventListener(
       "click",
       () => openRelease(currentItem, releaseMatches(currentItem)),
@@ -2684,7 +2743,7 @@ export function mountCollection({
       error.textContent = result?.error || "";
       const isSaved = nextSaved.has(nextItem.id);
       saveButton.classList.toggle("saved", isSaved);
-      saveButton.textContent = isSaved ? "Saved · Unsave" : "Save for later";
+      saveButton.textContent = t(isSaved ? "Saved · Unsave" : "Save for later");
       saveButton.disabled = !nextItem.resolved || state.savingReleases.size > 0;
       saveButton.setAttribute("aria-pressed", String(isSaved));
       add.disabled = !nextItem.resolved || state.busy;
@@ -2730,9 +2789,9 @@ export function mountCollection({
     if ($("releasePublisher").selectedOptions[0]?.disabled)
       $("releasePublisher").value = "";
     $("refreshReleases").disabled = state.releasesLoading;
-    $("refreshReleases").textContent = state.releasesLoading
-      ? "Checking publishers…"
-      : "Refresh releases";
+    $("refreshReleases").textContent = t(
+      state.releasesLoading ? "Checking publishers…" : "Refresh releases",
+    );
     const sources = $("publisherSources");
     sources.replaceChildren();
     publishers.forEach((p) => sources.append(publisherSource(p)));
@@ -2740,11 +2799,11 @@ export function mountCollection({
       (source) => state.releaseFeeds.get(source.id)?.error,
     ).length;
     $("publisherCheckSummary").textContent =
-      "Publisher sources & check times" +
+      t("Publisher sources & check times") +
       (failures
-        ? " · " + failures + " unavailable"
+        ? " · " + t("{count} unavailable", { count: failures })
         : state.releasesLoading
-          ? " · Checking…"
+          ? " · " + t("Checking…")
           : "");
     const saved = new Set(
         (state.data.savedReleases || []).map((item) => item.id),
@@ -2772,13 +2831,14 @@ export function mountCollection({
             : "unbought"
       ]++;
     });
-    $("releaseOwnershipSummary").textContent =
-      number(totals.unbought) +
-      " not bought yet · " +
-      number(totals.owned) +
-      " on your shelf · " +
-      number(totals.review) +
-      " to check by edition";
+    $("releaseOwnershipSummary").textContent = t(
+      "{unbought} not bought yet · {owned} on your shelf · {review} to check by edition",
+      {
+        unbought: number(totals.unbought),
+        owned: number(totals.owned),
+        review: number(totals.review),
+      },
+    );
     const matchesScope = (item) => {
       const match = releaseMatches(item);
       return (
@@ -2816,18 +2876,19 @@ export function mountCollection({
         matchesScope(item)
       );
     });
+    const scopeNote = (
+      {
+        saved: "saved for later",
+        unbought: "not bought yet",
+        review: "to check by edition",
+        owned: "on your shelf",
+      } as Record<string, string>
+    )[scope];
     $("releaseResultCount").textContent =
       number(items.length) +
-      (items.length === 1 ? " release" : " releases") +
-      (scope === "saved"
-        ? " saved for later"
-        : scope === "unbought"
-          ? " not bought yet"
-          : scope === "review"
-            ? " to check by edition"
-            : scope === "owned"
-              ? " on your shelf"
-              : "");
+      " " +
+      t(items.length === 1 ? "release" : "releases") +
+      (scopeNote ? " " + t(scopeNote) : "");
     $("releaseCount").textContent = number(releaseItems().length);
     $("releaseCount").hidden = !releaseItems().length;
     releaseList.render(items, (item) => releaseCard(item, saved.has(item.id)), {
@@ -2859,36 +2920,40 @@ export function mountCollection({
         node(
           "h2",
           "",
-          state.releasesLoading
-            ? "Checking your publishers…"
-            : filtered
-              ? "No releases match these filters"
-              : scope === "saved"
-                ? "Your next reads start here"
-                : scope === "series"
-                  ? "No matching series in these listings"
-                  : scope === "unbought" && !failed
-                    ? "No unmatched releases"
-                    : failed
-                      ? "Publisher listings unavailable"
-                      : "No releases found",
+          t(
+            state.releasesLoading
+              ? "Checking your publishers…"
+              : filtered
+                ? "No releases match these filters"
+                : scope === "saved"
+                  ? "Your next reads start here"
+                  : scope === "series"
+                    ? "No matching series in these listings"
+                    : scope === "unbought" && !failed
+                      ? "No unmatched releases"
+                      : failed
+                        ? "Publisher listings unavailable"
+                        : "No releases found",
+          ),
         ),
         node(
           "p",
           "",
-          state.releasesLoading
-            ? "Looking for the latest volumes. This may take a moment."
-            : filtered
-              ? "Try All types, turn off a hide option, or adjust the other filters."
-              : scope === "saved"
-                ? "Save a release to keep it here, even after it leaves the latest listings."
-                : scope === "series"
-                  ? "Try All releases. Series names, publisher and language/type must match your shelf."
-                  : scope === "unbought" && !failed
-                    ? "Use Check edition for possible owned volumes, or All releases to see everything."
-                    : failed
-                      ? "Use the publisher links above, or refresh to try again."
-                      : "Try another search or publisher.",
+          t(
+            state.releasesLoading
+              ? "Looking for the latest volumes. This may take a moment."
+              : filtered
+                ? "Try All types, turn off a hide option, or adjust the other filters."
+                : scope === "saved"
+                  ? "Save a release to keep it here, even after it leaves the latest listings."
+                  : scope === "series"
+                    ? "Try All releases. Series names, publisher and language/type must match your shelf."
+                    : scope === "unbought" && !failed
+                      ? "Use Check edition for possible owned volumes, or All releases to see everything."
+                      : failed
+                        ? "Use the publisher links above, or refresh to try again."
+                        : "Try another search or publisher.",
+          ),
         ),
       );
       $("releaseList").append(empty);
@@ -2943,9 +3008,9 @@ export function mountCollection({
         node("h2", "book-title", item.title),
       );
       const meta = [
-        item.type,
-        item.volume !== "" ? "Volume " + item.volume : "",
-        item.special ? "Special edition / set" : "",
+        t(item.type),
+        item.volume !== "" ? t("Volume {volume}", { volume: item.volume }) : "",
+        item.special ? t("Special edition / set") : "",
         item.availability,
       ].filter(Boolean);
       copy.append(node("p", "release-meta", meta.join(" · ")));
@@ -2955,7 +3020,7 @@ export function mountCollection({
           node(
             "p",
             "release-price",
-            "Listed price ฿" + number(Number(item.price)),
+            t("Listed price ฿{price}", { price: number(Number(item.price)) }),
           ),
         );
       if (item.isbn) facts.append(node("p", "hint", "ISBN " + item.isbn));
@@ -2969,16 +3034,18 @@ export function mountCollection({
         )
       )
         copy.append(
-          node("p", "hint", "Saved listing · Not in the latest check"),
+          node("p", "hint", t("Saved listing · Not in the latest check")),
         );
       if (match.owned.length)
-        copy.append(node("p", "release-match", "On your shelf · ISBN match"));
+        copy.append(
+          node("p", "release-match", t("On your shelf · ISBN match")),
+        );
       else if (match.possible.length)
         copy.append(
           node(
             "p",
             "release-match possible",
-            "Volume on your shelf · Check the edition",
+            t("Volume on your shelf · Check the edition"),
           ),
         );
       else if (context.review)
@@ -2986,7 +3053,7 @@ export function mountCollection({
           node(
             "p",
             "release-match possible",
-            "Other edition or set · Check the details",
+            t("Other edition or set · Check the details"),
           ),
         );
       else
@@ -2994,21 +3061,24 @@ export function mountCollection({
           node(
             "p",
             "release-match unbought",
-            "Not bought yet · No shelf match",
+            t("Not bought yet · No shelf match"),
           ),
         );
       if (match.series.length && !match.owned.length)
-        copy.append(node("p", "hint", "A series you collect"));
+        copy.append(node("p", "hint", t("A series you collect")));
       const links = node("div", "release-links");
-      links.append(releaseLink("Publisher book page ↗", item.url));
+      links.append(releaseLink(t("Publisher book page ↗"), item.url));
       if (item.isbn)
         links.append(
           releaseLink(
-            "Find at Naiin ↗",
+            t("Find at Naiin ↗"),
             "https://www.naiin.com/search-result?title=" +
               encodeURIComponent(item.isbn),
           ),
-          releaseLink("Find at Kinokuniya ↗", kinokuniyaSearchUrl(item.isbn)),
+          releaseLink(
+            t("Find at Kinokuniya ↗"),
+            kinokuniyaSearchUrl(item.isbn),
+          ),
         );
       copy.append(links);
       if (context.alternatives?.length) {
@@ -3017,9 +3087,9 @@ export function mountCollection({
           node(
             "summary",
             "",
-            "Other listings for this volume (" +
-              context.alternatives.length +
-              ")",
+            t("Other listings for this volume ({count})", {
+              count: context.alternatives.length,
+            }),
           ),
         );
         context.alternatives.forEach((other) =>
@@ -3031,16 +3101,18 @@ export function mountCollection({
         copy.append(alternatives);
       }
       saveButton.classList.toggle("saved", saved);
-      saveButton.textContent = state.savingReleases.has(item.id)
-        ? "Saving…"
-        : saved
-          ? "Saved · Unsave"
-          : "Save for later";
+      saveButton.textContent = t(
+        state.savingReleases.has(item.id)
+          ? "Saving…"
+          : saved
+            ? "Saved · Unsave"
+            : "Save for later",
+      );
       saveButton.disabled = busy;
       saveButton.setAttribute("aria-pressed", String(saved));
-      add.textContent = match.owned.length
-        ? "View owned series"
-        : "Add to shelf";
+      add.textContent = t(
+        match.owned.length ? "View owned series" : "Add to shelf",
+      );
       add.disabled = busy;
       volumeBrowser?.update(item);
     };
@@ -3121,11 +3193,13 @@ export function mountCollection({
       const isSaved = () =>
         state.data.savedReleases.some((release) => release.id === item.id);
       const update = () => {
-        save.textContent = state.savingReleases.has(item.id)
-          ? "Saving…"
-          : isSaved()
-            ? "Saved · Unsave"
-            : "Save for later";
+        save.textContent = t(
+          state.savingReleases.has(item.id)
+            ? "Saving…"
+            : isSaved()
+              ? "Saved · Unsave"
+              : "Save for later",
+        );
         save.disabled = state.savingReleases.size > 0;
         save.setAttribute("aria-pressed", String(isSaved()));
       };
@@ -3148,7 +3222,7 @@ export function mountCollection({
     $("isbnLookupStatus").hidden = !loading;
     $("bookForm").setAttribute("aria-busy", String(loading));
     $("lookupButton").disabled = loading || state.busy;
-    $("lookupButton").textContent = loading ? "Looking up…" : "Look up";
+    $("lookupButton").textContent = t(loading ? "Looking up…" : "Look up");
   }
   function clearLookup(event?: Event) {
     if (event && state.lookupDetailsExpanded) state.detailsExpanded = true;
@@ -3167,7 +3241,7 @@ export function mountCollection({
     $("ownershipResult").replaceChildren();
     $("checkError").hidden = true;
     $("checkIsbnButton").disabled = false;
-    $("checkIsbnButton").textContent = "Check";
+    $("checkIsbnButton").textContent = t("Check");
     renderManualCheck();
   }
   function openCheck() {
@@ -3429,7 +3503,7 @@ export function mountCollection({
       };
     $("isbnError").hidden = true;
     setBusy(true);
-    $("saveIsbnButton").textContent = "Saving…";
+    $("saveIsbnButton").textContent = t("Saving…");
     try {
       await rpc("setBookIsbn", state.pendingIsbn.request);
       $("isbnDialog").close();
@@ -3460,7 +3534,7 @@ export function mountCollection({
       errorAt("isbnError", error);
     } finally {
       setBusy(false);
-      $("saveIsbnButton").textContent = "Save ISBN";
+      $("saveIsbnButton").textContent = t("Save ISBN");
       render();
     }
   }
@@ -3492,9 +3566,11 @@ export function mountCollection({
     $("coverUrl").value = book?.coverUrl || "";
     $("publisherUrl").value = book?.publisherUrl || "";
     $("publisherCoverChoices").replaceChildren();
-    $("publisherCoversStatus").textContent = book
-      ? "Pull all available covers for this volume and choose one."
-      : "Save this book to look for publisher and bookstore covers.";
+    $("publisherCoversStatus").textContent = t(
+      book
+        ? "Pull all available covers for this volume and choose one."
+        : "Save this book to look for publisher and bookstore covers.",
+    );
     $("pullPublisherCovers").disabled = !book;
     renderMetadataCover();
     if (!book) {
@@ -3502,13 +3578,15 @@ export function mountCollection({
       $("type").value = normalizeBookType(defaults?.type || "Manga");
       $("status").value = defaults?.status || "Sealed";
     }
-    $("bookDialogTitle").textContent = book
-      ? "Book details"
-      : "Add to your shelf";
-    $("bookDialogSubtitle").textContent = book
-      ? "A few details, one well-kept shelf."
-      : "Scan an ISBN or fill in the details yourself.";
-    $("saveButton").textContent = book ? "Save changes" : "Add book";
+    $("bookDialogTitle").textContent = t(
+      book ? "Book details" : "Add to your shelf",
+    );
+    $("bookDialogSubtitle").textContent = t(
+      book
+        ? "A few details, one well-kept shelf."
+        : "Scan an ISBN or fill in the details yourself.",
+    );
+    $("saveButton").textContent = t(book ? "Save changes" : "Add book");
     $("removeButton").hidden = !book;
     $("keepAddingLabel").hidden = !!book;
     const mobile = window.matchMedia("(max-width: 760px)").matches;
@@ -3549,7 +3627,7 @@ export function mountCollection({
     $("regularPrice").setCustomValidity("");
     $("discount").setCustomValidity("");
     $("discount").max = "100";
-    $("discountHint").textContent = "Enter a percentage from 0 to 100.";
+    $("discountHint").textContent = t("Enter a percentage from 0 to 100.");
     $("priceSummary").hidden = true;
     $("listedPriceHint").hidden = true;
     $("listedPriceHint").textContent = "";
@@ -3598,9 +3676,11 @@ export function mountCollection({
     regular.setCustomValidity("");
     discount.setCustomValidity("");
     discount.max = percent ? "100" : regular.value;
-    $("discountHint").textContent = percent
-      ? "Enter a percentage from 0 to 100."
-      : "Enter the amount taken off the regular price.";
+    $("discountHint").textContent = t(
+      percent
+        ? "Enter a percentage from 0 to 100."
+        : "Enter the amount taken off the regular price.",
+    );
     $("priceSummary").hidden = true;
     if (regular.value === "") {
       if (discount.value !== "")
@@ -3823,7 +3903,7 @@ export function mountCollection({
           }
         : null;
     setBusy(true);
-    $("saveButton").textContent = "Saving…";
+    $("saveButton").textContent = t("Saving…");
     try {
       const result = await rpc("saveBook", state.pendingSave.request);
       $("bookDialog").close();

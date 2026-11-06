@@ -1,19 +1,23 @@
-export default function AdaptationPanel({ series }: { series: string }) {
+import { getTranslations } from "../../lib/server/preferences.ts";
+
+export default async function AdaptationPanel({ series }: { series: string }) {
+  const t = await getTranslations();
   return (
     <details id="adaptationPanel" className="adaptation-panel">
       <summary>
-        Anime adaptations{" "}
+        {t("Anime adaptations")}{" "}
         <span id="adaptationSummary" className="hint">
-          Checking AniList…
+          {t("Checking AniList…")}
         </span>
       </summary>
       <p className="hint">
-        Check the original title on AniList. For translated titles, search in
-        English, Japanese or romaji.
+        {t(
+          "Check the original title on AniList. For translated titles, search in English, Japanese or romaji.",
+        )}
       </p>
       <form id="adaptationForm" className="anime-filters">
         <label className="field anime-search" htmlFor="adaptationSearch">
-          <span>Title on AniList</span>
+          <span>{t("Title on AniList")}</span>
           <input
             id="adaptationSearch"
             type="search"
@@ -24,15 +28,15 @@ export default function AdaptationPanel({ series }: { series: string }) {
           />
         </label>
         <label className="field" htmlFor="adaptationType">
-          <span>Book type</span>
+          <span>{t("Book type")}</span>
           <select id="adaptationType">
-            <option value="">Manga & light novels</option>
-            <option value="Manga">Manga</option>
-            <option value="LN">Light novels</option>
+            <option value="">{t("Manga & light novels")}</option>
+            <option value="Manga">{t("Manga")}</option>
+            <option value="LN">{t("Light novels")}</option>
           </select>
         </label>
         <button id="findAdaptations" className="btn" type="submit">
-          Find adaptations
+          {t("Find adaptations")}
         </button>
       </form>
       <div id="adaptationError" className="banner" role="alert" hidden />

@@ -29,6 +29,12 @@ DATABASE_URL=postgresql://books:books-local@localhost:5432/books_sample npm run 
 
 Upgrading from SQLite? Stop the old app, back up its database, set `DATABASE_URL` to an empty PostgreSQL database, then run `npm run db:migrate:sqlite -- ./data/books.sqlite`. The source is opened read-only; accounts, libraries, preferences, covers and caches are preserved. See [migration and hosting](docs/self-hosting.md).
 
+## Account preferences
+
+Choose **English / ไทย** in the library header, or open **Data & backups → Account preferences**. Language and appearance (light, dark, or device setting) are saved automatically to your account in PostgreSQL and apply on other devices after signing in. Your saved theme is applied before the page paints; another account's browser settings never override it. Book titles, notes and other collection data are not translated or rewritten.
+
+Run `npm run build && npm run test:preferences` for the isolated account-preferences browser checks.
+
 ## Everyday commands
 
 | Command                                       | Purpose                                                   |

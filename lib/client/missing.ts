@@ -1,6 +1,7 @@
 import { $, node, number } from "./dom.ts";
+import { t } from "./i18n.ts";
 import { createInfiniteList } from "./infinite-list.ts";
-import { missingSummary, seriesGaps, publisherKey } from "./matching.ts";
+import { seriesGaps, publisherKey } from "./matching.ts";
 import {
   collectionMissing,
   missingCatalogSpecs,
@@ -75,26 +76,35 @@ export function createMissingBrowser({
           catalogReviewCount(check, books)),
     );
     $("refreshMissingCatalogs").disabled = !!running || !checks.length;
-    $("refreshMissingCatalogs").textContent = running
-      ? "Checking catalogs…"
-      : "Refresh catalogs";
+    $("refreshMissingCatalogs").textContent = t(
+      running ? "Checking catalogs…" : "Refresh catalogs",
+    );
     $("missingCatalogStatus").textContent = [
       running
-        ? `Checking publisher catalogs · ${number(completed)} of ${number(total)} editions checked`
+        ? t(
+            "Checking publisher catalogs · {done} of {total} editions checked",
+            { done: number(completed), total: number(total) },
+          )
         : pending
-          ? "Checking publisher catalogs…"
-          : `${number(checks.length)} publisher catalogs checked`,
-      incomplete.length ? `${number(incomplete.length)} need attention` : "",
+          ? t("Checking publisher catalogs…")
+          : t("{count} publisher catalogs checked", {
+              count: number(checks.length),
+            }),
+      incomplete.length
+        ? t("{count} need attention", { count: number(incomplete.length) })
+        : "",
       unsupported.size
-        ? `${number(unsupported.size)} ${unsupported.size === 1 ? "edition has" : "editions have"} no supported catalog source`
+        ? t("{count} editions have no supported catalog source", {
+            count: number(unsupported.size),
+          })
         : "",
     ]
       .filter(Boolean)
       .join(" · ");
     $("missingCoverage").hidden = !books.length;
     $("missingCoverageSummary").textContent =
-      "Catalog coverage" +
-      (incomplete.length ? " · Checks need attention" : "");
+      t("Catalog coverage") +
+      (incomplete.length ? " · " + t("Checks need attention") : "");
     const coverage = $("missingCoverageList");
     coverage.replaceChildren();
     for (const check of checks) {
@@ -121,7 +131,7 @@ export function createMissingBrowser({
           .join(" · "),
       );
       link.href = seriesPath(check.series);
-      entry.append(link, node("span", "hint", status));
+      entry.append(link, node("span", "hint", t(status)));
       coverage.append(entry);
     }
     for (const edition of unsupported.values()) {
@@ -136,7 +146,7 @@ export function createMissingBrowser({
       link.href = seriesPath(edition.series);
       entry.append(
         link,
-        node("span", "hint", "Catalog unavailable · Shelf gaps only"),
+        node("span", "hint", t("Catalog unavailable · Shelf gaps only")),
       );
       coverage.append(entry);
     }
@@ -158,7 +168,13 @@ export function createMissingBrowser({
       groups.sort(
         (a, b) => b.missing - a.missing || a.series.localeCompare(b.series),
       );
-    $("missingSummary").textContent = missingSummary(groups);
+    $("missingSummary").textContent = t(
+      "{count} missing volumes across {series} series",
+      {
+        count: number(groups.reduce((sum, group) => sum + group.missing, 0)),
+        series: number(groups.length),
+      },
+    );
     list.render(
       groups,
       (group) => {
@@ -170,7 +186,11 @@ export function createMissingBrowser({
         title.append(titleLink);
         heading.append(
           title,
-          node("span", "missing-total", number(group.missing) + " missing"),
+          node(
+            "span",
+            "missing-total",
+            t("{count} missing", { count: number(group.missing) }),
+          ),
         );
         card.append(heading);
         for (const edition of group.editions) {
@@ -180,7 +200,7 @@ export function createMissingBrowser({
               "h3",
               "",
               [edition.type, edition.publisher].filter(Boolean).join(" · ") ||
-                "Edition not recorded",
+                t("Edition not recorded"),
             ),
           );
           if (edition.ranges.length) {
@@ -188,17 +208,19 @@ export function createMissingBrowser({
               node(
                 "p",
                 "hint",
-                `Shelf gaps through volume ${number(edition.highest)}`,
+                t("Shelf gaps through volume {volume}", {
+                  volume: number(edition.highest),
+                }),
               ),
             );
             const ranges = node("div", "missing-ranges");
             ranges.setAttribute("role", "group");
-            ranges.setAttribute("aria-label", "Missing volumes");
+            ranges.setAttribute("aria-label", t("Missing volumes"));
             for (const [from, to] of edition.ranges) {
               const add = node(
                 "button",
                 "btn missing-volume",
-                `Vol. ${from}${to > from ? "–" + to : ""} +`,
+                `${t("Vol.")} ${from}${to > from ? "–" + to : ""} +`,
               );
               add.type = "button";
               add.setAttribute(
@@ -215,7 +237,7 @@ export function createMissingBrowser({
               node(
                 "p",
                 "hint missing-catalog-label",
-                "Not on your shelf · Publisher catalog",
+                t("Not on your shelf · Publisher catalog"),
               ),
             );
             const volumes = node("div", "missing-catalog-volumes");
@@ -224,7 +246,7 @@ export function createMissingBrowser({
               const add = node(
                 "button",
                 "btn missing-volume",
-                `Vol. ${item.volume} +`,
+                `${t("Vol.")} ${item.volume} +`,
               );
               add.type = "button";
               add.setAttribute(
@@ -237,7 +259,7 @@ export function createMissingBrowser({
                 volume.append(node("span", "hint", item.availability));
               const url = safeProductUrl(item.url, item.publisherId);
               if (url) {
-                const publisher = node("a", "", "Publisher ↗");
+                const publisher = node("a", "", t("Publisher ↗"));
                 publisher.href = url;
                 publisher.target = "_blank";
                 publisher.rel = "noopener noreferrer";
@@ -248,7 +270,9 @@ export function createMissingBrowser({
                   node(
                     "span",
                     "hint",
-                    `${number(alternatives.length)} other ${alternatives.length === 1 ? "listing" : "listings"}`,
+                    t("{count} other listings", {
+                      count: number(alternatives.length),
+                    }),
                   ),
                 );
               volumes.append(volume);
@@ -260,7 +284,7 @@ export function createMissingBrowser({
         const link = node(
           "a",
           "missing-series-link",
-          "View series & catalog →",
+          t("View series & catalog →"),
         );
         link.href = seriesPath(group.series);
         card.append(link);
@@ -279,31 +303,35 @@ export function createMissingBrowser({
         node(
           "h2",
           "",
-          !books.length
-            ? "Your shelf starts here"
-            : checking
-              ? "Checking publisher catalogs…"
-              : search
-                ? "No matching series"
-                : partial
-                  ? "No missing volumes found in available data"
-                  : "No missing volumes found",
+          t(
+            !books.length
+              ? "Your shelf starts here"
+              : checking
+                ? "Checking publisher catalogs…"
+                : search
+                  ? "No matching series"
+                  : partial
+                    ? "No missing volumes found in available data"
+                    : "No missing volumes found",
+          ),
         ),
         node(
           "p",
           "",
-          !books.length
-            ? "Add volumes to your collection to see what’s missing."
-            : checking
-              ? "Unowned catalog volumes will appear as checks finish, including volumes beyond your shelf."
-              : search
-                ? "Try another series, type or publisher."
-                : partial
-                  ? "Some editions could not be fully checked. Review catalog coverage for details."
-                  : "No shelf gaps or unowned volumes in the checked publisher catalogs.",
+          t(
+            !books.length
+              ? "Add volumes to your collection to see what’s missing."
+              : checking
+                ? "Unowned catalog volumes will appear as checks finish, including volumes beyond your shelf."
+                : search
+                  ? "Try another series, type or publisher."
+                  : partial
+                    ? "Some editions could not be fully checked. Review catalog coverage for details."
+                    : "No shelf gaps or unowned volumes in the checked publisher catalogs.",
+          ),
         ),
       );
-      const link = node("a", "btn", "View collection");
+      const link = node("a", "btn", t("View collection"));
       link.href = "/";
       empty.append(link);
       $("missingList").append(empty);

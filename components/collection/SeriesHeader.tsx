@@ -1,12 +1,14 @@
 import type { StoredBook } from "../../lib/types.ts";
+import { getTranslations } from "../../lib/server/preferences.ts";
 
-export default function SeriesHeader({
+export default async function SeriesHeader({
   series,
   books,
 }: {
   series: string;
   books: StoredBook[];
 }) {
+  const t = await getTranslations();
   const owned = books.filter(
     (book) => (book.series.trim() || "Untitled series") === series,
   );
@@ -14,7 +16,7 @@ export default function SeriesHeader({
   return (
     <div id={"seriesHeader"} className={"series-header"}>
       <a id={"backSeries"} className={"text-btn"} href="/">
-        {"← All series"}
+        {t("← All series")}
       </a>
       <div className="series-title-line">
         <h1 id={"seriesTitle"}>{series}</h1>
@@ -25,25 +27,25 @@ export default function SeriesHeader({
             href={"/api/backup?series=" + encodeURIComponent(series)}
             download
             hidden={!owned.length}
-            title="Download this series as JSON, including saved covers"
+            title={t("Download this series as JSON, including saved covers")}
           >
             <svg aria-hidden="true">
               <use href="#i-download" />
             </svg>
-            Export series
+            {t("Export series")}
           </a>
           <button
             id="editTitleButton"
             className="btn"
             type="button"
-            aria-label="Edit title details"
-            title="Edit title details"
+            aria-label={t("Edit title details")}
+            title={t("Edit title details")}
             disabled
           >
             <svg aria-hidden="true">
               <use href="#i-edit" />
             </svg>
-            <span className="title-edit-label">Edit title details</span>
+            <span className="title-edit-label">{t("Edit title details")}</span>
           </button>
           <button
             id="editVolumesButton"
@@ -53,17 +55,23 @@ export default function SeriesHeader({
             aria-expanded="false"
             disabled
           >
-            Edit volumes
+            {t("Edit volumes")}
           </button>
         </div>
       </div>
       <div className={"series-summary-line"}>
         <p id={"seriesSummary"}>
-          {owned.length} owned {owned.length === 1 ? "volume" : "volumes"} · ฿
-          {new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(
-            total,
-          )}{" "}
-          recorded spending
+          {t(
+            owned.length === 1
+              ? "{count} owned volume · ฿{total} recorded spending"
+              : "{count} owned volumes · ฿{total} recorded spending",
+            {
+              count: owned.length,
+              total: new Intl.NumberFormat("en", {
+                maximumFractionDigits: 2,
+              }).format(total),
+            },
+          )}
         </p>
         <button
           id={"seriesCatalogToggle"}
@@ -72,7 +80,7 @@ export default function SeriesHeader({
           aria-expanded={"false"}
           hidden
         >
-          {"Catalog details"}
+          {t("Catalog details")}
         </button>
       </div>
     </div>

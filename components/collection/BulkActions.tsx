@@ -1,63 +1,67 @@
 import MergeSeriesDialog from "./dialogs/MergeSeriesDialog";
+import { getTranslations } from "../../lib/server/preferences.ts";
 
-export function SelectionToggle({ grouped }: { grouped: boolean }) {
+export async function SelectionToggle({ grouped }: { grouped: boolean }) {
+  const t = await getTranslations();
   return (
     <button
       id="toggleSelection"
+      data-grouped={grouped}
       type="button"
       className="text-btn"
       aria-pressed="false"
-      title="Ctrl/⌘ click to select · Shift click for a range"
+      title={t("Ctrl/⌘ click to select · Shift click for a range")}
       aria-describedby="selectionHint"
     >
-      {grouped ? "Select series" : "Select books"}
+      {t(grouped ? "Select series" : "Select books")}
     </button>
   );
 }
 
-export default function BulkActions({
+export default async function BulkActions({
   removed,
   grouped,
 }: {
   removed: boolean;
   grouped: boolean;
 }) {
+  const t = await getTranslations();
   return (
     <>
       <span id="selectionHint" className="sr-only">
-        Ctrl/⌘ click to select · Shift click for a range
+        {t("Ctrl/⌘ click to select · Shift click for a range")}
       </span>
       <div
         id="bulkActions"
         className="bulk-actions"
         role="group"
-        aria-label="Selected books"
+        aria-label={t("Selected books")}
         hidden
       >
         <span id="selectionCount" role="status">
-          0 books selected
+          {t("0 books selected")}
         </span>
         <button id="selectAllBooks" type="button" className="text-btn">
-          Select all results
+          {t("Select all results")}
         </button>
         <button id="clearSelection" type="button" className="text-btn">
-          Clear selection
+          {t("Clear selection")}
         </button>
         {grouped && !removed && (
           <button id="mergeSeriesButton" type="button" className="btn" disabled>
-            Merge series
+            {t("Merge series")}
           </button>
         )}
         {!removed && (
           <>
             <label htmlFor="bulkStatus" className="sr-only">
-              Reading status for selected books
+              {t("Reading status for selected books")}
             </label>
             <select id="bulkStatus" defaultValue="Read">
-              <option>Read</option>
+              <option value="Read">{t("Read")}</option>
             </select>
             <button id="applyBulkStatus" type="button" className="btn primary">
-              Set status
+              {t("Set status")}
             </button>
           </>
         )}
@@ -66,24 +70,26 @@ export default function BulkActions({
           type="button"
           className={"btn" + (removed ? "" : " danger")}
         >
-          {removed ? "Restore selected" : "Remove selected"}
+          {t(removed ? "Restore selected" : "Remove selected")}
         </button>
         <span className="hint selection-hint">
-          {grouped
-            ? "Select two or more series to merge · Shift click for a range · Escape to finish"
-            : "Click to toggle books · Shift click for a range · Escape to finish"}
+          {t(
+            grouped
+              ? "Select two or more series to merge · Shift click for a range · Escape to finish"
+              : "Click to toggle books · Shift click for a range · Escape to finish",
+          )}
         </span>
       </div>
       {grouped && !removed && <MergeSeriesDialog />}
       {!removed && (
         <dialog id="bulkRemoveDialog" aria-labelledby="bulkRemoveTitle">
           <div className="dialog-head">
-            <h2 id="bulkRemoveTitle">Remove selected books?</h2>
+            <h2 id="bulkRemoveTitle">{t("Remove selected books?")}</h2>
           </div>
           <div className="dialog-body">
             <p id="bulkRemoveSummary" />
             <p className="hint">
-              You can restore these books from Recently removed.
+              {t("You can restore these books from Recently removed.")}
             </p>
             <div
               id="bulkRemoveError"
@@ -95,14 +101,14 @@ export default function BulkActions({
           <div className="dialog-foot">
             <div className="buttons">
               <button id="cancelBulkRemove" type="button" className="btn">
-                Keep books
+                {t("Keep books")}
               </button>
               <button
                 id="confirmBulkRemove"
                 type="button"
                 className="btn danger"
               >
-                Remove books
+                {t("Remove books")}
               </button>
             </div>
           </div>

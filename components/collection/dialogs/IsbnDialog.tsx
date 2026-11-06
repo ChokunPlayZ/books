@@ -1,15 +1,18 @@
-export default function IsbnDialog() {
+import { getTranslations } from "../../../lib/server/preferences.ts";
+
+export default async function IsbnDialog() {
+  const t = await getTranslations();
   return (
     <dialog id={"isbnDialog"} aria-labelledby={"isbnDialogTitle"}>
       <div className={"dialog-head"}>
         <div>
-          <h2 id={"isbnDialogTitle"}>{"Add ISBN"}</h2>
-          <p>{"Add a barcode to a book already on your shelf."}</p>
+          <h2 id={"isbnDialogTitle"}>{t("Add ISBN")}</h2>
+          <p>{t("Add a barcode to a book already on your shelf.")}</p>
         </div>
         <button
           id={"closeIsbn"}
           className={"close"}
-          aria-label={"Close ISBN form"}
+          aria-label={t("Close ISBN form")}
         >
           <svg aria-hidden={"true"}>
             <use href={"#i-close"} />
@@ -29,12 +32,12 @@ export default function IsbnDialog() {
             hidden
           ></div>
           <div className={"field"}>
-            <label htmlFor={"linkIsbn"}>{"ISBN for this volume"}</label>
+            <label htmlFor={"linkIsbn"}>{t("ISBN for this volume")}</label>
             <div className={"isbn-line"}>
               <input
                 id={"linkIsbn"}
                 type={"text"}
-                placeholder={"978… or ISBN-10"}
+                placeholder={t("978… or ISBN-10")}
                 maxLength={40}
                 required
                 autoComplete={"off"}
@@ -43,34 +46,36 @@ export default function IsbnDialog() {
                 <svg aria-hidden={"true"}>
                   <use href={"#i-scan"} />
                 </svg>
-                {"Scan barcode"}
+                {t("Scan barcode")}
               </button>
             </div>
           </div>
           <p className={"hint check-hint"}>
-            {"Check the volume, language and edition before saving."}
+            {t("Check the volume, language and edition before saving.")}
           </p>
           <div className={"isbn-only-checks"}>
             <label className={"check"}>
               <input id={"linkAllowDuplicate"} type={"checkbox"} />
-              {"Another copy of an ISBN already on my shelf"}
+              {t("Another copy of an ISBN already on my shelf")}
             </label>
             <label className={"check"}>
               <input id={"linkNext"} type={"checkbox"} />
-              {"Continue with the next volume in this series missing an ISBN"}
+              {t(
+                "Continue with the next volume in this series missing an ISBN",
+              )}
             </label>
           </div>
         </div>
         <div className={"dialog-foot isbn-only-foot"}>
           <button id={"cancelIsbn"} className={"btn"} type={"button"}>
-            {"Cancel"}
+            {t("Cancel")}
           </button>
           <button
             id={"saveIsbnButton"}
             className={"btn primary"}
             type={"submit"}
           >
-            {"Save ISBN"}
+            {t("Save ISBN")}
           </button>
         </div>
       </form>

@@ -1,26 +1,28 @@
 import Icon from "../Icon";
 import { seriesPath } from "../../lib/domain/navigation.ts";
 import { LIST_BATCH_SIZE } from "../../lib/domain/lists.ts";
-import { collectionGaps, missingSummary } from "../../lib/client/matching.ts";
+import { collectionGaps } from "../../lib/client/matching.ts";
 import type { StoredBook } from "../../lib/types.ts";
+import { getTranslations } from "../../lib/server/preferences.ts";
 
-export default function MissingPanel({ books }: { books: StoredBook[] }) {
+export default async function MissingPanel({ books }: { books: StoredBook[] }) {
+  const t = await getTranslations();
   const groups = collectionGaps(books);
   return (
     <section id="missingPanel" aria-labelledby="missingTitle">
       <div className="release-heading">
         <div>
-          <p className="eyebrow">Complete your series</p>
-          <h1 id="missingTitle">What’s missing</h1>
+          <p className="eyebrow">{t("Complete your series")}</p>
+          <h1 id="missingTitle">{t("What’s missing")}</h1>
           <p className="intro">
-            Every volume you don’t have, grouped by series.
+            {t("Every volume you don’t have, grouped by series.")}
           </p>
         </div>
       </div>
       <p className="missing-note">
-        Publisher catalogs show unowned volumes, including those beyond your
-        highest owned volume. Shelf gaps are included too. Languages and
-        publishers are checked separately.
+        {t(
+          "Publisher catalogs show unowned volumes, including those beyond your highest owned volume. Shelf gaps are included too. Languages and publishers are checked separately.",
+        )}
       </p>
       <div className="toolbar missing-filters">
         <div className="search">
@@ -28,20 +30,20 @@ export default function MissingPanel({ books }: { books: StoredBook[] }) {
             <use href="#i-search" />
           </svg>
           <label htmlFor="missingSearch" className="sr-only">
-            Search missing series
+            {t("Search missing series")}
           </label>
           <input
             id="missingSearch"
             type="search"
-            placeholder="Search series, type or publisher…"
+            placeholder={t("Search series, type or publisher…")}
           />
         </div>
         <label htmlFor="missingSort" className="sr-only">
-          Sort missing series
+          {t("Sort missing series")}
         </label>
         <select id="missingSort" defaultValue="series">
-          <option value="series">Series A–Z</option>
-          <option value="missing">Most missing</option>
+          <option value="series">{t("Series A–Z")}</option>
+          <option value="missing">{t("Most missing")}</option>
         </select>
         <button
           id="refreshMissingCatalogs"
@@ -49,14 +51,14 @@ export default function MissingPanel({ books }: { books: StoredBook[] }) {
           type="button"
           disabled
         >
-          Refresh catalogs
+          {t("Refresh catalogs")}
         </button>
         <button
           id="refreshButton"
           className="btn refresh"
           type="button"
-          aria-label="Refresh missing volumes"
-          title="Refresh missing volumes"
+          aria-label={t("Refresh missing volumes")}
+          title={t("Refresh missing volumes")}
         >
           <svg aria-hidden="true">
             <use href="#i-refresh" />
@@ -64,24 +66,30 @@ export default function MissingPanel({ books }: { books: StoredBook[] }) {
         </button>
       </div>
       <p id="missingCatalogStatus" className="missing-summary" role="status">
-        {books.length
-          ? "Publisher catalogs will be checked when this page opens."
-          : "Add a series to check its publisher catalog."}
+        {t(
+          books.length
+            ? "Publisher catalogs will be checked when this page opens."
+            : "Add a series to check its publisher catalog.",
+        )}
       </p>
       <details
         id="missingCoverage"
         className="publisher-details missing-coverage"
         hidden={!books.length}
       >
-        <summary id="missingCoverageSummary">Catalog coverage</summary>
+        <summary id="missingCoverageSummary">{t("Catalog coverage")}</summary>
         <ul id="missingCoverageList"></ul>
         <p className="hint">
-          Unavailable catalogs and uncertain editions can be reviewed on each
-          series page.
+          {t(
+            "Unavailable catalogs and uncertain editions can be reviewed on each series page.",
+          )}
         </p>
       </details>
       <p id="missingSummary" className="missing-summary" role="status">
-        {missingSummary(groups)}
+        {t("{count} missing volumes across {series} series", {
+          count: groups.reduce((sum, group) => sum + group.missing, 0),
+          series: groups.length,
+        })}
       </p>
       <div id="missingList" className="missing-list">
         {groups.length ? (
@@ -92,7 +100,7 @@ export default function MissingPanel({ books }: { books: StoredBook[] }) {
                   <a href={seriesPath(group.series)}>{group.series}</a>
                 </h2>
                 <span className="missing-total">
-                  {group.missing.toLocaleString("en")} missing
+                  {t("{count} missing", { count: group.missing })}
                 </span>
               </header>
               {group.editions.map((edition, index) => (
@@ -100,14 +108,18 @@ export default function MissingPanel({ books }: { books: StoredBook[] }) {
                   <h3>
                     {[edition.type, edition.publisher]
                       .filter(Boolean)
-                      .join(" · ") || "Edition not recorded"}
+                      .join(" · ") || t("Edition not recorded")}
                   </h3>
                   <p className="hint">
-                    Missing {edition.missing.toLocaleString("en")}{" "}
-                    {edition.missing === 1 ? "volume" : "volumes"} through
-                    volume {edition.highest.toLocaleString("en")}
+                    {t("Missing {count} volumes through volume {highest}", {
+                      count: edition.missing,
+                      highest: edition.highest,
+                    })}
                   </p>
-                  <div className="missing-ranges" aria-label="Missing volumes">
+                  <div
+                    className="missing-ranges"
+                    aria-label={t("Missing volumes")}
+                  >
                     {edition.ranges.map(([from, to]) => (
                       <button
                         className="btn missing-volume"
@@ -115,7 +127,7 @@ export default function MissingPanel({ books }: { books: StoredBook[] }) {
                         key={from}
                         disabled
                       >
-                        Vol. {from}
+                        {t("Vol.")} {from}
                         {to > from ? "–" + to : ""} +
                       </button>
                     ))}
@@ -126,7 +138,7 @@ export default function MissingPanel({ books }: { books: StoredBook[] }) {
                 className="missing-series-link"
                 href={seriesPath(group.series)}
               >
-                View series & catalog →
+                {t("View series & catalog →")}
               </a>
             </article>
           ))
@@ -136,17 +148,21 @@ export default function MissingPanel({ books }: { books: StoredBook[] }) {
               <Icon name="check" />
             </span>
             <h2>
-              {books.length
-                ? "Checking publisher catalogs…"
-                : "Your shelf starts here"}
+              {t(
+                books.length
+                  ? "Checking publisher catalogs…"
+                  : "Your shelf starts here",
+              )}
             </h2>
             <p>
-              {books.length
-                ? "Unowned catalog volumes will appear as checks finish, including volumes beyond your shelf."
-                : "Add volumes to your collection to see what’s missing."}
+              {t(
+                books.length
+                  ? "Unowned catalog volumes will appear as checks finish, including volumes beyond your shelf."
+                  : "Add volumes to your collection to see what’s missing.",
+              )}
             </p>
             <a className="btn" href="/">
-              View collection
+              {t("View collection")}
             </a>
           </div>
         )}

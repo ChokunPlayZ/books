@@ -1,7 +1,13 @@
 import Icon from "../Icon";
 import type { StoredBook } from "../../lib/types.ts";
+import { getTranslations } from "../../lib/server/preferences.ts";
 
-export default function CollectionStats({ books }: { books: StoredBook[] }) {
+export default async function CollectionStats({
+  books,
+}: {
+  books: StoredBook[];
+}) {
+  const t = await getTranslations();
   const format = (value: number) =>
     new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(value);
   const read = books.filter((book) => book.status === "Read").length;
@@ -11,13 +17,13 @@ export default function CollectionStats({ books }: { books: StoredBook[] }) {
     <section
       id={"collectionStats"}
       className={"stats"}
-      aria-label={"Collection overview"}
+      aria-label={t("Collection overview")}
     >
       <div className={"stat"}>
         <span className="stat-icon">
           <Icon name="books" />
         </span>
-        <div className={"stat-label"}>{"Books"}</div>
+        <div className={"stat-label"}>{t("Books")}</div>
         <div id={"bookCount"} className={"stat-value"}>
           {format(books.length)}
         </div>
@@ -26,7 +32,7 @@ export default function CollectionStats({ books }: { books: StoredBook[] }) {
         <span className="stat-icon">
           <Icon name="grid" />
         </span>
-        <div className={"stat-label"}>{"Series"}</div>
+        <div className={"stat-label"}>{t("Series")}</div>
         <div id={"seriesCount"} className={"stat-value"}>
           {format(
             new Set(books.map((book) => book.series.trim()).filter(Boolean))
@@ -38,14 +44,14 @@ export default function CollectionStats({ books }: { books: StoredBook[] }) {
         <span className="stat-icon">
           <Icon name="check" />
         </span>
-        <div className={"stat-label"}>{"Read"}</div>
+        <div className={"stat-label"}>{t("Read")}</div>
         <div id={"readCount"} className={"stat-value"}>
           {format(read)}
         </div>
         <div id={"readNote"} className={"stat-note"}>
           {books.length
-            ? progress + "% of your shelf"
-            : "Your next read awaits"}
+            ? t("{count}% of your shelf", { count: progress })
+            : t("Your next read awaits")}
         </div>
         <div className="reading-progress" aria-hidden="true">
           <span id="readProgress" style={{ width: progress + "%" }} />
@@ -55,7 +61,7 @@ export default function CollectionStats({ books }: { books: StoredBook[] }) {
         <span className="stat-icon">
           <Icon name="wallet" />
         </span>
-        <div className={"stat-label"}>{"Spent (฿)"}</div>
+        <div className={"stat-label"}>{t("Spent (฿)")}</div>
         <div id={"spent"} className={"stat-value"}>
           {format(
             books.reduce((sum, book) => sum + Number(book.price || 0), 0),
@@ -63,9 +69,12 @@ export default function CollectionStats({ books }: { books: StoredBook[] }) {
         </div>
         <div id={"priceNote"} className={"stat-note"}>
           {missingPrices
-            ? format(missingPrices) +
-              (missingPrices === 1 ? " book has" : " books have") +
-              " no price"
+            ? t(
+                missingPrices === 1
+                  ? "{count} book has no price"
+                  : "{count} books have no price",
+                { count: format(missingPrices) },
+              )
             : ""}
         </div>
       </div>

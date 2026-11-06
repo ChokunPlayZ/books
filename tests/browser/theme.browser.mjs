@@ -66,17 +66,20 @@ try {
   await page.emulateMedia({ colorScheme: "light" });
   await expectTheme(page, "dark");
 
-  // Other tabs share the preference, including when it is cleared.
+  // Other tabs share the account preference, including following the system.
   const otherPage = await context.newPage();
   await otherPage.goto(testUrl + "/data");
   await expectTheme(otherPage, "dark");
   await otherPage.getByRole("button", { name: "Dark theme" }).click();
   await expectTheme(page, "light");
-  await otherPage.evaluate(() => localStorage.removeItem("books-theme"));
+  await otherPage
+    .getByRole("combobox", { name: "Appearance", exact: true })
+    .selectOption("system");
   await page.emulateMedia({ colorScheme: "dark" });
   await expectTheme(page, "dark");
   await toggle.click();
   await toggle.click();
+  await expectTheme(page, "dark");
   await otherPage.close();
 
   for (const path of ["/", "/data", "/login"]) {

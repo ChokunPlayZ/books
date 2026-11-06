@@ -1,0 +1,60 @@
+.language-select {
+  min-height: 44px;
+  max-width: 104px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--ink);
+  padding: 8px;
+  font: inherit;
+}
+
+.account-preferences {
+  margin-bottom: 24px;
+  scroll-margin-top: 100px;
+}
+
+.preference-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.preference-fields .language-select {
+  max-width: none;
+  width: 100%;
+}
+
+.preference-error {
+  position: fixed;
+  bottom: calc(90px + env(safe-area-inset-bottom));
+  right: 16px;
+  left: 16px;
+  max-width: 480px;
+  margin-left: auto;
+  z-index: 100;
+}
+
+/* Keep the account controls touch-sized without widening a handheld header. */
+@media (max-width: 380px) {
+  .top-inner {
+    gap: 8px;
+  }
+  .brand-name {
+    font-size: 13px;
+  }
+  .brand {
+    gap: 6px;
+  }
+  .brand-mark {
+    padding: 6px;
+  }
+  .language-select {
+    max-width: 86px;
+  }
+}
+
+:lang(th) .eyebrow {
+  letter-spacing: normal;
+}

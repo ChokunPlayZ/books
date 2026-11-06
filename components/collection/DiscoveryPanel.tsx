@@ -1,32 +1,38 @@
 import AnimeSeasonPanel from "./AnimeSeasonPanel";
+import { getTranslations } from "../../lib/server/preferences.ts";
 
-export default function DiscoveryPanel() {
+export default async function DiscoveryPanel() {
+  const t = await getTranslations();
   return (
-    <section id="discoverPanel" aria-label="Discover titles">
+    <section id="discoverPanel" aria-label={t("Discover titles")}>
       <div className="release-heading">
         <div>
-          <p className="eyebrow">Something new to love</p>
-          <h1>Discover titles</h1>
+          <p className="eyebrow">{t("Something new to love")}</p>
+          <h1>{t("Discover titles")}</h1>
           <p className="release-note">
-            Find your next read in publisher catalogs or this season’s anime.
+            {t(
+              "Find your next read in publisher catalogs or this season’s anime.",
+            )}
           </p>
         </div>
       </div>
       <label className="field discovery-mode" htmlFor="discoveryMode">
-        <span>Browse</span>
+        <span>{t("Browse")}</span>
         <select
           id="discoveryMode"
           aria-controls="publisherDiscovery seasonalDiscovery"
         >
-          <option value="publisher">Publisher catalogs</option>
-          <option value="anime">Current anime season · Thai editions</option>
+          <option value="publisher">{t("Publisher catalogs")}</option>
+          <option value="anime">
+            {t("Current anime season · Thai editions")}
+          </option>
         </select>
       </label>
       <AnimeSeasonPanel />
       <div id="publisherDiscovery">
         <form id="discoveryForm" className="discovery-source">
           <label className="field" htmlFor="discoveryPreset">
-            <span>Browse a publisher category</span>
+            <span>{t("Browse a publisher category")}</span>
             <select
               id="discoveryPreset"
               defaultValue="https://www.phoenixnext.com/gl.html"
@@ -106,7 +112,7 @@ export default function DiscoveryPanel() {
               <option value="https://lily-house.com/product-category/english-book/">
                 Lily House · English books
               </option>
-              <option value="">Another category URL</option>
+              <option value="">{t("Another category URL")}</option>
             </select>
           </label>
           <label
@@ -115,13 +121,13 @@ export default function DiscoveryPanel() {
             htmlFor="discoveryUrl"
             hidden
           >
-            <span>Publisher category URL</span>
+            <span>{t("Publisher category URL")}</span>
             <input
               id="discoveryUrl"
               type="url"
               required
               defaultValue="https://www.phoenixnext.com/gl.html"
-              placeholder="Publisher catalog or series URL"
+              placeholder={t("Publisher catalog or series URL")}
             />
           </label>
           <button
@@ -130,10 +136,10 @@ export default function DiscoveryPanel() {
             type="submit"
             hidden
           >
-            Load titles
+            {t("Load titles")}
           </button>
           <button id="refreshDiscovery" className="btn" type="button">
-            Refresh titles
+            {t("Refresh titles")}
           </button>
         </form>
         <div id="discoveryError" className="banner" role="alert" hidden></div>
@@ -144,27 +150,28 @@ export default function DiscoveryPanel() {
               <use href="#i-search" />
             </svg>
             <label htmlFor="discoverySearch" className="sr-only">
-              Search titles or look up a publisher ISBN
+              {t("Search titles or look up a publisher ISBN")}
             </label>
             <input
               id="discoverySearch"
               type="search"
-              placeholder="Search titles or enter an ISBN…"
+              placeholder={t("Search titles or enter an ISBN…")}
             />
           </div>
           <label htmlFor="discoveryType" className="sr-only">
-            Title type
+            {t("Title type")}
           </label>
           <select id="discoveryType">
-            <option value="">All types</option>
-            <option value="Manga">Manga</option>
-            <option value="Light novel">Light novel</option>
-            <option value="Others">Others</option>
+            <option value="">{t("All types")}</option>
+            <option value="Manga">{t("Manga")}</option>
+            <option value="Light novel">{t("Light novel")}</option>
+            <option value="Others">{t("Others")}</option>
           </select>
         </div>
         <p className="hint">
-          Enter an ISBN to search the selected publisher’s catalog. ISBN
-          searches also include series already on your shelf.
+          {t(
+            "Enter an ISBN to search the selected publisher’s catalog. ISBN searches also include series already on your shelf.",
+          )}
         </p>
         <p id="discoveryCount" className="release-note" role="status"></p>
         <div id="discoveryList" className="discovery-grid"></div>

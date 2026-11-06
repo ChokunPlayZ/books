@@ -1,8 +1,9 @@
 import { $, node } from "./dom.ts";
+import { t, formatLocale } from "./i18n.ts";
 import { createInfiniteList } from "./infinite-list.ts";
 import { seriesPath } from "../domain/navigation.ts";
 import {
-  animeSeasonLabel,
+  animeSeasonLabel as englishSeasonLabel,
   animeStatus,
   animeTitleKey,
   animeCatalogTitleKeys,
@@ -14,6 +15,11 @@ import {
 import { canonicalIsbn } from "../domain/isbn.ts";
 import { publisherKey } from "../domain/urls.ts";
 import type { Release, StoredBook } from "../types.ts";
+
+function animeSeasonLabel(...args: Parameters<typeof englishSeasonLabel>) {
+  const [season, ...rest] = englishSeasonLabel(...args).split(" ");
+  return [t(season), ...rest].join(" ");
+}
 
 type Bindings = {
   rpc: (name: string, arg?: unknown) => Promise<unknown>;
@@ -48,7 +54,7 @@ function animeEntry(media: AnimeMedia) {
       "span",
       "hint",
       [
-        animeStatus(media.status),
+        t(animeStatus(media.status)),
         media.season && media.year
           ? animeSeasonLabel(media.season, media.year)
           : "",
@@ -109,7 +115,7 @@ export function createAnimeBrowser({
     const { item } = edition;
     const row = node("div", "anime-thai-edition");
     row.append(
-      node("p", "release-match", "Thai edition"),
+      node("p", "release-match", t("Thai edition")),
       node("h4", "", item.series),
     );
     row.append(
@@ -118,35 +124,44 @@ export function createAnimeBrowser({
         "release-meta",
         [
           item.publisher,
-          /^(?:LN\b|Light novel)/i.test(item.type)
-            ? "Light novel · Thai"
-            : "Manga · Thai",
-          item.volume !== "" ? "Volume " + item.volume : "",
+          t(
+            /^(?:LN\b|Light novel)/i.test(item.type)
+              ? "Light novel · Thai"
+              : "Manga · Thai",
+          ),
+          item.volume !== ""
+            ? t("Volume {volume}", { volume: item.volume })
+            : "",
           item.availability,
         ]
           .filter(Boolean)
           .join(" · "),
       ),
     );
-    row.append(link("Publisher book page ↗", item.url));
+    row.append(link(t("Publisher book page ↗"), item.url));
     row.append(
       node(
         "p",
         "hint",
-        `Matched by ${edition.matchedBy}: ${edition.matchedTitle}. ${edition.stale ? "Previous check" : "Checked"} ${new Date(edition.checkedAt).toLocaleDateString()}.`,
+        t("Matched by {method}: {title}. {checked} {date}.", {
+          method: edition.matchedBy,
+          title: edition.matchedTitle,
+          checked: t(edition.stale ? "Previous check" : "Checked"),
+          date: new Date(edition.checkedAt).toLocaleDateString(formatLocale()),
+        }),
       ),
     );
     const actions = node("div", "anime-actions");
     const owned = thaiOwnership(media, item);
     if (owned) {
-      const view = node("a", "btn", "On your shelf · View series");
+      const view = node("a", "btn", t("On your shelf · View series"));
       view.href = seriesPath(owned.series);
       actions.append(view);
     }
     const add = node(
       "button",
       "btn" + (owned ? "" : " primary"),
-      "Add Thai edition",
+      t("Add Thai edition"),
     );
     add.type = "button";
     add.addEventListener(
@@ -194,7 +209,7 @@ export function createAnimeBrowser({
           node(
             "p",
             "eyebrow",
-            item.book.kind === "LN" ? "Light novel" : "Manga",
+            t(item.book.kind === "LN" ? "Light novel" : "Manga"),
           ),
           node("h3", "", item.book.title),
         );
@@ -206,11 +221,13 @@ export function createAnimeBrowser({
             node(
               "span",
               "release-match",
-              entry.relation === "SOURCE"
-                ? "Source material"
-                : item.book.kind === "Manga"
-                  ? "Manga adaptation"
-                  : "Novel adaptation",
+              t(
+                entry.relation === "SOURCE"
+                  ? "Source material"
+                  : item.book.kind === "Manga"
+                    ? "Manga adaptation"
+                    : "Novel adaptation",
+              ),
             ),
           );
           appearances.append(row);
@@ -226,20 +243,22 @@ export function createAnimeBrowser({
           node(
             "p",
             "hint",
-            "No Thai edition matched in the checked catalogs. Try the publisher’s site or choose your edition manually.",
+            t(
+              "No Thai edition matched in the checked catalogs. Try the publisher’s site or choose your edition manually.",
+            ),
           ),
         );
         const actions = node("div", "anime-actions"),
           owned = ownership(item.book);
         if (owned) {
-          const view = node("a", "btn", "On your shelf · View series");
+          const view = node("a", "btn", t("On your shelf · View series"));
           view.href = seriesPath(owned.series);
           actions.append(view);
         }
         const add = node(
           "button",
           "btn" + (owned ? "" : " primary"),
-          owned ? "Add a volume" : "Pick this book",
+          t(owned ? "Add a volume" : "Pick this book"),
         );
         add.type = "button";
         add.addEventListener(
@@ -259,7 +278,7 @@ export function createAnimeBrowser({
           node(
             "p",
             "hint",
-            "Choose your edition, volume and publisher before saving.",
+            t("Choose your edition, volume and publisher before saving."),
           ),
         );
         return card;
@@ -278,16 +297,26 @@ export function createAnimeBrowser({
     );
     if (!seasonFeed) return;
     $("animeSeasonStatus").textContent =
-      `${animeSeasonLabel(seasonFeed.season, seasonFeed.year)} · ${items.length} ${items.length === 1 ? "book" : "books"} · ${items.filter((item) => item.thaiEditions.length).length} with Thai editions · AniList ${seasonFeed.stale ? "Previous check" : "checked"} ${new Date(seasonFeed.checkedAt).toLocaleString()}` +
-      (seasonFeed.warning ? " · " + seasonFeed.warning : "");
+      t(
+        "{season} · {count} books · {thai} with Thai editions · AniList {checked} {date}",
+        {
+          season: animeSeasonLabel(seasonFeed.season, seasonFeed.year),
+          count: items.length,
+          thai: items.filter((item) => item.thaiEditions.length).length,
+          checked: t(seasonFeed.stale ? "Previous check" : "checked"),
+          date: new Date(seasonFeed.checkedAt).toLocaleString(formatLocale()),
+        },
+      ) + (seasonFeed.warning ? " · " + seasonFeed.warning : "");
     if (!items.length)
       $("animeSeasonList").append(
         node(
           "p",
           "empty",
-          translation === "available"
-            ? "No matched Thai editions for these filters. Try All linked books, another search or season. Check catalog coverage above for unavailable sources."
-            : "No linked books match these filters. Try another type, status, search or season.",
+          t(
+            translation === "available"
+              ? "No matched Thai editions for these filters. Try All linked books, another search or season. Check catalog coverage above for unavailable sources."
+              : "No linked books match these filters. Try another type, status, search or season.",
+          ),
         ),
       );
   }
@@ -301,8 +330,9 @@ export function createAnimeBrowser({
     renderSeason();
     $("animeSeasonError").hidden = true;
     $("animeThaiSources").replaceChildren();
-    $("animeSeasonStatus").textContent =
-      "Checking seasonal anime and matching Thai publisher catalogs…";
+    $("animeSeasonStatus").textContent = t(
+      "Checking seasonal anime and matching Thai publisher catalogs…",
+    );
     $("animeSeasonList").setAttribute("aria-busy", "true");
     $("refreshAnimeSeason").disabled = true;
     try {
@@ -319,14 +349,17 @@ export function createAnimeBrowser({
         row.append(
           document.createTextNode(
             " · " +
-              (source.error ||
-                (source.stale
-                  ? "Previous check"
-                  : source.complete
-                    ? "Catalog checked"
-                    : "Incomplete check")) +
+              t(
+                source.error ||
+                  (source.stale
+                    ? "Previous check"
+                    : source.complete
+                      ? "Catalog checked"
+                      : "Incomplete check"),
+              ) +
               (source.checkedAt
-                ? " · " + new Date(source.checkedAt).toLocaleString()
+                ? " · " +
+                  new Date(source.checkedAt).toLocaleString(formatLocale())
                 : ""),
           ),
         );
@@ -335,10 +368,13 @@ export function createAnimeBrowser({
       renderSeason();
     } catch (error) {
       if (signal.aborted || generation !== seasonGeneration) return;
-      $("animeSeasonError").textContent =
-        error.message || "Seasonal books could not be loaded.";
+      $("animeSeasonError").textContent = t(
+        error.message || "Seasonal books could not be loaded.",
+      );
       $("animeSeasonError").hidden = false;
-      $("animeSeasonStatus").textContent = "Use Refresh season to try again.";
+      $("animeSeasonStatus").textContent = t(
+        "Use Refresh season to try again.",
+      );
     } finally {
       if (generation === seasonGeneration) {
         $("refreshAnimeSeason").disabled = false;
@@ -352,9 +388,10 @@ export function createAnimeBrowser({
     const generation = ++adaptationGeneration;
     $("adaptationError").hidden = true;
     $("adaptationList").replaceChildren();
-    $("adaptationStatus").textContent =
-      "Checking book and anime relations on AniList…";
-    $("adaptationSummary").textContent = "Checking AniList…";
+    $("adaptationStatus").textContent = t(
+      "Checking book and anime relations on AniList…",
+    );
+    $("adaptationSummary").textContent = t("Checking AniList…");
     $("adaptationList").setAttribute("aria-busy", "true");
     $("findAdaptations").disabled = true;
     try {
@@ -368,19 +405,21 @@ export function createAnimeBrowser({
         : result.items;
       const count = items.reduce((total, item) => total + item.anime.length, 0);
       $("adaptationSummary").textContent = !items.length
-        ? "No title match"
+        ? t("No title match")
         : !result.exactId
-          ? "Review possible matches"
+          ? t("Review possible matches")
           : count
-            ? `${count} linked anime`
-            : "No linked anime found";
+            ? t("{count} linked anime", { count })
+            : t("No linked anime found");
       $("adaptationStatus").textContent =
-        (result.exactId
-          ? "Title match on AniList."
-          : items.length
-            ? "Possible title matches. Check the book title and format before relying on its adaptation details."
-            : "No matching book found. Try its original or English title.") +
-        ` ${result.stale ? "Previous check" : "Checked"} ${new Date(result.checkedAt).toLocaleString()}.` +
+        t(
+          result.exactId
+            ? "Title match on AniList."
+            : items.length
+              ? "Possible title matches. Check the book title and format before relying on its adaptation details."
+              : "No matching book found. Try its original or English title.",
+        ) +
+        ` ${t(result.stale ? "Previous check" : "Checked")} ${new Date(result.checkedAt).toLocaleString(formatLocale())}.` +
         (result.warning ? " " + result.warning : "");
       for (const item of items) {
         const card = node("article", "anime-card");
@@ -388,7 +427,7 @@ export function createAnimeBrowser({
           node(
             "p",
             "eyebrow",
-            item.book.kind === "LN" ? "Light novel" : "Manga",
+            t(item.book.kind === "LN" ? "Light novel" : "Manga"),
           ),
           node("h3", "", item.book.title),
           mediaLinks(item.book),
@@ -402,18 +441,21 @@ export function createAnimeBrowser({
             node(
               "p",
               "hint",
-              "AniList has no directly linked anime adaptation for this entry. This does not rule out an adaptation.",
+              t(
+                "AniList has no directly linked anime adaptation for this entry. This does not rule out an adaptation.",
+              ),
             ),
           );
         $("adaptationList").append(card);
       }
     } catch (error) {
       if (signal.aborted || generation !== adaptationGeneration) return;
-      $("adaptationError").textContent =
-        error.message || "Adaptation details could not be loaded.";
+      $("adaptationError").textContent = t(
+        error.message || "Adaptation details could not be loaded.",
+      );
       $("adaptationError").hidden = false;
-      $("adaptationStatus").textContent = "Search again to retry.";
-      $("adaptationSummary").textContent = "AniList unavailable";
+      $("adaptationStatus").textContent = t("Search again to retry.");
+      $("adaptationSummary").textContent = t("AniList unavailable");
     } finally {
       if (generation === adaptationGeneration) {
         $("findAdaptations").disabled = false;

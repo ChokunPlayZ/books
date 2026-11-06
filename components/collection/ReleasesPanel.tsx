@@ -1,23 +1,26 @@
-export default function ReleasesPanel() {
+import { getTranslations } from "../../lib/server/preferences.ts";
+
+export default async function ReleasesPanel() {
+  const t = await getTranslations();
   return (
-    <section id={"releasesPanel"} aria-label={"Publisher releases"}>
+    <section id={"releasesPanel"} aria-label={t("Publisher releases")}>
       <div className={"release-heading"}>
         <div>
-          <p className="eyebrow">The next chapter</p>
-          <h1>{"New releases"}</h1>
+          <p className="eyebrow">{t("The next chapter")}</p>
+          <h1>{t("New releases")}</h1>
           <p className="intro">
-            Fresh from your favorite publishers. Find your next read.
+            {t("Fresh from your favorite publishers. Find your next read.")}
           </p>
         </div>
         <div className={"buttons"}>
           <button id={"refreshReleases"} className={"btn"}>
-            {"Refresh releases"}
+            {t("Refresh releases")}
           </button>
         </div>
       </div>
       <details className={"publisher-details"}>
         <summary id={"publisherCheckSummary"}>
-          {"Publisher sources & check times"}
+          {t("Publisher sources & check times")}
         </summary>
         <div id={"publisherSources"} className={"publisher-sources"}></div>
         <p className={"release-note"}>
@@ -33,19 +36,19 @@ export default function ReleasesPanel() {
             <use href={"#i-search"} />
           </svg>
           <label htmlFor={"releaseSearch"} className={"sr-only"}>
-            {"Search releases"}
+            {t("Search releases")}
           </label>
           <input
             id={"releaseSearch"}
             type={"search"}
-            placeholder={"Search releases or ISBN…"}
+            placeholder={t("Search releases or ISBN…")}
           />
         </div>
         <label htmlFor={"releasePublisher"} className={"sr-only"}>
-          {"Publisher"}
+          {t("Publisher")}
         </label>
         <select id={"releasePublisher"}>
-          <option value={""}>{"All publishers"}</option>
+          <option value={""}>{t("All publishers")}</option>
           <option value={"phoenix"}>{"Phoenix Next"}</option>
           <option value={"firstpage"}>{"First Page Pro"}</option>
           <option value={"luckpim"}>{"Luckpim"}</option>
@@ -57,29 +60,29 @@ export default function ReleasesPanel() {
           <option value="kodansha">Kodansha JP</option>
         </select>
         <label htmlFor={"releaseScope"} className={"sr-only"}>
-          {"Release list"}
+          {t("Release list")}
         </label>
         <select id={"releaseScope"}>
-          <option value={"unbought"}>{"Not bought yet"}</option>
-          <option value={"all"}>{"All releases"}</option>
-          <option value={"series"}>{"For my series"}</option>
-          <option value={"review"}>{"Check edition"}</option>
-          <option value={"owned"}>{"On my shelf"}</option>
-          <option value={"saved"}>{"Saved for later"}</option>
+          <option value={"unbought"}>{t("Not bought yet")}</option>
+          <option value={"all"}>{t("All releases")}</option>
+          <option value={"series"}>{t("For my series")}</option>
+          <option value={"review"}>{t("Check edition")}</option>
+          <option value={"owned"}>{t("On my shelf")}</option>
+          <option value={"saved"}>{t("Saved for later")}</option>
         </select>
         <label htmlFor={"releaseType"} className={"sr-only"}>
-          {"Release type"}
+          {t("Release type")}
         </label>
         <select id={"releaseType"}>
-          <option value={""}>{"All types"}</option>
-          <option value="Light novel">Light novel</option>
-          <option value={"Manga"}>{"Manga"}</option>
-          <option value="Others">Others</option>
+          <option value={""}>{t("All types")}</option>
+          <option value="Light novel">{t("Light novel")}</option>
+          <option value={"Manga"}>{t("Manga")}</option>
+          <option value="Others">{t("Others")}</option>
         </select>
         <div
           className={"buttons release-visibility-filters"}
           role={"group"}
-          aria-label={"Release visibility"}
+          aria-label={t("Release visibility")}
         >
           <button
             id={"hideSpecialReleases"}
@@ -88,7 +91,7 @@ export default function ReleasesPanel() {
             aria-pressed={"false"}
             aria-controls={"releaseList"}
           >
-            {"Hide special editions"}
+            {t("Hide special editions")}
           </button>
           <button
             id={"hideSavedReleases"}
@@ -97,7 +100,7 @@ export default function ReleasesPanel() {
             aria-pressed={"false"}
             aria-controls={"releaseList"}
           >
-            {"Hide saved for later"}
+            {t("Hide saved for later")}
           </button>
           <button
             id={"hideOwnedReleases"}
@@ -106,7 +109,7 @@ export default function ReleasesPanel() {
             aria-pressed={"false"}
             aria-controls={"releaseList"}
           >
-            {"Hide owned"}
+            {t("Hide owned")}
           </button>
         </div>
       </div>
@@ -117,7 +120,7 @@ export default function ReleasesPanel() {
       ></p>
       <div className={"list-label"}>
         <span id={"releaseResultCount"} role={"status"}>
-          {"Checking publishers…"}
+          {t("Checking publishers…")}
         </span>
       </div>
       <div id={"releaseList"} className={"release-grid"}></div>
