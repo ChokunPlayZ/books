@@ -2,6 +2,10 @@ import type { NextRequest } from "next/server";
 import { getApp } from "../../../lib/server/app.ts";
 import { authorize } from "../../../lib/server/auth.ts";
 import { AppError } from "../../../lib/server/store.ts";
+import {
+  enforceRateLimit,
+  limitConcurrentRequests,
+} from "../../../lib/server/rate-limit.ts";
 import { parseImport, importSummary } from "../../../lib/server/importer.ts";
 import {
   json,
@@ -15,22 +19,38 @@ export async function POST(request: NextRequest) {
     const { store } = getApp();
     const user = authorize(store, request);
     sameOrigin(request);
-    const buffer = await readBody(request, 129 * 1024 * 1024);
-    const form = await new Response(new Uint8Array(buffer), {
-      headers: { "Content-Type": request.headers.get("content-type") || "" },
-    }).formData();
-    const file = form.get("file");
-    if (!file || typeof file === "string")
-      throw new AppError("Choose an import file.");
-    const plan = parseImport(Buffer.from(await file.arrayBuffer()), file.name);
-    if (form.get("action") === "preview") return json(importSummary(plan));
-    if (
-      form.get("action") !== "import" ||
-      form.get("fingerprint") !== plan.fingerprint
-    )
-      throw new AppError("Review this file before importing it.");
-    return json(
-      store.forUser(user, () => store.importData(plan, plan.fingerprint)),
+    enforceRateLimit(store, `import:${user.id}`, 10, 15 * 60_000);
+    // Also cap aggregate uploads: public signup must not multiply the per-user
+    // memory budget into an unbounded number of simultaneous large bodies.
+    return await limitConcurrentRequests(
+      0,
+      () =>
+        limitConcurrentRequests(user.id, async () => {
+          const buffer = await readBody(request, 129 * 1024 * 1024);
+          const form = await new Response(new Uint8Array(buffer), {
+            headers: {
+              "Content-Type": request.headers.get("content-type") || "",
+            },
+          }).formData();
+          const file = form.get("file");
+          if (!file || typeof file === "string")
+            throw new AppError("Choose an import file.");
+          const plan = parseImport(
+            Buffer.from(await file.arrayBuffer()),
+            file.name,
+          );
+          if (form.get("action") === "preview")
+            return json(importSummary(plan));
+          if (
+            form.get("action") !== "import" ||
+            form.get("fingerprint") !== plan.fingerprint
+          )
+            throw new AppError("Review this file before importing it.");
+          return json(
+            store.forUser(user, () => store.importData(plan, plan.fingerprint)),
+          );
+        }),
+      1,
     );
   } catch (error) {
     return errorResponse(error);

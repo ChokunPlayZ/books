@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from "next/server.js";
 import { AppError } from "./store.ts";
+import { appOrigin } from "./auth-config.ts";
 
 export function json<T>(value: T, status = 200) {
   return NextResponse.json(value, {
@@ -7,25 +8,42 @@ export function json<T>(value: T, status = 200) {
     headers: { "Cache-Control": "no-store" },
   });
 }
-export function errorResponse(error) {
-  if (!error.status && !(error instanceof SyntaxError))
-    console.error("Book Collection request failed:", error.message);
-  const status = error.status || (error instanceof SyntaxError ? 400 : 400);
+export function errorResponse(error: unknown) {
+  const expected = error instanceof AppError;
+  if (!expected && !(error instanceof SyntaxError))
+    console.error(
+      "Book Collection request failed:",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  const status = expected
+    ? error.status
+    : error instanceof SyntaxError
+      ? 400
+      : 500;
   return json(
     {
       message:
         error instanceof SyntaxError
           ? "The request could not be read."
-          : error.message || "The request failed.",
+          : expected
+            ? error.message
+            : "The request failed. Please try again.",
     },
     status,
   );
 }
 export function sameOrigin(request: Request) {
   const origin = request.headers.get("origin");
-  if (request.headers.get("sec-fetch-site") === "cross-site")
-    throw new AppError("Open this action from your library.", 403);
-  if (origin && new URL(origin).host !== request.headers.get("host"))
+  const site = request.headers.get("sec-fetch-site");
+  const expected = process.env.BOOKS_APP_URL
+    ? appOrigin()
+    : new URL(request.url).origin;
+  // Compare the full origin, including scheme and port. Forwarded Host headers
+  // are not a trust boundary. Headerless non-browser API clients remain usable.
+  if (
+    site === "cross-site" ||
+    (origin ? origin !== expected : site === "same-site")
+  )
     throw new AppError("Open this action from your library.", 403);
 }
 export async function readBody(
@@ -52,7 +70,14 @@ export async function readBody(
   return Buffer.concat(chunks);
 }
 export async function readJson(request: Request, limit = 20000) {
-  if (!request.headers.get("content-type")?.startsWith("application/json"))
+  if (
+    !/^application\/json(?:\s*;|$)/i.test(
+      request.headers.get("content-type") || "",
+    )
+  )
     throw new AppError("Expected a JSON request.", 415);
-  return JSON.parse((await readBody(request, limit)).toString("utf8"));
+  const value = JSON.parse((await readBody(request, limit)).toString("utf8"));
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new AppError("Expected a JSON object.");
+  return value;
 }

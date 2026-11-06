@@ -14,6 +14,7 @@ import { imageType, MAX_IMAGE_BYTES, coverDigest } from "./covers.ts";
 import { AppError } from "./store.ts";
 import type { Book, ImportReview } from "../types.ts";
 import { normalizeBookType } from "../domain/book-type.ts";
+import { validateWorkbookArchive } from "./workbook-archive.ts";
 
 const MAX_RECORDS = 20000;
 function objectBook(input, warnings, location) {
@@ -95,11 +96,26 @@ function objectBook(input, warnings, location) {
 }
 
 function fromWorkbook(buffer, filename) {
+  if (buffer.length > 16 * 1024 * 1024)
+    throw new AppError("Choose an XLSX or CSV file smaller than 16 MB.");
+  if (/\.xlsx$/i.test(filename)) validateWorkbookArchive(buffer);
   const workbook = XLSX.read(buffer, {
     type: "buffer",
     raw: true,
     cellDates: false,
+    sheetRows: MAX_RECORDS + 2,
   });
+  if (workbook.SheetNames.length > 10)
+    throw new AppError("The workbook has too many sheets.");
+  for (const sheet of Object.values(workbook.Sheets)) {
+    const range = XLSX.utils.decode_range(
+      sheet["!fullref"] || sheet["!ref"] || "A1",
+    );
+    if (range.e.r > MAX_RECORDS || range.e.c > 31)
+      throw new AppError(
+        "Each import sheet must contain at most 20,000 records and 32 columns.",
+      );
+  }
   const sheet =
     workbook.Sheets.Sheet1 ||
     (workbook.SheetNames.length === 1
@@ -219,6 +235,15 @@ export function parseImport(buffer, filename) {
       (!Array.isArray(raw[key]) || raw[key].length > MAX_RECORDS)
     )
       throw new AppError(`Invalid ${key} in the backup.`);
+  if (
+    raw.warnings != null &&
+    (!Array.isArray(raw.warnings) ||
+      raw.warnings.length > MAX_RECORDS ||
+      raw.warnings.some(
+        (value) => typeof value !== "string" || value.length > 2000,
+      ))
+  )
+    throw new AppError("Invalid warnings in the backup.");
   const warnings = [...(raw.warnings || [])];
   const books = raw.books.map((input, index) =>
     objectBook(input, warnings, `Book ${index + 1}`),
