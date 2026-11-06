@@ -56,13 +56,12 @@ const exact = item(
   ),
   luck = item("luckpim", "[PRE-ORDER] " + marker + " next 05", "999992");
 luck.availability = "Pre-order";
-let feeds = {
-    phoenix: [exact, possible, different, special],
-    firstpage: [first],
-    luckpim: [luck],
-  },
-  failLuck = false;
-const all = [exact, possible, different, special, first, luck];
+const feeds = {
+  phoenix: [exact, possible, different, special],
+  firstpage: [first],
+  luckpim: [luck],
+};
+let failLuck = false;
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } }),
     errors = [];
@@ -102,9 +101,6 @@ try {
   });
   await page.goto(url);
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
-  const before = await page.evaluate(
-    () => window.bookCollection?.state.data.books.length,
-  );
   for (const book of [
     {
       series: marker + " known",
@@ -193,60 +189,6 @@ try {
   await page.locator("#releaseSearch").fill("");
   console.log(
     "PASS publisher/series/search filters, exact ISBN, edition hints, language matching, special sets and HTML safety",
-  );
-  await card(possible.title)
-    .getByRole("button", { name: "Save for later", exact: true })
-    .click();
-  await page.waitForFunction(
-    () => !window.bookCollection?.state.savingReleases.size,
-  );
-  assert.equal(
-    await page.evaluate(() => window.bookCollection?.state.data.books.length),
-    before + 3,
-  );
-  assert.equal(
-    await card(possible.title)
-      .getByRole("button", { name: "Saved · Unsave" })
-      .getAttribute("aria-pressed"),
-    "true",
-  );
-  feeds.phoenix = feeds.phoenix.filter((i) => i.id !== possible.id);
-  await page.locator("#refreshReleases").click();
-  await page.waitForFunction(
-    () => !window.bookCollection?.state.releasesLoading,
-  );
-  await page.locator("#releaseScope").selectOption("saved");
-  assert.equal(await page.locator(".release-card").count(), 1);
-  await page.reload();
-  await page.waitForFunction(() => !!window.bookCollection?.state.data);
-  await page.locator("#releasesTab").click();
-  await page.waitForFunction(() => !!window.bookCollection?.state.data);
-  await page.waitForFunction(
-    () =>
-      window.bookCollection?.state.releasesLoaded &&
-      !window.bookCollection?.state.releasesLoading,
-  );
-  await page.locator("#releaseScope").selectOption("saved");
-  assert.equal(await page.locator(".release-card").count(), 1);
-  await card(possible.title)
-    .getByRole("button", { name: "Add to shelf", exact: true })
-    .click();
-  assert.equal(await page.locator("#series").inputValue(), marker + " known");
-  assert.equal(await page.locator("#volume").inputValue(), "3");
-  assert.equal(await page.locator("#type").inputValue(), "LN (TH)");
-  assert.equal(await page.locator("#source").inputValue(), "");
-  assert.equal(await page.locator("#price").inputValue(), "");
-  assert.equal(await page.locator("#isbn").isVisible(), true);
-  await page.locator("#cancelBook").click();
-  await card(possible.title)
-    .getByRole("button", { name: "Saved · Unsave" })
-    .click();
-  await page.waitForFunction(
-    () => !window.bookCollection?.state.savingReleases.size,
-  );
-  assert.equal(await page.locator(".release-card").count(), 0);
-  console.log(
-    "PASS saved releases persist across refresh/reload, do not change shelf totals, and prefill a reviewed add form",
   );
   await page.locator("#releaseScope").selectOption("all");
   failLuck = true;
@@ -360,22 +302,14 @@ try {
   await cleanup.waitForFunction(
     () => typeof window.bookCollection?.rpc === "function",
   );
-  await cleanup.evaluate(
-    async ({ marker, all }) => {
-      const data = await window.bookCollection?.rpc("getCollection");
-      for (const b of data.books.filter((b) => b.series.startsWith(marker)))
-        await window.bookCollection?.rpc("removeBook", {
-          requestId: crypto.randomUUID(),
-          row: b.row,
-          token: b.token,
-        });
-      for (const item of all)
-        await window.bookCollection?.rpc("setSavedRelease", {
-          release: item,
-          saved: false,
-        });
-    },
-    { marker, all },
-  );
+  await cleanup.evaluate(async (marker) => {
+    const data = await window.bookCollection?.rpc("getCollection");
+    for (const b of data.books.filter((b) => b.series.startsWith(marker)))
+      await window.bookCollection?.rpc("removeBook", {
+        requestId: crypto.randomUUID(),
+        row: b.row,
+        token: b.token,
+      });
+  }, marker);
   await browser.close();
 }

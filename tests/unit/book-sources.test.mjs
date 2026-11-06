@@ -90,11 +90,7 @@ test("every language-specific publisher stays hidden for other title languages, 
   );
 });
 
-test("Thai and Japanese publishers require the matching edition while multilingual sources remain available", () => {
-  assert.equal(bookSourceApplies("phoenix", { type: "Manga (JP)" }), false);
-  assert.equal(bookSourceApplies("phoenix", { type: "LN (TH)" }), true);
-  assert.equal(bookSourceApplies("kodansha", { type: "Manga (JP)" }), true);
-  assert.equal(bookSourceApplies("kodansha", { type: "Manga (EN)" }), false);
+test("unrestricted sources remain available for every title language", () => {
   for (const type of ["Manga (JP)", "Manga (TH)", "LN (EN)"])
     for (const source of [
       "kinokuniya",

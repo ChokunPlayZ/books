@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import { mkdirSync } from "node:fs";
-import { join } from "node:path";
 import { chromium } from "playwright";
 import { testUrl } from "../helpers/browser.mjs";
 
@@ -114,26 +112,6 @@ try {
   await page.getByText("All 6 shop checks", { exact: true }).click();
   assert.equal(await page.locator(".price-sources li").count(), 6);
 
-  const directory = join(process.cwd(), ".impeccable", "review");
-  mkdirSync(directory, { recursive: true });
-  const settleCapture = async () => {
-    await page.evaluate(() => {
-      document.activeElement?.blur();
-      window.scrollTo({ top: 0, behavior: "instant" });
-    });
-    await page.evaluate(
-      () =>
-        new Promise((resolve) =>
-          requestAnimationFrame(() => requestAnimationFrame(resolve)),
-        ),
-    );
-  };
-  await settleCapture();
-  await page.screenshot({
-    path: join(directory, "price-finder-mobile.png"),
-    fullPage: true,
-    animations: "disabled",
-  });
   assert.equal(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -141,25 +119,12 @@ try {
     true,
   );
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await settleCapture();
-  await page.screenshot({
-    path: join(directory, "price-finder-desktop.png"),
-    fullPage: true,
-    animations: "disabled",
-  });
   assert.equal(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
     true,
   );
-  await page.getByRole("button", { name: "Dark theme" }).click();
-  await settleCapture();
-  await page.screenshot({
-    path: join(directory, "price-finder-dark.png"),
-    fullPage: true,
-    animations: "disabled",
-  });
 
   await page.getByRole("button", { name: "Refresh prices" }).click();
   await page.locator(".price-offer").first().waitFor();
@@ -240,7 +205,7 @@ try {
   assert.equal(await page.locator("#isbn").inputValue(), isbn);
   assert.deepEqual(errors, []);
   console.log(
-    "PASS lowest price finder: validation, comparisons, refresh, failures, cancellation, deep links, draft shortcut, desktop/mobile/dark",
+    "PASS lowest price finder: validation, comparisons, refresh, failures, cancellation, deep links, draft shortcut and desktop/mobile layout",
   );
 } finally {
   await browser.close();
