@@ -2,19 +2,19 @@
 
 ## Self-host with Docker
 
-Install Docker with the Compose plugin. Copy `.env.example` to `.env` and set `BOOKS_PASSWORD` to a long private password, then start the app:
+Install Docker with the Compose plugin. Copy `.env.example` to `.env` and configure [Google sign-in](authentication.md), including the exact app origin and the admin Google email, then start the app:
 
 ```sh
 cp .env.example .env
-# Edit .env and set BOOKS_PASSWORD.
+# Edit .env: BOOKS_APP_URL, BOOKS_GOOGLE_CLIENT_ID, BOOKS_GOOGLE_CLIENT_SECRET, BOOKS_ADMIN_EMAIL.
 docker compose up -d --build --wait
 ```
 
-Open <http://localhost:3000> and sign in with that password. The default cookie setting supports local HTTP. Set `BOOKS_PORT` in `.env` to use a different host port.
+Open the exact `BOOKS_APP_URL` and choose **Continue with Google**. Local HTTP is supported only on localhost/loopback. Set `BOOKS_PORT` in `.env` to use a different host port, and update both `BOOKS_APP_URL` and Google's authorized redirect URI to match.
 
 The database lives in the persistent `books-data` volume. A fresh deployment starts empty; import your workbook or backup from **Data & backups**. Use one app instance with its local SQLite volume. Update with `docker compose up -d --build --wait`; the database is retained. Stop with `docker compose down`. **Do not add `--volumes` when stopping your installation:** that deletes the library.
 
-Compose publishes on `127.0.0.1` by default. For remote access, put your HTTPS reverse proxy in front of the app and set `BOOKS_SECURE_COOKIES=true`. Change `BOOKS_BIND_ADDRESS` only if your proxy needs another host interface, and preserve the original `Host` header when forwarding requests.
+Compose publishes on `127.0.0.1` by default. For remote access, put your HTTPS reverse proxy in front of the app and set `BOOKS_APP_URL` to the public HTTPS origin; cookies become Secure automatically. Change `BOOKS_BIND_ADDRESS` only if your proxy needs another host interface, and preserve the original `Host` header when forwarding requests. Follow the [security checklist](security.md) for proxy limits, headers, egress and secret handling.
 
 The image uses Node.js 24, a multi-stage build and the standalone Next.js bundle, runs as an unprivileged user, and excludes local databases, environment files and backups from the build context. `/api/health` checks the database connection without returning library data. Compose waits for the health check and allows 30 seconds for graceful shutdown. View status with `docker compose ps` and logs with `docker compose logs -f books`.
 

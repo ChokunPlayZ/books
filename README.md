@@ -14,6 +14,8 @@ npm run dev
 
 Open [localhost:3000](http://localhost:3000). Next.js compiles the TypeScript, watches changes and refreshes the browser. There is no separate browser-script build step. An empty database is created at `data/books.sqlite`; an existing database is never reseeded or replaced.
 
+Set up [Google sign-in](docs/authentication.md) in `.env.local` before opening a library. Google is the only sign-in method, including in development; missing credentials never expose the existing collection.
+
 To try the sample collection in a separate database:
 
 ```sh
@@ -67,3 +69,5 @@ An installed browser can be selected with `--browser-executable=/absolute/path/t
 See the [development guide](docs/development.md) for module boundaries and common changes, [library workflows](docs/library.md), [import formats](docs/imports.md), [self-hosting and backups](docs/self-hosting.md), and [publisher maintenance](docs/web-scraping.md).
 
 See [accounts and privacy](docs/multi-user.md) for adding users, private collection fields, permanent ISBN/source caching and administrator-only refreshes.
+
+Before public deployment, review [authentication setup](docs/authentication.md) and the [security deployment checklist](docs/security.md).

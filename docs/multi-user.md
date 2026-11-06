@@ -1,8 +1,8 @@
 # Accounts, privacy and shared metadata
 
-Existing databases migrate in place: the existing collection belongs to the `admin` account, using `BOOKS_PASSWORD`. Back up the SQLite database before deploying a schema upgrade. There is no public registration.
+Existing databases migrate in place: the existing collection belongs to the `admin` account. Back up the SQLite database before deploying a schema upgrade. [Google sign-in](authentication.md) is the only sign-in method; any verified Google account can register for an empty, private library. Only the explicitly configured owner can claim the existing admin library.
 
-To add another account on the server, set `BOOKS_NEW_USER_PASSWORD` to a password of at least 12 characters, then run `npm run user:add -- username`. Add `--admin` only for another trusted administrator. Unset the variable afterwards. New accounts start with empty collections. Accounts use independently salted scrypt password hashes and user-bound sessions. Once accounts exist, unauthenticated mode cannot bypass sign-in.
+To reserve an account, run `npm run user:add -- username reader@gmail.com` on the server. Add `--admin` only for a trusted administrator. To map an existing password-era library before its first Google login, use `npm run user:add -- username reader@gmail.com --link`. Gmail or Google Workspace is required when claiming a reserved library. Linked identities are bound to Google's immutable subject, not a mutable email. Password sessions are revoked during migration, and unauthenticated mode cannot bypass sign-in.
 
 ## Private to each user
 
