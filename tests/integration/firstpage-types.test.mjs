@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import {
   parseCatalog,
@@ -105,7 +105,7 @@ test("First Page discovery retains both formats and an owned manga does not hide
 });
 
 test("old merged directories and incorrect cached releases/ISBN results are corrected without a network request", async () => {
-  const store = openStore(":memory:");
+  const store = await openStore();
   try {
     const items = parseCatalog("firstpage", fixture);
     const incorrect = {
@@ -113,7 +113,7 @@ test("old merged directories and incorrect cached releases/ISBN results are corr
       type: "Manga (TH)",
       coverId: "existing-cover",
     };
-    store.cache.put(
+    await store.cache.put(
       "releases:v1:firstpage",
       JSON.stringify({
         publisherId: "firstpage",
@@ -127,7 +127,7 @@ test("old merged directories and incorrect cached releases/ISBN results are corr
       directory,
       "https://www.firstpagepro.com/",
     );
-    store.cache.put(
+    await store.cache.put(
       "publisher-directory:v1:" + digest("https://www.firstpagepro.com/"),
       JSON.stringify({
         publisherId: "firstpage",
@@ -173,19 +173,19 @@ test("old merged directories and incorrect cached releases/ISBN results are corr
     });
     assert.equal(result.items[0].type, "Light novel");
     assert.equal(result.items[0].coverId, "existing-cover");
-    store.api.setSavedRelease({ release: items[1], saved: true });
-    store.db
+    await store.api.setSavedRelease({ release: items[1], saved: true });
+    await store.db
       .prepare("UPDATE saved_releases SET data=? WHERE id=?")
       .run(JSON.stringify(incorrect), incorrect.id);
     assert.equal(
-      store.api.getCollection().savedReleases[0].type,
+      (await store.api.getCollection()).savedReleases[0].type,
       "Light novel",
     );
     assert.equal(
-      store.api.getCollection().savedReleases[0].coverId,
+      (await store.api.getCollection()).savedReleases[0].coverId,
       "existing-cover",
     );
   } finally {
-    store.close();
+    await store.close();
   }
 });

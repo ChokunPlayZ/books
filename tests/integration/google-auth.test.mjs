@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { customFetch } from "openid-client";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import {
   authHash,
   cookieOptions,
@@ -40,7 +40,7 @@ const alice = {
   email: "alice@gmail.com",
   email_verified: true,
 };
-function setup(t) {
+async function setup(t) {
   const env = {
     ...googleTestEnvironment(),
     BOOKS_APP_URL: "http://localhost:3000",
@@ -54,8 +54,8 @@ function setup(t) {
         : (process.env[key] = previous),
     );
   }
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+  const store = await openStore();
+  t.after(async () => await store.close());
   const client = createGoogleClient(googleSettings());
   client[customFetch] = googleTransport(env.BOOKS_TEST_GOOGLE_PRIVATE_KEY, () =>
     assert.fail("Unexpected external request"),
@@ -64,7 +64,7 @@ function setup(t) {
 }
 
 test("OAuth code flow validates PKCE and signed identity, claims the configured owner and rotates sessions", async (t) => {
-  const { store, client } = setup(t);
+  const { store, client } = await setup(t);
   const attempt = await beginGoogleSignIn(store, "/stats?period=year");
   assert.equal(attempt.url.origin, "https://accounts.google.com");
   assert.equal(attempt.url.searchParams.get("scope"), "openid email");
@@ -79,18 +79,19 @@ test("OAuth code flow validates PKCE and signed identity, claims the configured 
   assert.equal(login.user.id, 1);
   assert.equal(login.user.role, "admin");
   assert.equal(login.returnTo, "/stats?period=year");
-  assert.equal(sessionUser(store, login.token).id, 1);
+  assert.equal((await sessionUser(store, login.token)).id, 1);
   assert.equal(
-    store.db.prepare("SELECT COUNT(*) AS n FROM oauth_attempts").get().n,
+    (await store.db.prepare("SELECT COUNT(*) AS n FROM oauth_attempts").get())
+      .n,
     0,
   );
   await assert.rejects(
     finishGoogleSignIn(store, callback, attempt.browserToken, client),
   );
   assert.ok(
-    !JSON.stringify(store.db.prepare("SELECT * FROM sessions").all()).includes(
-      "test-access-token",
-    ),
+    !JSON.stringify(
+      await store.db.prepare("SELECT * FROM sessions").all(),
+    ).includes("test-access-token"),
   );
   assert.deepEqual(cookieOptions(), {
     httpOnly: true,
@@ -102,31 +103,37 @@ test("OAuth code flow validates PKCE and signed identity, claims the configured 
 });
 
 test("state is browser-bound, short-lived and consumed exactly once", async (t) => {
-  const { store } = setup(t);
+  const { store } = await setup(t);
   const attempt = await beginGoogleSignIn(store, "//evil.test");
   const state = attempt.url.searchParams.get("state");
-  assert.throws(() => consumeGoogleAttempt(store, state, "a".repeat(64)));
-  assert.throws(() =>
-    consumeGoogleAttempt(store, "wrong", attempt.browserToken),
+  await assert.rejects(
+    async () => await consumeGoogleAttempt(store, state, "a".repeat(64)),
+  );
+  await assert.rejects(
+    async () =>
+      await consumeGoogleAttempt(store, "wrong", attempt.browserToken),
   );
   assert.equal(
-    consumeGoogleAttempt(store, state, attempt.browserToken).returnTo,
+    (await consumeGoogleAttempt(store, state, attempt.browserToken)).returnTo,
     "/",
   );
-  assert.throws(() => consumeGoogleAttempt(store, state, attempt.browserToken));
+  await assert.rejects(
+    async () => await consumeGoogleAttempt(store, state, attempt.browserToken),
+  );
   const expired = await beginGoogleSignIn(store, "/");
-  store.db.exec("UPDATE oauth_attempts SET expires_at=0");
-  assert.throws(() =>
-    consumeGoogleAttempt(
-      store,
-      expired.url.searchParams.get("state"),
-      expired.browserToken,
-    ),
+  await store.db.exec("UPDATE oauth_attempts SET expires_at=0");
+  await assert.rejects(
+    async () =>
+      await consumeGoogleAttempt(
+        store,
+        expired.url.searchParams.get("state"),
+        expired.browserToken,
+      ),
   );
 });
 
 test("wrong nonce, issuer, audience, expiry, verification and signature never create sessions", async (t) => {
-  const { store, client } = setup(t);
+  const { store, client } = await setup(t);
   for (const overrides of [
     { nonce: "wrong" },
     { iss: "https://evil.test" },
@@ -179,34 +186,37 @@ test("wrong nonce, issuer, audience, expiry, verification and signature never cr
     finishGoogleSignIn(store, callback, badPkce.browserToken, client),
   );
   assert.equal(
-    store.db.prepare("SELECT COUNT(*) AS n FROM sessions").get().n,
+    (await store.db.prepare("SELECT COUNT(*) AS n FROM sessions").get()).n,
     0,
   );
-  assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM users").get().n, 1);
+  assert.equal(
+    (await store.db.prepare("SELECT COUNT(*) AS n FROM users").get()).n,
+    1,
+  );
 });
 
-test("public signup cannot claim admin; identities survive email changes and cannot be relinked by email", (t) => {
-  const { store } = setup(t);
-  const signup = signInWithGoogle(store, alice);
+test("public signup cannot claim admin; identities survive email changes and cannot be relinked by email", async (t) => {
+  const { store } = await setup(t);
+  const signup = await signInWithGoogle(store, alice);
   assert.notEqual(signup.user.id, 1);
   assert.equal(signup.user.role, "user");
-  const admin = signInWithGoogle(store, owner);
+  const admin = await signInWithGoogle(store, owner);
   assert.equal(admin.user.id, 1);
-  const changed = signInWithGoogle(store, {
+  const changed = await signInWithGoogle(store, {
     ...alice,
     email: "new-address@gmail.com",
   });
   assert.equal(changed.user.id, signup.user.id);
-  const reusedEmail = signInWithGoogle(store, {
+  const reusedEmail = await signInWithGoogle(store, {
     sub: "different-google",
     email: alice.email,
     email_verified: true,
   });
   assert.notEqual(reusedEmail.user.id, signup.user.id);
   assert.equal(reusedEmail.user.role, "user");
-  assert.throws(
-    () =>
-      signInWithGoogle(store, {
+  await assert.rejects(
+    async () =>
+      await signInWithGoogle(store, {
         sub: "other",
         email: "new-address@gmail.com",
         email_verified: true,
@@ -215,33 +225,37 @@ test("public signup cannot claim admin; identities survive email changes and can
   );
   process.env.BOOKS_ADMIN_EMAIL = "new-admin@gmail.com";
   assert.equal(
-    signInWithGoogle(store, {
-      sub: "not-admin",
-      email: "new-admin@gmail.com",
-      email_verified: true,
-    }).user.role,
+    (
+      await signInWithGoogle(store, {
+        sub: "not-admin",
+        email: "new-admin@gmail.com",
+        email_verified: true,
+      })
+    ).user.role,
     "user",
   );
-  assert.equal(signInWithGoogle(store, owner).user.id, 1);
+  assert.equal((await signInWithGoogle(store, owner)).user.id, 1);
 });
 
-test("legacy libraries are explicitly reserved, and Google must be authoritative when linking by email", (t) => {
-  const { store } = setup(t);
-  const reserved = createAccount(store, "legacy", "reader@example.org");
+test("legacy libraries are explicitly reserved, and Google must be authoritative when linking by email", async (t) => {
+  const { store } = await setup(t);
+  const reserved = await createAccount(store, "legacy", "reader@example.org");
   const external = {
     sub: "external-google",
     email: "reader@example.org",
     email_verified: true,
   };
-  assert.throws(() => signInWithGoogle(store, external), { status: 403 });
+  await assert.rejects(async () => await signInWithGoogle(store, external), {
+    status: 403,
+  });
   assert.equal(
-    signInWithGoogle(store, { ...external, hd: "example.org" }).user.id,
+    (await signInWithGoogle(store, { ...external, hd: "example.org" })).user.id,
     reserved.id,
   );
 });
 
-test("authentication fails closed even with legacy password and unauthenticated flags", (t) => {
-  const { store } = setup(t);
+test("authentication fails closed even with legacy password and unauthenticated flags", async (t) => {
+  const { store } = await setup(t);
   for (const key of [
     "BOOKS_PASSWORD",
     "BOOKS_ALLOW_UNAUTHENTICATED",
@@ -255,23 +269,23 @@ test("authentication fails closed even with legacy password and unauthenticated 
         : (process.env[key] = previous),
     );
   }
-  assert.equal(sessionUser(store), null);
-  store.db
+  assert.equal(await sessionUser(store), null);
+  await store.db
     .prepare("INSERT INTO sessions VALUES (?,?,1,'')")
     .run(authHash("a".repeat(64)), Date.now() + 60000);
-  assert.equal(sessionUser(store, "a".repeat(64)), null);
+  assert.equal(await sessionUser(store, "a".repeat(64)), null);
   process.env.BOOKS_APP_URL = "https://books.example.org";
   process.env.BOOKS_SECURE_COOKIES = "false";
   assert.equal(cookieOptions().secure, true);
 });
 
-test("v5 migration preserves libraries and invalidates all password sessions", (t) => {
+test("password-derived sessions cannot authenticate or claim an existing library", async (t) => {
   const path = join(
     mkdtempSync(join(tmpdir(), "books-oauth-migration-")),
     "books.sqlite",
   );
-  let store = openStore(path);
-  store.api.saveBook({
+  let store = await openStore(path);
+  await store.api.saveBook({
     requestId: "google-migration-regression",
     book: {
       isbn: "",
@@ -286,65 +300,67 @@ test("v5 migration preserves libraries and invalidates all password sessions", (
       note: "Private existing note",
     },
   });
-  store.db.exec(
-    `DROP TABLE oauth_attempts; DROP TABLE request_limits; DROP INDEX sessions_expiry; DROP INDEX sessions_user_expiry; DROP INDEX users_google_subject; DROP INDEX users_email; ALTER TABLE users DROP COLUMN google_subject; ALTER TABLE users DROP COLUMN email; PRAGMA user_version=5;`,
-  );
-  store.db
+  await store.db
     .prepare("INSERT INTO sessions VALUES (?,9999999999999,1,'')")
     .run(authHash("a".repeat(64)));
-  store.db.exec("UPDATE users SET password_hash='old-password-hash'");
-  store.close();
-  store = openStore(path);
-  t.after(() => store.close());
-  assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 6);
+  await store.db.exec("UPDATE users SET password_hash='old-password-hash'");
+  await store.close();
+  store = await openStore(path);
+  t.after(async () => await store.close());
+  assert.equal(await sessionUser(store, "a".repeat(64)), null);
   assert.equal(
-    store.db.prepare("SELECT COUNT(*) AS n FROM sessions").get().n,
-    0,
+    (await store.db.prepare("SELECT COUNT(*) AS n FROM sessions").get()).n,
+    1,
   );
   assert.equal(
-    store.db.prepare("SELECT username FROM users WHERE id=1").get().username,
+    (await store.db.prepare("SELECT username FROM users WHERE id=1").get())
+      .username,
     "admin",
   );
   assert.equal(
-    store.api.getCollection().books[0].note,
+    (await store.api.getCollection()).books[0].note,
     "Private existing note",
   );
 });
 
-test("Google sessions survive restart and are capped per account", (t) => {
-  setup(t);
+test("Google sessions survive restart and are capped per account", async (t) => {
+  await setup(t);
   const path = join(
     mkdtempSync(join(tmpdir(), "books-oauth-sessions-")),
     "books.sqlite",
   );
-  let store = openStore(path);
-  const signedIn = signInWithGoogle(store, owner);
-  store.close();
-  store = openStore(path);
-  t.after(() => store.close());
-  assert.equal(sessionUser(store, signedIn.token).id, 1);
-  for (let index = 0; index < 12; index++) signInWithGoogle(store, owner);
+  let store = await openStore(path);
+  const signedIn = await signInWithGoogle(store, owner);
+  await store.close();
+  store = await openStore(path);
+  t.after(async () => await store.close());
+  assert.equal((await sessionUser(store, signedIn.token)).id, 1);
+  for (let index = 0; index < 12; index++) await signInWithGoogle(store, owner);
   assert.equal(
-    store.db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE user_id=1").get()
-      .n,
+    (
+      await store.db
+        .prepare("SELECT COUNT(*) AS n FROM sessions WHERE user_id=1")
+        .get()
+    ).n,
     10,
   );
 });
 
 test("outstanding OAuth attempts are bounded and expired attempts are reclaimed", async (t) => {
-  const { store } = setup(t);
+  const { store } = await setup(t);
   const insert = store.db.prepare(
     "INSERT INTO oauth_attempts VALUES (?, 'browser', 'verifier', 'nonce', '/', ?)",
   );
-  store.transaction(() => {
+  await store.transaction(async () => {
     for (let index = 0; index < 1000; index++)
-      insert.run("state-" + index, Date.now() + 60000);
+      await insert.run("state-" + index, Date.now() + 60000);
   });
   await assert.rejects(beginGoogleSignIn(store, "/"), { status: 429 });
-  store.db.exec("UPDATE oauth_attempts SET expires_at=0");
+  await store.db.exec("UPDATE oauth_attempts SET expires_at=0");
   await beginGoogleSignIn(store, "/");
   assert.equal(
-    store.db.prepare("SELECT COUNT(*) AS n FROM oauth_attempts").get().n,
+    (await store.db.prepare("SELECT COUNT(*) AS n FROM oauth_attempts").get())
+      .n,
     1,
   );
 });

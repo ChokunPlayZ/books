@@ -16,7 +16,12 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const returnTo = safeReturnTo(params.returnTo);
-  if (sessionUser(getApp().store, (await cookies()).get(SESSION_COOKIE)?.value))
+  if (
+    await sessionUser(
+      (await getApp()).store,
+      (await cookies()).get(SESSION_COOKIE)?.value,
+    )
+  )
     redirect(returnTo);
   let configured = true;
   try {

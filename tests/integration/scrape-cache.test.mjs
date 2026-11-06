@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 
 const fixture = (name) =>
@@ -18,21 +18,21 @@ const spec = (series) => ({
   type: "Manga (TH)",
 });
 
-function database(t) {
+async function database(t) {
   const directory = mkdtempSync(join(tmpdir(), "books-scrape-cache-"));
   const path = join(directory, "books.sqlite");
-  let store = openStore(path);
-  t.after(() => {
-    store.close();
+  let store = await openStore(path);
+  t.after(async () => {
+    await store.close();
     rmSync(directory, { recursive: true, force: true });
   });
   return {
     get store() {
       return store;
     },
-    restart() {
-      store.close();
-      store = openStore(path);
+    async restart() {
+      await store.close();
+      store = await openStore(path);
       return store;
     },
   };
@@ -40,7 +40,7 @@ function database(t) {
 
 test("discovery and concurrent series aliases share pages across restarts without sharing annotations", async (t) => {
   t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
-  const db = database(t),
+  const db = await database(t),
     calls = [];
   const remote = async (url) => {
     calls.push(url);
@@ -48,7 +48,7 @@ test("discovery and concurrent series aliases share pages across restarts withou
   };
   const aliases = ["First shelf title", "Another shelf title"];
   for (const alias of aliases)
-    db.store.api.setSeriesCatalog({ ...spec(alias), url: category });
+    await db.store.api.setSeriesCatalog({ ...spec(alias), url: category });
   let service = createCatalogService(db.store, remote);
   const [discovery, first, second] = await Promise.all([
     service.getPublisherCatalog({ url: category }),
@@ -60,9 +60,9 @@ test("discovery and concurrent series aliases share pages across restarts withou
   assert.ok(first.items.every((item) => item.catalogSeries === aliases[0]));
   assert.ok(second.items.every((item) => item.catalogSeries === aliases[1]));
 
-  const store = db.restart();
+  const store = await db.restart();
   const third = "New shelf alias after restart";
-  store.api.setSeriesCatalog({ ...spec(third), url: category });
+  await store.api.setSeriesCatalog({ ...spec(third), url: category });
   service = createCatalogService(store, remote);
   assert.equal((await service.getSeriesCatalog(spec(third))).complete, true);
   assert.equal(calls.length, 1, "A new lookup reuses the durable page cache");
@@ -76,7 +76,7 @@ test("discovery and concurrent series aliases share pages across restarts withou
 
 test("release checks coalesce, expire after six hours and preserve stale results with durable retry backoff", async (t) => {
   t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
-  const db = database(t),
+  const db = await database(t),
     calls = [];
   let offline = false;
   const remote = async (url) => {
@@ -116,7 +116,7 @@ test("release checks coalesce, expire after six hours and preserve stale results
   assert.equal(stale.stale, true);
   assert.equal(stale.checkedAt, updated.checkedAt);
   assert.deepEqual(stale.items, updated.items);
-  service = createCatalogService(db.restart(), remote);
+  service = createCatalogService(await db.restart(), remote);
   await checkTogether(true);
   assert.equal(calls.length, 7, "A restart does not bypass failure cooldowns");
   t.mock.timers.tick(15 * 60000);
@@ -139,7 +139,7 @@ test("release checks coalesce, expire after six hours and preserve stale results
 
 test("publisher navigation is shared by discovery and series matching and reused for a week", async (t) => {
   t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
-  const db = database(t),
+  const db = await database(t),
     calls = [];
   const remote = async (url) => {
     calls.push(url);
@@ -166,7 +166,7 @@ test("publisher navigation is shared by discovery and series matching and reused
 });
 
 test("Luckpim shares public series results without persisting session tokens or cookies", async (t) => {
-  const db = database(t),
+  const db = await database(t),
     calls = [];
   const remote = async (url, options) => {
     calls.push(url);
@@ -187,13 +187,13 @@ test("Luckpim shares public series results without persisting session tokens or 
     series,
     type: "Manga (TH)",
   });
-  const link = (series) =>
-    db.store.api.setSeriesCatalog({
+  const link = async (series) =>
+    await db.store.api.setSeriesCatalog({
       ...linked(series),
       url: "https://www.luckpim.com/search_result?k=Public%20title",
     });
-  link("First alias");
-  link("Second alias");
+  await link("First alias");
+  await link("Second alias");
   let service = createCatalogService(db.store, remote);
   const results = await Promise.all(
     ["First alias", "Second alias"].map((series) =>
@@ -209,13 +209,13 @@ test("Luckpim shares public series results without persisting session tokens or 
     results[1].items.every((item) => item.catalogSeries === "Second alias"),
   );
   const persisted = JSON.stringify(
-    db.store.db.prepare("SELECT key, value FROM cache").all(),
+    await db.store.db.prepare("SELECT key, value FROM cache").all(),
   );
   assert.ok(!persisted.includes("secret-token"));
   assert.ok(!persisted.includes("secret-cookie"));
 
-  db.restart();
-  link("Third alias");
+  await db.restart();
+  await link("Third alias");
   service = createCatalogService(db.store, remote);
   assert.equal(
     (await service.getSeriesCatalog(linked("Third alias"))).complete,
@@ -232,7 +232,7 @@ test("Luckpim shares public series results without persisting session tokens or 
 
 test("equivalent ISBN lookups share requests and cache confirmed misses for a day", async (t) => {
   t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
-  const db = database(t),
+  const db = await database(t),
     calls = [];
   const remote = async (url) => {
     calls.push(url);
@@ -266,7 +266,7 @@ test("equivalent ISBN lookups share requests and cache confirmed misses for a da
     results.every((result) => !result.found && !result.warnings.length),
   );
   assert.equal(calls.length, 5);
-  service = createCatalogService(db.restart(), remote);
+  service = createCatalogService(await db.restart(), remote);
   t.mock.timers.tick(day - 1);
   await service.lookupIsbn("9780140328721");
   assert.equal(calls.length, 5);

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { createScraperContext } from "../../lib/server/scrapers/http.ts";
 import { digest } from "../../lib/domain/hash.ts";
@@ -13,8 +13,8 @@ const isbn = "9780385496490";
 const image = "https://books.google.com/example.jpg";
 
 test("a registered metadata source works through the existing service without publisher-specific dispatch", async (t) => {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+  const store = await openStore();
+  t.after(async () => await store.close());
   const calls = [];
   const source = {
     id: "example",
@@ -53,18 +53,18 @@ test("a registered metadata source works through the existing service without pu
 });
 
 test("removing a source disables its capabilities and hosts even when catalog data is cached", async (t) => {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+  const store = await openStore();
+  t.after(async () => await store.close());
   const noNetwork = () =>
     assert.fail("A disabled source must not make requests");
   const sources = SCRAPER_SOURCES.filter((source) => source.id !== "phoenix");
   const service = createCatalogService(store, noNetwork, sources);
-  store.cache.put(
+  await store.cache.put(
     "releases:v1:phoenix",
     JSON.stringify({ items: [], checkedAt: new Date().toISOString() }),
     86400,
   );
-  store.cache.put(
+  await store.cache.put(
     "publisher-catalog:v1:" + digest("https://www.phoenixnext.com/gl.html"),
     JSON.stringify({
       items: [],
@@ -108,8 +108,8 @@ test("removing a source disables its capabilities and hosts even when catalog da
 });
 
 test("source priorities preserve preferred metadata and warning order when requests finish out of order", async (t) => {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+  const store = await openStore();
+  t.after(async () => await store.close());
   const completed = [];
   let releasePreferred;
   const preferred = new Promise((resolve) => {
@@ -175,9 +175,9 @@ test("source priorities preserve preferred metadata and warning order when reque
 });
 
 test("a source can contribute cover options and be removed without changing the cover service", async (t) => {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
-  store.api.saveBook({
+  const store = await openStore();
+  t.after(async () => await store.close());
+  await store.api.saveBook({
     requestId: "scraper_registry_cover",
     book: {
       isbn,
@@ -192,7 +192,7 @@ test("a source can contribute cover options and be removed without changing the 
       note: "",
     },
   });
-  const book = store.api.getCollection().books[0];
+  const book = (await store.api.getCollection()).books[0];
   const source = {
     id: "example",
     hosts: [],
@@ -230,9 +230,9 @@ test("a source can contribute cover options and be removed without changing the 
   assert.deepEqual(empty.warnings, []);
 });
 
-test("duplicate source IDs are rejected instead of silently replacing a scraper", (t) => {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+test("duplicate source IDs are rejected instead of silently replacing a scraper", async (t) => {
+  const store = await openStore();
+  t.after(async () => await store.close());
   const source = { id: "duplicate", hosts: [], create: () => ({}) };
   const context = createScraperContext(
     store.cache,

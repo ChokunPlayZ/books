@@ -3,8 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { parseImport } from "../../lib/server/importer.ts";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { publisherCovers } from "../../lib/server/publisher-covers.ts";
@@ -27,8 +26,8 @@ const category = "https://www.phoenixnext.com/book-series/story.html";
 const image = (name) =>
   "https://www.phoenixnext.com/media/catalog/product/" + name + ".jpg";
 let sequence = 0;
-const save = (store, data, previous) =>
-  store.api.saveBook({
+const save = async (store, data, previous) =>
+  await store.api.saveBook({
     requestId: "metadata_test_" + ++sequence,
     book: data,
     ...(previous ? { row: previous.row, token: previous.token } : {}),
@@ -38,17 +37,17 @@ test("volume metadata survives restart, edits, trash, restore and JSON backup im
   const directory = mkdtempSync(join(tmpdir(), "books-metadata-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const path = join(directory, "books.sqlite");
-  let store = openStore(path);
-  save(store, {
+  let store = await openStore(path);
+  await save(store, {
     ...book,
     coverUrl: image("chosen"),
     publisherUrl: product,
     pageCount: 208,
   });
-  store.close();
-  store = openStore(path);
+  await store.close();
+  store = await openStore(path);
   try {
-    let volume = store.api.getCollection().books[0];
+    let volume = (await store.api.getCollection()).books[0];
     assert.equal(volume.coverUrl, image("chosen"));
     assert.equal(volume.publisherUrl, product);
     assert.equal(volume.pageCount, 208);
@@ -59,85 +58,76 @@ test("volume metadata survives restart, edits, trash, restore and JSON backup im
       (await service.getBookCover({ row: volume.row })).coverUrl,
       image("chosen"),
     );
-    save(store, { ...book, note: "ordinary edit" }, volume);
-    assert.throws(
-      () => save(store, { ...book, coverUrl: image("stale") }, volume),
+    await save(store, { ...book, note: "ordinary edit" }, volume);
+    await assert.rejects(
+      async () =>
+        await save(store, { ...book, coverUrl: image("stale") }, volume),
       { status: 409 },
     );
-    volume = store.api.getCollection().books[0];
+    volume = (await store.api.getCollection()).books[0];
     assert.equal(volume.coverUrl, image("chosen"));
     assert.equal(
       volume.pageCount,
       208,
       "Edits from older clients preserve pages",
     );
-    const removed = store.api.removeBook({
+    const removed = await store.api.removeBook({
       row: volume.row,
       token: volume.token,
       requestId: "metadata_remove_1",
     });
-    const backup = store.exportData();
+    const backup = await store.exportData();
     assert.equal(backup.trash[0].book.coverUrl, image("chosen"));
     assert.equal(backup.trash[0].book.pageCount, 208);
-    const restored = openStore(":memory:");
+    const restored = await openStore();
     try {
       const plan = parseImport(
         Buffer.from(JSON.stringify(backup)),
         "backup.json",
       );
-      restored.importData(plan, plan.fingerprint);
-      const entry = restored.api.getCollection().trash[0];
-      restored.api.restoreBook({
+      await restored.importData(plan, plan.fingerprint);
+      const entry = (await restored.api.getCollection()).trash[0];
+      await restored.api.restoreBook({
         trashId: entry.id,
         requestId: "metadata_restore_1",
       });
-      assert.equal(restored.api.getCollection().books[0].publisherUrl, product);
-      assert.equal(restored.api.getCollection().books[0].pageCount, 208);
       assert.equal(
-        restored.api.getCollection().books[0].coverUrl,
+        (await restored.api.getCollection()).books[0].publisherUrl,
+        product,
+      );
+      assert.equal(
+        (await restored.api.getCollection()).books[0].pageCount,
+        208,
+      );
+      assert.equal(
+        (await restored.api.getCollection()).books[0].coverUrl,
         image("chosen"),
       );
     } finally {
-      restored.close();
+      await restored.close();
     }
-    store.api.restoreBook({
+    await store.api.restoreBook({
       trashId: removed.trashId,
       requestId: "metadata_restore_2",
     });
-    volume = store.api.getCollection().books[0];
-    save(
+    volume = (await store.api.getCollection()).books[0];
+    await save(
       store,
       { ...book, coverUrl: "", publisherUrl: "", pageCount: "" },
       volume,
     );
-    assert.equal(store.api.getCollection().books[0].coverUrl, "");
-    assert.equal(store.api.getCollection().books[0].pageCount, "");
+    assert.equal((await store.api.getCollection()).books[0].coverUrl, "");
+    assert.equal((await store.api.getCollection()).books[0].pageCount, "");
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
-test("version 1 databases migrate without losing books and invalid metadata rolls back", () => {
+test("PostgreSQL preserves legacy catalog choices and invalid metadata rolls back", async () => {
   const directory = mkdtempSync(join(tmpdir(), "books-migration-"));
   const path = join(directory, "books.sqlite");
-  const legacy = new DatabaseSync(path);
-  legacy.exec(`
-    CREATE TABLE books (id INTEGER PRIMARY KEY AUTOINCREMENT,isbn TEXT NOT NULL DEFAULT '',canonical_isbn TEXT NOT NULL DEFAULT '',series TEXT NOT NULL,type TEXT NOT NULL DEFAULT '',publisher TEXT NOT NULL DEFAULT '',status TEXT NOT NULL DEFAULT '',volume REAL,source TEXT NOT NULL DEFAULT '',price REAL,purchased_on TEXT NOT NULL DEFAULT '',note TEXT NOT NULL DEFAULT '',revision INTEGER NOT NULL DEFAULT 1,trash_id TEXT UNIQUE,removed_at TEXT);
-    CREATE TABLE receipts (id TEXT PRIMARY KEY,kind TEXT NOT NULL,hash TEXT NOT NULL,result TEXT NOT NULL,created_at TEXT NOT NULL);
-    CREATE TABLE saved_releases (id TEXT PRIMARY KEY,data TEXT NOT NULL,updated_at TEXT NOT NULL);
-    CREATE TABLE series_catalogs (series_key TEXT NOT NULL,publisher_id TEXT NOT NULL,type TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(series_key,publisher_id,type));
-    CREATE TABLE options (field TEXT NOT NULL,value TEXT NOT NULL,PRIMARY KEY(field,value));
-    CREATE TABLE cache (key TEXT PRIMARY KEY,value TEXT NOT NULL,expires_at INTEGER NOT NULL);
-    CREATE TABLE imports (fingerprint TEXT PRIMARY KEY,result TEXT NOT NULL,created_at TEXT NOT NULL);
-    CREATE TABLE sessions (token_hash TEXT PRIMARY KEY,expires_at INTEGER NOT NULL);
-    CREATE TABLE login_attempts (key TEXT PRIMARY KEY,attempts INTEGER NOT NULL,resets_at INTEGER NOT NULL);
-    PRAGMA user_version=1;
-  `);
-  legacy
-    .prepare(
-      "INSERT INTO books (series,type,publisher,status,volume) VALUES (?,?,?,?,?)",
-    )
-    .run(book.series, book.type, book.publisher, book.status, book.volume);
+  const store = await openStore(path);
+  await save(store, book);
   for (const type of ["Manga (TH)", "Manga (EN)"]) {
     const link = {
       series: "Legacy editions",
@@ -149,8 +139,8 @@ test("version 1 databases migrate without losing books and invalid metadata roll
         encodeURIComponent(type) +
         "&post_type=product",
     };
-    legacy
-      .prepare("INSERT INTO series_catalogs VALUES (?,?,?,?)")
+    await store.db
+      .prepare("INSERT INTO series_catalogs VALUES (?,?,?,?,1)")
       .run(
         catalogSeriesKey(link.series),
         link.publisherId,
@@ -158,44 +148,31 @@ test("version 1 databases migrate without losing books and invalid metadata roll
         JSON.stringify(link),
       );
   }
-  legacy
-    .prepare("INSERT INTO sessions VALUES (?,?)")
-    .run("existing-session", Date.now() + 86400000);
-  legacy.close();
-  const store = openStore(path);
   try {
-    assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 6);
-    const volume = store.api.getCollection().books[0];
+    const volume = (await store.api.getCollection()).books[0];
     assert.equal(volume.series, book.series);
     assert.equal(volume.coverUrl, "");
     assert.equal(volume.pageCount, "");
-    assert.equal(
-      store.db
-        .prepare("SELECT user_id FROM sessions WHERE token_hash=?")
-        .get("existing-session"),
-      undefined,
-    );
     assert.deepEqual(
-      store.api
-        .getCollection()
-        .seriesCatalogs.map((link) => link.edition)
+      (await store.api.getCollection()).seriesCatalogs
+        .map((link) => link.edition)
         .sort(),
       ["Manga (EN)", "Manga (TH)"],
     );
-    const restored = openStore(":memory:");
+    const restored = await openStore();
     try {
       const plan = parseImport(
-        Buffer.from(JSON.stringify(store.exportData())),
+        Buffer.from(JSON.stringify(await store.exportData())),
         "legacy.json",
       );
-      restored.importData(plan, plan.fingerprint);
+      await restored.importData(plan, plan.fingerprint);
       assert.equal(
-        restored.api.getCollection().seriesCatalogs.length,
+        (await restored.api.getCollection()).seriesCatalogs.length,
         2,
         "Three-way type migration must not discard another language's private catalog choice",
       );
     } finally {
-      restored.close();
+      await restored.close();
     }
     for (const data of [
       { coverUrl: "https://evil.test/cover.jpg" },
@@ -210,35 +187,40 @@ test("version 1 databases migrate without losing books and invalid metadata roll
       { pageCount: [] },
       { pageCount: Number.MAX_SAFE_INTEGER + 1 },
     ])
-      assert.throws(() => save(store, { ...book, ...data }, volume));
-    assert.equal(store.api.getCollection().books[0].token, volume.token);
+      await assert.rejects(
+        async () => await save(store, { ...book, ...data }, volume),
+      );
+    assert.equal(
+      (await store.api.getCollection()).books[0].token,
+      volume.token,
+    );
   } finally {
-    store.close();
+    await store.close();
     rmSync(directory, { recursive: true, force: true });
   }
 });
 
-test("publisher galleries include all product images and exclude unrelated recommendation images", () => {
+test("publisher galleries include all product images and exclude unrelated recommendation images", async () => {
   const phoenix = `<script>initialImages: ${JSON.stringify([
     { full: image("front"), img: image("thumbnail"), type: "image" },
     { full: image("alternate"), type: "image" },
     { full: "https://evil.test/tracker.jpg", type: "image" },
     { full: image("video"), type: "video" },
   ])}</script><img src="${image("recommendation")}"><meta property="og:image" content="${image("thumbnail")}">`;
-  assert.deepEqual(publisherCovers(phoenix, product), [
+  assert.deepEqual(await publisherCovers(phoenix, product), [
     image("front"),
     image("alternate"),
   ]);
   const raw = "https://cj.lnwfile.com/_/cj/_raw/front.jpg";
   assert.deepEqual(
-    publisherCovers(
+    await publisherCovers(
       `<img class="productImage" src="${raw}"><img class="thumb" src="small.jpg" data-src="${raw}"><img class="thumb" data-src="https://cj.lnwfile.com/alternate.jpg"><img src="https://cj.lnwfile.com/recommendation.jpg">`,
       "https://www.firstpagepro.com/product/1",
     ),
     [raw, "https://cj.lnwfile.com/alternate.jpg"],
   );
   assert.deepEqual(
-    publisherCovers(
+    await publisherCovers(
       '<img class=gallery-img src=https://www.luckpim.com/stocks/front.webp><img class=gallery-img src=https://www.luckpim.com/stocks/back.webp><img class="img img-lazy" data-src=https://www.luckpim.com/stocks/unrelated.webp>',
       "https://www.luckpim.com/product/detail/1",
     ),
@@ -250,10 +232,10 @@ test("publisher galleries include all product images and exclude unrelated recom
 });
 
 test("cover lookup matches the volume and format, pulls alternate editions and skips special sets", async () => {
-  const store = openStore(":memory:");
+  const store = await openStore();
   try {
-    save(store, book);
-    store.api.setSeriesCatalog({
+    await save(store, book);
+    await store.api.setSeriesCatalog({
       series: book.series,
       type: book.type,
       publisherId: "phoenix",
@@ -290,7 +272,7 @@ test("cover lookup matches the volume and format, pulls alternate editions and s
       );
     });
     const result = await service.getBookCoverOptions({
-      row: store.api.getCollection().books[0].row,
+      row: (await store.api.getCollection()).books[0].row,
     });
     assert.deepEqual(result.covers.map((item) => item.coverUrl).sort(), [
       image("limited"),
@@ -318,7 +300,7 @@ test("cover lookup matches the volume and format, pulls alternate editions and s
     );
     assert.equal(calls.length, before);
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
@@ -355,10 +337,10 @@ test("cover lookup includes Phoenix revised editions without a product link and 
     "The Fragrant Flower Blooms With Dignity",
   ])
     await t.test(libraryTitle, async () => {
-      const store = openStore(":memory:");
+      const store = await openStore();
       try {
-        save(store, { ...book, series: libraryTitle });
-        store.api.setSeriesCatalog({
+        await save(store, { ...book, series: libraryTitle });
+        await store.api.setSeriesCatalog({
           series: libraryTitle,
           type: book.type,
           publisherId: "phoenix",
@@ -380,9 +362,12 @@ test("cover lookup includes Phoenix revised editions without a product link and 
         assert.equal(result.covers[0].publisherUrl, revisedUrl);
         assert.ok(calls.includes(revisedUrl));
         assert.ok(entries.slice(1).every(([url]) => !calls.includes(url)));
-        assert.equal(store.api.getCollection().books[0].series, libraryTitle);
+        assert.equal(
+          (await store.api.getCollection()).books[0].series,
+          libraryTitle,
+        );
       } finally {
-        store.close();
+        await store.close();
       }
     });
 });
@@ -407,11 +392,15 @@ test("special set exclusion recognizes English and Thai without excluding specia
 });
 
 test("manual covers belong to one copy and clearing a choice returns to automatic lookup", async () => {
-  const store = openStore(":memory:");
+  const store = await openStore();
   try {
-    save(store, { ...book, coverUrl: image("my-copy"), publisherUrl: product });
-    save(store, book);
-    const [selected, other] = store.api.getCollection().books;
+    await save(store, {
+      ...book,
+      coverUrl: image("my-copy"),
+      publisherUrl: product,
+    });
+    await save(store, book);
+    const [selected, other] = (await store.api.getCollection()).books;
     const service = createCatalogService(store, () =>
       assert.fail("Unindexed copies do not need an ISBN lookup"),
     );
@@ -420,21 +409,21 @@ test("manual covers belong to one copy and clearing a choice returns to automati
       image("my-copy"),
     );
     assert.equal((await service.getBookCover({ row: other.row })).coverUrl, "");
-    save(store, { ...book, coverUrl: "" }, selected);
+    await save(store, { ...book, coverUrl: "" }, selected);
     assert.equal(
       (await service.getBookCover({ row: selected.row })).coverUrl,
       "",
     );
-    save(store, {
+    await save(store, {
       ...book,
       publisher: "Other Publisher",
       publisherUrl: "https://publisher.example/books/1",
     });
     assert.equal(
-      store.api.getCollection().books[2].publisherUrl,
+      (await store.api.getCollection()).books[2].publisherUrl,
       "https://publisher.example/books/1",
     );
   } finally {
-    store.close();
+    await store.close();
   }
 });

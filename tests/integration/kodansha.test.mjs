@@ -24,7 +24,7 @@ import { kodansha } from "../../lib/server/scrapers/kodansha.ts";
 import { hanmoto } from "../../lib/server/scrapers/hanmoto.ts";
 import { SCRAPER_SOURCES } from "../../lib/server/scrapers/registry.ts";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createApplicationApi } from "../../lib/server/api.ts";
 import { createCoverService } from "../../lib/server/covers.ts";
 
@@ -44,9 +44,9 @@ const seriesSpec = {
   publisherId: "kodansha",
 };
 const searchHtml = `<main><strong>1件</strong><a class="app-product-list-item" href="${productUrl}"><strong>ブルーロック（１）</strong></a></main>`;
-function database(t) {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+async function database(t) {
+  const store = await openStore();
+  t.after(async () => await store.close());
   return store;
 }
 function response(url) {
@@ -187,7 +187,7 @@ test("Kodansha omits digital-only books and flags Japanese special editions and 
 });
 
 test("Kodansha releases load both print pages, save and reuse cached results during outages", async (t) => {
-  const store = database(t),
+  const store = await database(t),
     calls = [];
   let offline = false;
   const service = createCatalogService(
@@ -206,9 +206,9 @@ test("Kodansha releases load both print pages, save and reuse cached results dur
   assert.ok(
     releases.items.every((item) => item.price === "" && item.isbn === ""),
   );
-  store.api.setSavedRelease({ release: releases.items[0], saved: true });
+  await store.api.setSavedRelease({ release: releases.items[0], saved: true });
   assert.equal(
-    store.api.getCollection().savedReleases[0].publisherId,
+    (await store.api.getCollection()).savedReleases[0].publisherId,
     "kodansha",
   );
   await service.getPublisherReleases({ publisherId: "kodansha" });
@@ -229,7 +229,7 @@ test("Kodansha releases load both print pages, save and reuse cached results dur
 });
 
 test("Kodansha series links traverse every page and count digital records without offering them", async (t) => {
-  const store = database(t),
+  const store = await database(t),
     calls = [];
   const service = createCatalogService(
     store,
@@ -243,7 +243,7 @@ test("Kodansha series links traverse every page and count digital records withou
   assert.equal(selection.needsSelection, true);
   assert.equal(selection.stale, false);
   assert.deepEqual(calls, []);
-  store.api.setSeriesCatalog({
+  await store.api.setSeriesCatalog({
     ...seriesSpec,
     url: seriesUrl + "#publications",
   });
@@ -266,8 +266,8 @@ test("Kodansha series links traverse every page and count digital records withou
 
 test("Kodansha retains complete catalogs after repeated, malformed or failed continuation pages", async (t) => {
   for (const kind of ["repeated", "malformed", "offline"]) {
-    const store = database(t);
-    store.api.setSeriesCatalog({ ...seriesSpec, url: seriesUrl });
+    const store = await database(t);
+    await store.api.setSeriesCatalog({ ...seriesSpec, url: seriesUrl });
     let broken = false;
     const service = createCatalogService(
       store,
@@ -296,9 +296,13 @@ test("Kodansha retains complete catalogs after repeated, malformed or failed con
 });
 
 test("Kodansha ISBN lookup shares canonical cache entries, verifies candidates and bypasses old misses", async (t) => {
-  const store = database(t),
+  const store = await database(t),
     calls = [];
-  store.cache.put("isbn:v11:" + isbn, JSON.stringify({ found: false }), 86400);
+  await store.cache.put(
+    "isbn:v11:" + isbn,
+    JSON.stringify({ found: false }),
+    86400,
+  );
   const service = createCatalogService(
     store,
     async (url, options) => {
@@ -333,7 +337,7 @@ test("Kodansha ISBN lookup shares canonical cache entries, verifies candidates a
 });
 
 test("Kodansha search challenges remain errors with a durable cooldown and Hanmoto fallback", async (t) => {
-  const store = database(t),
+  const store = await database(t),
     calls = [];
   const service = createCatalogService(
     store,
@@ -368,8 +372,8 @@ test("Kodansha search challenges remain errors with a durable cooldown and Hanmo
 });
 
 test("Kodansha product galleries verify the selected ISBN before offering a cover", async (t) => {
-  const store = database(t);
-  store.api.saveBook({
+  const store = await database(t);
+  await store.api.saveBook({
     requestId: "kodansha_cover",
     book: {
       series: "Blue Lock",
@@ -398,14 +402,14 @@ test("Kodansha product galleries verify the selected ISBN before offering a cove
 });
 
 test("Kodansha covers use permanent image storage and survive an offline application restart", async (t) => {
-  const store = database(t),
+  const store = await database(t),
     calls = [];
   const image = kodanshaBook(product, isbn, productUrl).coverUrl;
   const bytes = Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
     "base64",
   );
-  store.api.saveBook({
+  await store.api.saveBook({
     requestId: "kodansha_stored_cover",
     book: {
       series: "Blue Lock",
@@ -427,7 +431,7 @@ test("Kodansha covers use permanent image storage and survive an offline applica
   const api = createApplicationApi(store, covers, fetchImpl);
   const choice = (await api.getBookCoverOptions({ row: 1 })).covers[0];
   assert.equal(choice.source, "Kodansha JP");
-  assert.deepEqual(covers.get(choice.coverId).body, bytes);
+  assert.deepEqual((await covers.get(choice.coverId)).body, bytes);
   const automatic = await api.getBookCover({ row: 1 });
   assert.equal(automatic.coverId, choice.coverId);
   assert.equal(calls.filter((url) => url === image).length, 1);
@@ -438,5 +442,8 @@ test("Kodansha covers use permanent image storage and survive an offline applica
     (await offline.getBookCover({ row: 1 })).coverId,
     choice.coverId,
   );
-  assert.equal(store.api.getCollection().books[0].publisherUrl, productUrl);
+  assert.equal(
+    (await store.api.getCollection()).books[0].publisherUrl,
+    productUrl,
+  );
 });

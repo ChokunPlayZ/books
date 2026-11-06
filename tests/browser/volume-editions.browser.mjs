@@ -1,22 +1,22 @@
 import { testUrl } from "../helpers/browser.mjs";
-// Uses the real Node catalog parser and an isolated in-memory library.
+// Uses the real Node catalog parser and an isolated PostgreSQL library.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { releaseItem } from "../../lib/domain.ts";
 
 const title = "ดอกรักผลิบานที่กลางใจ",
   colorTitle = "ชิโนะกับเร็น";
-const store = openStore(":memory:");
+const store = await openStore();
 const snapshot = JSON.parse(
   readFileSync(new URL("../fixtures/collection.json", import.meta.url), "utf8"),
 );
 for (const book of snapshot.filter(
   (book) => book.series === title || book.series === colorTitle,
 ))
-  store.api.saveBook({ book, requestId: crypto.randomUUID() });
+  await store.api.saveBook({ book, requestId: crypto.randomUUID() });
 const card = (volume, special = "") =>
   `<a class="product-item-link" href="https://www.phoenixnext.com/color-${special ? "special-" : ""}${volume}.html">(มังงะ) ${special}${colorTitle} เล่ม ${volume}</a>`;
 const service = createCatalogService(
@@ -143,7 +143,7 @@ try {
       type: "Manga (TH)",
     })
   ).items.find((item) => item.special && item.volume === 22);
-  store.api.saveBook({
+  await store.api.saveBook({
     book: {
       series: title,
       type: "Manga (TH)",
@@ -218,12 +218,10 @@ try {
     /No gaps through volume 6/,
   );
   assert.equal(
-    store.api
-      .getCollection()
-      .books.filter(
-        (book) =>
-          book.series === colorTitle && book.type === "Manga (TH) (Color)",
-      ).length,
+    (await store.api.getCollection()).books.filter(
+      (book) =>
+        book.series === colorTitle && book.type === "Manga (TH) (Color)",
+    ).length,
     4,
   );
   await page.locator("#releasesTab").click();
@@ -241,5 +239,5 @@ try {
   );
 } finally {
   await browser.close();
-  store.close();
+  await store.close();
 }

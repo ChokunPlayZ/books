@@ -8,7 +8,7 @@ export const luckpim: ScraperDefinition = {
   create({ scrapeCache, requestRemote }: ScraperContext) {
     async function fetchLuckpimSeries_(url, refresh = false) {
       // Cache public book records, never the token/cookie handshake.
-      return scrapeCache.get(
+      return await scrapeCache.get(
         "luckpim-series:" + url,
         { maxAge: SCRAPE_TTL.catalog, refresh },
         () => loadLuckpimSeries_(url),
@@ -68,7 +68,7 @@ export const luckpim: ScraperDefinition = {
     }
 
     async function fetchLuckpim_(refresh = false) {
-      return scrapeCache.get(
+      return await scrapeCache.get(
         "luckpim-releases",
         { maxAge: SCRAPE_TTL.releases, refresh },
         loadLuckpim_,

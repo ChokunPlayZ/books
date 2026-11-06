@@ -50,13 +50,13 @@ type CatalogRequest = {
   series?: string;
 };
 
-export function knownBookCoverUrl(store, book) {
+export async function knownBookCoverUrl(store, book) {
   const isbn = canonicalIsbn(book.isbn);
   const volume = volumeCoverKey(book);
   return (
     book.coverUrl ||
-    (isbn && store.cache.get("cover:isbn:v1:" + isbn)) ||
-    (volume && store.cache.get(volume)) ||
+    (isbn && (await store.cache.get("cover:isbn:v1:" + isbn))) ||
+    (volume && (await store.cache.get(volume))) ||
     ""
   );
 }
@@ -73,7 +73,7 @@ export function createCatalogService(
   const scrapers = createScraperRegistry(context, sources);
   const pendingCovers = new Map();
   const pendingTitles = new Map();
-  function rememberCovers(items) {
+  async function rememberCovers(items) {
     for (const item of items) {
       const verifiedIsbn = canonicalIsbn(item.isbn);
       if (
@@ -84,20 +84,21 @@ export function createCatalogService(
         !item.special
       ) {
         const url = new URL(item.url).href;
-        cache.put("known-product:v1:" + url, verifiedIsbn, Infinity);
-        context.scrapeCache.pin("text:" + url);
+        await cache.put("known-product:v1:" + url, verifiedIsbn, Infinity);
+        await context.scrapeCache.pin("text:" + url);
       }
       const cover = safeCoverUrl(item.coverUrl);
       if (!cover || item.bundle || item.special) continue;
       const isbn = canonicalIsbn(item.isbn),
         key = volumeCoverKey(item);
-      if (isbn) cache.put("cover:isbn:v1:" + isbn, cover, 2592000);
-      if (key && !item.catalogVariant) cache.put(key, cover, 2592000);
+      if (isbn) await cache.put("cover:isbn:v1:" + isbn, cover, 2592000);
+      if (key && !item.catalogVariant) await cache.put(key, cover, 2592000);
     }
   }
-  const savedSeriesCatalog_ = (spec) => store.savedSeriesCatalog(spec);
+  const savedSeriesCatalog_ = async (spec) =>
+    await store.savedSeriesCatalog(spec);
   // Re-read saved cache titles so parser fixes also apply before a refresh or outage.
-  function reparseItems(result) {
+  async function reparseItems(result) {
     if (!result) return null;
     const reparsed = {
       ...result,
@@ -122,10 +123,10 @@ export function createCatalogService(
             : {}),
         })),
     };
-    rememberCovers(reparsed.items);
+    await rememberCovers(reparsed.items);
     return reparsed;
   }
-  function annotateSeriesItems(catalog, spec, category) {
+  async function annotateSeriesItems(catalog, spec, category) {
     catalog.items.forEach((item) => {
       item.catalogSeries = spec.series;
       item.catalogVariant =
@@ -133,7 +134,7 @@ export function createCatalogService(
           catalogSeriesKey(seriesCategoryTitle(category.title)) &&
         catalogSeriesKey(item.series) !== catalogSeriesKey(spec.series);
     });
-    rememberCovers(catalog.items);
+    await rememberCovers(catalog.items);
     return catalog;
   }
   async function lookupIsbn(raw) {
@@ -142,7 +143,7 @@ export function createCatalogService(
     if (!isbn) throw new Error("Enter or scan an ISBN first.");
     const canonical = canonicalIsbn(isbn);
 
-    const cached = cache.get("isbn:v15:" + canonical);
+    const cached = await cache.get("isbn:v15:" + canonical);
     if (cached && !refresh) return JSON.parse(cached);
     const providers = scrapers.isbnProviders.filter((source) =>
       supportsIsbn(source, canonical),
@@ -162,7 +163,7 @@ export function createCatalogService(
         );
       else if (result.value) {
         details = result.value;
-        if ("publisherId" in details) rememberCovers([details]);
+        if ("publisherId" in details) await rememberCovers([details]);
         break;
       }
     }
@@ -210,7 +211,7 @@ export function createCatalogService(
         encodeURIComponent(canonical),
     };
     // Cache confirmed misses too; transient provider failures get a shorter TTL.
-    cache.put(
+    await cache.put(
       "isbn:v15:" + canonical,
       JSON.stringify(result),
       details && !warnings.length
@@ -225,7 +226,7 @@ export function createCatalogService(
   async function getBookCover(request) {
     const row = request?.row;
     if (!Number.isSafeInteger(row)) throw new Error("Choose a library volume.");
-    const collection = store.api.getCollection();
+    const collection = await store.api.getCollection();
     const book =
       collection.books.find((b) => b.row === row) ||
       collection.trash.find((entry) => entry.book.row === row)?.book;
@@ -243,7 +244,8 @@ export function createCatalogService(
       volumeKey = volumeCoverKey(book);
     const key = isbn ? "cover:isbn:v1:" + isbn : volumeKey;
     const cached =
-      (isbn && cache.get(key)) || (volumeKey && cache.get(volumeKey));
+      (isbn && (await cache.get(key))) ||
+      (volumeKey && (await cache.get(volumeKey)));
     if (cached)
       return { row, token: book.token, coverUrl: safeCoverUrl(cached) };
     if (request.lookup === false)
@@ -265,15 +267,15 @@ export function createCatalogService(
       );
       return { row, token: book.token, coverUrl: match?.coverUrl || "" };
     }
-    if (!isbn || cache.get("cover:miss:v9:" + isbn))
+    if (!isbn || (await cache.get("cover:miss:v9:" + isbn)))
       return { row, token: book.token, coverUrl: "" };
     if (!pendingCovers.has(isbn)) {
       const pending = lookupIsbn(isbn)
-        .then((result) => {
+        .then(async (result) => {
           const cover = safeCoverUrl(result.details?.coverUrl);
-          if (cover) cache.put(key, cover, 2592000);
+          if (cover) await cache.put(key, cover, 2592000);
           else if (!result.warnings.length)
-            cache.put("cover:miss:v9:" + isbn, "1", 86400);
+            await cache.put("cover:miss:v9:" + isbn, "1", 86400);
           return cover;
         })
         .finally(() => pendingCovers.delete(isbn));
@@ -283,9 +285,9 @@ export function createCatalogService(
   }
 
   async function getBookCoverOptions(request: CatalogRequest = {}) {
-    const book = store.api
-      .getCollection()
-      .books.find((b) => b.row === request.row);
+    const book = (await store.api.getCollection()).books.find(
+      (b) => b.row === request.row,
+    );
     if (!book) throw new Error("Choose a library volume.");
     const publisherId = publisherKey(book.publisher);
     const supportedPublisher = !!scrapers.get(publisherId)?.catalog;
@@ -363,7 +365,7 @@ export function createCatalogService(
                 { ...book, type: book.edition || book.type },
                 request.refresh,
               ))
-                add(option.coverUrl, { ...item, ...option });
+                await add(option.coverUrl, { ...item, ...option });
               return;
             }
             const html = await fetchText_(
@@ -378,11 +380,11 @@ export function createCatalogService(
                 "",
             );
             if (specialSet(title)) return;
-            const gallery = publisherCovers(html, item.url);
+            const gallery = await publisherCovers(html, item.url);
             for (const cover of gallery.length ? gallery : [item.coverUrl])
-              add(cover, item);
+              await add(cover, item);
           } catch {
-            add(item.coverUrl, item);
+            await add(item.coverUrl, item);
             warnings.push("Could not read the gallery for " + item.title + ".");
           }
         }),
@@ -397,7 +399,7 @@ export function createCatalogService(
         continue;
       try {
         for (const item of await source.coverOptions(book, request.refresh))
-          add(item.coverUrl, item);
+          await add(item.coverUrl, item);
       } catch {
         warnings.push(
           source.coverWarning ||
@@ -438,7 +440,7 @@ export function createCatalogService(
     const isbn = canonicalIsbn(normalizeIsbn(request.isbn));
     if (!isbn) throw new Error("Enter a valid ISBN first.");
     const result = await source.searchIsbn(isbn, request.refresh);
-    rememberCovers(result.items);
+    await rememberCovers(result.items);
     return result;
   }
 
@@ -450,7 +452,7 @@ export function createCatalogService(
     if (!scraper.catalog)
       throw new Error("This source does not support catalogs.");
     const key = "publisher-catalog:v1:" + digest(source.url);
-    const previous = reparseItems(cachedJson_(cache, key));
+    const previous = await reparseItems(await cachedJson_(cache, key));
     if (
       previous &&
       !request.refresh &&
@@ -461,7 +463,7 @@ export function createCatalogService(
       const catalog = await scraper.catalog(source.url, request.refresh);
       if (previous?.complete && !catalog.complete)
         throw new Error("Incomplete refresh");
-      rememberCovers(catalog.items);
+      await rememberCovers(catalog.items);
       const result = {
         ...catalog,
         items: catalog.items.filter((item) => !specialSet(item.title)),
@@ -472,7 +474,7 @@ export function createCatalogService(
           ? ""
           : "Some category pages could not be checked. These results may be missing titles.",
       };
-      cacheJson_(cache, key, result);
+      await cacheJson_(cache, key, result);
       return result;
     } catch {
       if (previous)
@@ -500,9 +502,9 @@ export function createCatalogService(
     );
     const scraper = scrapers.require(source.publisherId);
     if (!scraper.directory || scraper.directoryAsCatalog?.(source.url))
-      return getPublisherCatalog({ ...request, url: source.url });
+      return await getPublisherCatalog({ ...request, url: source.url });
     const key = "publisher-directory:v1:" + digest(source.url),
-      previous = cachedJson_(cache, key);
+      previous = await cachedJson_(cache, key);
     if (scraper.normalizeDirectory && previous?.titles)
       previous.titles = scraper.normalizeDirectory(previous.titles);
     if (
@@ -525,7 +527,7 @@ export function createCatalogService(
         title,
         error: "",
       };
-      cacheJson_(cache, key, result);
+      await cacheJson_(cache, key, result);
       return result;
     } catch {
       if (previous)
@@ -569,11 +571,12 @@ export function createCatalogService(
     if (!pendingTitles.has(key)) {
       const pending = (async () => {
         const catalogs = await Promise.all(
-          categories.map((category) =>
-            getPublisherCatalog({
-              url: category.url,
-              refresh: request.refresh,
-            }),
+          categories.map(
+            async (category) =>
+              await getPublisherCatalog({
+                url: category.url,
+                refresh: request.refresh,
+              }),
           ),
         );
         const items = catalogs.flatMap((catalog, index) =>
@@ -613,7 +616,7 @@ export function createCatalogService(
             }
           : null;
         if (item && series)
-          rememberCovers([{ ...item, catalogSeries: series }]);
+          await rememberCovers([{ ...item, catalogSeries: series }]);
         return {
           item,
           checkedAt: catalogs[0].checkedAt,
@@ -636,8 +639,8 @@ export function createCatalogService(
     if (!publisher || !scraper?.releases)
       throw new Error("Choose a supported publisher.");
     const key = "releases:v1:" + publisher.id;
-    const cached = cache.get(key),
-      previous = reparseItems(cached ? JSON.parse(cached) : null);
+    const cached = await cache.get(key),
+      previous = await reparseItems(cached ? JSON.parse(cached) : null);
     if (
       previous &&
       !request.refresh &&
@@ -648,7 +651,7 @@ export function createCatalogService(
       const scraped = await scraper.releases(request.refresh);
       if (!scraped.length) throw new Error("No book listings could be read.");
       const items = scraped.filter((item) => !specialSet(item.title));
-      rememberCovers(items);
+      await rememberCovers(items);
       const result = {
         publisherId: publisher.id,
         items: items,
@@ -657,7 +660,7 @@ export function createCatalogService(
         error: "",
       };
       const json = JSON.stringify(result);
-      cache.put(key, json, SCRAPE_TTL.retention);
+      await cache.put(key, json, SCRAPE_TTL.retention);
       return result;
     } catch (e) {
       if (previous)
@@ -686,7 +689,7 @@ export function createCatalogService(
     const scraper = scrapers.require(spec.publisherId);
     if (!scraper.catalog)
       throw new Error("This source does not support series catalogs.");
-    const saved = savedSeriesCatalog_(spec),
+    const saved = await savedSeriesCatalog_(spec),
       key =
         "series:v1:" +
         spec.publisherId +
@@ -700,23 +703,32 @@ export function createCatalogService(
         : spec.type === "Manga"
           ? ["Manga (TH)", "Manga (EN)", "Manga (JP)"]
           : ["Other"];
-    const cached = reparseItems(
-      cachedJson_(cache, key) ||
-        legacyTypes
-          .map((type) =>
-            cachedJson_(
-              cache,
-              "series:v1:" +
-                spec.publisherId +
-                ":" +
-                digest(
-                  spec.series + "\n" + type + "\n" + (saved ? saved.url : ""),
+    const cached = await reparseItems(
+      (await cachedJson_(cache, key)) ||
+        (
+          await Promise.all(
+            legacyTypes.map(
+              async (type) =>
+                await cachedJson_(
+                  cache,
+                  "series:v1:" +
+                    spec.publisherId +
+                    ":" +
+                    digest(
+                      spec.series +
+                        "\n" +
+                        type +
+                        "\n" +
+                        (saved ? saved.url : ""),
+                    ),
                 ),
             ),
           )
-          .find(Boolean),
+        ).find(Boolean),
     );
-    const previous = cached ? annotateSeriesItems(cached, spec, cached) : null;
+    const previous = cached
+      ? await annotateSeriesItems(cached, spec, cached)
+      : null;
     if (
       previous &&
       !spec.refresh &&
@@ -763,7 +775,7 @@ export function createCatalogService(
       )
         throw new Error("Incomplete publisher series refresh.");
       if (catalog.title) category = { title: catalog.title, url: category.url };
-      annotateSeriesItems(catalog, spec, category);
+      await annotateSeriesItems(catalog, spec, category);
       catalog.items = catalog.items.filter((item) => !specialSet(item.title));
       const result = Object.assign(catalog, {
         publisherId: spec.publisherId,
@@ -781,7 +793,7 @@ export function createCatalogService(
               ? ""
               : "This category check is incomplete. Open the publisher category to check the remaining books.",
       });
-      cacheJson_(cache, key, result);
+      await cacheJson_(cache, key, result);
       return result;
     } catch (error) {
       if (previous)
@@ -843,7 +855,7 @@ export function createCatalogService(
       };
     }
     const key = "series-directory:v1:" + id,
-      previous = cachedJson_(cache, key);
+      previous = await cachedJson_(cache, key);
     if (
       previous &&
       !request.refresh &&
@@ -862,7 +874,7 @@ export function createCatalogService(
         stale: false,
         error: "",
       };
-      cacheJson_(cache, key, result);
+      await cacheJson_(cache, key, result);
       return result;
     } catch (error) {
       if (previous)

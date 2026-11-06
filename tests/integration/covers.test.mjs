@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createCoverService, coverDigest } from "../../lib/server/covers.ts";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createApplicationApi } from "../../lib/server/api.ts";
 import { parseImport } from "../../lib/server/importer.ts";
 import { releaseItem, volumeCoverKey } from "../../lib/domain.ts";
@@ -16,9 +16,9 @@ const png = Buffer.from(
 );
 const imageResponse = () =>
   new Response(png, { headers: { "Content-Type": "image/png" } });
-function database(t) {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+async function database(t) {
+  const store = await openStore();
+  t.after(async () => await store.close());
   return store;
 }
 async function directory(t) {
@@ -34,9 +34,9 @@ const book = {
   volume: 1,
 };
 
-test("image bytes live in SQLite, concurrent downloads deduplicate, and IDs survive restarts and source outages", async (t) => {
+test("image bytes live in PostgreSQL, concurrent downloads deduplicate, and IDs survive restarts and source outages", async (t) => {
   const path = join(await directory(t), "library.sqlite");
-  let store = openStore(path);
+  let store = await openStore(path);
   let calls = 0;
   const covers = createCoverService(store, {
     fetchImpl: async (url, options) => {
@@ -54,28 +54,37 @@ test("image bytes live in SQLite, concurrent downloads deduplicate, and IDs surv
   assert.equal(calls, 1);
   const id = coverDigest(png);
   assert.ok(results.every((image) => image.id === id));
-  assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM covers").get().n, 1);
+  assert.equal(
+    (await store.db.prepare("SELECT COUNT(*) AS n FROM covers").get()).n,
+    1,
+  );
   assert.deepEqual(
     Buffer.from(
-      store.db.prepare("SELECT body FROM covers WHERE id=?").get(id).body,
+      (await store.db.prepare("SELECT body FROM covers WHERE id=?").get(id))
+        .body,
     ),
     png,
   );
-  assert.throws(() => covers.get("https://127.0.0.1/private"), { status: 400 });
-  assert.throws(() => covers.get("0".repeat(64)), { status: 404 });
-  store.close();
-  store = openStore(path);
-  t.after(() => store.close());
+  await assert.rejects(
+    async () => await covers.get("https://127.0.0.1/private"),
+    { status: 400 },
+  );
+  await assert.rejects(async () => await covers.get("0".repeat(64)), {
+    status: 404,
+  });
+  await store.close();
+  store = await openStore(path);
+  t.after(async () => await store.close());
   const restarted = createCoverService(store, {
     fetchImpl: () => assert.fail("Stored images must not use the network"),
   });
-  assert.deepEqual(restarted.get(id).body, png);
-  assert.equal(restarted.get(id).etag, '"' + id + '"');
+  assert.deepEqual((await restarted.get(id)).body, png);
+  assert.equal((await restarted.get(id)).etag, '"' + id + '"');
   assert.equal((await restarted.ensure(source)).id, id);
 });
 
 test("content IDs deduplicate different sources and old file caches migrate without a download", async (t) => {
-  const store = database(t);
+  const store = await database(t);
   const legacyDirectory = await directory(t);
   await writeFile(join(legacyDirectory, coverDigest(source) + ".cover"), png);
   let calls = 0;
@@ -91,9 +100,12 @@ test("content IDs deduplicate different sources and old file caches migrate with
   const second = await covers.ensure("https://du.lnwfile.com/same-cover.png");
   assert.equal(calls, 1);
   assert.equal(migrated.id, second.id);
-  assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM covers").get().n, 1);
   assert.equal(
-    store.db.prepare("SELECT COUNT(*) AS n FROM cover_sources").get().n,
+    (await store.db.prepare("SELECT COUNT(*) AS n FROM covers").get()).n,
+    1,
+  );
+  assert.equal(
+    (await store.db.prepare("SELECT COUNT(*) AS n FROM cover_sources").get()).n,
     2,
   );
 });
@@ -102,10 +114,10 @@ test("cached releases do not retry failed covers on every view or restart, and r
   t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
   const legacyDirectory = await directory(t);
   const path = join(legacyDirectory, "library.sqlite");
-  let store = openStore(path);
-  t.after(() => store.close());
+  let store = await openStore(path);
+  t.after(async () => await store.close());
   const checkedAt = new Date().toISOString();
-  store.cache.put(
+  await store.cache.put(
     "releases:v1:phoenix",
     JSON.stringify({
       publisherId: "phoenix",
@@ -171,8 +183,8 @@ test("cached releases do not retry failed covers on every view or restart, and r
     "Reopening cached releases respects the cooldown",
   );
 
-  store.close();
-  store = openStore(path);
+  await store.close();
+  store = await openStore(path);
   api = application();
   t.mock.timers.tick(15 * 60000 - 1);
   await api.getPublisherReleases(request);
@@ -185,8 +197,8 @@ test("cached releases do not retry failed covers on every view or restart, and r
   assert.equal(recovered.items[0].coverId, coverDigest(png));
   assert.equal(recovered.checkedAt, checkedAt);
 
-  store.close();
-  store = openStore(path);
+  await store.close();
+  store = await openStore(path);
   const cached = await application().getPublisherReleases(request);
   assert.equal(cached.items[0].coverId, coverDigest(png));
   assert.equal(
@@ -198,7 +210,7 @@ test("cached releases do not retry failed covers on every view or restart, and r
 });
 
 test("API choices, saved volumes, trash and JSON restore retain stored cover IDs and bytes offline", async (t) => {
-  const store = database(t);
+  const store = await database(t);
   const covers = createCoverService(store, { fetchImpl: imageResponse });
   const api = createApplicationApi(store, covers, () =>
     assert.fail("Manual covers do not need metadata lookup"),
@@ -209,7 +221,7 @@ test("API choices, saved volumes, trash and JSON restore retain stored cover IDs
   });
   let volume = (await api.getCollection()).books[0];
   assert.equal(volume.coverId, coverDigest(png));
-  assert.deepEqual(covers.get(volume.coverId).body, png);
+  assert.deepEqual((await covers.get(volume.coverId)).body, png);
   await api.saveBook({
     row: volume.row,
     token: volume.token,
@@ -218,27 +230,30 @@ test("API choices, saved volumes, trash and JSON restore retain stored cover IDs
   });
   volume = (await api.getCollection()).books[0];
   assert.equal(volume.coverId, coverDigest(png));
-  store.api.removeBook({
+  await store.api.removeBook({
     row: volume.row,
     token: volume.token,
     requestId: "cover_api_remove_1",
   });
-  const backup = store.exportData();
-  const restored = database(t);
+  const backup = await store.exportData();
+  const restored = await database(t);
   const plan = parseImport(Buffer.from(JSON.stringify(backup)), "backup.json");
-  restored.importData(plan, plan.fingerprint);
-  const entry = restored.api.getCollection().trash[0];
+  await restored.importData(plan, plan.fingerprint);
+  const entry = (await restored.api.getCollection()).trash[0];
   assert.equal(entry.book.coverId, volume.coverId);
   const offline = createCoverService(restored, {
     fetchImpl: () => assert.fail("Restores must contain the image"),
   });
-  assert.deepEqual(offline.get(entry.book.coverId).body, png);
+  assert.deepEqual((await offline.get(entry.book.coverId)).body, png);
   assert.equal((await offline.ensure(source)).id, volume.coverId);
-  restored.api.restoreBook({
+  await restored.api.restoreBook({
     trashId: entry.id,
     requestId: "cover_api_restore_1",
   });
-  assert.equal(restored.api.getCollection().books[0].coverId, volume.coverId);
+  assert.equal(
+    (await restored.api.getCollection()).books[0].coverId,
+    volume.coverId,
+  );
   const invalid = structuredClone(backup);
   invalid.covers[0].data = Buffer.from("<svg/>").toString("base64");
   assert.throws(
@@ -254,7 +269,7 @@ test("API choices, saved volumes, trash and JSON restore retain stored cover IDs
 });
 
 test("failed cover changes preserve the previous choice and clearing a choice removes its ID", async (t) => {
-  const store = database(t);
+  const store = await database(t);
   let fail = false;
   const covers = createCoverService(store, {
     fetchImpl: async () => {
@@ -267,7 +282,7 @@ test("failed cover changes preserve the previous choice and clearing a choice re
     requestId: "cover_clear_save_1",
     book: { ...book, coverUrl: source },
   });
-  const original = store.api.getCollection().books[0];
+  const original = (await store.api.getCollection()).books[0];
   fail = true;
   await assert.rejects(
     api.saveBook({
@@ -278,52 +293,61 @@ test("failed cover changes preserve the previous choice and clearing a choice re
     }),
     { status: 502 },
   );
-  assert.equal(store.api.getCollection().books[0].coverId, original.coverId);
+  assert.equal(
+    (await store.api.getCollection()).books[0].coverId,
+    original.coverId,
+  );
   await api.saveBook({
     row: original.row,
     token: original.token,
     requestId: "cover_clear_save_2",
     book: { ...book, coverUrl: "", coverId: "" },
   });
-  assert.equal(store.api.getCollection().books[0].coverId, "");
+  assert.equal((await store.api.getCollection()).books[0].coverId, "");
 });
 
 test("automatic IDs persist without becoming manual URLs, do not invalidate edits, and are cleared when the volume changes", async (t) => {
-  const store = database(t);
-  store.api.saveBook({ requestId: "automatic_cover_save_1", book });
-  const original = store.api.getCollection().books[0];
-  store.cache.put(volumeCoverKey(book), source, 86400);
+  const store = await database(t);
+  await store.api.saveBook({ requestId: "automatic_cover_save_1", book });
+  const original = (await store.api.getCollection()).books[0];
+  await store.cache.put(volumeCoverKey(book), source, 86400);
   const covers = createCoverService(store, { fetchImpl: imageResponse });
   const api = createApplicationApi(store, covers);
   const volume = (await api.getCollection()).books[0];
   assert.equal(volume.coverId, coverDigest(png));
   assert.equal(volume.coverUrl, "");
   assert.equal(volume.token, original.token);
-  assert.equal(store.api.getCollection().books[0].coverId, volume.coverId);
+  assert.equal(
+    (await store.api.getCollection()).books[0].coverId,
+    volume.coverId,
+  );
   await api.saveBook({
     row: volume.row,
     token: original.token,
     requestId: "automatic_cover_save_2",
     book: { ...book, volume: 2, coverId: volume.coverId },
   });
-  const changed = store.api.getCollection().books[0];
+  const changed = (await store.api.getCollection()).books[0];
   assert.equal(changed.coverId, "");
   assert.equal(
-    store.covers.assign(changed.row, volume.coverId, original.token),
+    await store.covers.assign(changed.row, volume.coverId, original.token),
     "",
   );
 });
 
-test("backups restore image payloads larger than a megabyte", (t) => {
-  const store = database(t);
+test("backups restore image payloads larger than a megabyte", async (t) => {
+  const store = await database(t);
   const body = Buffer.concat([png, Buffer.alloc(1100000)]);
-  const image = store.covers.put({ body, contentType: "image/png" }, source);
-  store.api.saveBook({
+  const image = await store.covers.put(
+    { body, contentType: "image/png" },
+    source,
+  );
+  await store.api.saveBook({
     requestId: "large_image_book_001",
     book: { ...book, coverId: image.id },
   });
   const plan = parseImport(
-    Buffer.from(JSON.stringify(store.exportData())),
+    Buffer.from(JSON.stringify(await store.exportData())),
     "large-cover.json",
   );
   assert.equal(plan.covers[0].id, image.id);
@@ -340,20 +364,20 @@ test("HTML, SVG, empty images and failed responses are never stored", async (t) 
     () => new Response(null),
     () => new Response("Unavailable", { status: 503 }),
   ]) {
-    const store = database(t);
+    const store = await database(t);
     await assert.rejects(
       createCoverService(store, { fetchImpl: response }).ensure(source),
       { status: 502 },
     );
     assert.equal(
-      store.db.prepare("SELECT COUNT(*) AS n FROM covers").get().n,
+      (await store.db.prepare("SELECT COUNT(*) AS n FROM covers").get()).n,
       0,
     );
   }
 });
 
 test("cover sources and redirects reject arbitrary hosts, credentials and insecure requests", async (t) => {
-  const store = database(t);
+  const store = await database(t);
   const calls = [];
   let location = "https://127.0.0.1/private";
   const cache = createCoverService(store, {
@@ -380,7 +404,7 @@ test("cover sources and redirects reject arbitrary hosts, credentials and insecu
     "https://www.phoenixnext.com:444/cover.jpg",
   ]) {
     const before = calls.length;
-    const redirected = createCoverService(database(t), {
+    const redirected = createCoverService(await database(t), {
       fetchImpl: async (url) => {
         calls.push(url);
         return new Response(null, { status: 302, headers: { location } });
@@ -389,11 +413,14 @@ test("cover sources and redirects reject arbitrary hosts, credentials and insecu
     await assert.rejects(redirected.ensure(source), { status: 502 });
     assert.equal(calls.length - before, 1);
   }
-  assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM covers").get().n, 0);
+  assert.equal(
+    (await store.db.prepare("SELECT COUNT(*) AS n FROM covers").get()).n,
+    0,
+  );
 });
 
 test("supported image redirects are followed and cached under the original source", async (t) => {
-  const store = database(t);
+  const store = await database(t);
   const calls = [];
   const target = "https://books.googleusercontent.com/cover.png";
   const cache = createCoverService(store, {
@@ -409,7 +436,7 @@ test("supported image redirects are followed and cached under the original sourc
   assert.deepEqual(calls, [source, target]);
   let hops = 0;
   await assert.rejects(
-    createCoverService(database(t), {
+    createCoverService(await database(t), {
       fetchImpl: async () => {
         hops++;
         return new Response(null, {
@@ -431,21 +458,21 @@ test("cover downloads enforce the size limit for declared and streamed bodies", 
     () =>
       new Response(
         new ReadableStream({
-          start(controller) {
+          async start(controller) {
             controller.enqueue(png);
             controller.enqueue(new Uint8Array(limit));
-            controller.close();
+            await controller.close();
           },
         }),
       ),
   ]) {
-    const store = database(t);
+    const store = await database(t);
     await assert.rejects(
       createCoverService(store, { fetchImpl: response }).ensure(source),
       { status: 502 },
     );
     assert.equal(
-      store.db.prepare("SELECT COUNT(*) AS n FROM covers").get().n,
+      (await store.db.prepare("SELECT COUNT(*) AS n FROM covers").get()).n,
       0,
     );
   }

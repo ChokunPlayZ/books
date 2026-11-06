@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 
 const base = {
   series: "A story",
@@ -18,7 +18,7 @@ const base = {
 };
 let sequence = 0;
 const id = () => "title_test_request_" + ++sequence;
-function seed(store) {
+async function seed(store) {
   for (const book of [
     base,
     { ...base, volume: 2, isbn: "9780140328721" },
@@ -30,16 +30,16 @@ function seed(store) {
       publisherUrl: "",
     },
   ])
-    store.api.saveBook({ requestId: id(), book });
-  store.api.setSeriesCatalog({
+    await store.api.saveBook({ requestId: id(), book });
+  await store.api.setSeriesCatalog({
     series: base.series,
     publisherId: "phoenix",
     type: base.type,
     url: "https://www.phoenixnext.com/book-series/story.html",
   });
 }
-function edit(store, series = "Renamed story") {
-  const title = store.api.getCollection().titles[0];
+async function edit(store, series = "Renamed story") {
+  const title = (await store.api.getCollection()).titles[0];
   return {
     requestId: id(),
     series: title.series,
@@ -64,20 +64,20 @@ function edit(store, series = "Renamed story") {
   };
 }
 
-test("title edits update all volumes, preserve separate editions and volume details, and move catalog links", () => {
-  const store = openStore(":memory:");
+test("title edits update all volumes, preserve separate editions and volume details, and move catalog links", async () => {
+  const store = await openStore();
   try {
-    seed(store);
-    const before = store.api.getCollection().books;
-    const request = edit(store);
-    const result = store.api.saveTitle(request);
+    await seed(store);
+    const before = (await store.api.getCollection()).books;
+    const request = await edit(store);
+    const result = await store.api.saveTitle(request);
     assert.deepEqual(result, {
       series: "Renamed story",
       volumes: 3,
       action: "title updated",
     });
-    assert.deepEqual(store.api.saveTitle(request), result);
-    const data = store.api.getCollection();
+    assert.deepEqual(await store.api.saveTitle(request), result);
+    const data = await store.api.getCollection();
     data.books.forEach((book, index) => {
       assert.equal(book.series, "Renamed story");
       assert.equal(book.type, index < 2 ? "Light novel" : "Manga");
@@ -103,77 +103,89 @@ test("title edits update all volumes, preserve separate editions and volume deta
     assert.equal(data.seriesCatalogs[0].type, "Light novel");
     assert.ok(data.options.series.includes("Renamed story"));
     assert.notEqual(data.titles[0].token, request.token);
-    const backup = store.exportData();
+    const backup = await store.exportData();
     assert.deepEqual(backup.books, data.books);
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
-test("title saves reject stale volume edits, additions and incomplete editions without partial updates", () => {
-  const store = openStore(":memory:");
+test("title saves reject stale volume edits, additions and incomplete editions without partial updates", async () => {
+  const store = await openStore();
   try {
-    seed(store);
-    let request = edit(store);
-    const book = store.api.getCollection().books[0];
-    store.api.saveBook({
+    await seed(store);
+    let request = await edit(store);
+    const book = (await store.api.getCollection()).books[0];
+    await store.api.saveBook({
       requestId: id(),
       row: book.row,
       token: book.token,
       book: { ...book, note: "Edited elsewhere" },
     });
-    assert.throws(() => store.api.saveTitle(request), /title changed/);
-    assert.ok(
-      store.api
-        .getCollection()
-        .books.every((book) => book.series === base.series),
+    await assert.rejects(
+      async () => await store.api.saveTitle(request),
+      /title changed/,
     );
-    request = edit(store);
-    store.api.saveBook({ requestId: id(), book: { ...base, volume: 3 } });
-    assert.throws(() => store.api.saveTitle(request), /title changed/);
-    request = edit(store);
+    assert.ok(
+      (await store.api.getCollection()).books.every(
+        (book) => book.series === base.series,
+      ),
+    );
+    request = await edit(store);
+    await store.api.saveBook({ requestId: id(), book: { ...base, volume: 3 } });
+    await assert.rejects(
+      async () => await store.api.saveTitle(request),
+      /title changed/,
+    );
+    request = await edit(store);
     request.title.editions.pop();
-    assert.throws(() => store.api.saveTitle(request), /editions changed/);
-    store.db.exec(
-      "CREATE TRIGGER fail_title_receipt BEFORE INSERT ON receipts BEGIN SELECT RAISE(ABORT,'simulated failure'); END;",
+    await assert.rejects(
+      async () => await store.api.saveTitle(request),
+      /editions changed/,
     );
-    assert.throws(() => store.api.saveTitle(edit(store)), /simulated failure/);
+    await store.db.exec(
+      "CREATE FUNCTION fail_title_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'simulated failure'; END $$; CREATE TRIGGER fail_title_receipt BEFORE INSERT ON receipts FOR EACH ROW EXECUTE FUNCTION fail_title_receipt();",
+    );
+    await assert.rejects(
+      async () => await store.api.saveTitle(await edit(store)),
+      /simulated failure/,
+    );
     assert.ok(
-      store.api
-        .getCollection()
-        .books.every((book) => book.series === base.series),
+      (await store.api.getCollection()).books.every(
+        (book) => book.series === base.series,
+      ),
     );
     assert.equal(
-      store.api.getCollection().seriesCatalogs[0].series,
+      (await store.api.getCollection()).seriesCatalogs[0].series,
       base.series,
     );
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
-test("changing an edition publisher clears incompatible publisher links and prevents accidental title merging", () => {
-  const store = openStore(":memory:");
+test("changing an edition publisher clears incompatible publisher links and prevents accidental title merging", async () => {
+  const store = await openStore();
   try {
-    seed(store);
-    store.api.saveBook({
+    await seed(store);
+    await store.api.saveBook({
       requestId: id(),
       book: { ...base, series: "Other title" },
     });
-    assert.throws(
-      () => store.api.saveTitle(edit(store, "OTHER TITLE")),
+    await assert.rejects(
+      async () => await store.api.saveTitle(await edit(store, "OTHER TITLE")),
       /already exists/,
     );
-    const request = edit(store);
+    const request = await edit(store);
     request.title.editions[0].publisher = "Luckpim";
-    store.api.saveTitle(request);
-    const data = store.api.getCollection();
+    await store.api.saveTitle(request);
+    const data = await store.api.getCollection();
     assert.equal(data.books[0].publisherUrl, "");
     assert.equal(data.books[1].publisherUrl, "");
     assert.equal(data.books[2].publisher, "Japanese press");
     assert.equal(data.seriesCatalogs.length, 0);
     assert.equal(data.books[3].series, "Other title");
   } finally {
-    store.close();
+    await store.close();
   }
 });

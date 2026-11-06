@@ -19,7 +19,7 @@ import type { openStore } from "./store.ts";
 import { AppError } from "./store.ts";
 import type { createCatalogService } from "./catalogs.ts";
 
-type Store = ReturnType<typeof openStore>;
+type Store = Awaited<ReturnType<typeof openStore>>;
 type Catalogs = ReturnType<typeof createCatalogService>;
 type Target = CrawlTarget & { arg: Record<string, string> };
 const cooldown = (key: string) =>
@@ -49,18 +49,21 @@ function groupFor(key: string): CacheGroup {
 // saved releases and catalog links live in separate tables.
 export function createMetadataService(store: Store, catalogs: Catalogs) {
   const pending = new Map<string, Promise<CrawlResult>>();
-  const cacheRows = () =>
-    store.db
+  const cacheRows = async () =>
+    (await store.db
       .prepare(
-        "SELECT key, value, expires_at, length(CAST(value AS BLOB)) AS bytes FROM cache WHERE key NOT LIKE 'user:%' OR key LIKE ? ORDER BY key",
+        "SELECT key, value, expires_at, octet_length(value) AS bytes FROM cache WHERE key NOT LIKE 'user:%' OR key LIKE ? ORDER BY key",
       )
-      .all(`user:${store.currentUser().id}:%`) as unknown as {
+      .all(`user:${store.currentUser().id}:%`)) as unknown as {
       key: string;
       value: string;
       expires_at: number;
       bytes: number;
     }[];
-  function entries(rows = cacheRows()): CacheEntry[] {
+  async function entries(
+    rows?: Awaited<ReturnType<typeof cacheRows>>,
+  ): Promise<CacheEntry[]> {
+    rows ??= await cacheRows();
     const now = Date.now();
     return rows.map((row) => {
       const value = parse(row.value);
@@ -84,7 +87,8 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
       };
     });
   }
-  function queryEntries(request: MetadataQuery = {}, all = entries()) {
+  async function queryEntries(request: MetadataQuery = {}, all?: CacheEntry[]) {
+    all ??= await entries();
     if (!request || typeof request !== "object" || Array.isArray(request))
       throw new AppError("Choose cache filters.");
     const group = request.group || "all";
@@ -102,7 +106,10 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
           (entry.label + " " + entry.key).toLowerCase().includes(search)),
     );
   }
-  function targets(rows = cacheRows()): Target[] {
+  async function targets(
+    rows?: Awaited<ReturnType<typeof cacheRows>>,
+  ): Promise<Target[]> {
+    rows ??= await cacheRows();
     const result = new Map<string, Target>();
     function add(
       kind: Target["kind"],
@@ -113,13 +120,13 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
       const id = kind + ":" + digest(JSON.stringify(arg));
       result.set(id, { id, kind, arg, label, detail });
     }
-    const collection = store.api.getCollection();
+    const collection = await store.api.getCollection();
     for (const book of collection.books) {
       const isbn = canonicalIsbn(book.isbn);
-      if (isbn) add("isbn", { isbn }, isbn, book.series);
+      if (isbn) await add("isbn", { isbn }, isbn, book.series);
     }
     for (const link of collection.seriesCatalogs)
-      add(
+      await add(
         "series",
         { series: link.series, type: link.type, publisherId: link.publisherId },
         link.series,
@@ -137,26 +144,31 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
       if (/^isbn:v\d+:/.test(row.key)) {
         const isbn = canonicalIsbn(row.key.split(":").at(-1));
         if (isbn && !result.has("isbn:" + digest(JSON.stringify({ isbn }))))
-          add("isbn", { isbn }, isbn, value?.details?.title || "Cached ISBN");
+          await add(
+            "isbn",
+            { isbn },
+            isbn,
+            value?.details?.title || "Cached ISBN",
+          );
       } else if (row.key.startsWith("releases:v1:") && value?.publisherId) {
         const publisher = collection.publishers.find(
           (p) => p.id === value.publisherId,
         );
-        add(
+        await add(
           "releases",
           { publisherId: value.publisherId },
           publisher?.name || value.publisherId,
           "Release feed",
         );
       } else if (row.key.startsWith("publisher-catalog:v1:") && value?.url) {
-        add(
+        await add(
           "catalog",
           { url: value.url },
           value.title || value.url,
           "Publisher category",
         );
       } else if (row.key.startsWith("publisher-directory:") && value?.url) {
-        add(
+        await add(
           "directory",
           { url: value.url },
           value.title || value.url,
@@ -168,7 +180,7 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
         value?.publisherId &&
         value?.type
       ) {
-        add(
+        await add(
           "series",
           {
             series: value.series,
@@ -182,17 +194,19 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
     }
     return [...result.values()];
   }
-  function getMetadataOverview(request: MetadataQuery = {}): MetadataOverview {
+  async function getMetadataOverview(
+    request: MetadataQuery = {},
+  ): Promise<MetadataOverview> {
     store.requireAdmin();
-    const rows = cacheRows(),
-      all = entries(rows),
-      filtered = queryEntries(request, all);
+    const rows = await cacheRows(),
+      all = await entries(rows),
+      filtered = await queryEntries(request, all);
     const pages = Math.max(1, Math.ceil(filtered.length / 20));
     const page = Math.max(
       1,
       Math.min(pages, Number.isSafeInteger(request.page) ? request.page : 1),
     );
-    const books = store.api.getCollection().books;
+    const books = (await store.api.getCollection()).books;
     return {
       summary: {
         count: all.length,
@@ -212,7 +226,7 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
       total: filtered.length,
       page,
       pages,
-      targets: targets(rows).map(({ arg: _arg, ...target }) => target),
+      targets: (await targets(rows)).map(({ arg: _arg, ...target }) => target),
       coverage: {
         books: books.length,
         withIsbn: books.filter((book) => canonicalIsbn(book.isbn)).length,
@@ -223,7 +237,9 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
       },
     };
   }
-  function purgeMetadataCache(request: MetadataQuery & { key?: string } = {}) {
+  async function purgeMetadataCache(
+    request: MetadataQuery & { key?: string } = {},
+  ) {
     store.requireAdmin();
     if (pending.size)
       throw new AppError(
@@ -236,18 +252,18 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
       (typeof request.key !== "string" || !request.key)
     )
       throw new AppError("Choose a cached record to purge.");
-    const selected = queryEntries(request).filter(
+    const selected = (await queryEntries(request)).filter(
       (entry) =>
         entry.group !== "cooldowns" &&
         (!request.key || entry.key === request.key),
     );
-    return store.transaction(() => {
+    return store.transaction(async () => {
       const remove = store.db.prepare("DELETE FROM cache WHERE key=?");
-      for (const entry of selected) remove.run(entry.key);
+      for (const entry of selected) await remove.run(entry.key);
       return { purged: selected.length };
     });
   }
-  function getMetadataCacheEntry(request: { key: string }) {
+  async function getMetadataCacheEntry(request: { key: string }) {
     store.requireAdmin();
     if (typeof request?.key !== "string")
       throw new AppError("Choose a cached record.");
@@ -256,7 +272,7 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
       !request.key.startsWith(`user:${store.currentUser().id}:`)
     )
       throw new AppError("This cached record is not available.", 404);
-    const row = store.db
+    const row = await store.db
       .prepare("SELECT value FROM cache WHERE key=?")
       .get(request.key);
     if (!row)
@@ -288,7 +304,7 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
         const details = result.details;
         // Re-read after the network wait, and save with the current revision token.
         // An ISBN lookup never guesses a series, purchase, reading state or edition.
-        for (const book of store.api.getCollection().books) {
+        for (const book of (await store.api.getCollection()).books) {
           if (canonicalIsbn(book.isbn) !== target.arg.isbn) continue;
           if (details.isbn && canonicalIsbn(details.isbn) !== target.arg.isbn)
             continue;
@@ -310,7 +326,7 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
             next.msrp !== book.msrp ||
             next.msrpCurrency !== book.msrpCurrency
           ) {
-            store.api.saveBook({
+            await store.api.saveBook({
               row: book.row,
               token: book.token,
               book: next,
@@ -374,27 +390,29 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
     store.requireAdmin();
     if (typeof request?.id !== "string")
       throw new AppError("Choose a source to re-crawl.");
-    const target = targets().find((entry) => entry.id === request.id);
-    if (!target)
-      throw new AppError(
-        "This source is no longer available. Reload the list.",
-        404,
-      );
     const pendingKey =
       store.currentUser().id +
       ":" +
-      target.id +
+      request.id +
       ":" +
       (request.fillMissing === true);
     if (!pending.has(pendingKey)) {
-      const operation = crawl(target, request.fillMissing === true)
-        .catch((error) => ({
+      const operation = (async () => {
+        const target = (await targets()).find(
+          (entry) => entry.id === request.id,
+        );
+        if (!target)
+          throw new AppError(
+            "This source is no longer available. Reload the list.",
+            404,
+          );
+        return crawl(target, request.fillMissing === true).catch((error) => ({
           id: target.id,
           status: "failed" as const,
           filled: 0,
           message: error.message || "Re-crawl failed. Try again later.",
-        }))
-        .finally(() => pending.delete(pendingKey));
+        }));
+      })().finally(() => pending.delete(pendingKey));
       pending.set(pendingKey, operation);
     }
     return pending.get(pendingKey);

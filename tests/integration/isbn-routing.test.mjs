@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 
 const multilingual = [
@@ -52,8 +52,8 @@ const cases = [
 test("ISBN metadata requests and outage warnings include only applicable sources", async (t) => {
   for (const [name, isbn, local] of cases)
     await t.test(name, async (t) => {
-      const store = openStore(":memory:");
-      t.after(() => store.close());
+      const store = await openStore();
+      t.after(async () => await store.close());
       const hosts = [];
       const service = createCatalogService(store, async (url) => {
         hosts.push(new URL(url).hostname);
@@ -71,10 +71,10 @@ test("ISBN metadata requests and outage warnings include only applicable sources
 });
 
 test("old unfiltered ISBN results do not retain unrelated availability warnings", async (t) => {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+  const store = await openStore();
+  t.after(async () => await store.close());
   const isbn = "9780140328721";
-  store.cache.put(
+  await store.cache.put(
     "isbn:v12:" + isbn,
     JSON.stringify({ found: false, warnings: ["Naiin is unavailable"] }),
     86400,
@@ -100,8 +100,8 @@ test("price comparison only checks applicable shops and omits skipped source sta
     [withChecksum("979100000000"), ["kinokuniya"]],
   ])
     await t.test(isbn, async (t) => {
-      const store = openStore(":memory:");
-      t.after(() => store.close());
+      const store = await openStore();
+      t.after(async () => await store.close());
       const hosts = [];
       const service = createCatalogService(store, async (url) => {
         hosts.push(new URL(url).hostname);
@@ -133,9 +133,9 @@ test("cover choices require compatible ISBN prefixes and recorded title language
     [withChecksum("979110000000"), "Manga (EN)", ["kinokuniya.co.th"]],
   ])
     await t.test(isbn + " " + type, async (t) => {
-      const store = openStore(":memory:");
-      t.after(() => store.close());
-      store.api.saveBook({
+      const store = await openStore();
+      t.after(async () => await store.close());
+      await store.api.saveBook({
         requestId: "isbn_routing_cover",
         book: { series: "Routing test", isbn, type, status: "Read" },
       });
@@ -155,9 +155,9 @@ test("cover choices require compatible ISBN prefixes and recorded title language
 });
 
 test("country routing preserves title-based cover lookup when no ISBN is saved", async (t) => {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
-  store.api.saveBook({
+  const store = await openStore();
+  t.after(async () => await store.close());
+  await store.api.saveBook({
     requestId: "isbn_routing_no_isbn",
     book: { series: "Routing test", type: "Manga (TH)", status: "Read" },
   });

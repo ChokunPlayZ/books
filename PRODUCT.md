@@ -16,7 +16,7 @@ Maintain owned volumes, identify missing volumes, discover releases, and track r
 
 ## Capabilities and Constraints
 
-Preserve collection CRUD, ISBN lookup and scanning, publisher catalogs, discovery, missing volumes, series editing, bulk selection, statistics, import/export, authentication, and light/dark themes. Existing Next.js 16.4 and React 19 application backed by SQLite.
+Preserve collection CRUD, ISBN lookup and scanning, publisher catalogs, discovery, missing volumes, series editing, bulk selection, statistics, import/export, authentication, and light/dark themes. Existing Next.js 16.4 and React 19 application backed by PostgreSQL.
 
 ## Product Principles
 

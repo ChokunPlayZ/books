@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createApplicationApi } from "../../lib/server/api.ts";
 import { createSeasonalDiscoveryService } from "../../lib/server/seasonal-discovery.ts";
 import { seasonalFeed, seasonMedia } from "../helpers/anime.mjs";
@@ -128,7 +128,7 @@ test("a directory alone, empty categories, untyped listings and ambiguous aliase
 });
 
 test("application API joins AniList and Thai publisher catalogs and reuses persistent caches", async () => {
-  const store = openStore(":memory:");
+  const store = await openStore();
   const calls = [];
   const api = createApplicationApi(
     store,
@@ -189,6 +189,6 @@ test("application API joins AniList and Thai publisher catalogs and reuses persi
       "AniList, directories and matching categories are cached",
     );
   } finally {
-    store.close();
+    await store.close();
   }
 });

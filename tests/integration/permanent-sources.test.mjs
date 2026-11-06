@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { createAccount } from "../../lib/server/auth.ts";
 
@@ -13,8 +13,8 @@ test("confirmed ISBN/source matches survive time, restart, other users, prices a
     mkdtempSync(join(tmpdir(), "books-permanent-")),
     "books.sqlite",
   );
-  let store = openStore(path);
-  t.after(() => store.close());
+  let store = await openStore(path);
+  t.after(async () => await store.close());
   let calls = 0;
   const definition = {
     id: "shop",
@@ -50,10 +50,12 @@ test("confirmed ISBN/source matches survive time, restart, other users, prices a
     150,
   );
   assert.equal(calls, 1);
-  store.db.prepare("UPDATE cache SET expires_at=1 WHERE expires_at<>0").run();
-  store.close();
-  store = openStore(path);
-  const user = createAccount(store, "reader", "reader@gmail.com");
+  await store.db
+    .prepare("UPDATE cache SET expires_at=1 WHERE expires_at<>0")
+    .run();
+  await store.close();
+  store = await openStore(path);
+  const user = await createAccount(store, "reader", "reader@gmail.com");
   catalogs = createCatalogService(store, () => assert.fail("No network"), [
     definition,
   ]);
@@ -84,8 +86,8 @@ test("confirmed ISBN/source matches survive time, restart, other users, prices a
 });
 
 test("misses expire and retry, and concurrent readers share a single confirmed lookup", async (t) => {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+  const store = await openStore();
+  t.after(async () => await store.close());
   let calls = 0;
   let found = false;
   const definition = {
@@ -105,7 +107,7 @@ test("misses expire and retry, and concurrent readers share a single confirmed l
   assert.equal((await catalogs.lookupIsbn(isbn)).found, false);
   assert.equal((await catalogs.lookupIsbn(isbn)).found, false);
   assert.equal(calls, 1);
-  store.db.exec("UPDATE cache SET expires_at=1 WHERE expires_at<>0");
+  await store.db.exec("UPDATE cache SET expires_at=1 WHERE expires_at<>0");
   found = true;
   const results = await Promise.all([
     catalogs.lookupIsbn(isbn),

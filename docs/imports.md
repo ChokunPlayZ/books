@@ -18,12 +18,12 @@ CSV and JSON arrays also import owned books. CSV dates must be `YYYY-MM-DD`; use
 
 CSV/XLSX files are limited to 16 MiB; XLSX archives must expand to at most 32 MiB. Import sheets may contain up to 20,000 records and 32 columns, with at most ten sheets. JSON backups may contain up to 128 MiB to accommodate stored covers. Only one web upload is processed at a time, and each account may make ten upload requests per 15 minutes (preview and import each count).
 
-Imports require an empty library to avoid confusing intentional second copies with records already imported. For a fresh local database, use a different database path:
+Imports require an empty library to avoid confusing intentional second copies with records already imported. For a fresh library, create a separate PostgreSQL database and point `DATABASE_URL` at it:
 
 ```sh
-BOOKS_DATABASE_PATH=./data/current-collection.sqlite npm run import -- collection.xlsx --preview
-BOOKS_DATABASE_PATH=./data/current-collection.sqlite npm run import -- collection.xlsx
-BOOKS_DATABASE_PATH=./data/current-collection.sqlite npm run dev
+DATABASE_URL=postgresql://books:books-local@localhost:5432/books_import npm run import -- collection.xlsx --preview
+DATABASE_URL=postgresql://books:books-local@localhost:5432/books_import npm run import -- collection.xlsx
+DATABASE_URL=postgresql://books:books-local@localhost:5432/books_import npm run dev
 ```
 
 Importing never writes to or changes the Google Sheet. Once the latest workbook is imported, use the new app for ongoing collection changes. The sheet and standalone database do not automatically synchronize.

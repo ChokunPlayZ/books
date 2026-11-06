@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { testUrl } from "../helpers/browser.mjs";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createApplicationApi } from "../../lib/server/api.ts";
 import { createCoverService, coverDigest } from "../../lib/server/covers.ts";
 
@@ -14,7 +14,7 @@ const fixture = (name) =>
     new URL("../fixtures/publishers/" + name, import.meta.url),
     "utf8",
   );
-const store = openStore(":memory:");
+const store = await openStore();
 const coverBytes = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
   "base64",
@@ -282,5 +282,5 @@ try {
   );
 } finally {
   await browser.close();
-  store.close();
+  await store.close();
 }

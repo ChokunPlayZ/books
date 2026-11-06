@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 
 const base = {
   series: "Purchase table story",
@@ -19,15 +19,15 @@ const base = {
 let sequence = 0;
 const id = () => "purchase_table_request_" + ++sequence;
 
-function seed(store) {
+async function seed(store) {
   for (const book of [
     base,
     { ...base, volume: 2 },
     { ...base, type: "Manga (JP)", price: 0, date: "", source: "" },
     { ...base, series: "Another story" },
   ])
-    store.api.saveBook({ requestId: id(), book, allowDuplicate: true });
-  return store.api.getCollection().books;
+    await store.api.saveBook({ requestId: id(), book, allowDuplicate: true });
+  return (await store.api.getCollection()).books;
 }
 
 function edit(books) {
@@ -44,15 +44,15 @@ function edit(books) {
   };
 }
 
-test("series purchase saves preserve other fields and copies, distinguish zero from blank, and retry once", () => {
-  const store = openStore(":memory:");
+test("series purchase saves preserve other fields and copies, distinguish zero from blank, and retry once", async () => {
+  const store = await openStore();
   try {
-    const before = seed(store);
-    const request = edit(before);
-    const result = store.api.saveSeriesPurchases(request);
+    const before = await seed(store);
+    const request = await edit(before);
+    const result = await store.api.saveSeriesPurchases(request);
     assert.deepEqual(result, { volumes: 2, action: "purchases updated" });
-    assert.deepEqual(store.api.saveSeriesPurchases(request), result);
-    const data = store.api.getCollection();
+    assert.deepEqual(await store.api.saveSeriesPurchases(request), result);
+    const data = await store.api.getCollection();
     assert.deepEqual(
       data.books
         .slice(0, 2)
@@ -76,16 +76,16 @@ test("series purchase saves preserve other fields and copies, distinguish zero f
     }
     assert.deepEqual(data.books.slice(2), before.slice(2));
     assert.ok(data.options.source.includes("New shop"));
-    assert.deepEqual(store.exportData().books, data.books);
+    assert.deepEqual((await store.exportData()).books, data.books);
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
-test("invalid, repeated or cross-series changes roll back the entire purchase save", () => {
-  const store = openStore(":memory:");
+test("invalid, repeated or cross-series changes roll back the entire purchase save", async () => {
+  const store = await openStore();
   try {
-    const before = seed(store);
+    const before = await seed(store);
     for (const [patch, message] of [
       [{ price: "-1" }, /non-negative/],
       [{ price: "Infinity" }, /non-negative/],
@@ -94,45 +94,54 @@ test("invalid, repeated or cross-series changes roll back the entire purchase sa
       [{ row: before[0].row, token: before[0].token }, /only once/],
       [{ row: before[3].row, token: before[3].token }, /same series/],
     ]) {
-      const request = edit(before);
+      const request = await edit(before);
       Object.assign(request.changes[1], patch);
-      assert.throws(() => store.api.saveSeriesPurchases(request), message);
-      assert.deepEqual(store.api.getCollection().books, before);
+      await assert.rejects(
+        async () => await store.api.saveSeriesPurchases(request),
+        message,
+      );
+      assert.deepEqual((await store.api.getCollection()).books, before);
       assert.equal(
-        store.api.getCollection().options.source.includes("New shop"),
+        (await store.api.getCollection()).options.source.includes("New shop"),
         false,
       );
     }
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
-test("stale and removed volumes cannot overwrite newer changes or partially save other rows", () => {
-  const store = openStore(":memory:");
+test("stale and removed volumes cannot overwrite newer changes or partially save other rows", async () => {
+  const store = await openStore();
   try {
-    const before = seed(store);
-    const request = edit(before);
-    store.api.saveBook({
+    const before = await seed(store);
+    const request = await edit(before);
+    await store.api.saveBook({
       requestId: id(),
       row: before[1].row,
       token: before[1].token,
       book: { ...before[1], note: "Edited elsewhere" },
       allowDuplicate: true,
     });
-    assert.throws(() => store.api.saveSeriesPurchases(request), /book changed/);
-    const current = store.api.getCollection().books;
+    await assert.rejects(
+      async () => await store.api.saveSeriesPurchases(request),
+      /book changed/,
+    );
+    const current = (await store.api.getCollection()).books;
     assert.deepEqual(current[0], before[0]);
     assert.equal(current[1].note, "Edited elsewhere");
-    const removal = edit(current);
-    store.api.removeBook({
+    const removal = await edit(current);
+    await store.api.removeBook({
       requestId: id(),
       row: current[1].row,
       token: current[1].token,
     });
-    assert.throws(() => store.api.saveSeriesPurchases(removal), /book changed/);
-    assert.deepEqual(store.api.getCollection().books[0], before[0]);
+    await assert.rejects(
+      async () => await store.api.saveSeriesPurchases(removal),
+      /book changed/,
+    );
+    assert.deepEqual((await store.api.getCollection()).books[0], before[0]);
   } finally {
-    store.close();
+    await store.close();
   }
 });

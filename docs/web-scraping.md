@@ -1,6 +1,6 @@
 # Publisher catalogs and metadata
 
-The Next.js server fetches publisher pages using native `fetch`. `lib/server/catalogs.ts` coordinates library lookups, stored covers, catalog annotations and stale-result fallback. Source-specific requests live in `lib/server/scrapers/`, with one module per publisher or metadata provider. `registry.ts` registers the active sources and their capabilities; `http.ts` shares bounded requests, redirect checks and page/API caching. `lib/server/scrape-cache.ts` owns durable SQLite response reuse and retry cooldowns. Pure parsers and URL validation remain in `lib/domain/`; Yaakz’s serialized product decoder and shared gallery parser remain in `lib/server/yaakz.ts` and `lib/server/publisher-covers.ts`.
+The Next.js server fetches publisher pages using native `fetch`. `lib/server/catalogs.ts` coordinates library lookups, stored covers, catalog annotations and stale-result fallback. Source-specific requests live in `lib/server/scrapers/`, with one module per publisher or metadata provider. `registry.ts` registers the active sources and their capabilities; `http.ts` shares bounded requests, redirect checks and page/API caching. `lib/server/scrape-cache.ts` owns durable PostgreSQL response reuse and retry cooldowns. Pure parsers and URL validation remain in `lib/domain/`; Yaakz’s serialized product decoder and shared gallery parser remain in `lib/server/yaakz.ts` and `lib/server/publisher-covers.ts`.
 
 Requests have a 15-second timeout and an 8 MB response bound. Source and redirect allowlists reject unexpected hosts and credentials. External markup is parsed as data and never executed. The browser displays titles as text.
 
@@ -22,7 +22,7 @@ Confirmed source matches have no expiry and are reused by ISBN lookup, price com
 
 Only administrators may force `refresh: true`, inspect raw caches, purge entries, or run re-crawls. Ordinary users can reuse public metadata and discover unknown books, but cannot re-scrape confirmed matches. See [accounts and privacy](multi-user.md).
 
-Explicit `refresh: true` bypasses fresh catalog and page/API entries. Failed requests impose a durable 15-minute cooldown on that resource, including explicit refreshes, so repeated views or restarts cannot hammer an unavailable source. Failed cover downloads use the same durable cooldown per image URL, so loading cached listings does not repeatedly wait on unavailable images. Stored images remain available during a cooldown. HTTP errors and invalid JSON are not cached as successful responses. Failed catalog refreshes keep previous records and their original check time with a stale warning. Saved releases and explicit series links are independent database records, so cache expiry does not remove them. SQLite owns this cache; outgoing `fetch` still uses `no-store` to avoid an additional framework cache overriding refresh behavior.
+Explicit `refresh: true` bypasses fresh catalog and page/API entries. Failed requests impose a durable 15-minute cooldown on that resource, including explicit refreshes, so repeated views or restarts cannot hammer an unavailable source. Failed cover downloads use the same durable cooldown per image URL, so loading cached listings does not repeatedly wait on unavailable images. Stored images remain available during a cooldown. HTTP errors and invalid JSON are not cached as successful responses. Failed catalog refreshes keep previous records and their original check time with a stale warning. Saved releases and explicit series links are independent database records, so cache expiry does not remove them. PostgreSQL owns this cache; outgoing `fetch` still uses `no-store` to avoid an additional framework cache overriding refresh behavior.
 
 ## Metadata and cache maintenance
 
@@ -262,7 +262,7 @@ Trimmed live fixtures cover two print-release pages, a print product and all fiv
 
 [Hanmoto](https://www.hanmoto.com/) supplies exact-ISBN metadata and cover choices for Japanese books, including Kodansha manga. Requests use `/bd/isbn/<isbn>` for canonical ISBNs beginning with `9784`; missing ISBNs and other language groups require no request. The source is registered for automatic ISBN cover lookup and **Pull covers**, after Kinokuniya and before Google Books in metadata preference. It does not require an API key.
 
-The parser verifies both the page's `books:isbn` metadata and its main book's ISBN field. Titles omit ruby pronunciation readings. Cover images must come from `img.hanmoto.com/bd/img/` and their filename must match the requested ISBN; placeholders, logos and other volumes' images are excluded. Source links identify the Hanmoto page while retaining the book's saved publisher link. Images use permanent SQLite storage and normal backup behavior.
+The parser verifies both the page's `books:isbn` metadata and its main book's ISBN field. Titles omit ruby pronunciation readings. Cover images must come from `img.hanmoto.com/bd/img/` and their filename must match the requested ISBN; placeholders, logos and other volumes' images are excluded. Source links identify the Hanmoto page while retaining the book's saved publisher link. Images use permanent PostgreSQL storage and normal backup behavior.
 
 Parsed results and confirmed 404s are reused for 24 hours across ISBN lookup and cover choices. Refresh bypasses fresh data; failures retain the durable 15-minute retry cooldown and allow other metadata providers to supply a result. Lookup and cover-miss cache versions were advanced so earlier misses do not suppress the new source.
 
@@ -272,7 +272,7 @@ Trimmed live fixtures cover Domestic na Kanojo volumes 1 and 28. On October 30, 
 
 `lib/client/matching.ts` contains the shelf-gap, release-ownership and discovery rules. ISBN matches use canonical ISBN-13 values. Series matching keeps publisher, language and format separate, while colored and regular manga share volume coverage. A single-volume special edition can satisfy its regular volume; multi-volume sets require review. Saved catalog aliases retain the mapping between a shelf title and the publisher’s name.
 
-Cover discovery runs on the server. `lib/server/covers.ts` validates image bytes and stores them permanently in SQLite under content-based IDs. The browser requests `/api/covers/<id>`; it does not fetch publisher images directly. See `tests/integration/covers.test.mjs` for size bounds, redirects, persistence, backups and failed-source behavior.
+Cover discovery runs on the server. `lib/server/covers.ts` validates image bytes and stores them permanently in PostgreSQL under content-based IDs. The browser requests `/api/covers/<id>`; it does not fetch publisher images directly. See `tests/integration/covers.test.mjs` for size bounds, redirects, persistence, backups and failed-source behavior.
 
 ## Maintaining a publisher
 

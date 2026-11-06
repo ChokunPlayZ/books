@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createAnimeService } from "../../lib/server/anime.ts";
 import { createApplicationApi } from "../../lib/server/api.ts";
 import { manga, novel, searchMedia, seasonMedia } from "../helpers/anime.mjs";
@@ -14,7 +14,7 @@ const response = (media, hasNextPage = false) =>
   );
 
 test("AniList search validates input, filters format, preserves title ambiguity, caches and coalesces requests", async () => {
-  const store = openStore(":memory:");
+  const store = await openStore();
   let calls = 0;
   const service = createAnimeService(store, async (url, options) => {
     calls++;
@@ -60,7 +60,7 @@ test("AniList search validates input, filters format, preserves title ambiguity,
       null,
     );
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
@@ -69,7 +69,7 @@ test("seasonal pagination merges books and stale results survive process restart
     mkdtempSync(join(tmpdir(), "books-anime-")),
     "library.sqlite",
   );
-  let store = openStore(path),
+  let store = await openStore(path),
     calls = 0;
   let service = createAnimeService(store, async (_url, options) => {
     calls++;
@@ -84,8 +84,8 @@ test("seasonal pagination merges books and stale results survive process restart
   assert.equal(calls, 2);
   assert.equal(fresh.items.length, 3);
   assert.equal(fresh.complete, true);
-  store.close();
-  store = openStore(path);
+  await store.close();
+  store = await openStore(path);
   calls = 0;
   service = createAnimeService(store, async (_url, options) => {
     calls++;
@@ -107,12 +107,12 @@ test("seasonal pagination merges books and stale results survive process restart
     await service.getSeasonalAnimeBooks({ ...spec, refresh: true });
     assert.equal(calls, 2, "retry cooldown protects failed sources");
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
 test("AniList rate limits apply across queries and malformed or failed GraphQL data never becomes an empty success", async () => {
-  const store = openStore(":memory:");
+  const store = await openStore();
   let calls = 0;
   const limited = createAnimeService(store, async () => {
     calls++;
@@ -133,7 +133,7 @@ test("AniList rate limits apply across queries and malformed or failed GraphQL d
       { data: {} },
       { data: { Page: { media: [null] } } },
     ]) {
-      const isolated = openStore(":memory:");
+      const isolated = await openStore();
       try {
         await assert.rejects(
           createAnimeService(
@@ -143,16 +143,16 @@ test("AniList rate limits apply across queries and malformed or failed GraphQL d
           /complete results/,
         );
       } finally {
-        isolated.close();
+        await isolated.close();
       }
     }
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
 test("season requests reject invalid filters before contacting AniList and default to the current season", async () => {
-  const store = openStore(":memory:");
+  const store = await openStore();
   let calls = 0;
   const service = createAnimeService(store, async (_url, options) => {
     calls++;
@@ -186,6 +186,6 @@ test("season requests reject invalid filters before contacting AniList and defau
       manga.id,
     );
   } finally {
-    store.close();
+    await store.close();
   }
 });

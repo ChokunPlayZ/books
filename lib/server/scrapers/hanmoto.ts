@@ -16,7 +16,7 @@ export const hanmoto: ScraperDefinition = {
       const isbn = canonicalIsbn(raw);
       // This catalog covers Japanese ISBNs. Other editions need no request.
       if (!isbn.startsWith("9784")) return null;
-      return scrapeCache.get(
+      return await scrapeCache.get(
         "hanmoto-isbn:v3:" + isbn,
         { maxAge: SCRAPE_TTL.isbn, refresh },
         async () => {

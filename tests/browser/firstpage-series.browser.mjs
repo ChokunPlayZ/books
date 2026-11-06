@@ -3,7 +3,7 @@ import { testUrl } from "../helpers/browser.mjs";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 
 const fixture = (name) =>
@@ -14,7 +14,7 @@ const fixture = (name) =>
 const chishunki = "ชิชุนกิจัง สาวใสวัยลองรัก";
 const parfait = "พาร์เฟ่ต์แลกรัก ของคุณซัคคิวบัสเกินต้าน";
 const boss = "แล้วไหงบอสสาวจอมเฮี้ยบถึงได้ย้อนเวลามาหวานกับผมสมัยเรียนแบบนี้";
-const store = openStore(":memory:");
+const store = await openStore();
 const books = JSON.parse(
   readFileSync(new URL("../fixtures/collection.json", import.meta.url), "utf8"),
 );
@@ -26,7 +26,7 @@ for (const book of firstpage.filter(
   (book) => book.series !== boss || book.volume < 3,
 ))
   // Legacy snapshots can contain invalid ISBNs; this check compares series/volumes.
-  store.api.saveBook({
+  await store.api.saveBook({
     book: { ...book, isbn: "" },
     requestId: crypto.randomUUID(),
   });
@@ -169,5 +169,5 @@ try {
   );
 } finally {
   await browser.close();
-  store.close();
+  await store.close();
 }

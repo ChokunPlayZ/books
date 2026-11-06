@@ -14,9 +14,12 @@ export const SESSION_SECONDS = 14 * 86400;
 export const authHash = (value: string) =>
   createHash("sha256").update(value).digest("hex");
 
-export function sessionUser(store: Store, token?: string): User | null {
+export async function sessionUser(
+  store: Store,
+  token?: string,
+): Promise<User | null> {
   if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
-  const row = store.db
+  const row = await store.db
     .prepare(
       `
     SELECT users.id,users.username,users.role,users.google_subject,sessions.credential_hash
@@ -37,22 +40,25 @@ export function sessionUser(store: Store, token?: string): User | null {
   };
 }
 
-export function hasSession(store: Store, token?: string | null) {
-  return !!sessionUser(store, token ?? undefined);
+export async function hasSession(store: Store, token?: string | null) {
+  return !!(await sessionUser(store, token ?? undefined));
 }
 
-export function authorize(
+export async function authorize(
   store: Store,
   request: { cookies?: { get(name: string): { value: string } | undefined } },
 ) {
-  const user = sessionUser(store, request.cookies?.get(SESSION_COOKIE)?.value);
+  const user = await sessionUser(
+    store,
+    request.cookies?.get(SESSION_COOKIE)?.value,
+  );
   if (!user) throw new AppError("Sign in to open your library.", 401);
   return user;
 }
 
 // Server-side provisioning only. A verified Google email can claim this mapping
 // once; subsequent sign-ins are bound to Google's immutable subject, not email.
-export function createAccount(
+export async function createAccount(
   store: Store,
   username: string,
   rawEmail: string,
@@ -68,18 +74,22 @@ export function createAccount(
       "Use a username of 1–64 letters, numbers, dots, underscores or hyphens.",
     );
   if (!email) throw new AppError("Use a valid Google email address.");
-  if (
-    store.db
-      .prepare("SELECT id FROM users WHERE username=? OR email=?")
-      .get(username, email)
-  )
-    throw new AppError("That username or email is already in use.", 409);
-  const result = store.db
-    .prepare(
-      "INSERT INTO users (username,email,role,created_at) VALUES (?,?,?,?)",
+  return store.transaction(async () => {
+    if (
+      await store.db
+        .prepare(
+          "SELECT id FROM users WHERE lower(username)=lower(?) OR lower(email)=lower(?)",
+        )
+        .get(username, email)
     )
-    .run(username, email, role, new Date().toISOString());
-  return { id: Number(result.lastInsertRowid), username, role };
+      throw new AppError("That username or email is already in use.", 409);
+    const result = await store.db
+      .prepare(
+        "INSERT INTO users (username,email,role,created_at) VALUES (?,?,?,?) RETURNING id",
+      )
+      .run(username, email, role, new Date().toISOString());
+    return { id: Number(result.lastInsertRowid), username, role };
+  });
 }
 
 export type GoogleIdentity = {
@@ -91,7 +101,7 @@ export type GoogleIdentity = {
 
 // Only call with claims validated by the OIDC client (issuer, audience,
 // signature, expiry and nonce). No HTTP endpoint accepts identity claims.
-export function signInWithGoogle(
+export async function signInWithGoogle(
   store: Store,
   identity: GoogleIdentity,
   adminEmail = process.env.BOOKS_ADMIN_EMAIL,
@@ -107,12 +117,12 @@ export function signInWithGoogle(
       "Use a Google account with a verified email address.",
       403,
     );
-  return store.transaction(() => {
-    let user = store.db
+  return store.transaction(async () => {
+    let user = await store.db
       .prepare("SELECT * FROM users WHERE google_subject=?")
       .get(identity.sub);
-    const reserved = store.db
-      .prepare("SELECT * FROM users WHERE email=?")
+    const reserved = await store.db
+      .prepare("SELECT * FROM users WHERE lower(email)=lower(?)")
       .get(email);
     if (user && reserved && reserved.id !== user.id)
       throw new AppError(
@@ -120,7 +130,9 @@ export function signInWithGoogle(
         409,
       );
     if (!user) {
-      const admin = store.db.prepare("SELECT * FROM users WHERE id=1").get();
+      const admin = await store.db
+        .prepare("SELECT * FROM users WHERE id=1")
+        .get();
       const target =
         reserved ||
         (email === normalizeEmail(adminEmail) && !admin.google_subject
@@ -142,40 +154,40 @@ export function signInWithGoogle(
             "Use a Gmail or Google Workspace account to link an existing library.",
             403,
           );
-        store.db
+        await store.db
           .prepare("UPDATE users SET google_subject=?,email=? WHERE id=?")
           .run(identity.sub, email, target.id);
         user = target;
       } else {
         // An old email may still be another account's display username after an
         // email change. Never merge identities or let that collision block signup.
-        const username = store.db
-          .prepare("SELECT id FROM users WHERE username=?")
-          .get(email)
+        const username = (await store.db
+          .prepare("SELECT id FROM users WHERE lower(username)=lower(?)")
+          .get(email))
           ? "google-" + authHash(identity.sub).slice(0, 32)
           : email;
-        const result = store.db
+        const result = await store.db
           .prepare(
-            "INSERT INTO users (username,email,google_subject,role,created_at) VALUES (?,?,?,'user',?)",
+            "INSERT INTO users (username,email,google_subject,role,created_at) VALUES (?,?,?,'user',?) RETURNING id",
           )
           .run(username, email, identity.sub, new Date().toISOString());
         user = { id: result.lastInsertRowid, username, role: "user" };
       }
     } else {
-      store.db
+      await store.db
         .prepare("UPDATE users SET email=? WHERE id=?")
         .run(email, user.id);
     }
     const now = Date.now();
-    store.db.prepare("DELETE FROM sessions WHERE expires_at<=?").run(now);
+    await store.db.prepare("DELETE FROM sessions WHERE expires_at<=?").run(now);
     // Bound the number of active sessions per account.
-    store.db
+    await store.db
       .prepare(
         "DELETE FROM sessions WHERE user_id=? AND token_hash NOT IN (SELECT token_hash FROM sessions WHERE user_id=? ORDER BY expires_at DESC LIMIT 9)",
       )
       .run(user.id, user.id);
     const token = randomBytes(32).toString("hex");
-    store.db
+    await store.db
       .prepare(
         "INSERT INTO sessions (token_hash,expires_at,user_id,credential_hash) VALUES (?,?,?,?)",
       )
@@ -196,9 +208,9 @@ export function signInWithGoogle(
   });
 }
 
-export function signOut(store: Store, token?: string) {
+export async function signOut(store: Store, token?: string) {
   if (token && /^[a-f0-9]{64}$/.test(token))
-    store.db
+    await store.db
       .prepare("DELETE FROM sessions WHERE token_hash=?")
       .run(authHash(token));
 }

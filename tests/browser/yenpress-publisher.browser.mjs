@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { chromium } from "playwright";
 import { testUrl } from "../helpers/browser.mjs";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 
 const fixture = (name) =>
@@ -11,7 +11,7 @@ const fixture = (name) =>
     new URL("../fixtures/publishers/" + name, import.meta.url),
     "utf8",
   );
-const store = openStore(":memory:");
+const store = await openStore();
 let offline = false;
 const catalogs = createCatalogService(store, async (url, options) => {
   if (offline) return new Response("Offline", { status: 503 });
@@ -215,5 +215,5 @@ try {
   );
 } finally {
   await browser.close();
-  store.close();
+  await store.close();
 }

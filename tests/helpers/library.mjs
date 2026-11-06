@@ -1,14 +1,14 @@
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "./database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { parseImport } from "../../lib/server/importer.ts";
 import { releaseItem } from "../../lib/domain.ts";
 
-// Exercise the same SQLite records and catalog services as the application.
-export function createTestLibrary(books = []) {
-  const store = openStore(":memory:");
+// Exercise the same PostgreSQL records and catalog services as the application.
+export async function createTestLibrary(books = []) {
+  const store = await openStore();
   if (books.length) {
     const plan = parseImport(Buffer.from(JSON.stringify(books)), "books.json");
-    store.importData(plan, plan.fingerprint);
+    await store.importData(plan, plan.fingerprint);
   }
   let responses = [];
   const catalogs = createCatalogService(store, async (url) => {
@@ -26,6 +26,6 @@ export function createTestLibrary(books = []) {
     setResponses(entries) {
       responses = entries;
     },
-    close: () => store.close(),
+    close: async () => await store.close(),
   };
 }

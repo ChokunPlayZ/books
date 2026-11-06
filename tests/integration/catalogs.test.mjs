@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import {
   parseCatalog,
@@ -33,7 +33,7 @@ test("Node scrapers parse real publisher fixtures, follow pagination and keep du
       "books.sqlite",
     ),
     calls = [];
-  let store = openStore(path),
+  let store = await openStore(path),
     entries = [
       { match: "phoenixnext", text: fixture("publishers/phoenix.html") },
     ];
@@ -44,8 +44,8 @@ test("Node scrapers parse real publisher fixtures, follow pagination and keep du
   assert.ok(calls[1].url.endsWith("?p=2"));
   await service.getPublisherReleases({ publisherId: "phoenix" });
   assert.equal(calls.length, 2);
-  store.close();
-  store = openStore(path);
+  await store.close();
+  store = await openStore(path);
   service = createCatalogService(
     store,
     remote([{ match: "phoenixnext", status: 503 }]),
@@ -59,12 +59,12 @@ test("Node scrapers parse real publisher fixtures, follow pagination and keep du
     assert.equal(stale.checkedAt, fresh.checkedAt);
     assert.equal(stale.items.length, 3);
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
 test("full series catalogs work independently of recent releases and explicit links persist by edition", async () => {
-  const store = openStore(":memory:"),
+  const store = await openStore(),
     calls = [];
   const service = createCatalogService(
     store,
@@ -102,11 +102,14 @@ test("full series catalogs work independently of recent releases and explicit li
       publisherId: "phoenix",
       type: "Manga (TH)",
     };
-    store.api.setSeriesCatalog({ ...spec, url: category, title: series });
+    await store.api.setSeriesCatalog({ ...spec, url: category, title: series });
     const linked = await service.getSeriesCatalog(spec);
     assert.equal(linked.complete, true);
     assert.equal(linked.items[0].catalogSeries, spec.series);
-    assert.equal(store.savedSeriesCatalog({ ...spec, type: "LN (TH)" }), null);
+    assert.equal(
+      await store.savedSeriesCatalog({ ...spec, type: "LN (TH)" }),
+      null,
+    );
     const unknown = await service.getSeriesCatalog({
       ...spec,
       series: "Unknown name",
@@ -118,17 +121,17 @@ test("full series catalogs work independently of recent releases and explicit li
       "http://www.phoenixnext.com/book-series/a.html",
       "https://www.phoenixnext.com.evil.test/book-series/a.html",
     ])
-      assert.throws(
-        () => store.api.setSeriesCatalog({ ...spec, url }),
+      await assert.rejects(
+        async () => await store.api.setSeriesCatalog({ ...spec, url }),
         /category URL/,
       );
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
 test("parser fixes apply to durable catalogs from before the update, including outage fallbacks", async () => {
-  const store = openStore(":memory:");
+  const store = await openStore();
   const items = parseCatalog(
     "phoenix",
     fixture("series-catalogs/phoenix-category.html"),
@@ -154,8 +157,12 @@ test("parser fixes apply to durable catalogs from before the update, including o
     error: "",
   };
   const key = "series:v1:phoenix:" + digest(series + "\nManga (TH)\n");
-  store.cache.put(key, JSON.stringify(previous), 604800);
-  store.cache.put("releases:v1:phoenix", JSON.stringify(previous), 604800);
+  await store.cache.put(key, JSON.stringify(previous), 604800);
+  await store.cache.put(
+    "releases:v1:phoenix",
+    JSON.stringify(previous),
+    604800,
+  );
   const service = createCatalogService(
     store,
     remote([{ match: "phoenixnext", status: 503 }]),
@@ -185,12 +192,12 @@ test("parser fixes apply to durable catalogs from before the update, including o
       releases.items.every((item) => !item.title.includes("Special Set")),
     );
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
 test("Luckpim Node requests carry cookies and tokens, retain stock, preorder labels and full search results", async () => {
-  const store = openStore(":memory:"),
+  const store = await openStore(),
     calls = [],
     entries = [
       {
@@ -223,12 +230,12 @@ test("Luckpim Node requests carry cookies and tokens, retain stock, preorder lab
     assert.equal(result.items.length, 6);
     assert.ok(calls.some((call) => call.url.includes("limit=-1")));
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
 test("Naiin verifies the exact edition; Google Books fallback checks ISBN equivalence", async () => {
-  const store = openStore(":memory:"),
+  const store = await openStore(),
     calls = [],
     entries = [
       { match: "search-result", text: fixture("publishers/naiin-search.html") },
@@ -263,7 +270,7 @@ test("Naiin verifies the exact edition; Google Books fallback checks ISBN equiva
     assert.equal(other.details.source, "Google Books");
     assert.equal(other.details.title, "Matilda");
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
@@ -286,7 +293,7 @@ test("publisher categories distinguish light novels from manga without guessing 
 });
 
 test("First Page categories named after volume 1 match the shelf series without guessing titles", async () => {
-  const store = openStore(":memory:");
+  const store = await openStore();
   const categories = parseSeriesCategories(
     "firstpage",
     fixture("series-catalogs/firstpage-directory.html"),
@@ -336,7 +343,7 @@ test("First Page categories named after volume 1 match the shelf series without 
 
     // A manually linked shelf alias must also compare against the category's series name.
     const alias = { ...spec, series: "My shelf alias" };
-    store.api.setSeriesCatalog({
+    await store.api.setSeriesCatalog({
       ...alias,
       url: numbered.url,
       title: numbered.title,
@@ -347,12 +354,12 @@ test("First Page categories named after volume 1 match the shelf series without 
     const cached = await service.getSeriesCatalog(alias);
     assert.equal(cached.items[0].catalogVariant, false);
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
 test("Refresh catalog rechecks First Page's directory after a category could not be matched", async () => {
-  const store = openStore(":memory:");
+  const store = await openStore();
   const directory = fixture("series-catalogs/firstpage-directory.html");
   const entries = [
     {
@@ -389,6 +396,6 @@ test("Refresh catalog rechecks First Page's directory after a category could not
       2,
     );
   } finally {
-    store.close();
+    await store.close();
   }
 });

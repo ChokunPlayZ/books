@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import {
   yenPressDirectoryTitles,
@@ -48,9 +48,9 @@ const book = {
   publisher: "Ize Press",
   status: "Read",
 };
-function database(t) {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+async function database(t) {
+  const store = await openStore();
+  t.after(async () => await store.close());
   return store;
 }
 function remote(
@@ -95,7 +95,7 @@ function remote(
   };
 }
 
-test("Yen Press is a publisher, its imprints share matching, and series URL validation stays on the publisher site", () => {
+test("Yen Press is a publisher, its imprints share matching, and series URL validation stays on the publisher site", async () => {
   assert.ok(PUBLISHERS.some((publisher) => publisher.id === "yenpress"));
   for (const name of ["Yen Press", "Yen On", "Ize Press", "JY"]) {
     assert.equal(publisherKey(name), "yenpress");
@@ -125,7 +125,7 @@ test("Yen Press is a publisher, its imprints share matching, and series URL vali
     releaseSeriesKey("Solo Leveling (comic)"),
     releaseSeriesKey(book.series),
   );
-  const records = json("yenpress-directory-1.json").results;
+  const records = (await json("yenpress-directory-1.json")).results;
   const manga = structuredClone(records[1]);
   manga.imprint_id.raw = "2";
   assert.equal(yenPressDirectoryTitles([manga])[0].type, "Manga (EN)");
@@ -166,11 +166,11 @@ test("series pages read all fifteen print volumes, exact covers and formats, exc
   );
 });
 
-test("release calendar confirms physical ISBNs with the index and excludes chapters, audio and digital-only books", () => {
+test("release calendar confirms physical ISBNs with the index and excludes chapters, audio and digital-only books", async () => {
   const candidates = yenPressCalendar(fixture("yenpress-calendar.html"));
   assert.equal(candidates.length, 4);
   const items = yenPressPrintReleases(
-    json("yenpress-print-releases.json"),
+    await json("yenpress-print-releases.json"),
     candidates,
   );
   assert.equal(items.length, 3);
@@ -181,7 +181,7 @@ test("release calendar confirms physical ISBNs with the index and excludes chapt
   assert.ok(items.some((item) => item.type === "Manga (EN)"));
   assert.ok(items.every((item) => /Oct 2026/.test(item.availability)));
   assert.ok(!items.some((item) => item.isbn === "9798855455267"));
-  const partial = json("yenpress-print-releases.json");
+  const partial = await json("yenpress-print-releases.json");
   partial.meta.page.total_results++;
   assert.throws(() => yenPressPrintReleases(partial, candidates), /incomplete/);
   assert.throws(() => yenPressCalendar("<h1>Calendar</h1>"), /changed/);
@@ -191,8 +191,8 @@ test("discovery paginates the full series index, resolves first volumes, shares 
   const directory = mkdtempSync(join(tmpdir(), "books-yenpress-publisher-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const path = join(directory, "library.sqlite");
-  let store = openStore(path);
-  t.after(() => store.close());
+  let store = await openStore(path);
+  t.after(async () => await store.close());
   const calls = [],
     fetchImpl = remote(calls);
   let service = createCatalogService(store, fetchImpl);
@@ -217,7 +217,7 @@ test("discovery paginates the full series index, resolves first volumes, shares 
   assert.equal(first.complete, true);
   assert.equal(first.item.volume, 1);
   assert.equal(first.item.isbn, book.isbn);
-  store.api.saveBook({ requestId: "yenpress_publisher_1", book });
+  await store.api.saveBook({ requestId: "yenpress_publisher_1", book });
   const catalog = await service.getSeriesCatalog(spec);
   assert.equal(catalog.complete, true);
   assert.equal(catalog.needsSelection, false);
@@ -228,11 +228,11 @@ test("discovery paginates the full series index, resolves first volumes, shares 
     "Discovery and series comparison share their public resources",
   );
   assert.equal(
-    discoverTitles([comic], store.api.getCollection().books).length,
+    discoverTitles([comic], (await store.api.getCollection()).books).length,
     0,
   );
-  store.close();
-  store = openStore(path);
+  await store.close();
+  store = await openStore(path);
   service = createCatalogService(store, () =>
     assert.fail("Cached catalog should work offline"),
   );
@@ -247,7 +247,7 @@ test("discovery paginates the full series index, resolves first volumes, shares 
 });
 
 test("publisher releases and selected series links survive outages and malformed pagination never replaces a good directory", async (t) => {
-  const store = database(t),
+  const store = await database(t),
     calls = [];
   let service = createCatalogService(store, remote(calls));
   const releases = await service.getPublisherReleases({
@@ -256,7 +256,7 @@ test("publisher releases and selected series links survive outages and malformed
   assert.equal(releases.items.length, 3);
   assert.equal(releases.stale, false);
   await service.getPublisherDirectory({ url: "https://yenpress.com/" });
-  store.api.setSeriesCatalog({
+  await store.api.setSeriesCatalog({
     ...spec,
     series: "My translated title",
     url,
@@ -298,10 +298,10 @@ test("publisher releases and selected series links survive outages and malformed
 });
 
 test("publisher cover lookup works without an ISBN and uses the exact owned volume", async (t) => {
-  const store = database(t),
+  const store = await database(t),
     calls = [],
     service = createCatalogService(store, remote(calls));
-  store.api.saveBook({
+  await store.api.saveBook({
     requestId: "yenpress_publisher_cover",
     book: { ...book, isbn: "" },
   });
@@ -316,7 +316,7 @@ test("publisher cover lookup works without an ISBN and uses the exact owned volu
 });
 
 test("long series follow only same-series print continuation links, deduplicate overlaps, and retain a complete check after a partial refresh", async (t) => {
-  const store = database(t),
+  const store = await database(t),
     calls = [],
     seriesUrl = "https://yenpress.com/series/spice-and-wolf";
   let failing = false;
@@ -336,7 +336,7 @@ test("long series follow only same-series print continuation links, deduplicate 
     series: "Spice and Wolf",
     type: "LN (EN)",
   };
-  store.api.setSeriesCatalog({ ...seriesSpec, url: seriesUrl });
+  await store.api.setSeriesCatalog({ ...seriesSpec, url: seriesUrl });
   const catalog = await service.getSeriesCatalog(seriesSpec);
   assert.equal(catalog.complete, true);
   assert.equal(catalog.total, 24);

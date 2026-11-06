@@ -9,7 +9,7 @@ const url = process.env.BOOKS_TEST_URL;
 const coverId = (source) => createHash("sha256").update(source).digest("hex");
 const coverUrl = (source) => "/api/covers/" + coverId(source);
 // The isolated server seeds this real image. Preview-only IDs below are mocks;
-// translate them when persisting the selected cover to the actual SQLite store.
+// translate them when persisting the selected cover to the actual PostgreSQL store.
 const storedCoverId = createHash("sha256")
   .update(
     Buffer.from(

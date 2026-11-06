@@ -11,7 +11,7 @@ export default function CollectionTabs({
   data,
 }: {
   view: CollectionView;
-  data: ReturnType<Store["api"]["getCollection"]>;
+  data: Awaited<ReturnType<Store["api"]["getCollection"]>>;
 }) {
   return (
     <nav id="libraryNavigation" className="tabs" aria-label="Collection views">

@@ -13,7 +13,7 @@ const cards = fixture.match(
 );
 const directory =
   '<a href="https://www.firstpagepro.com/category/1/light-novel-books">Light Novel</a><a href="https://www.firstpagepro.com/category/8/light-novel-books/shared">เรื่องสองรูปแบบ</a><a href="https://www.firstpagepro.com/category/2/manga-books">Manga</a><a href="https://www.firstpagepro.com/category/9/manga-books/shared">เรื่องสองรูปแบบ</a>';
-const library = createTestLibrary();
+const library = await createTestLibrary();
 library.setResponses([
   { match: "/category/8", text: '<span class="tsk-all">1</span>' + cards[1] },
   { match: "/category/9", text: '<span class="tsk-all">1</span>' + cards[0] },
@@ -69,7 +69,7 @@ try {
         (book) => book.type === "LN (TH)",
       ),
   );
-  assert.equal(library.api.getCollection().books[0].type, "LN (TH)");
+  assert.equal((await library.api.getCollection()).books[0].type, "LN (TH)");
   await page.locator("#discoveryType").selectOption("Manga");
   assert.equal(await page.locator("#discoveryList .discovery-card").count(), 1);
   await page
@@ -130,5 +130,5 @@ try {
   );
 } finally {
   await browser.close();
-  library.close();
+  await library.close();
 }

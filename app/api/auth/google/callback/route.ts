@@ -21,17 +21,17 @@ export async function GET(request: NextRequest) {
   try {
     origin = appOrigin();
   } catch (error) {
-    return errorResponse(error);
+    return await errorResponse(error);
   }
   let response: NextResponse;
   try {
-    const { store } = getApp();
+    const { store } = await getApp();
     const result = await finishGoogleSignIn(
       store,
       request.nextUrl,
       request.cookies.get(OAUTH_COOKIE)?.value,
     );
-    signOut(store, request.cookies.get(SESSION_COOKIE)?.value);
+    await signOut(store, request.cookies.get(SESSION_COOKIE)?.value);
     response = NextResponse.redirect(new URL(result.returnTo, origin), 303);
     response.cookies.set(SESSION_COOKIE, result.token, cookieOptions());
   } catch (error) {

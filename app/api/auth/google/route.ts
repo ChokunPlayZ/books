@@ -13,8 +13,8 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
-    const { store } = getApp();
-    enforceRateLimit(store, "oauth:start", 300, 60_000);
+    const { store } = await getApp();
+    await enforceRateLimit(store, "oauth:start", 300, 60_000);
     const { url, browserToken } = await beginGoogleSignIn(
       store,
       request.nextUrl.searchParams.get("returnTo"),
@@ -24,6 +24,6 @@ export async function POST(request: NextRequest) {
     response.cookies.set(OAUTH_COOKIE, browserToken, oauthCookieOptions());
     return response;
   } catch (error) {
-    return errorResponse(error);
+    return await errorResponse(error);
   }
 }

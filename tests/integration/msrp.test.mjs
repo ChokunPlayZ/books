@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { SCRAPER_SOURCES } from "../../lib/server/scrapers/registry.ts";
 import { kodanshaBook } from "../../lib/domain/kodansha.ts";
@@ -40,8 +40,8 @@ for (const [source, isbn, search, product, msrp, price] of [
   test(
     source + " scrapes MSRP separately from its discounted shop price",
     async (t) => {
-      const store = openStore(":memory:");
-      t.after(() => store.close());
+      const store = await openStore();
+      t.after(async () => await store.close());
       const catalogs = createCatalogService(
         store,
         async (url) =>

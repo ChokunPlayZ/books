@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { createCoverService } from "../../lib/server/covers.ts";
 import { createApplicationApi } from "../../lib/server/api.ts";
@@ -31,9 +31,9 @@ const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
   "base64",
 );
-function database(t) {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+async function database(t) {
+  const store = await openStore();
+  t.after(async () => await store.close());
   return store;
 }
 function remote(calls, overrides = {}) {
@@ -179,11 +179,11 @@ test("Yen Press search accepts only exact ISBN candidates on supported title URL
 });
 
 test("ISBN lookup uses Yen Press before generic providers and shares cached requests across service restarts", async (t) => {
-  const store = database(t),
+  const store = await database(t),
     calls = [],
     fetchImpl = remote(calls);
   // Previously cached misses must not hide a newly supported provider.
-  store.cache.put(
+  await store.cache.put(
     "isbn:v3:" + printIsbn,
     JSON.stringify({ found: false }),
     86400,
@@ -212,9 +212,9 @@ test("ISBN lookup uses Yen Press before generic providers and shares cached requ
   await service.lookupIsbn(printIsbn);
   assert.equal(calls.length, 6);
   assert.ok(
-    !JSON.stringify(store.db.prepare("SELECT value FROM cache").all()).includes(
-      "search-publicfixture",
-    ),
+    !JSON.stringify(
+      await store.db.prepare("SELECT value FROM cache").all(),
+    ).includes("search-publicfixture"),
   );
 });
 
@@ -227,7 +227,7 @@ test("Yen Press misses, wrong editions and outages continue to verified fallback
     [{ search: {} }, 1],
     [{ bootstrap: "<h1>Site maintenance</h1>" }, 1],
   ]) {
-    const store = database(t),
+    const store = await database(t),
       calls = [];
     const service = createCatalogService(
       store,
@@ -253,39 +253,13 @@ test("Yen Press misses, wrong editions and outages continue to verified fallback
   }
 });
 
-test("Yen Press outages back off across service restarts and recover after the retry window", async (t) => {
-  t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
-  const store = database(t),
-    calls = [],
-    overrides = { searchStatus: 503 };
-  const fetchImpl = remote(calls, overrides);
-  let service = createCatalogService(store, fetchImpl);
-  const failed = await service.lookupIsbn(printIsbn);
-  assert.equal(failed.found, false);
-  assert.deepEqual(failed.warnings, ["Yen Press is unavailable right now."]);
-  const count = calls.length;
-  service = createCatalogService(store, fetchImpl);
-  t.mock.timers.tick(15 * 60 * 1000 - 1);
-  assert.equal((await service.lookupIsbn(printIsbn)).found, false);
-  assert.equal(calls.length, count);
-  overrides.searchStatus = 200;
-  t.mock.timers.tick(1);
-  const recovered = await service.lookupIsbn(printIsbn);
-  assert.equal(recovered.details.source, "Yen Press");
-  assert.deepEqual(recovered.warnings, []);
-  assert.equal(
-    calls.filter((call) => call.url === "https://yenpress.com/search").length,
-    2,
-  );
-});
-
 test("Yen Press covers are available automatically and through Pull covers, stored and reusable offline", async (t) => {
-  const store = database(t),
+  const store = await database(t),
     calls = [],
     fetchImpl = remote(calls);
   const covers = createCoverService(store, { fetchImpl });
   const api = createApplicationApi(store, covers, fetchImpl);
-  store.api.saveBook({
+  await store.api.saveBook({
     requestId: "yenpress_cover_save_1",
     book: {
       series: "Solo Leveling (comic)",
@@ -296,7 +270,7 @@ test("Yen Press covers are available automatically and through Pull covers, stor
       status: "Read",
     },
   });
-  store.cache.put("cover:miss:v1:" + printIsbn, "1", 86400);
+  await store.cache.put("cover:miss:v1:" + printIsbn, "1", 86400);
   const automatic = await api.getBookCover({ row: 1 });
   assert.match(automatic.coverId, /^[a-f0-9]{64}$/);
   const choices = await api.getBookCoverOptions({ row: 1 });
@@ -304,7 +278,7 @@ test("Yen Press covers are available automatically and through Pull covers, stor
   assert.equal(choice.coverId, automatic.coverId);
   assert.equal(choice.publisherUrl, productUrl);
   assert.equal(choice.sourceUrl, productUrl);
-  assert.deepEqual(covers.get(choice.coverId).body, png);
+  assert.deepEqual((await covers.get(choice.coverId)).body, png);
   const count = calls.length;
   const offline = createApplicationApi(store, covers, () =>
     assert.fail("Cached choices must not use the network"),

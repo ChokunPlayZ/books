@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { kinokuniyaBook } from "../../lib/domain/kinokuniya.ts";
 import { kinokuniyaSearchUrl, safeCoverUrl } from "../../lib/domain/urls.ts";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { createCoverService } from "../../lib/server/covers.ts";
 import { createApplicationApi } from "../../lib/server/api.ts";
@@ -21,9 +21,9 @@ const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
   "base64",
 );
-function database(t) {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+async function database(t) {
+  const store = await openStore();
+  t.after(async () => await store.close());
   return store;
 }
 function remote(calls, overrides = {}) {
@@ -135,11 +135,15 @@ test("Kinokuniya cover hosts and search links stay bounded to the public Thailan
 });
 
 test("ISBN lookup and automatic covers use Kinokuniya before generic providers and bypass old cached misses", async (t) => {
-  const store = database(t),
+  const store = await database(t),
     calls = [];
-  store.cache.put("isbn:v4:" + isbn, JSON.stringify({ found: false }), 86400);
-  store.cache.put("cover:miss:v2:" + isbn, "1", 86400);
-  store.api.saveBook({
+  await store.cache.put(
+    "isbn:v4:" + isbn,
+    JSON.stringify({ found: false }),
+    86400,
+  );
+  await store.cache.put("cover:miss:v2:" + isbn, "1", 86400);
+  await store.api.saveBook({
     requestId: "kinokuniya_auto_cover_1",
     book: {
       series: "Tuesdays with Morrie",
@@ -180,7 +184,7 @@ test("wrong editions, missing books, malformed markup and redirects allow verifi
     [{ product: "<h1>Maintenance</h1>" }, true],
     [{ status: 302, headers: { location: "https://evil.test/" } }, true],
   ]) {
-    const store = database(t),
+    const store = await database(t),
       calls = [];
     const service = createCatalogService(
       store,
@@ -210,10 +214,10 @@ test("wrong editions, missing books, malformed markup and redirects allow verifi
 
 test("Kinokuniya outages retain the retry cooldown across refreshes and service restarts", async (t) => {
   t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
-  const store = database(t),
+  const store = await database(t),
     calls = [],
     overrides = { status: 503 };
-  store.api.saveBook({
+  await store.api.saveBook({
     requestId: "kinokuniya_outage_cover_1",
     book: {
       series: "Tuesdays with Morrie",
@@ -236,13 +240,13 @@ test("Kinokuniya outages retain the retry cooldown across refreshes and service 
 });
 
 test("Kinokuniya cover choices are stored, preserve the publisher link and can be reused offline", async (t) => {
-  const store = database(t),
+  const store = await database(t),
     calls = [],
     fetchImpl = remote(calls);
   const covers = createCoverService(store, { fetchImpl });
   const api = createApplicationApi(store, covers, fetchImpl);
   const publisherUrl = "https://publisher.example/book";
-  store.api.saveBook({
+  await store.api.saveBook({
     requestId: "kinokuniya_stored_cover_1",
     book: {
       series: "Tuesdays with Morrie",
@@ -258,7 +262,7 @@ test("Kinokuniya cover choices are stored, preserve the publisher link and can b
   assert.ok(choice);
   assert.equal(choice.sourceUrl, productUrl);
   assert.equal(choice.publisherUrl, publisherUrl);
-  assert.deepEqual(covers.get(choice.coverId).body, png);
+  assert.deepEqual((await covers.get(choice.coverId)).body, png);
   assert.deepEqual(choices.warnings, []);
   const offline = createApplicationApi(store, covers, () =>
     assert.fail("Use cached choices and stored images"),
@@ -271,7 +275,7 @@ test("Kinokuniya cover choices are stored, preserve the publisher link and can b
 
 test("a Kinokuniya 404 is a confirmed miss reused for one day", async (t) => {
   t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
-  const store = database(t),
+  const store = await database(t),
     calls = [],
     fetchImpl = remote(calls, { status: 404 });
   let service = createCatalogService(store, fetchImpl);

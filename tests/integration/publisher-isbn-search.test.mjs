@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { phoenixBook } from "../../lib/domain/phoenix.ts";
 const fixture = (file) =>
@@ -70,7 +70,7 @@ test("Phoenix verifies the main product barcode and ignores search-card and reco
 });
 
 test("Phoenix ISBN search covers the full catalog, canonicalizes input, verifies details and caches across services", async () => {
-  const store = openStore(":memory:");
+  const store = await openStore();
   try {
     const calls = [];
     const fetchImpl = async (address) => {
@@ -108,14 +108,14 @@ test("Phoenix ISBN search covers the full catalog, canonicalizes input, verifies
       /not valid/,
     );
     assert.equal(calls.length, 2);
-    assert.equal(store.api.getCollection().books.length, 0);
+    assert.equal((await store.api.getCollection()).books.length, 0);
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
 test("First Page Pro ISBN search returns candidates without manufacturing verified ISBNs", async () => {
-  const store = openStore(":memory:");
+  const store = await openStore();
   try {
     let address;
     const api = createCatalogService(store, async (url) => {
@@ -133,15 +133,15 @@ test("First Page Pro ISBN search returns candidates without manufacturing verifi
     assert.equal(result.items.length, 2);
     assert.ok(result.items.every((item) => item.isbn === ""));
     assert.match(result.warnings.join(" "), /not been checked/);
-    assert.equal(store.api.getCollection().books.length, 0);
+    assert.equal((await store.api.getCollection()).books.length, 0);
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
 test("empty searches are cached; failures and changed markup are not treated as confirmed misses", async () => {
   for (const publisherId of ["phoenix", "firstpage"]) {
-    const store = openStore(":memory:");
+    const store = await openStore();
     try {
       let calls = 0;
       const api = createCatalogService(store, async () => {
@@ -159,14 +159,14 @@ test("empty searches are cached; failures and changed markup are not treated as 
       await api.searchPublisherIsbn({ publisherId, isbn });
       assert.equal(calls, 1);
     } finally {
-      store.close();
+      await store.close();
     }
   }
   for (const response of [
     () => new Response("Source unavailable", { status: 503 }),
     () => new Response("Changed markup"),
   ]) {
-    const store = openStore(":memory:");
+    const store = await openStore();
     try {
       let calls = 0;
       const fetchImpl = async () => {
@@ -188,13 +188,13 @@ test("empty searches are cached; failures and changed markup are not treated as 
       );
       assert.equal(calls, 1);
     } finally {
-      store.close();
+      await store.close();
     }
   }
 });
 
 test("Phoenix search does not accept a fuzzy result whose product barcode differs", async () => {
-  const store = openStore(":memory:");
+  const store = await openStore();
   try {
     const api = createCatalogService(
       store,
@@ -211,17 +211,21 @@ test("Phoenix search does not accept a fuzzy result whose product barcode differ
       0,
     );
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
 test("scan lookup uses verified Phoenix metadata and covers, bypasses old misses and reuses durable requests", async (t) => {
-  const store = openStore(":memory:"),
+  const store = await openStore(),
     calls = [];
-  t.after(() => store.close());
-  store.cache.put("isbn:v6:" + isbn, JSON.stringify({ found: false }), 86400);
-  store.cache.put("cover:miss:v4:" + isbn, "1", 86400);
-  store.api.saveBook({
+  t.after(async () => await store.close());
+  await store.cache.put(
+    "isbn:v6:" + isbn,
+    JSON.stringify({ found: false }),
+    86400,
+  );
+  await store.cache.put("cover:miss:v4:" + isbn, "1", 86400);
+  await store.api.saveBook({
     requestId: "phoenix_auto_cover_1",
     book: {
       series: "เส้นทางจาริกอาถรรพ์",
@@ -261,7 +265,7 @@ test("scan lookup uses verified Phoenix metadata and covers, bypasses old misses
     results[0].details.coverUrl,
   );
   assert.ok(results[0].details.coverUrl);
-  assert.equal(store.api.getCollection().books.length, 1);
+  assert.equal((await store.api.getCollection()).books.length, 1);
 });
 
 test("Phoenix misses, wrong barcodes and unavailable pages continue to verified ISBN fallback providers", async (t) => {
@@ -273,8 +277,8 @@ test("Phoenix misses, wrong barcodes and unavailable pages continue to verified 
     [{ search: "<h1>Changed markup</h1>" }, true],
     [{ product: "<h1>Maintenance</h1>" }, true],
   ]) {
-    const store = openStore(":memory:");
-    t.after(() => store.close());
+    const store = await openStore();
+    t.after(async () => await store.close());
     const api = createCatalogService(
       store,
       scanRemote([], {
@@ -302,10 +306,10 @@ test("Phoenix misses, wrong barcodes and unavailable pages continue to verified 
 
 test("Phoenix scan lookup retries failed sources after the cooldown across service restarts", async (t) => {
   t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
-  const store = openStore(":memory:"),
+  const store = await openStore(),
     calls = [],
     overrides = { productStatus: 503 };
-  t.after(() => store.close());
+  t.after(async () => await store.close());
   let api = createCatalogService(store, scanRemote(calls, overrides));
   assert.equal((await api.lookupIsbn(isbn)).found, false);
   const count = calls.length;

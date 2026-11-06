@@ -1,10 +1,8 @@
-import { DatabaseSync } from "node:sqlite";
-import type { SQLInputValue, SQLOutputValue } from "node:sqlite";
+import { openDatabase, type DatabaseValue } from "./database.ts";
 import type { Book, StoredBook } from "../types.ts";
-import { mkdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { createUserContext, type User } from "./user-context.ts";
+import type { Preferences } from "../preferences.ts";
 import {
   normalizeBookType,
   normalizeRecordTypes,
@@ -42,9 +40,8 @@ const columns = [
 ];
 const fields = BOOK_APP.fields;
 
-type DatabaseRow = Record<string, SQLOutputValue> & {
+type DatabaseRow = Record<string, DatabaseValue> & {
   id: number;
-  user_version: number;
   revision: number;
   series: string;
   isbn: string;
@@ -68,7 +65,7 @@ type CoverRow = {
   body: Uint8Array;
 };
 
-export type Store = ReturnType<typeof openStore>;
+export type Store = Awaited<ReturnType<typeof openStore>>;
 export class AppError extends Error {
   readonly status: number;
   constructor(message, status = 400) {
@@ -77,214 +74,11 @@ export class AppError extends Error {
   }
 }
 
-export function openStore(
-  path = process.env.BOOKS_DATABASE_PATH || "./data/books.sqlite",
+export async function openStore(
+  connectionString = process.env.DATABASE_URL || "",
 ) {
-  if (path !== ":memory:")
-    mkdirSync(dirname(resolve(path)), { recursive: true });
-  const db = new DatabaseSync(path);
-  db.exec(
-    "PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;",
-  );
-  // Add subsequent schema versions here; startup never drops or reseeds user data.
-  const version = Number(db.prepare("PRAGMA user_version").get().user_version);
-  if (version > 6) {
-    db.close();
-    throw new Error("This database needs a newer version of Book Collection.");
-  }
-  if (version === 0)
-    db.exec(`
-    BEGIN IMMEDIATE;
-    CREATE TABLE books (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, isbn TEXT NOT NULL DEFAULT '',
-      canonical_isbn TEXT NOT NULL DEFAULT '', series TEXT NOT NULL, type TEXT NOT NULL DEFAULT '',
-      publisher TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT '', volume REAL,
-      source TEXT NOT NULL DEFAULT '', price REAL, purchased_on TEXT NOT NULL DEFAULT '',
-      note TEXT NOT NULL DEFAULT '', revision INTEGER NOT NULL DEFAULT 1,
-      trash_id TEXT UNIQUE, removed_at TEXT
-    );
-    CREATE INDEX books_isbn ON books(canonical_isbn) WHERE removed_at IS NULL;
-    CREATE INDEX books_series ON books(series) WHERE removed_at IS NULL;
-    CREATE TABLE receipts (id TEXT PRIMARY KEY, kind TEXT NOT NULL, hash TEXT NOT NULL, result TEXT NOT NULL, created_at TEXT NOT NULL);
-    CREATE TABLE saved_releases (id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL);
-    CREATE TABLE series_catalogs (series_key TEXT NOT NULL, publisher_id TEXT NOT NULL, type TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(series_key,publisher_id,type));
-    CREATE TABLE options (field TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(field,value));
-    CREATE TABLE cache (key TEXT PRIMARY KEY, value TEXT NOT NULL, expires_at INTEGER NOT NULL);
-    CREATE TABLE imports (fingerprint TEXT PRIMARY KEY, result TEXT NOT NULL, created_at TEXT NOT NULL);
-    CREATE TABLE sessions (token_hash TEXT PRIMARY KEY, expires_at INTEGER NOT NULL);
-    CREATE TABLE login_attempts (key TEXT PRIMARY KEY, attempts INTEGER NOT NULL, resets_at INTEGER NOT NULL);
-    PRAGMA user_version=1;
-    COMMIT;
-  `);
-  if (version < 2)
-    db.exec(`
-      BEGIN IMMEDIATE;
-      ALTER TABLE books ADD COLUMN cover_url TEXT NOT NULL DEFAULT '';
-      ALTER TABLE books ADD COLUMN publisher_url TEXT NOT NULL DEFAULT '';
-      PRAGMA user_version=2;
-      COMMIT;
-    `);
-  if (version < 3)
-    db.exec(`
-      BEGIN IMMEDIATE;
-      CREATE TABLE covers (id TEXT PRIMARY KEY, content_type TEXT NOT NULL, body BLOB NOT NULL, created_at TEXT NOT NULL);
-      CREATE TABLE cover_sources (url TEXT PRIMARY KEY, cover_id TEXT NOT NULL REFERENCES covers(id));
-      ALTER TABLE books ADD COLUMN cover_id TEXT REFERENCES covers(id);
-      PRAGMA user_version=3;
-      COMMIT;
-    `);
-  if (version < 4)
-    db.exec(`
-      BEGIN IMMEDIATE;
-      ALTER TABLE books ADD COLUMN page_count INTEGER CHECK (page_count IS NULL OR page_count > 0);
-      PRAGMA user_version=4;
-      COMMIT;
-    `);
-  if (version < 5) {
-    db.exec(`
-      BEGIN IMMEDIATE;
-      CREATE TABLE users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL COLLATE NOCASE UNIQUE,
-        password_hash TEXT NOT NULL DEFAULT '', role TEXT NOT NULL CHECK(role IN ('admin','user')),
-        created_at TEXT NOT NULL
-      );
-      INSERT INTO users (id,username,role,created_at) VALUES (1,'admin','admin',datetime('now'));
-      CREATE TABLE owned_books (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, isbn TEXT NOT NULL DEFAULT '',
-        canonical_isbn TEXT NOT NULL DEFAULT '', series TEXT NOT NULL, type TEXT NOT NULL DEFAULT '',
-        publisher TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT '', volume REAL,
-        source TEXT NOT NULL DEFAULT '', price REAL, purchased_on TEXT NOT NULL DEFAULT '',
-        note TEXT NOT NULL DEFAULT '', revision INTEGER NOT NULL DEFAULT 1,
-        trash_id TEXT, removed_at TEXT, cover_url TEXT NOT NULL DEFAULT '',
-        publisher_url TEXT NOT NULL DEFAULT '', cover_id TEXT REFERENCES covers(id),
-        page_count INTEGER CHECK(page_count IS NULL OR page_count > 0),
-        user_id INTEGER NOT NULL REFERENCES users(id),
-        msrp REAL CHECK(msrp IS NULL OR msrp >= 0), msrp_currency TEXT NOT NULL DEFAULT '',
-        edition TEXT NOT NULL DEFAULT '', UNIQUE(user_id,trash_id)
-      );
-      INSERT INTO owned_books
-        (id,isbn,canonical_isbn,series,type,publisher,status,volume,source,price,purchased_on,note,revision,trash_id,removed_at,cover_url,publisher_url,cover_id,page_count,user_id,edition)
-        SELECT id,isbn,canonical_isbn,series,type,publisher,status,volume,source,price,purchased_on,note,revision,trash_id,removed_at,cover_url,publisher_url,cover_id,page_count,1,type FROM books;
-      DROP TABLE books;
-      ALTER TABLE owned_books RENAME TO books;
-      CREATE INDEX books_isbn ON books(user_id,canonical_isbn) WHERE removed_at IS NULL;
-      CREATE INDEX books_series ON books(user_id,series) WHERE removed_at IS NULL;
-      CREATE TABLE owned_sessions (
-        token_hash TEXT PRIMARY KEY, expires_at INTEGER NOT NULL,
-        user_id INTEGER NOT NULL REFERENCES users(id), credential_hash TEXT NOT NULL DEFAULT ''
-      );
-      INSERT INTO owned_sessions SELECT token_hash,expires_at,1,'' FROM sessions;
-      DROP TABLE sessions;
-      ALTER TABLE owned_sessions RENAME TO sessions;
-    `);
-    for (const [table, definition, keys] of [
-      [
-        "receipts",
-        "id TEXT NOT NULL, kind TEXT NOT NULL, hash TEXT NOT NULL, result TEXT NOT NULL, created_at TEXT NOT NULL",
-        "id",
-      ],
-      [
-        "saved_releases",
-        "id TEXT NOT NULL, data TEXT NOT NULL, updated_at TEXT NOT NULL",
-        "id",
-      ],
-      [
-        "series_catalogs",
-        "series_key TEXT NOT NULL, publisher_id TEXT NOT NULL, type TEXT NOT NULL, data TEXT NOT NULL",
-        "series_key,publisher_id,type",
-      ],
-      ["options", "field TEXT NOT NULL, value TEXT NOT NULL", "field,value"],
-      [
-        "imports",
-        "fingerprint TEXT NOT NULL, result TEXT NOT NULL, created_at TEXT NOT NULL",
-        "fingerprint",
-      ],
-    ]) {
-      db.exec(`CREATE TABLE owned_${table} (${definition},user_id INTEGER NOT NULL REFERENCES users(id),PRIMARY KEY(user_id,${keys}));
-        INSERT INTO owned_${table} SELECT *,1 FROM ${table};
-        DROP TABLE ${table}; ALTER TABLE owned_${table} RENAME TO ${table};`);
-    }
-    const rows = db.prepare("SELECT id,type FROM books").all();
-    const update = db.prepare("UPDATE books SET type=? WHERE id=?");
-    for (const row of rows) update.run(normalizeBookType(row.type), row.id);
-    const catalogs = db.prepare("SELECT * FROM series_catalogs").all();
-    // Keep every legacy link, including two language editions that now have the
-    // same three-way type. Internal keys need not be user-visible type labels.
-    const updateCatalog = db.prepare(
-      "UPDATE series_catalogs SET data=? WHERE series_key=? AND publisher_id=? AND type=? AND user_id=?",
-    );
-    for (const row of catalogs)
-      updateCatalog.run(
-        JSON.stringify(normalizeRecordTypes(JSON.parse(String(row.data)))),
-        row.series_key,
-        row.publisher_id,
-        row.type,
-        row.user_id,
-      );
-    // Legacy alias-derived catalogs belong to the original owner, not the public cache.
-    db.exec(
-      "UPDATE cache SET key='user:1:' || key WHERE key LIKE 'series:v1:%'",
-    );
-    for (const row of db
-      .prepare("SELECT key,value FROM cache WHERE key LIKE 'isbn:%'")
-      .all()) {
-      try {
-        const result = JSON.parse(String(row.value));
-        if (result?.found && result.details?.url) {
-          db.prepare("UPDATE cache SET expires_at=0 WHERE key=?").run(row.key);
-          const url = new URL(result.details.url).href;
-          const key = "scrape:v1:" + digest("text:" + url);
-          const response = db
-            .prepare("SELECT value FROM cache WHERE key=?")
-            .get(key);
-          if (response)
-            db.prepare("UPDATE cache SET value=?,expires_at=0 WHERE key=?").run(
-              JSON.stringify({
-                ...JSON.parse(String(response.value)),
-                permanent: true,
-              }),
-              key,
-            );
-        }
-      } catch {
-        /* Unreadable disposable cache records can be discovered again. */
-      }
-    }
-    db.exec(
-      "DELETE FROM options WHERE field='type'; PRAGMA user_version=5; COMMIT;",
-    );
-  }
-  if (version < 6)
-    db.exec(`
-      BEGIN IMMEDIATE;
-      ALTER TABLE users ADD COLUMN google_subject TEXT;
-      ALTER TABLE users ADD COLUMN email TEXT NOT NULL DEFAULT '' COLLATE NOCASE;
-      CREATE UNIQUE INDEX users_google_subject ON users(google_subject) WHERE google_subject IS NOT NULL;
-      CREATE UNIQUE INDEX users_email ON users(email) WHERE email<>'';
-      -- Password sessions must never survive the switch to Google-only auth.
-      DELETE FROM sessions;
-      UPDATE users SET password_hash='';
-      CREATE TABLE oauth_attempts (
-        state_hash TEXT PRIMARY KEY, browser_hash TEXT NOT NULL,
-        code_verifier TEXT NOT NULL, nonce TEXT NOT NULL, return_to TEXT NOT NULL,
-        expires_at INTEGER NOT NULL
-      );
-      CREATE INDEX oauth_attempts_expiry ON oauth_attempts(expires_at);
-      CREATE TABLE request_limits (key TEXT PRIMARY KEY, attempts INTEGER NOT NULL, resets_at INTEGER NOT NULL);
-      CREATE INDEX request_limits_expiry ON request_limits(resets_at);
-      CREATE INDEX sessions_expiry ON sessions(expires_at);
-      CREATE INDEX sessions_user_expiry ON sessions(user_id,expires_at);
-      PRAGMA user_version=6;
-      COMMIT;
-    `);
-  db.exec(
-    "CREATE TABLE IF NOT EXISTS cover_access (user_id INTEGER NOT NULL REFERENCES users(id),cover_id TEXT NOT NULL REFERENCES covers(id),PRIMARY KEY(user_id,cover_id))",
-  );
-  db.exec(
-    "CREATE TABLE IF NOT EXISTS user_cover_sources (user_id INTEGER NOT NULL REFERENCES users(id),url TEXT NOT NULL,cover_id TEXT NOT NULL REFERENCES covers(id),PRIMARY KEY(user_id,url))",
-  );
   const users = createUserContext();
-  db.function("app_user_id", () => users.current().id);
+  const db = await openDatabase(connectionString, () => users.current().id);
   const owned = "user_id=app_user_id()";
   function requireAdmin() {
     if (users.current().role !== "admin")
@@ -293,23 +87,50 @@ export function openStore(
         403,
       );
   }
-  const run = (sql: string, ...args: SQLInputValue[]) =>
-    db.prepare(sql).run(...args);
-  const all = <T = DatabaseRow>(sql: string, ...args: SQLInputValue[]) =>
-    db.prepare(sql).all(...args) as T[];
-  const get = <T = DatabaseRow>(sql: string, ...args: SQLInputValue[]) =>
-    db.prepare(sql).get(...args) as T | undefined;
-  function transaction<T>(fn: () => T): T {
-    db.exec("BEGIN IMMEDIATE");
-    try {
-      const result = fn();
-      db.exec("COMMIT");
-      return result;
-    } catch (error) {
-      db.exec("ROLLBACK");
-      throw error;
-    }
-  }
+  const run = async (sql: string, ...args: DatabaseValue[]) =>
+    await db.prepare(sql).run(...args);
+  const all = async <T = DatabaseRow>(sql: string, ...args: DatabaseValue[]) =>
+    (await db.prepare(sql).all(...args)) as T[];
+  const get = async <T = DatabaseRow>(sql: string, ...args: DatabaseValue[]) =>
+    (await db.prepare(sql).get(...args)) as T | undefined;
+  const preferences = {
+    async get(): Promise<Preferences> {
+      const row = await get(
+        "SELECT locale,theme FROM users WHERE id=app_user_id()",
+      );
+      if (!row) throw new AppError("Sign in to open your library.", 401);
+      return {
+        locale: row.locale as Preferences["locale"],
+        theme: row.theme as Preferences["theme"],
+      };
+    },
+    async update(input: unknown): Promise<Preferences> {
+      if (!input || typeof input !== "object" || Array.isArray(input))
+        throw new AppError("Choose a valid language or theme.");
+      const changes = input as Record<string, unknown>;
+      const keys = Object.keys(changes);
+      if (
+        !keys.length ||
+        keys.some((key) => key !== "locale" && key !== "theme") ||
+        (Object.hasOwn(changes, "locale") &&
+          (typeof changes.locale !== "string" ||
+            !["en", "th"].includes(changes.locale))) ||
+        (Object.hasOwn(changes, "theme") &&
+          (typeof changes.theme !== "string" ||
+            !["light", "dark", "system"].includes(changes.theme)))
+      )
+        throw new AppError("Choose a valid language or theme.");
+      return await transaction(async () => {
+        for (const key of keys)
+          await run(
+            `UPDATE users SET ${key}=? WHERE id=app_user_id()`,
+            changes[key] as string,
+          );
+        return preferences.get();
+      });
+    },
+  };
+  const transaction = db.transaction;
   function book(row: DatabaseRow): StoredBook {
     const data = Object.fromEntries(
       fields.map((field, index) => [field, row[columns[index]] ?? ""]),
@@ -327,10 +148,10 @@ export function openStore(
       token: digest(stableJson([row.id, row.revision, data])),
     };
   }
-  function current(request) {
+  async function current(request) {
     if (!Number.isSafeInteger(request.row))
       throw new AppError("Choose a book and try again.");
-    const row = get(
+    const row = await get(
       `SELECT * FROM books WHERE ${owned} AND id=? AND removed_at IS NULL`,
       request.row,
     );
@@ -341,12 +162,12 @@ export function openStore(
       );
     return row;
   }
-  function receipt(kind, request, fn) {
+  async function receipt(kind, request, fn) {
     if (!request || !/^[a-zA-Z0-9_-]{12,100}$/.test(request.requestId || ""))
       throw new AppError("Refresh the app and try again.");
-    return transaction(() => {
+    return await transaction(async () => {
       const hash = digest(stableJson(request));
-      const previous = get(
+      const previous = await get(
         `SELECT * FROM receipts WHERE ${owned} AND id=?`,
         request.requestId,
       );
@@ -358,8 +179,8 @@ export function openStore(
           );
         return JSON.parse(previous.result);
       }
-      const result = fn();
-      run(
+      const result = await fn();
+      await run(
         "INSERT INTO receipts VALUES (?,?,?,?,?,app_user_id())",
         request.requestId,
         kind,
@@ -370,16 +191,16 @@ export function openStore(
       return result;
     });
   }
-  function rememberOptions(data) {
+  async function rememberOptions(data) {
     for (const field of ["series", "type", "publisher", "status", "source"])
       if (data[field])
-        run(
-          "INSERT OR IGNORE INTO options VALUES (?,?,app_user_id())",
+        await run(
+          "INSERT INTO options VALUES (?,?,app_user_id()) ON CONFLICT DO NOTHING",
           field,
           String(data[field]),
         );
   }
-  function insertBook(data, removedAt = null, trashId = null) {
+  async function insertBook(data, removedAt = null, trashId = null) {
     data = {
       ...data,
       edition: data.edition ?? data.type,
@@ -391,22 +212,22 @@ export function openStore(
         : (data[field] ??
           (field === "volume" || field === "price" ? null : "")),
     );
-    const result = run(
-      `INSERT INTO books (${columns.join(",")},canonical_isbn,removed_at,trash_id,user_id) VALUES (${Array(13).fill("?").join(",")},app_user_id())`,
+    const result = await run(
+      `INSERT INTO books (${columns.join(",")},canonical_isbn,removed_at,trash_id,user_id) VALUES (${Array(13).fill("?").join(",")},app_user_id()) RETURNING id`,
       ...args,
       canonicalIsbn(data.isbn),
       removedAt,
       trashId,
     );
-    rememberOptions(data);
+    await rememberOptions(data);
     const id = Number(result.lastInsertRowid);
-    writeMetadata(id, data);
+    await writeMetadata(id, data);
     return id;
   }
-  function writeMetadata(id, data) {
+  async function writeMetadata(id, data) {
     const metadata = bookMetadata(data);
     let coverId = data.coverId;
-    const existing = get(
+    const existing = await get(
       `SELECT cover_url,cover_id FROM books WHERE ${owned} AND id=?`,
       id,
     );
@@ -414,10 +235,13 @@ export function openStore(
       coverId =
         metadata.coverUrl === existing?.cover_url
           ? existing.cover_id
-          : covers.bySource(metadata.coverUrl)?.id;
-    if (coverId && (!covers.get(coverId) || !covers.canAccess(coverId)))
+          : (await covers.bySource(metadata.coverUrl))?.id;
+    if (
+      coverId &&
+      (!(await covers.get(coverId)) || !(await covers.canAccess(coverId)))
+    )
       throw new AppError("Choose an available stored cover.");
-    run(
+    await run(
       `UPDATE books SET cover_url=?,publisher_url=?,cover_id=?,page_count=?,msrp=?,msrp_currency=?,edition=? WHERE ${owned} AND id=?`,
       metadata.coverUrl,
       metadata.publisherUrl,
@@ -429,17 +253,17 @@ export function openStore(
       id,
     );
   }
-  function duplicate(isbn, id) {
+  async function duplicate(isbn, id) {
     return (
       isbn &&
-      get(
+      (await get(
         `SELECT id FROM books WHERE ${owned} AND canonical_isbn=? AND removed_at IS NULL AND id<>?`,
         isbn,
         id || 0,
-      )
+      ))
     );
   }
-  function collection() {
+  async function collection() {
     const options = {
       series: [],
       type: [...BOOK_APP.types],
@@ -447,7 +271,7 @@ export function openStore(
       status: [...BOOK_APP.statuses],
       source: [],
     };
-    all(`SELECT * FROM options WHERE ${owned}`).forEach((row) => {
+    (await all(`SELECT * FROM options WHERE ${owned}`)).forEach((row) => {
       if (row.field !== "type" && options[row.field])
         options[row.field].push(row.value);
     });
@@ -455,7 +279,7 @@ export function openStore(
       (key) => (options[key] = [...new Set(options[key])].sort()),
     );
     const timeZone = process.env.BOOKS_TIME_ZONE || "Asia/Bangkok";
-    const rows = all(
+    const rows = await all(
       `SELECT * FROM books WHERE ${owned} AND removed_at IS NULL ORDER BY id`,
     );
     const groups = new Map();
@@ -470,8 +294,10 @@ export function openStore(
         series,
         token: titleToken(series, volumes),
       })),
-      trash: all(
-        `SELECT * FROM books WHERE ${owned} AND removed_at IS NOT NULL ORDER BY removed_at DESC,id DESC`,
+      trash: (
+        await all(
+          `SELECT * FROM books WHERE ${owned} AND removed_at IS NOT NULL ORDER BY removed_at DESC,id DESC`,
+        )
       ).map((row) => ({
         id: row.trash_id,
         removedAt: row.removed_at,
@@ -486,15 +312,17 @@ export function openStore(
         day: "2-digit",
       }).format(new Date()),
       publishers: PUBLISHERS,
-      savedReleases: savedReleases(),
-      seriesCatalogs: all(
-        `SELECT data FROM series_catalogs WHERE ${owned}`,
+      savedReleases: await savedReleases(),
+      seriesCatalogs: (
+        await all(`SELECT data FROM series_catalogs WHERE ${owned}`)
       ).map((row) => normalizeRecordTypes(JSON.parse(row.data))),
     };
   }
-  function savedReleases() {
-    return all(
-      `SELECT data FROM saved_releases WHERE ${owned} ORDER BY updated_at DESC,id`,
+  async function savedReleases() {
+    return (
+      await all(
+        `SELECT data FROM saved_releases WHERE ${owned} ORDER BY updated_at DESC,id`,
+      )
     ).map((row) => {
       const item = JSON.parse(row.data);
       if (item.publisherId === "firstpage")
@@ -507,7 +335,7 @@ export function openStore(
       stableJson([series, rows.map((row) => [row.id, row.revision])]),
     );
   }
-  function saveBookChange(request) {
+  async function saveBookChange(request) {
     const values = normalizeBook(request.book || {});
     const data = Object.fromEntries(
       fields.map((field, index) => [field, values[index]]),
@@ -518,7 +346,7 @@ export function openStore(
       )
         .toISOString()
         .slice(0, 10);
-    const existing = request.row == null ? null : current(request);
+    const existing = request.row == null ? null : await current(request);
     Object.assign(
       data,
       bookMetadata({
@@ -549,7 +377,7 @@ export function openStore(
       data.coverId = "";
     if (
       !request.allowDuplicate &&
-      duplicate(canonicalIsbn(data.isbn), existing?.id)
+      (await duplicate(canonicalIsbn(data.isbn), existing?.id))
     )
       throw new AppError(
         "That ISBN is already in your collection. Select Another copy to save a second copy.",
@@ -562,27 +390,27 @@ export function openStore(
           ? null
           : data[field],
       );
-      run(
+      await run(
         `UPDATE books SET ${columns.map((c) => c + "=?").join(",")},canonical_isbn=?,revision=revision+1 WHERE ${owned} AND id=?`,
         ...args,
         canonicalIsbn(data.isbn),
         existing.id,
       );
-      rememberOptions(data);
+      await rememberOptions(data);
       id = existing.id;
-      writeMetadata(id, data);
-    } else id = insertBook(data);
+      await writeMetadata(id, data);
+    } else id = await insertBook(data);
     return { row: id, action: existing ? "updated" : "added" };
   }
   const api = {
     getCollection: collection,
-    updateBooks(request: {
+    async updateBooks(request: {
       requestId: string;
       action: "status" | "remove" | "restore";
       status?: string;
       books: { row: number; token: string; trashId?: string }[];
     }) {
-      return receipt("batch-books", request, () => {
+      return await receipt("batch-books", request, async () => {
         if (
           !["status", "remove", "restore"].includes(request.action) ||
           !Array.isArray(request.books) ||
@@ -611,7 +439,7 @@ export function openStore(
               typeof selected.trashId !== "string"
             )
               throw new AppError("Choose removed books to restore.");
-            const row = get(
+            const row = await get(
               `SELECT * FROM books WHERE ${owned} AND id=? AND trash_id=? AND removed_at IS NOT NULL`,
               selected.row,
               selected.trashId,
@@ -621,20 +449,20 @@ export function openStore(
                 "A selected book changed. Refresh and select the books again.",
                 409,
               );
-            run(
+            await run(
               `UPDATE books SET removed_at=NULL,trash_id=NULL,revision=revision+1 WHERE ${owned} AND id=?`,
               row.id,
             );
           } else {
-            const row = current(selected);
+            const row = await current(selected);
             if (request.action === "status")
-              run(
+              await run(
                 `UPDATE books SET status=?,revision=revision+1 WHERE ${owned} AND id=?`,
                 status,
                 row.id,
               );
             else
-              run(
+              await run(
                 `UPDATE books SET trash_id=?,removed_at=?,revision=revision+1 WHERE ${owned} AND id=?`,
                 randomUUID(),
                 removedAt,
@@ -642,7 +470,7 @@ export function openStore(
               );
           }
         }
-        if (request.action === "status") rememberOptions({ status });
+        if (request.action === "status") await rememberOptions({ status });
         return {
           books: seen.size,
           action: request.action,
@@ -650,34 +478,36 @@ export function openStore(
         };
       });
     },
-    mergeSeries(request: {
+    async mergeSeries(request: {
       requestId: string;
       series: string;
       titles: { series: string; token: string }[];
     }) {
-      return receipt("merge-series", request, () => {
+      return await receipt("merge-series", request, async () => {
         if (!Array.isArray(request.titles) || request.titles.length < 2)
           throw new AppError("Select at least two series to merge.");
         const names = new Set<string>();
-        const titles = request.titles.map((title) => {
-          if (
-            !title ||
-            typeof title.series !== "string" ||
-            names.has(title.series)
-          )
-            throw new AppError("Include each series only once.");
-          names.add(title.series);
-          const rows = all(
-            `SELECT * FROM books WHERE ${owned} AND series=? AND removed_at IS NULL ORDER BY id`,
-            title.series,
-          );
-          if (!rows.length || titleToken(title.series, rows) !== title.token)
-            throw new AppError(
-              "A selected series changed. Close this dialog, refresh and select the series again.",
-              409,
+        const titles = await Promise.all(
+          request.titles.map(async (title) => {
+            if (
+              !title ||
+              typeof title.series !== "string" ||
+              names.has(title.series)
+            )
+              throw new AppError("Include each series only once.");
+            names.add(title.series);
+            const rows = await all(
+              `SELECT * FROM books WHERE ${owned} AND series=? AND removed_at IS NULL ORDER BY id`,
+              title.series,
             );
-          return { series: title.series, rows };
-        });
+            if (!rows.length || titleToken(title.series, rows) !== title.token)
+              throw new AppError(
+                "A selected series changed. Close this dialog, refresh and select the series again.",
+                409,
+              );
+            return { series: title.series, rows };
+          }),
+        );
         const series = request.series;
         if (typeof series !== "string" || !names.has(series))
           throw new AppError(
@@ -685,27 +515,27 @@ export function openStore(
           );
         for (const title of titles) {
           if (title.series === series) continue;
-          run(
+          await run(
             `UPDATE books SET series=?,revision=revision+1 WHERE ${owned} AND series=? AND removed_at IS NULL`,
             series,
             title.series,
           );
-          run(
+          await run(
             `DELETE FROM options WHERE ${owned} AND field='series' AND value=? AND NOT EXISTS (SELECT 1 FROM books WHERE ${owned} AND series=?)`,
             title.series,
             title.series,
           );
         }
-        rememberOptions({ series });
+        await rememberOptions({ series });
 
         // The destination's catalog choices take priority when editions overlap.
         const targetKey = catalogSeriesKey(series);
-        for (const row of all(
+        for (const row of await all(
           `SELECT data,type FROM series_catalogs WHERE ${owned} AND series_key=?`,
           targetKey,
         )) {
           const catalog = JSON.parse(row.data);
-          run(
+          await run(
             `UPDATE series_catalogs SET data=? WHERE ${owned} AND series_key=? AND publisher_id=? AND type=?`,
             JSON.stringify({ ...catalog, series }),
             targetKey,
@@ -718,18 +548,20 @@ export function openStore(
         );
         sourceKeys.delete(targetKey);
         const remainingKeys = new Set(
-          all(
-            `SELECT DISTINCT series FROM books WHERE ${owned} AND removed_at IS NULL`,
+          (
+            await all(
+              `SELECT DISTINCT series FROM books WHERE ${owned} AND removed_at IS NULL`,
+            )
           ).map((row) => catalogSeriesKey(row.series)),
         );
         for (const key of sourceKeys) {
-          for (const row of all(
+          for (const row of await all(
             `SELECT data,type FROM series_catalogs WHERE ${owned} AND series_key=?`,
             key,
           )) {
             const catalog = JSON.parse(row.data);
-            run(
-              "INSERT OR IGNORE INTO series_catalogs VALUES (?,?,?,?,app_user_id())",
+            await run(
+              "INSERT INTO series_catalogs VALUES (?,?,?,?,app_user_id()) ON CONFLICT DO NOTHING",
               targetKey,
               catalog.publisherId,
               row.type,
@@ -737,7 +569,7 @@ export function openStore(
             );
           }
           if (!remainingKeys.has(key))
-            run(
+            await run(
               `DELETE FROM series_catalogs WHERE ${owned} AND series_key=?`,
               key,
             );
@@ -752,10 +584,10 @@ export function openStore(
         };
       });
     },
-    saveTitle(request) {
-      return receipt("title", request, () => {
+    async saveTitle(request) {
+      return await receipt("title", request, async () => {
         const original = String(request.series || "");
-        const rows = all(
+        const rows = await all(
           `SELECT * FROM books WHERE ${owned} AND series=? AND removed_at IS NULL ORDER BY id`,
           original,
         );
@@ -768,8 +600,10 @@ export function openStore(
         if (!series || series.length > 500)
           throw new AppError("Enter a series name of up to 500 characters.");
         if (
-          all(
-            `SELECT DISTINCT series FROM books WHERE ${owned} AND removed_at IS NULL`,
+          (
+            await all(
+              `SELECT DISTINCT series FROM books WHERE ${owned} AND removed_at IS NULL`,
+            )
           ).some(
             (row) =>
               row.series !== original &&
@@ -816,7 +650,7 @@ export function openStore(
           const edition = editions.get(
             JSON.stringify([row.type, row.publisher]),
           );
-          run(
+          await run(
             `UPDATE books SET series=?,type=?,publisher=?,publisher_url=?,revision=revision+1 WHERE ${owned} AND id=?`,
             series,
             edition.type,
@@ -824,18 +658,18 @@ export function openStore(
             safePublisherUrl(row.publisher_url, edition.publisher),
             row.id,
           );
-          rememberOptions({
+          await rememberOptions({
             series,
             type: edition.type,
             publisher: edition.publisher,
           });
         }
         // Keep selected catalog categories attached when a title or edition is renamed.
-        const catalogs = all(
+        const catalogs = await all(
           `SELECT data FROM series_catalogs WHERE ${owned} AND series_key=?`,
           catalogSeriesKey(original),
         );
-        run(
+        await run(
           `DELETE FROM series_catalogs WHERE ${owned} AND series_key=?`,
           catalogSeriesKey(original),
         );
@@ -852,7 +686,7 @@ export function openStore(
             publisherKey(edition.publisher) !== catalog.publisherId
           )
             continue;
-          api.setSeriesCatalog({
+          await api.setSeriesCatalog({
             ...catalog,
             series,
             type: edition?.type ?? catalog.type,
@@ -861,10 +695,10 @@ export function openStore(
         return { series, volumes: rows.length, action: "title updated" };
       });
     },
-    checkOwnership(raw) {
+    async checkOwnership(raw) {
       const isbn = normalizeIsbn(raw);
       if (!isbn) throw new AppError("Enter or scan an ISBN first.");
-      const books = collection().books;
+      const books = (await collection()).books;
       return {
         isbn,
         books,
@@ -876,17 +710,17 @@ export function openStore(
         checkedAt: new Date().toISOString(),
       };
     },
-    saveBook(request) {
-      return receipt("save", request, () => {
-        return saveBookChange(request);
+    async saveBook(request) {
+      return await receipt("save", request, async () => {
+        return await saveBookChange(request);
       });
     },
-    saveSeriesVolumes(request: {
+    async saveSeriesVolumes(request: {
       requestId: string;
       series: string;
       changes: { row: number; token: string; book: Partial<Book> }[];
     }) {
-      return receipt("series-volumes", request, () => {
+      return await receipt("series-volumes", request, async () => {
         if (
           typeof request.series !== "string" ||
           !request.series ||
@@ -899,7 +733,7 @@ export function openStore(
           if (!change || typeof change !== "object" || seen.has(change.row))
             throw new AppError("Include each volume only once.");
           seen.add(change.row);
-          const row = current(change);
+          const row = await current(change);
           if ((row.series.trim() || "Untitled series") !== request.series)
             throw new AppError("Choose volumes from the same series.");
           if (
@@ -923,7 +757,7 @@ export function openStore(
               .map((field) => [field, change.book[field]]),
           );
           const { coverId, ...existing } = book(row);
-          saveBookChange({
+          await saveBookChange({
             row: change.row,
             token: change.token,
             book: { ...existing, ...updates },
@@ -934,7 +768,7 @@ export function openStore(
         return { volumes: seen.size, action: "volumes updated" };
       });
     },
-    saveSeriesPurchases(request: {
+    async saveSeriesPurchases(request: {
       requestId: string;
       series: string;
       changes: {
@@ -945,7 +779,7 @@ export function openStore(
         source: string;
       }[];
     }) {
-      return receipt("series-purchases", request, () => {
+      return await receipt("series-purchases", request, async () => {
         if (
           typeof request.series !== "string" ||
           !request.series ||
@@ -958,33 +792,36 @@ export function openStore(
           if (!change || typeof change !== "object" || seen.has(change.row))
             throw new AppError("Include each volume only once.");
           seen.add(change.row);
-          const row = current(change);
+          const row = await current(change);
           if ((row.series.trim() || "Untitled series") !== request.series)
             throw new AppError("Choose volumes from the same series.");
           const details = normalizePurchaseDetails(change);
-          run(
+          await run(
             `UPDATE books SET purchased_on=?,price=?,source=?,revision=revision+1 WHERE ${owned} AND id=?`,
             details.date,
             details.price === "" ? null : details.price,
             details.source,
             row.id,
           );
-          rememberOptions({ source: details.source });
+          await rememberOptions({ source: details.source });
         }
         return { volumes: seen.size, action: "purchases updated" };
       });
     },
-    setBookIsbn(request) {
-      return receipt("isbn", request, () => {
-        const row = current(request),
+    async setBookIsbn(request) {
+      return await receipt("isbn", request, async () => {
+        const row = await current(request),
           isbn = normalizeIsbn(request.isbn);
         if (!isbn) throw new AppError("Enter or scan an ISBN first.");
-        if (!request.allowDuplicate && duplicate(canonicalIsbn(isbn), row.id))
+        if (
+          !request.allowDuplicate &&
+          (await duplicate(canonicalIsbn(isbn), row.id))
+        )
           throw new AppError(
             "This ISBN belongs to another book on your shelf. Select Another copy if you own two copies.",
             409,
           );
-        run(
+        await run(
           `UPDATE books SET isbn=?,canonical_isbn=?,cover_id=CASE WHEN cover_url='' THEN NULL ELSE cover_id END,revision=revision+1 WHERE ${owned} AND id=?`,
           isbn,
           canonicalIsbn(isbn),
@@ -993,11 +830,11 @@ export function openStore(
         return { row: row.id, isbn, action: "isbn saved" };
       });
     },
-    removeBook(request) {
-      return receipt("remove", request, () => {
-        const row = current(request),
+    async removeBook(request) {
+      return await receipt("remove", request, async () => {
+        const row = await current(request),
           trashId = randomUUID();
-        run(
+        await run(
           `UPDATE books SET trash_id=?,removed_at=?,revision=revision+1 WHERE ${owned} AND id=?`,
           trashId,
           new Date().toISOString(),
@@ -1006,9 +843,9 @@ export function openStore(
         return { row: row.id, trashId, action: "removed" };
       });
     },
-    restoreBook(request) {
-      return receipt("restore", request, () => {
-        const row = get(
+    async restoreBook(request) {
+      return await receipt("restore", request, async () => {
+        const row = await get(
           `SELECT * FROM books WHERE ${owned} AND trash_id=? AND removed_at IS NOT NULL`,
           String(request.trashId || ""),
         );
@@ -1017,30 +854,34 @@ export function openStore(
             "This book has already been restored. Refresh your collection.",
             409,
           );
-        run(
+        await run(
           `UPDATE books SET removed_at=NULL,trash_id=NULL,revision=revision+1 WHERE ${owned} AND id=?`,
           row.id,
         );
         return { row: row.id, trashId: request.trashId, action: "restored" };
       });
     },
-    setSavedRelease(request) {
+    async setSavedRelease(request) {
       if (typeof request?.saved !== "boolean")
         throw new AppError("Choose Save for later or Unsave.");
       const item = normalizeRecordTypes(cleanRelease(request.release));
-      if (item.coverId && !covers.canAccess(item.coverId))
+      if (item.coverId && !(await covers.canAccess(item.coverId)))
         throw new AppError("Choose an available stored cover.");
       if (request.saved)
-        run(
+        await run(
           "INSERT INTO saved_releases VALUES (?,?,?,app_user_id()) ON CONFLICT(user_id,id) DO UPDATE SET data=excluded.data,updated_at=excluded.updated_at",
           item.id,
           JSON.stringify(item),
           new Date().toISOString(),
         );
-      else run(`DELETE FROM saved_releases WHERE ${owned} AND id=?`, item.id);
-      return { savedReleases: savedReleases() };
+      else
+        await run(
+          `DELETE FROM saved_releases WHERE ${owned} AND id=?`,
+          item.id,
+        );
+      return { savedReleases: await savedReleases() };
     },
-    setSeriesCatalog(request) {
+    async setSeriesCatalog(request) {
       const spec = seriesCatalogRequest(request),
         url = safeSeriesCatalogUrl(request.url, spec.publisherId);
       if (!url) throw new AppError("Use this publisher’s series category URL.");
@@ -1054,7 +895,7 @@ export function openStore(
           ? { edition: String(request.edition).slice(0, 500) }
           : {}),
       };
-      run(
+      await run(
         "INSERT INTO series_catalogs VALUES (?,?,?,?,app_user_id()) ON CONFLICT(user_id,series_key,publisher_id,type) DO UPDATE SET data=excluded.data",
         catalogSeriesKey(spec.series),
         spec.publisherId,
@@ -1064,9 +905,9 @@ export function openStore(
       return data;
     },
   };
-  function importData(plan, fingerprint?: string) {
-    return transaction(() => {
-      const previous = get(
+  async function importData(plan, fingerprint: string) {
+    return await transaction(async () => {
+      const previous = await get(
         `SELECT result FROM imports WHERE ${owned} AND fingerprint=?`,
         fingerprint,
       );
@@ -1075,31 +916,31 @@ export function openStore(
       // An import into an occupied library is ambiguous: preserve real duplicate copies.
       // Require an empty library instead of guessing whether matching volumes are duplicates.
       if (
-        get(`SELECT COUNT(*) AS n FROM books WHERE ${owned}`).n ||
-        get(`SELECT COUNT(*) AS n FROM saved_releases WHERE ${owned}`).n ||
-        get(`SELECT COUNT(*) AS n FROM series_catalogs WHERE ${owned}`).n
+        (await get(`SELECT COUNT(*) AS n FROM books WHERE ${owned}`)).n ||
+        (await get(`SELECT COUNT(*) AS n FROM saved_releases WHERE ${owned}`))
+          .n ||
+        (await get(`SELECT COUNT(*) AS n FROM series_catalogs WHERE ${owned}`))
+          .n
       )
         throw new AppError(
           "Import into an empty library. Download a backup first, or use a new database to restore it.",
           409,
         );
       for (const image of plan.covers || []) {
-        const stored = covers.put(image);
+        const stored = await covers.put(image);
         for (const url of image.sources || [])
-          covers.linkPrivateSource(url, stored.id);
+          await covers.linkPrivateSource(url, stored.id);
       }
-      plan.books.forEach((data) => insertBook(data));
-      plan.trash.forEach((entry) =>
-        insertBook(entry.book, entry.removedAt, entry.id || randomUUID()),
-      );
-      plan.savedReleases.forEach((item) =>
-        api.setSavedRelease({ release: item, saved: true }),
-      );
-      plan.seriesCatalogs.forEach((item) => api.setSeriesCatalog(item));
+      for (const data of plan.books) await insertBook(data);
+      for (const entry of plan.trash)
+        await insertBook(entry.book, entry.removedAt, entry.id || randomUUID());
+      for (const item of plan.savedReleases)
+        await api.setSavedRelease({ release: item, saved: true });
+      for (const item of plan.seriesCatalogs) await api.setSeriesCatalog(item);
       for (const [field, values] of Object.entries(plan.options || {}))
         for (const value of values as string[])
-          run(
-            "INSERT OR IGNORE INTO options VALUES (?,?,app_user_id())",
+          await run(
+            "INSERT INTO options VALUES (?,?,app_user_id()) ON CONFLICT DO NOTHING",
             field,
             String(value),
           );
@@ -1110,7 +951,7 @@ export function openStore(
         seriesCatalogs: plan.seriesCatalogs.length,
         warnings: plan.warnings,
       };
-      run(
+      await run(
         "INSERT INTO imports VALUES (?,?,?,app_user_id())",
         fingerprint,
         JSON.stringify(result),
@@ -1120,20 +961,20 @@ export function openStore(
     });
   }
   const cache = {
-    get(key) {
+    async get(key) {
       if (key.startsWith("series:v1:"))
         key = `user:${users.current().id}:` + key;
-      const row = get(
+      const row = await get(
         "SELECT value FROM cache WHERE key=? AND (expires_at=0 OR expires_at>?)",
         key,
         Date.now(),
       );
       return row?.value || null;
     },
-    put(key, value, seconds) {
+    async put(key, value, seconds) {
       if (key.startsWith("series:v1:"))
         key = `user:${users.current().id}:` + key;
-      run(
+      await run(
         "INSERT INTO cache VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,expires_at=excluded.expires_at",
         key,
         value,
@@ -1142,21 +983,24 @@ export function openStore(
     },
   };
   const covers = {
-    canAccess(id: string) {
-      return !!get(
+    async canAccess(id: string) {
+      return !!(await get(
         `SELECT 1 FROM cover_access WHERE ${owned} AND cover_id=?
         UNION ALL SELECT 1 FROM books WHERE ${owned} AND cover_id=?
-        UNION ALL SELECT 1 FROM saved_releases WHERE ${owned} AND json_extract(data,'$.coverId')=? LIMIT 1`,
+        UNION ALL SELECT 1 FROM saved_releases WHERE ${owned} AND data::jsonb->>'coverId'=? LIMIT 1`,
         id,
         id,
+        id,
+      ));
+    },
+    async allow(id: string) {
+      await run(
+        "INSERT INTO cover_access VALUES (app_user_id(),?) ON CONFLICT DO NOTHING",
         id,
       );
     },
-    allow(id: string) {
-      run("INSERT OR IGNORE INTO cover_access VALUES (app_user_id(),?)", id);
-    },
-    get(id) {
-      const row = get<CoverRow>("SELECT * FROM covers WHERE id=?", id);
+    async get(id) {
+      const row = await get<CoverRow>("SELECT * FROM covers WHERE id=?", id);
       return row
         ? {
             id: row.id,
@@ -1165,102 +1009,112 @@ export function openStore(
           }
         : null;
     },
-    bySource(url) {
-      const row = get(
+    async bySource(url) {
+      const row = await get(
         `SELECT cover_id FROM user_cover_sources WHERE ${owned} AND url=?
         UNION ALL SELECT cover_id FROM cover_sources WHERE url=? LIMIT 1`,
         url,
         url,
       );
-      if (row) covers.allow(row.cover_id);
-      return row ? covers.get(row.cover_id) : null;
+      if (row) await covers.allow(row.cover_id);
+      return row ? await covers.get(row.cover_id) : null;
     },
-    linkSource(url, id) {
-      run(
+    async linkSource(url, id) {
+      await run(
         "INSERT INTO cover_sources VALUES (?,?) ON CONFLICT(url) DO UPDATE SET cover_id=excluded.cover_id",
         url,
         id,
       );
     },
-    linkPrivateSource(url: string, id: string) {
-      run(
+    async linkPrivateSource(url: string, id: string) {
+      await run(
         "INSERT INTO user_cover_sources VALUES (app_user_id(),?,?) ON CONFLICT(user_id,url) DO UPDATE SET cover_id=excluded.cover_id",
         url,
         id,
       );
     },
-    put(
+    async put(
       { body, contentType }: { body: Uint8Array; contentType: string },
       url?: string,
     ) {
       const id = createHash("sha256").update(body).digest("hex");
-      run(
-        "INSERT OR IGNORE INTO covers VALUES (?,?,?,?)",
+      await run(
+        "INSERT INTO covers VALUES (?,?,?,?) ON CONFLICT DO NOTHING",
         id,
         contentType,
         body,
         new Date().toISOString(),
       );
-      if (url) covers.linkSource(url, id);
-      covers.allow(id);
+      if (url) await covers.linkSource(url, id);
+      await covers.allow(id);
       return { id, body: Buffer.from(body), contentType };
     },
-    assign(row, coverId, token) {
-      if (!covers.canAccess(coverId)) return "";
-      const current = get(`SELECT * FROM books WHERE ${owned} AND id=?`, row);
-      if (!current) return "";
-      if (token && book(current).token !== token) return current.cover_id || "";
-      // Automatic cover association is derived metadata; it does not invalidate edits.
-      run(
-        `UPDATE books SET cover_id=? WHERE ${owned} AND id=? AND cover_id IS NULL`,
-        coverId,
-        row,
-      );
-      return (
-        get(`SELECT cover_id FROM books WHERE ${owned} AND id=?`, row)
-          ?.cover_id || ""
-      );
+    async assign(row, coverId, token) {
+      return transaction(async () => {
+        if (!(await covers.canAccess(coverId))) return "";
+        const current = await get(
+          `SELECT * FROM books WHERE ${owned} AND id=?`,
+          row,
+        );
+        if (!current) return "";
+        if (token && book(current).token !== token)
+          return current.cover_id || "";
+        // Automatic cover association is derived metadata; it does not invalidate edits.
+        await run(
+          `UPDATE books SET cover_id=? WHERE ${owned} AND id=? AND cover_id IS NULL`,
+          coverId,
+          row,
+        );
+        return (
+          (await get(`SELECT cover_id FROM books WHERE ${owned} AND id=?`, row))
+            ?.cover_id || ""
+        );
+      });
     },
   };
   return {
     db,
     currentUser: users.current,
     requireAdmin,
-    forUser<T>(user: User, action: () => T): T {
-      const account = get<{ id: number; username: string; role: User["role"] }>(
-        "SELECT id,username,role FROM users WHERE id=?",
-        user.id,
-      );
+    async forUser<T>(user: User, action: () => T | Promise<T>): Promise<T> {
+      const account = await get<{
+        id: number;
+        username: string;
+        role: User["role"];
+      }>("SELECT id,username,role FROM users WHERE id=?", user.id);
       if (!account) throw new AppError("Sign in to open your library.", 401);
       return users.run(account, action);
     },
     api,
+    preferences,
     transaction,
     cache,
     covers,
     importData,
-    close: () => db.close(),
-    savedSeriesCatalog(spec) {
-      const row = get(
+    close: async () => await db.close(),
+    async savedSeriesCatalog(spec) {
+      const row = await get(
         `SELECT data FROM series_catalogs WHERE ${owned} AND series_key=? AND publisher_id=? AND type=?`,
         catalogSeriesKey(spec.series),
         spec.publisherId,
         spec.type ? normalizeBookType(spec.type) : "",
       );
       if (row) return normalizeRecordTypes(JSON.parse(row.data));
-      const legacy = all(
-        `SELECT data FROM series_catalogs WHERE ${owned} AND series_key=? AND publisher_id=?`,
-        catalogSeriesKey(spec.series),
-        spec.publisherId,
+      const legacy = (
+        await all(
+          `SELECT data FROM series_catalogs WHERE ${owned} AND series_key=? AND publisher_id=?`,
+          catalogSeriesKey(spec.series),
+          spec.publisherId,
+        )
       )
         .map((entry) => normalizeRecordTypes(JSON.parse(entry.data)))
         .filter((entry) => entry.type === normalizeBookType(spec.type));
       // Several legacy language links require an explicit choice, never a guess.
       return legacy.length === 1 ? legacy[0] : null;
     },
-    exportData(series?: string) {
-      return transaction(() => {
-        const data = collection();
+    async exportData(series?: string) {
+      return await transaction(async () => {
+        const data = await collection();
         const matches = (record: { series: string }) =>
           (record.series.trim() || "Untitled series") === series;
         if (series !== undefined) {
@@ -1289,19 +1143,25 @@ export function openStore(
         );
         const imageFilter = ` WHERE id IN (${[...coverIds].map(() => "?").join(",") || "NULL"})`;
         return {
-          covers: all<CoverRow>(
-            "SELECT * FROM covers" + imageFilter,
-            ...coverIds,
-          ).map((image) => ({
-            id: image.id,
-            contentType: image.content_type,
-            data: Buffer.from(image.body).toString("base64"),
-            sources: all(
-              `SELECT url FROM cover_sources WHERE cover_id=? UNION SELECT url FROM user_cover_sources WHERE ${owned} AND cover_id=?`,
-              image.id,
-              image.id,
-            ).map((source) => source.url),
-          })),
+          covers: await Promise.all(
+            (
+              await all<CoverRow>(
+                "SELECT * FROM covers" + imageFilter,
+                ...coverIds,
+              )
+            ).map(async (image) => ({
+              id: image.id,
+              contentType: image.content_type,
+              data: Buffer.from(image.body).toString("base64"),
+              sources: (
+                await all(
+                  `SELECT url FROM cover_sources WHERE cover_id=? UNION SELECT url FROM user_cover_sources WHERE ${owned} AND cover_id=?`,
+                  image.id,
+                  image.id,
+                )
+              ).map((source) => source.url),
+            })),
+          ),
           format: "book-collection",
           version: 1,
           exportedAt: new Date().toISOString(),
@@ -1311,7 +1171,7 @@ export function openStore(
           seriesCatalogs: data.seriesCatalogs,
           options: data.options,
         };
-      });
+      }, true);
     },
   };
 }

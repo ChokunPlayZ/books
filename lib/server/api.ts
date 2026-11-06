@@ -34,7 +34,7 @@ export function createApplicationApi(
         try {
           record.coverId = (await covers.ensure(record.coverUrl)).id;
           if (record.row)
-            record.coverId = store.covers.assign(
+            record.coverId = await store.covers.assign(
               record.row,
               record.coverId,
               record.token,
@@ -45,7 +45,7 @@ export function createApplicationApi(
         }
       }
     });
-    const books = store.api.getCollection().books;
+    const books = (await store.api.getCollection()).books;
     for (const record of records) {
       if (
         !record.coverId ||
@@ -63,7 +63,7 @@ export function createApplicationApi(
           (isbn && canonicalIsbn(book.isbn) === isbn) ||
           (key && volumeCoverKey(book) === key)
         ) {
-          book.coverId = store.covers.assign(
+          book.coverId = await store.covers.assign(
             book.row,
             record.coverId,
             book.token,
@@ -104,32 +104,36 @@ export function createApplicationApi(
           (arg as { refresh?: boolean }).refresh === true
         )
           store.requireAdmin();
-        return attachImages(await method(arg));
+        return await attachImages(await method(arg));
       },
     ]),
   );
   api.getCollection = async () => {
-    const collection = store.api.getCollection();
+    const collection = await store.api.getCollection();
     await eachLimit(
       [...collection.books, ...collection.trash.map((entry) => entry.book)],
       async (book) => {
         if (book.coverId) return;
         try {
-          const source = knownBookCoverUrl(store, book);
+          const source = await knownBookCoverUrl(store, book);
           if (source) {
             const image = await covers.ensure(source);
-            book.coverId = store.covers.assign(book.row, image.id, book.token);
+            book.coverId = await store.covers.assign(
+              book.row,
+              image.id,
+              book.token,
+            );
           }
         } catch {}
       },
     );
-    return attachImages(collection);
+    return await attachImages(collection);
   };
   api.saveBook = async (request) => {
     const book = { ...request.book };
     if (book.coverUrl && !book.coverId)
       book.coverId = (await covers.ensure(book.coverUrl)).id;
-    return store.api.saveBook({ ...request, book });
+    return await store.api.saveBook({ ...request, book });
   };
   return { ...api, ...createMetadataService(store, catalogs) };
 }

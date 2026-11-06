@@ -22,7 +22,7 @@ Google is the only authentication method. Anyone with a verified Google email ca
 
 ## Preserve an existing library
 
-Back up SQLite before upgrading. Schema version 6 migrates accounts and books in place, clears obsolete password hashes and revokes every old session. Nothing is reseeded or reassigned to a public registrant.
+Back up the database before upgrading. For an existing SQLite deployment, use the [PostgreSQL migration command](self-hosting.md#migrate-an-existing-sqlite-installation): it preserves accounts and books, clears obsolete password hashes, discards password sessions and retains Google-bound sessions. Nothing is reseeded or reassigned to a public registrant.
 
 The verified Gmail or Google Workspace account matching `BOOKS_ADMIN_EMAIL` claims the existing `admin` library (user ID 1) on its first Google sign-in. This links the library permanently to Google's immutable subject identifier. Changing the environment variable afterwards **does not** transfer the library or grant another account administrator privileges.
 
@@ -41,10 +41,10 @@ npm run user:add -- username reader@gmail.com
 npm run user:add -- trusted-admin colleague@your-workspace.example --admin
 ```
 
-Run these commands on the server with the intended `BOOKS_DATABASE_PATH`. `--link` never reassigns an already-linked identity. There is no automatic merging by name or email, and no public account-linking endpoint. Account recovery/reassignment requires a deliberate server-admin operation and a database backup; do not clear subjects casually.
+Run these commands on the server with the intended `DATABASE_URL`. `--link` never reassigns an already-linked identity. There is no automatic merging by name or email, and no public account-linking endpoint. Account recovery/reassignment requires a deliberate server-admin operation and a database backup; do not clear subjects casually.
 
 ## Flow and testing
 
-Sign-in starts with a same-origin POST. The server uses the authorization-code flow with PKCE S256, random state, nonce, a browser-bound HttpOnly cookie and a one-use SQLite transaction expiring after ten minutes. `openid-client` validates Google's issuer, audience, expiration, nonce and RS256 signature. Only verified email identities can create sessions. Google tokens are discarded; only hashes of random app-session tokens are stored. Sessions expire after 14 days, with at most ten active sessions per account. Sign-out revokes the current session.
+Sign-in starts with a same-origin POST. The server uses the authorization-code flow with PKCE S256, random state, nonce, a browser-bound HttpOnly cookie and a one-use PostgreSQL attempt expiring after ten minutes. `openid-client` validates Google's issuer, audience, expiration, nonce and RS256 signature. Only verified email identities can create sessions. Google tokens are discarded; only hashes of random app-session tokens are stored. Sessions expire after 14 days, with at most ten active sessions per account. Sign-out revokes the current session.
 
 `node --test tests/integration/google-auth.test.mjs tests/integration/http-security.test.mjs` exercises real OIDC validation with test-only signed Google responses. Browser tests explicitly preload a mock transport; production has no mock-provider switch or alternate issuer setting. Perform one real Google sign-in against the final HTTPS origin before launch, since offline tests cannot validate your Cloud Console configuration.

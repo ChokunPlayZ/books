@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { publisherCovers } from "../../lib/server/publisher-covers.ts";
 import { publisherKey as clientPublisherKey } from "../../lib/client/matching.ts";
@@ -43,9 +43,9 @@ const book = {
   note: "",
 };
 
-function setup(t, respond) {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+async function setup(t, respond) {
+  const store = await openStore();
+  t.after(async () => await store.close());
   const calls = [];
   const remote = async (url, options) => {
     calls.push({ url, options });
@@ -182,7 +182,7 @@ test("Animag full series catalogs paginate independently of release feeds and sa
     'แสดงสินค้าที่ 1-39 จากทั้งหมด <span class="tsk-all">39</span> ชิ้น';
   const first = header + cards.slice(0, 20).join("") + count;
   const second = header + cards.slice(20).join("");
-  const { store, service, calls } = setup(
+  const { store, service, calls } = await setup(
     t,
     (url) =>
       new Response(
@@ -206,7 +206,7 @@ test("Animag full series catalogs paginate independently of release feeds and sa
     ),
   );
   const local = { ...spec, series: "My translated series" };
-  store.api.setSeriesCatalog({
+  await store.api.setSeriesCatalog({
     ...local,
     url: base + "/category/13/ชื่อ",
     title: series,
@@ -217,7 +217,7 @@ test("Animag full series catalogs paginate independently of release feeds and sa
   assert.equal(linked.complete, true);
   assert.ok(linked.items.every((item) => item.catalogSeries === local.series));
   assert.equal(
-    store.savedSeriesCatalog({ ...local, type: "Manga (TH)" }),
+    await store.savedSeriesCatalog({ ...local, type: "Manga (TH)" }),
     null,
   );
   assert.equal(
@@ -234,7 +234,7 @@ test("Animag full series catalogs paginate independently of release feeds and sa
 test("Animag repeated pages, missing totals and refresh outages cannot claim full catalog coverage", async (t) => {
   let mode = "complete";
   const html = fixture("series");
-  const { store, service, remote } = setup(
+  const { store, service, remote } = await setup(
     t,
     (url) =>
       new Response(
@@ -277,7 +277,7 @@ test("Animag repeated pages, missing totals and refresh outages cannot claim ful
 });
 
 test("Animag ISBN search confirms the main product, coalesces canonical ISBNs and shares detail pages and galleries", async (t) => {
-  const { store, service, calls } = setup(
+  const { store, service, calls } = await setup(
     t,
     (url) =>
       new Response(
@@ -306,7 +306,7 @@ test("Animag ISBN search confirms the main product, coalesces canonical ISBNs an
     '/product/999","sku":"' +
     isbn +
     '","image":["https://fs.lnwfile.com/unrelated.jpg"]}</script><img class="productImage" src="https://fs.lnwfile.com/also-unrelated.jpg">';
-  const covers = publisherCovers(
+  const covers = await publisherCovers(
     fixture("product") + decoy,
     base + "/product/1169",
   );
@@ -322,7 +322,7 @@ test("Animag ISBN verification rejects mismatches, recommendation ISBNs, incompl
     ),
     fixture("product").replace("/product/1169/", "/product/999/"),
   ]) {
-    const { service } = setup(
+    const { service } = await setup(
       t,
       (url) =>
         new Response(url.includes("/search?") ? fixture("search") : product),
@@ -344,7 +344,7 @@ test("Animag ISBN verification rejects mismatches, recommendation ISBNs, incompl
     base + "/product/999",
     base + ":8443/product/1169",
   ]) {
-    const { service } = setup(t, (url) =>
+    const { service } = await setup(t, (url) =>
       url.includes("/search?")
         ? new Response(fixture("search"))
         : new Response(null, { status: 302, headers: { location } }),
@@ -354,7 +354,7 @@ test("Animag ISBN verification rejects mismatches, recommendation ISBNs, incompl
       /redirect/,
     );
   }
-  const { service } = setup(
+  const { service } = await setup(
     t,
     (url) =>
       new Response(
@@ -370,7 +370,7 @@ test("Animag ISBN verification rejects mismatches, recommendation ISBNs, incompl
 });
 
 test("Animag confirmed ISBN misses are cached, malformed search pages fail and allowed slug redirects retain identity", async (t) => {
-  const { store, service, calls } = setup(
+  const { store, service, calls } = await setup(
     t,
     () => new Response(fixture("empty")),
   );
@@ -383,12 +383,12 @@ test("Animag confirmed ISBN misses are cached, malformed search pages fail and a
     assert.fail("Confirmed misses are cached"),
   ).searchPublisherIsbn({ publisherId: "animag", isbn });
   assert.equal(calls.length, 1);
-  const broken = setup(t, () => new Response("<h1>Changed search</h1>"));
+  const broken = await setup(t, () => new Response("<h1>Changed search</h1>"));
   await assert.rejects(
     broken.service.searchPublisherIsbn({ publisherId: "animag", isbn }),
     /could not be read/,
   );
-  const redirected = setup(t, (url) =>
+  const redirected = await setup(t, (url) =>
     url.includes("/search?")
       ? new Response(fixture("search"))
       : url.endsWith("/1169")
@@ -416,7 +416,7 @@ test("Animag confirmed ISBN misses are cached, malformed search pages fail and a
 
 test("Animag releases paginate with new-arrival sorting, cache listings and preserve them through outages", async (t) => {
   let offline = false;
-  const { store, remote, service, calls } = setup(
+  const { store, remote, service, calls } = await setup(
     t,
     () =>
       new Response(offline ? "Unavailable" : fixture("catalog"), {
@@ -441,15 +441,15 @@ test("Animag releases paginate with new-arrival sorting, cache listings and pres
 });
 
 test("Animag books without ISBNs obtain covers through their full series catalog, including imprint aliases", async (t) => {
-  const { store, service, calls } = setup(
+  const { store, service, calls } = await setup(
     t,
     (url) =>
       new Response(
         url === base + "/search" ? fixture("directory") : fixture("series"),
       ),
   );
-  store.api.saveBook({ requestId: "animag_cover_volume_20", book });
-  const owned = store.api.getCollection().books[0];
+  await store.api.saveBook({ requestId: "animag_cover_volume_20", book });
+  const owned = (await store.api.getCollection()).books[0];
   const cover = await service.getBookCover({ row: owned.row });
   assert.match(cover.coverUrl, /^https:\/\/fs\.lnwfile\.com\//);
   assert.equal(calls.length, 2);
@@ -499,7 +499,7 @@ test("Animag selectable products expand to distinct volume URLs and images witho
     ' NOVEL" href="' +
     parent +
     '"></a><a>เลือกแบบสินค้า</a></div>แสดงสินค้าที่ 1-1 จากทั้งหมด <span class="tsk-all">1</span> ชิ้น';
-  const { store, service } = setup(
+  const { store, service } = await setup(
     t,
     (url) => new Response(url.includes("/product/") ? variants : listing),
   );
@@ -519,7 +519,7 @@ test("Animag selectable products expand to distinct volume URLs and images witho
   assert.equal(new Set(result.items.map((item) => item.id)).size, 2);
   assert.equal(result.items[0].isbn, isbn);
   assert.equal(result.items[0].coverUrl, "https://fs.lnwfile.com/volume-7.jpg");
-  assert.deepEqual(publisherCovers(variants, parent + "?pid=1308"), [
+  assert.deepEqual(await publisherCovers(variants, parent + "?pid=1308"), [
     "https://fs.lnwfile.com/volume-8.jpg",
   ]);
   const match = await service.searchPublisherIsbn({
@@ -527,10 +527,12 @@ test("Animag selectable products expand to distinct volume URLs and images witho
     isbn,
   });
   assert.equal(match.items[0].url, parent + "?pid=1307");
-  const saved = store.api.setSavedRelease({
-    saved: true,
-    release: match.items[0],
-  }).savedReleases[0];
+  const saved = (
+    await store.api.setSavedRelease({
+      saved: true,
+      release: match.items[0],
+    })
+  ).savedReleases[0];
   assert.equal(saved.url, parent + "?pid=1307");
   assert.equal(saved.volume, 7);
   assert.equal(
@@ -540,7 +542,7 @@ test("Animag selectable products expand to distinct volume URLs and images witho
 });
 
 test("automatic barcode lookup includes verified Animag metadata before generic providers", async (t) => {
-  const { store, service, calls } = setup(
+  const { store, service, calls } = await setup(
     t,
     (url) =>
       new Response(
@@ -552,17 +554,17 @@ test("automatic barcode lookup includes verified Animag metadata before generic 
         { status: url.startsWith(base) ? 200 : 503 },
       ),
   );
-  store.cache.put("cover:miss:v5:" + isbn, "1", 86400);
-  store.cache.put(
+  await store.cache.put("cover:miss:v5:" + isbn, "1", 86400);
+  await store.cache.put(
     "isbn:v8:" + isbn,
     JSON.stringify({ isbn, found: false, details: null, warnings: [] }),
     86400,
   );
-  store.api.saveBook({
+  await store.api.saveBook({
     requestId: "animag_isbn_cover_2",
     book: { ...book, series: "ซวยฉิบหายเกิดใหม่เป็นจอมมาร", isbn, volume: 2 },
   });
-  const row = store.api.getCollection().books[0].row;
+  const row = (await store.api.getCollection()).books[0].row;
   assert.equal(
     (await service.getBookCover({ row })).coverUrl,
     mainCover,

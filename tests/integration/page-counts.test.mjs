@@ -13,7 +13,7 @@ import { firstPageBook } from "../../lib/domain/firstpage.ts";
 import { googleBooks } from "../../lib/server/scrapers/google-books.ts";
 import { openLibrary } from "../../lib/server/scrapers/open-library.ts";
 import { naiin } from "../../lib/server/scrapers/naiin.ts";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { parseImport } from "../../lib/server/importer.ts";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 
@@ -149,10 +149,10 @@ test("page count enrichment preserves preferred metadata, respects priorities an
     [320, 320],
     [0, 208],
   ]) {
-    const store = openStore(":memory:");
-    t.after(() => store.close());
+    const store = await openStore();
+    t.after(async () => await store.close());
     const isbn = "9780385496490";
-    store.cache.put(
+    await store.cache.put(
       "isbn:v14:" + isbn,
       JSON.stringify({ found: true, details: { title: "Old cache" } }),
       86400,
@@ -196,32 +196,35 @@ test("page count enrichment preserves preferred metadata, respects priorities an
   }
 });
 
-test("series edits can set and clear pages, reject invalid batches atomically and round-trip JSON imports", (t) => {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+test("series edits can set and clear pages, reject invalid batches atomically and round-trip JSON imports", async (t) => {
+  const store = await openStore();
+  t.after(async () => await store.close());
   const data = {
     series: "Pages",
     type: "Manga (EN)",
     status: "Read",
     pageCount: "208",
   };
-  store.api.saveBook({ requestId: "page_count_create", book: data });
-  let book = store.api.getCollection().books[0];
-  const edit = (pages, id) =>
-    store.api.saveSeriesVolumes({
+  await store.api.saveBook({ requestId: "page_count_create", book: data });
+  let book = (await store.api.getCollection()).books[0];
+  const edit = async (pages, id) =>
+    await store.api.saveSeriesVolumes({
       requestId: "page_count_" + id,
       series: "Pages",
       changes: [
         { row: book.row, token: book.token, book: { pageCount: pages } },
       ],
     });
-  edit(260, "edit");
-  book = store.api.getCollection().books[0];
+  await edit(260, "edit");
+  book = (await store.api.getCollection()).books[0];
   assert.equal(book.pageCount, 260);
-  assert.throws(() => edit(1.5, "invalid"), /positive whole number/);
-  assert.equal(store.api.getCollection().books[0].token, book.token);
+  await assert.rejects(
+    async () => await edit(1.5, "invalid"),
+    /positive whole number/,
+  );
+  assert.equal((await store.api.getCollection()).books[0].token, book.token);
   const plan = parseImport(Buffer.from(JSON.stringify([book])), "books.json");
   assert.equal(plan.books[0].pageCount, 260);
-  edit("", "clear");
-  assert.equal(store.api.getCollection().books[0].pageCount, "");
+  await edit("", "clear");
+  assert.equal((await store.api.getCollection()).books[0].pageCount, "");
 });

@@ -7,17 +7,36 @@ services:
     ports:
       - "${BOOKS_BIND_ADDRESS:-127.0.0.1}:${BOOKS_PORT:-3000}:3000"
     environment:
+      DATABASE_URL: "postgresql://books:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env before starting}@postgres:5432/books"
       BOOKS_APP_URL: "${BOOKS_APP_URL:?Set BOOKS_APP_URL in .env before starting}"
       BOOKS_GOOGLE_CLIENT_ID: "${BOOKS_GOOGLE_CLIENT_ID:?Set BOOKS_GOOGLE_CLIENT_ID in .env before starting}"
       BOOKS_GOOGLE_CLIENT_SECRET: "${BOOKS_GOOGLE_CLIENT_SECRET:?Set BOOKS_GOOGLE_CLIENT_SECRET in .env before starting}"
       BOOKS_ADMIN_EMAIL: "${BOOKS_ADMIN_EMAIL:?Set BOOKS_ADMIN_EMAIL in .env before starting}"
       BOOKS_TIME_ZONE: "${BOOKS_TIME_ZONE:-Asia/Bangkok}"
-    volumes:
-      - books-data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
 
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: books
+      POSTGRES_DB: books
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env before starting}"
+    ports:
+      - "127.0.0.1:${BOOKS_DB_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U books -d books"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
-  books-data:
+  postgres-data:

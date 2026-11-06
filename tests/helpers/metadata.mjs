@@ -1,9 +1,9 @@
-export function seedMetadataMaintenance(store) {
+export async function seedMetadataMaintenance(store) {
   for (const [isbn, series] of [
     ["9780316769488", "Maintenance one"],
     ["9780140328721", "Maintenance two"],
   ]) {
-    store.api.saveBook({
+    await store.api.saveBook({
       requestId: crypto.randomUUID(),
       book: {
         isbn,
@@ -19,7 +19,7 @@ export function seedMetadataMaintenance(store) {
       },
     });
   }
-  store.cache.put(
+  await store.cache.put(
     "isbn:v15:9780316769488",
     JSON.stringify({
       isbn: "9780316769488",
@@ -29,7 +29,7 @@ export function seedMetadataMaintenance(store) {
     }),
     86400,
   );
-  store.cache.put(
+  await store.cache.put(
     "scrape:v1:maintenance-page",
     JSON.stringify({
       source: "text:https://www.phoenixnext.com/book-series/example.html",
@@ -38,6 +38,6 @@ export function seedMetadataMaintenance(store) {
     }),
     86400,
   );
-  store.cache.put("cover:miss:v9:expired", "1", -1);
-  store.cache.put("scrape:v1:maintenance:retry", "1", 900);
+  await store.cache.put("cover:miss:v9:expired", "1", -1);
+  await store.cache.put("scrape:v1:maintenance:retry", "1", 900);
 }

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { open } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { safeCoverUrl } from "../domain.ts";
 import { AppError } from "./store.ts";
 import { SCRAPE_TTL } from "./scrape-cache.ts";
@@ -41,11 +41,8 @@ export function createCoverService(
   store,
   {
     fetchImpl = globalThis.fetch,
-    legacyDirectory = join(
-      dirname(
-        resolve(process.env.BOOKS_DATABASE_PATH || "./data/books.sqlite"),
-      ),
-      "covers",
+    legacyDirectory = resolve(
+      process.env.BOOKS_LEGACY_COVERS_PATH || "./data/covers",
     ),
   } = {},
 ) {
@@ -108,7 +105,8 @@ export function createCoverService(
       if ((await file.stat()).size <= MAX_IMAGE_BYTES) {
         const body = await file.readFile();
         const contentType = imageType(body);
-        if (contentType) return store.covers.put({ body, contentType }, url);
+        if (contentType)
+          return await store.covers.put({ body, contentType }, url);
       }
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
@@ -116,7 +114,7 @@ export function createCoverService(
       await file?.close();
     }
     try {
-      return store.covers.put(await download(url), url);
+      return await store.covers.put(await download(url), url);
     } catch {
       throw new AppError("Cover image is unavailable.", 502);
     }
@@ -124,35 +122,35 @@ export function createCoverService(
   return {
     async ensure(rawUrl) {
       const url = imageSource(rawUrl);
-      const existing = store.covers.bySource(url);
+      const existing = await store.covers.bySource(url);
       if (existing) return existing;
       if (!pending.has(url)) {
-        const retryKey = "cover:retry:v1:" + coverDigest(url);
-        // Cached catalogs still attach images on every view. Keep failed downloads
-        // from repeating that remote work, including after a server restart.
-        if (store.cache.get(retryKey))
-          throw new AppError(
-            "Cover image is unavailable. Try again after the retry cooldown.",
-            502,
-          );
         pending.set(
           url,
-          ingest(url)
-            .catch((error) => {
-              store.cache.put(retryKey, "1", SCRAPE_TTL.retry);
+          (async () => {
+            const retryKey = "cover:retry:v1:" + coverDigest(url);
+            // Register pending work before the first database await so overlapping
+            // requests still share one download.
+            if (await store.cache.get(retryKey))
+              throw new AppError(
+                "Cover image is unavailable. Try again after the retry cooldown.",
+                502,
+              );
+            return ingest(url).catch(async (error) => {
+              await store.cache.put(retryKey, "1", SCRAPE_TTL.retry);
               throw error;
-            })
-            .finally(() => pending.delete(url)),
+            });
+          })().finally(() => pending.delete(url)),
         );
       }
       const image = await pending.get(url);
-      store.covers.allow(image.id);
+      await store.covers.allow(image.id);
       return image;
     },
-    get(id) {
+    async get(id) {
       if (!/^[a-f0-9]{64}$/.test(String(id || "")))
         throw new AppError("Choose a stored cover.", 400);
-      const image = store.covers.get(id);
+      const image = await store.covers.get(id);
       if (!image) throw new AppError("Cover not found.", 404);
       return { ...image, etag: '"' + id + '"' };
     },

@@ -7,7 +7,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { chromium } from "playwright";
-import { openStore } from "../../lib/server/store.ts";
+import {
+  openTestStore as openStore,
+  testDatabaseUrl,
+} from "../helpers/database.mjs";
 import { createAccount } from "../../lib/server/auth.ts";
 import {
   googleTestEnvironment,
@@ -16,21 +19,21 @@ import {
 
 const directory = mkdtempSync(join(tmpdir(), "books-users-browser-"));
 const database = join(directory, "books.sqlite");
-const store = openStore(database);
-const alice = createAccount(store, "alice", "alice@gmail.com");
-createAccount(store, "bob", "bob@gmail.com");
+const store = await openStore(database);
+const alice = await createAccount(store, "alice", "alice@gmail.com");
+await createAccount(store, "bob", "bob@gmail.com");
 let aliceBook;
-const image = store.covers.put({
+const image = await store.covers.put({
   contentType: "image/png",
   body: Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
     "base64",
   ),
 });
-store.forUser(alice, () => {
+await store.forUser(alice, async () => {
   // Copies can share a public ISBN, but the owned copy and its details remain private.
-  store.covers.allow(image.id);
-  store.api.saveBook({
+  await store.covers.allow(image.id);
+  await store.api.saveBook({
     requestId: randomUUID(),
     book: {
       isbn: "9786166247275",
@@ -48,9 +51,9 @@ store.forUser(alice, () => {
       msrpCurrency: "THB",
     },
   });
-  aliceBook = store.api.getCollection().books[0];
+  aliceBook = (await store.api.getCollection()).books[0];
 });
-store.close();
+await store.close();
 const socket = createServer();
 await new Promise((resolve) => socket.listen(0, "127.0.0.1", resolve));
 const port = socket.address().port;
@@ -65,7 +68,7 @@ const server = spawn(
       NODE_ENV: "production",
       HOSTNAME: "127.0.0.1",
       PORT: String(port),
-      BOOKS_DATABASE_PATH: database,
+      DATABASE_URL: await testDatabaseUrl(database),
       ...googleTestEnvironment(),
       BOOKS_APP_URL: url,
     },

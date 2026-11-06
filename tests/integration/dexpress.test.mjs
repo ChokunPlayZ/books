@@ -17,7 +17,7 @@ import { publisherCovers } from "../../lib/server/publisher-covers.ts";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { createScraperContext } from "../../lib/server/scrapers/http.ts";
 import { dexpress } from "../../lib/server/scrapers/dexpress.ts";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import {
   discoverTitles,
   matchRelease,
@@ -41,9 +41,9 @@ const productUrl = base + "/product/240";
 const image = "https://cw.lnwfile.com/_/cw/_raw/zy/54/ml.jpg";
 const book = { series, publisher: "DEX", type: "LN (TH)", volume: 1, isbn: "" };
 
-function setup(t, respond, sources = [dexpress]) {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+async function setup(t, respond, sources = [dexpress]) {
+  const store = await openStore();
+  t.after(async () => await store.close());
   const calls = [];
   const remote = async (url, options) => {
     calls.push({ url, options });
@@ -115,7 +115,9 @@ test("DEXpress aliases and catalog/product links stay on the allowed host and pr
   ])
     assert.equal(safeSeriesCatalogUrl(url, "dexpress"), "");
   assert.equal(safePublisherUrl("https://evil.test/book", "DEX"), "");
-  const { store } = setup(t, () => assert.fail("No network request expected"));
+  const { store } = await setup(t, () =>
+    assert.fail("No network request expected"),
+  );
   const context = createScraperContext(
     store.cache,
     async () =>
@@ -188,7 +190,7 @@ test("DEXpress live cards retain prices and formats; bundles, autograph slots an
   );
 });
 
-test("DEXpress exact ISBNs and galleries come only from the main product JSON data", () => {
+test("DEXpress exact ISBNs and galleries come only from the main product JSON data", async () => {
   const html = fixture("product");
   const { item } = dexpressProduct(html, productUrl);
   assert.equal(item.isbn, isbn);
@@ -202,7 +204,9 @@ test("DEXpress exact ISBNs and galleries come only from the main product JSON da
       image: "https://cw.lnwfile.com/unrelated.jpg",
     }) +
     "</script>";
-  assert.deepEqual(publisherCovers(html + recommendation, productUrl), [image]);
+  assert.deepEqual(await publisherCovers(html + recommendation, productUrl), [
+    image,
+  ]);
   assert.throws(
     () => dexpressProduct(html, base + "/product/241"),
     /could not be read/,
@@ -231,7 +235,7 @@ test("DEXpress exact ISBNs and galleries come only from the main product JSON da
 
 test("DEXpress series checks traverse both formats with query-safe pagination, cache pages and retain complete results during outages", async (t) => {
   let fail = false;
-  const { service, store, calls, remote } = setup(t, (url) =>
+  const { service, store, calls, remote } = await setup(t, (url) =>
     fail ? new Response("Unavailable", { status: 503 }) : seriesResponse(url),
   );
   const result = await service.getSeriesCatalog(spec);
@@ -264,7 +268,7 @@ test("DEXpress series checks traverse both formats with query-safe pagination, c
 });
 
 test("DEXpress repeated pages and missing counters remain incomplete; explicit zero searches are complete", async (t) => {
-  const { service } = setup(
+  const { service } = await setup(
     t,
     (url) =>
       new Response(
@@ -278,17 +282,18 @@ test("DEXpress repeated pages and missing counters remain incomplete; explicit z
   const result = await service.getSeriesCatalog(spec);
   assert.equal(result.complete, false);
   assert.match(result.error, /incomplete/);
-  const empty = setup(t, () => new Response(fixture("empty"))).service;
+  const empty = (await setup(t, () => new Response(fixture("empty")))).service;
   const zero = await empty.getSeriesCatalog(spec);
   assert.equal(zero.complete, true);
   assert.equal(zero.needsSelection, true);
-  const changed = setup(t, () => new Response("<h1>Changed page</h1>")).service;
+  const changed = (await setup(t, () => new Response("<h1>Changed page</h1>")))
+    .service;
   assert.equal((await changed.getSeriesCatalog(spec)).stale, true);
 });
 
 test("DEXpress release checks fill unlabeled formats from product data, deduplicate pages and preserve stale results", async (t) => {
   let fail = false;
-  const { service, calls } = setup(
+  const { service, calls } = await setup(
     t,
     (url) =>
       new Response(
@@ -330,7 +335,7 @@ test("DEXpress ISBN lookup verifies barcodes, shares canonical searches and bypa
       }),
     }),
   };
-  const { service, store, calls, remote } = setup(
+  const { service, store, calls, remote } = await setup(
     t,
     (url, options) => {
       assert.equal(options.cache, "no-store");
@@ -340,8 +345,12 @@ test("DEXpress ISBN lookup verifies barcodes, shares canonical searches and bypa
     },
     [dexpress, fallback],
   );
-  store.cache.put("isbn:v9:" + isbn, JSON.stringify({ found: false }), 86400);
-  store.cache.put("cover:miss:v6:" + isbn, "1", 86400);
+  await store.cache.put(
+    "isbn:v9:" + isbn,
+    JSON.stringify({ found: false }),
+    86400,
+  );
+  await store.cache.put("cover:miss:v6:" + isbn, "1", 86400);
   const result = await service.lookupIsbn(isbn);
   assert.equal(result.found, true);
   assert.equal(result.details.source, "DEXpress");
@@ -372,7 +381,7 @@ test("DEXpress mismatches never verify an ISBN; outages, missing barcodes and ch
     ["<h1>Changed markup</h1>", 200, true],
     ["Offline", 503, true],
   ]) {
-    const { service } = setup(
+    const { service } = await setup(
       t,
       (url) =>
         new Response(url.pathname === "/search" ? fixture("search") : page, {
@@ -384,7 +393,10 @@ test("DEXpress mismatches never verify an ISBN; outages, missing barcodes and ch
     assert.equal(result.details.title, "Fallback");
     assert.equal(result.warnings.length, Number(warning));
   }
-  const { service, calls } = setup(t, () => new Response(fixture("empty")));
+  const { service, calls } = await setup(
+    t,
+    () => new Response(fixture("empty")),
+  );
   assert.equal(
     (await service.searchPublisherIsbn({ publisherId: "dexpress", isbn })).items
       .length,
@@ -395,7 +407,7 @@ test("DEXpress mismatches never verify an ISBN; outages, missing barcodes and ch
 });
 
 test("one unavailable DEXpress candidate cannot hide a later verified book", async (t) => {
-  const { service } = setup(t, (url) => {
+  const { service } = await setup(t, (url) => {
     if (url.pathname === "/search")
       return new Response(
         fixture("search").replaceAll("/product/240", "/product/239") +
@@ -416,7 +428,7 @@ test("one unavailable DEXpress candidate cannot hide a later verified book", asy
 test("DEXpress ISBN failures retain the retry cooldown across refreshes and service restarts", async (t) => {
   t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
   let fail = true;
-  const { service, store, remote, calls } = setup(t, (url) =>
+  const { service, store, remote, calls } = await setup(t, (url) =>
     url.pathname === "/search"
       ? new Response(fixture("search"))
       : new Response(fail ? "Offline" : fixture("product"), {

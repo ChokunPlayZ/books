@@ -15,12 +15,12 @@ const plan = parseImport(readFileSync(path), basename(path));
 if (process.argv.includes("--preview"))
   console.log(JSON.stringify(importSummary(plan), null, 2));
 else {
-  const store = openStore();
+  const store = await openStore();
   try {
     console.log(
-      JSON.stringify(store.importData(plan, plan.fingerprint), null, 2),
+      JSON.stringify(await store.importData(plan, plan.fingerprint), null, 2),
     );
   } finally {
-    store.close();
+    await store.close();
   }
 }

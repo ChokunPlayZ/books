@@ -7,13 +7,13 @@ configureEnvironment();
 const path =
   process.argv[2] ||
   `book-collection-${new Date().toISOString().slice(0, 10)}.json`;
-const store = openStore();
+const store = await openStore();
 try {
-  writeFileSync(path, JSON.stringify(store.exportData(), null, 2), {
+  writeFileSync(path, JSON.stringify(await store.exportData(), null, 2), {
     flag: "wx",
     mode: 0o600,
   });
   console.log(`Backup saved to ${path}`);
 } finally {
-  store.close();
+  await store.close();
 }

@@ -23,7 +23,7 @@ export const kodansha: ScraperDefinition = {
       KODANSHA + "/products/search?keywords=" + isbn;
     async function search(raw: string, refresh = false) {
       const isbn = canonicalIsbn(raw);
-      return context.scrapeCache.get(
+      return await context.scrapeCache.get(
         "kodansha-isbn:v2:" + isbn,
         { maxAge: SCRAPE_TTL.isbn, refresh },
         async () => {
@@ -131,9 +131,9 @@ export const kodansha: ScraperDefinition = {
       preserveParsedSeries: true,
       preserveCompleteSeries: true,
       coverFromSeries: true,
-      lookupIsbn: (isbn, refresh) =>
+      lookupIsbn: async (isbn, refresh) =>
         isbn.startsWith("978406")
-          ? search(isbn, refresh)
+          ? await search(isbn, refresh)
           : Promise.resolve(null),
       searchIsbn: async (raw, refresh) => {
         const isbn = canonicalIsbn(raw);

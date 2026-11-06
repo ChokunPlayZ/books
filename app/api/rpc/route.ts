@@ -16,20 +16,21 @@ import {
 export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   try {
-    const { store, api } = getApp();
-    const user = authorize(store, request);
+    const { store, api } = await getApp();
+    const user = await authorize(store, request);
     sameOrigin(request);
-    enforceRateLimit(store, `rpc:${user.id}`, 240, 60_000);
+    await enforceRateLimit(store, `rpc:${user.id}`, 240, 60_000);
     // Bulk volume edits can include many volumes in a single transaction.
     const { name, arg } = await readJson(request, 1_000_000);
     if (!Object.hasOwn(api, name))
       throw new AppError("Unknown library action.", 404);
-    return json(
-      await limitConcurrentRequests(user.id, () =>
-        store.forUser(user, () => api[name](arg)),
+    return await json(
+      await limitConcurrentRequests(
+        user.id,
+        async () => await store.forUser(user, () => api[name](arg)),
       ),
     );
   } catch (error) {
-    return errorResponse(error);
+    return await errorResponse(error);
   }
 }

@@ -73,16 +73,16 @@ export function createScraperRegistry(
         return false;
       }
     };
-    function remember(book, isbn: string) {
+    async function remember(book, isbn: string) {
       if (!verified(book, isbn)) return;
       const url = new URL(book.url).href;
-      context.cache.put("known-product:v1:" + url, isbn, Infinity);
-      context.scrapeCache.pin("text:" + url);
+      await context.cache.put("known-product:v1:" + url, isbn, Infinity);
+      await context.scrapeCache.pin("text:" + url);
     }
     if (scraper.lookupIsbn) {
       const load = scraper.lookupIsbn;
-      scraper.lookupIsbn = (isbn, refresh = false) =>
-        context.scrapeCache.get(
+      scraper.lookupIsbn = async (isbn, refresh = false) =>
+        await context.scrapeCache.get(
           `source-book:v1:${metadata.id}:${isbn}`,
           {
             maxAge: SCRAPE_TTL.isbn,
@@ -93,14 +93,14 @@ export function createScraperRegistry(
             if (!refresh) {
               try {
                 const legacy = JSON.parse(
-                  context.cache.get("isbn:v15:" + isbn) || "null",
+                  (await context.cache.get("isbn:v15:" + isbn)) || "null",
                 );
                 const book =
                   legacy?.found && canonicalIsbn(legacy.isbn) === isbn
                     ? { ...legacy.details, isbn }
                     : null;
                 if (verified(book, isbn)) {
-                  remember(book, isbn);
+                  await remember(book, isbn);
                   return normalizeRecordTypes({
                     ...book,
                     checkedAt: legacy.checkedAt ?? "",
@@ -111,13 +111,15 @@ export function createScraperRegistry(
               }
             }
             const book = await load(isbn, refresh);
-            remember(book, isbn);
+            await remember(book, isbn);
             if (refresh && verified(book, isbn)) {
               try {
                 const key = "isbn:v15:" + isbn;
-                const previous = JSON.parse(context.cache.get(key) || "null");
+                const previous = JSON.parse(
+                  (await context.cache.get(key)) || "null",
+                );
                 if (previous?.found && previous.details?.url === book.url)
-                  context.cache.put(
+                  await context.cache.put(
                     key,
                     JSON.stringify({
                       ...previous,
@@ -145,8 +147,8 @@ export function createScraperRegistry(
     }
     if (scraper.searchIsbn) {
       const load = scraper.searchIsbn;
-      scraper.searchIsbn = (isbn, refresh = false) =>
-        context.scrapeCache.get(
+      scraper.searchIsbn = async (isbn, refresh = false) =>
+        await context.scrapeCache.get(
           `source-search:v1:${metadata.id}:${isbn}`,
           {
             maxAge: SCRAPE_TTL.isbn,
@@ -156,7 +158,7 @@ export function createScraperRegistry(
           },
           async () => {
             const result = await load(isbn, refresh);
-            for (const book of result.items) remember(book, isbn);
+            for (const book of result.items) await remember(book, isbn);
             return normalizeRecordTypes(result);
           },
         );

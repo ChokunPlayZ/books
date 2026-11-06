@@ -2,8 +2,8 @@ import type { Book, Release } from "../../types.ts";
 import type { createScrapeCache } from "../scrape-cache.ts";
 
 export type ScraperCache = {
-  get(key: string): string | null;
-  put(key: string, value: string, seconds: number): void;
+  get(key: string): Promise<string | null> | string | null;
+  put(key: string, value: string, seconds: number): Promise<void> | void;
 };
 
 export type ScraperContext = {

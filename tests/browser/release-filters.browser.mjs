@@ -12,7 +12,7 @@ const browser = await chromium.launch({
     ? { executablePath: process.env.BOOKS_BROWSER_EXECUTABLE }
     : {}),
 });
-const h = createTestLibrary([
+const h = await createTestLibrary([
   {
     series: "A novel on the shelf",
     volume: 1,
@@ -217,7 +217,7 @@ try {
   assert.equal(await hideSaved.getAttribute("aria-pressed"), "true");
   assert.equal(await card(specialNovel.title).count(), 0);
   assert.equal(await cards.count(), 6);
-  assert.equal(h.api.getCollection().savedReleases.length, 1);
+  assert.equal((await h.api.getCollection()).savedReleases.length, 1);
   await hideOwned.click();
   assert.equal(await cards.count(), 5);
   await page.locator("#releaseType").selectOption("LN");
@@ -264,7 +264,7 @@ try {
   assert.equal(await cards.count(), 1);
   await hide.click();
   assert.equal(await cards.count(), 0);
-  assert.equal(h.api.getCollection().savedReleases.length, 1);
+  assert.equal((await h.api.getCollection()).savedReleases.length, 1);
   feeds.phoenix = [novel, colorManga];
   await page.locator("#refreshReleases").click();
   await page.waitForFunction(
@@ -459,5 +459,5 @@ try {
   );
 } finally {
   await browser.close();
-  h.close();
+  await h.close();
 }

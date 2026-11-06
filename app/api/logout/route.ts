@@ -10,11 +10,14 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
-    signOut(getApp().store, request.cookies.get(SESSION_COOKIE)?.value);
-    const response = json({ signedIn: false });
+    await signOut(
+      (await getApp()).store,
+      request.cookies.get(SESSION_COOKIE)?.value,
+    );
+    const response = await json({ signedIn: false });
     response.cookies.set(SESSION_COOKIE, "", { ...cookieOptions(), maxAge: 0 });
     return response;
   } catch (error) {
-    return errorResponse(error);
+    return await errorResponse(error);
   }
 }

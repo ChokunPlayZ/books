@@ -4,10 +4,10 @@ import { authorize } from "../../../lib/server/auth.ts";
 import { errorResponse } from "../../../lib/server/http.ts";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export function GET(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const { store } = getApp();
-    const user = authorize(store, request);
+    const { store } = await getApp();
+    const user = await authorize(store, request);
     const series = request.nextUrl.searchParams.get("series") ?? undefined;
     const date = new Date().toISOString().slice(0, 10);
     const filename =
@@ -26,7 +26,7 @@ export function GET(request: NextRequest) {
       series === undefined ? "" : `; filename*=UTF-8''${encodedName}`;
     return new Response(
       JSON.stringify(
-        store.forUser(user, () => store.exportData(series)),
+        await store.forUser(user, async () => await store.exportData(series)),
         null,
         2,
       ),
@@ -39,6 +39,6 @@ export function GET(request: NextRequest) {
       },
     );
   } catch (error) {
-    return errorResponse(error);
+    return await errorResponse(error);
   }
 }

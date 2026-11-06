@@ -20,6 +20,8 @@ const env = {
   BOOKS_ADMIN_EMAIL: "owner@gmail.com",
   BOOKS_BIND_ADDRESS: "127.0.0.1",
   BOOKS_PORT: "0",
+  BOOKS_DB_PORT: "0",
+  POSTGRES_PASSWORD: randomBytes(24).toString("hex"),
 };
 const args = [
   "compose",
@@ -59,8 +61,8 @@ async function json(path, options) {
   assert.equal(response.status, 200, JSON.stringify(body));
   return body;
 }
-const rpc = (name) =>
-  json("/api/rpc", {
+const rpc = async (name) =>
+  await json("/api/rpc", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
@@ -107,11 +109,15 @@ try {
     "node",
     "-e",
     `
-    const {DatabaseSync}=require('node:sqlite');
-    const db=new DatabaseSync(process.env.BOOKS_DATABASE_PATH);
-    db.prepare("UPDATE users SET google_subject='docker-owner',email='owner@gmail.com' WHERE id=1").run();
-    db.prepare("INSERT INTO sessions (token_hash,expires_at,user_id,credential_hash) VALUES (?,?,1,?)").run(${JSON.stringify(hash(token))},Date.now()+86400000,${JSON.stringify(hash("google:docker-owner"))});
-    db.close();
+    const {Client}=require('pg');
+    (async () => {
+      const db=new Client({connectionString:process.env.DATABASE_URL});
+      await db.connect();
+      try {
+        await db.query("UPDATE users SET google_subject='docker-owner',email='owner@gmail.com' WHERE id=1");
+        await db.query("INSERT INTO sessions (token_hash,expires_at,user_id,credential_hash) VALUES ($1,$2,1,$3)", [${JSON.stringify(hash(token))},Date.now()+86400000,${JSON.stringify(hash("google:docker-owner"))}]);
+      } finally { await db.end(); }
+    })().catch(error => { console.error(error); process.exitCode=1; });
   `,
   ]);
   cookie = "book_collection_session=" + token;

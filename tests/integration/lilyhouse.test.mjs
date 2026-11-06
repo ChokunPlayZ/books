@@ -16,7 +16,7 @@ import { lilyHousePage, lilyHouseProduct } from "../../lib/domain/lilyhouse.ts";
 import { publisherCovers } from "../../lib/server/publisher-covers.ts";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { lilyhouse } from "../../lib/server/scrapers/lilyhouse.ts";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createScraperContext } from "../../lib/server/scrapers/http.ts";
 import {
   discoverTitles,
@@ -52,9 +52,9 @@ const book = {
   note: "",
 };
 
-function setup(t, respond) {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+async function setup(t, respond) {
+  const store = await openStore();
+  t.after(async () => await store.close());
   const calls = [];
   const remote = async (url, options) => {
     calls.push({ url, options });
@@ -179,14 +179,14 @@ test("Lily House merchandise, sale prices and variable parents retain safe seman
   assert.equal(item.price, "");
   assert.equal(item.special, true);
   assert.equal(cleanRelease(item).variantGroup, true);
-  const { service, store } = setup(t, () => new Response(variable));
+  const { service, store } = await setup(t, () => new Response(variable));
   const first = await service.getSeriesCatalog(spec);
   const cached = await service.getSeriesCatalog(spec);
   assert.ok(first.items.every((item) => item.special && item.volume === ""));
   assert.deepEqual(cached.items, first.items);
   assert.equal(
-    store.api.setSavedRelease({ release: item, saved: true }).savedReleases[0]
-      .volume,
+    (await store.api.setSavedRelease({ release: item, saved: true }))
+      .savedReleases[0].volume,
     "",
   );
 });
@@ -194,7 +194,7 @@ test("Lily House merchandise, sale prices and variable parents retain safe seman
 test("Lily House catalogs traverse WooCommerce path pagination and reject repeated, missing and malformed pages", async (t) => {
   const first = fixture("manga").replaceAll("?orderby=date", "");
   const last = fixture("search");
-  const { service, calls } = setup(
+  const { service, calls } = await setup(
     t,
     (url) => new Response(url.pathname.includes("/page/2/") ? last : first),
   );
@@ -217,14 +217,14 @@ test("Lily House catalogs traverse WooCommerce path pagination and reject repeat
         status: url.pathname.includes("/page/2/") ? 503 : 200,
       }),
   ]) {
-    const partial = setup(t, response);
+    const partial = await setup(t, response);
     const catalog = await partial.service.getPublisherCatalog({
       url: base + "/product-category/manga/",
     });
     assert.equal(catalog.complete, false);
     assert.equal(catalog.items.length, 4);
   }
-  const malformed = setup(
+  const malformed = await setup(
     t,
     () =>
       new Response(
@@ -240,7 +240,7 @@ test("Lily House catalogs traverse WooCommerce path pagination and reject repeat
 
 test("Lily House series searches annotate unrelated stories and retain complete results through incomplete refreshes and restarts", async (t) => {
   let mode = "complete";
-  const { store, remote, service, calls } = setup(
+  const { store, remote, service, calls } = await setup(
     t,
     () =>
       new Response(
@@ -278,7 +278,7 @@ test("Lily House series searches annotate unrelated stories and retain complete 
 
 test("Lily House release windows sort by date, deduplicate, persist and survive outages", async (t) => {
   let offline = false;
-  const { service, store, remote, calls } = setup(
+  const { service, store, remote, calls } = await setup(
     t,
     () =>
       new Response(offline ? "Unavailable" : fixture("releases"), {
@@ -304,7 +304,7 @@ test("Lily House release windows sort by date, deduplicate, persist and survive 
 });
 
 test("Lily House ISBN searches cache canonical ISBNs, mark candidates unverified and distinguish empty searches from failures", async (t) => {
-  const { service, calls, store } = setup(
+  const { service, calls, store } = await setup(
     t,
     () => new Response(fixture("search")),
   );
@@ -330,7 +330,7 @@ test("Lily House ISBN searches cache canonical ISBNs, mark candidates unverified
     false,
     "Unverified candidates cannot become automatic metadata",
   );
-  const empty = setup(t, () => new Response(fixture("empty")));
+  const empty = await setup(t, () => new Response(fixture("empty")));
   assert.equal(
     (
       await empty.service.searchPublisherIsbn({
@@ -342,7 +342,7 @@ test("Lily House ISBN searches cache canonical ISBNs, mark candidates unverified
   );
   await empty.service.searchPublisherIsbn({ publisherId: "lilyhouse", isbn });
   assert.equal(empty.calls.length, 1);
-  const broken = setup(t, () => new Response("<h1>Changed markup</h1>"));
+  const broken = await setup(t, () => new Response("<h1>Changed markup</h1>"));
   await assert.rejects(
     broken.service.searchPublisherIsbn({ publisherId: "lilyhouse", isbn }),
     /could not be read/,
@@ -358,9 +358,9 @@ test("Lily House main product covers exclude badges and unrelated schemas", asyn
   assert.deepEqual(detail.covers, [image]);
   const decoy =
     '<script type="application/ld+json">{"@type":"Product","url":"https://lily-house.com/shop-2/novel/other/","sku":"other","image":"https://lily-house.com/wp-content/uploads/unrelated.png"}</script>';
-  assert.deepEqual(publisherCovers(html + decoy, product), [image]);
+  assert.deepEqual(await publisherCovers(html + decoy, product), [image]);
   assert.deepEqual(
-    publisherCovers(
+    await publisherCovers(
       html.replace('class="product-information"', 'class="missing"') +
         '<img data-large_image="https://lily-house.com/wp-content/uploads/unrelated.png">' +
         decoy,
@@ -376,7 +376,7 @@ test("Lily House main product covers exclude badges and unrelated schemas", asyn
 });
 
 test("Lily House redirects can normalize a slash but cannot change the host, resource or query", async (t) => {
-  const { store } = setup(t, () => assert.fail("Unexpected request"));
+  const { store } = await setup(t, () => assert.fail("Unexpected request"));
   const safe = createScraperContext(
     store.cache,
     async (url) =>
@@ -403,7 +403,7 @@ test("Lily House redirects can normalize a slash but cannot change the host, res
 
 test("Lily House stops at twenty pages without claiming full coverage", async (t) => {
   const url = base + "/product-category/novel/";
-  const { service, calls } = setup(t, (endpoint) => {
+  const { service, calls } = await setup(t, (endpoint) => {
     const page = Number(/\/page\/(\d+)\//.exec(endpoint.pathname)?.[1] || 1);
     const next = url + "page/" + (page + 1) + "/";
     return new Response(
@@ -426,12 +426,12 @@ test("Lily House stops at twenty pages without claiming full coverage", async (t
 });
 
 test("Lily House books without ISBNs get series covers and keep language and format ownership separate", async (t) => {
-  const { service, store, calls } = setup(
+  const { service, store, calls } = await setup(
     t,
     () => new Response(fixture("search")),
   );
-  store.api.saveBook({ requestId: "lilyhouse_cover_test", book });
-  const owned = store.api.getCollection().books[0];
+  await store.api.saveBook({ requestId: "lilyhouse_cover_test", book });
+  const owned = (await store.api.getCollection()).books[0];
   const cover = await service.getBookCover({ row: owned.row });
   assert.match(
     cover.coverUrl,

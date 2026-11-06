@@ -34,7 +34,7 @@ export const yenpress: ScraperDefinition = {
     fetchText: fetchText_,
   }: ScraperContext) {
     async function lookupYenPress_(canonical: string, refresh = false) {
-      return scrapeCache.get(
+      return await scrapeCache.get(
         "yenpress-isbn:v2:" + canonical,
         { maxAge: SCRAPE_TTL.isbn, refresh },
         async () => {
@@ -88,7 +88,7 @@ export const yenpress: ScraperDefinition = {
     }
 
     async function fetchYenPressDirectory_(refresh = false) {
-      return scrapeCache.get(
+      return await scrapeCache.get(
         "yenpress-directory:v1",
         { maxAge: SCRAPE_TTL.directory, refresh },
         async () => {
@@ -138,7 +138,7 @@ export const yenpress: ScraperDefinition = {
     }
 
     async function fetchYenPressReleases_(refresh = false) {
-      return scrapeCache.get(
+      return await scrapeCache.get(
         "yenpress-releases:v1",
         { maxAge: SCRAPE_TTL.releases, refresh },
         async () => {

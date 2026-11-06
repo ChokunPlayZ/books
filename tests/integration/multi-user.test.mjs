@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import {
   createAccount,
   signInWithGoogle,
@@ -26,27 +26,27 @@ const input = {
   msrp: 175,
   msrpCurrency: "THB",
 };
-function setup(t) {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
-  const alice = createAccount(store, "alice", "alice@gmail.com");
-  const bob = createAccount(store, "bob", "bob@gmail.com");
+async function setup(t) {
+  const store = await openStore();
+  t.after(async () => await store.close());
+  const alice = await createAccount(store, "alice", "alice@gmail.com");
+  const bob = await createAccount(store, "bob", "bob@gmail.com");
   return {
     store,
     alice,
     bob,
-    as: (user, action) => store.forUser(user, action),
+    as: async (user, action) => await store.forUser(user, action),
   };
 }
-const save = (store, book = input, requestId = randomUUID()) =>
-  store.api.saveBook({ requestId, book });
+const save = async (store, book = input, requestId = randomUUID()) =>
+  await store.api.saveBook({ requestId, book });
 
-test("collections, options, ownership, receipts, saved releases and catalog choices are user-private", (t) => {
-  const { store, alice, bob, as } = setup(t);
+test("collections, options, ownership, receipts, saved releases and catalog choices are user-private", async (t) => {
+  const { store, alice, bob, as } = await setup(t);
   const requestId = randomUUID();
   let original;
-  as(alice, () => {
-    save(store, input, requestId);
+  await as(alice, async () => {
+    await save(store, input, requestId);
     const release = releaseItem(
       "phoenix",
       "Example เล่ม 2",
@@ -55,25 +55,25 @@ test("collections, options, ownership, receipts, saved releases and catalog choi
       "",
       "Manga (TH)",
     );
-    store.api.setSavedRelease({ saved: true, release });
-    store.api.setSeriesCatalog({
+    await store.api.setSavedRelease({ saved: true, release });
+    await store.api.setSeriesCatalog({
       series: input.series,
       type: input.type,
       publisherId: "phoenix",
       url: "https://www.phoenixnext.com/book-series/private.html",
     });
-    original = store.api.getCollection().books[0];
+    original = (await store.api.getCollection()).books[0];
     assert.equal(original.type, "Manga");
     assert.equal(original.edition, input.type);
     assert.equal(original.msrp, 175);
-    assert.deepEqual(store.api.getCollection().options.type, [
+    assert.deepEqual((await store.api.getCollection()).options.type, [
       "Light novel",
       "Manga",
       "Others",
     ]);
   });
-  as(bob, () => {
-    const empty = store.api.getCollection();
+  await as(bob, async () => {
+    const empty = await store.api.getCollection();
     assert.deepEqual(
       [
         empty.books.length,
@@ -84,17 +84,26 @@ test("collections, options, ownership, receipts, saved releases and catalog choi
       [0, 0, 0, 0],
     );
     assert.deepEqual(empty.options.source, []);
-    assert.equal(store.api.checkOwnership(input.isbn).matches.length, 0);
-    save(
+    assert.equal(
+      (await store.api.checkOwnership(input.isbn)).matches.length,
+      0,
+    );
+    await save(
       store,
       { ...input, source: "Bob's shop", note: "Bob's note" },
       requestId,
     );
-    assert.equal(store.api.getCollection().books[0].source, "Bob's shop");
-    assert.notEqual(store.api.getCollection().books[0].row, original.row);
-    assert.throws(
-      () =>
-        store.api.saveBook({
+    assert.equal(
+      (await store.api.getCollection()).books[0].source,
+      "Bob's shop",
+    );
+    assert.notEqual(
+      (await store.api.getCollection()).books[0].row,
+      original.row,
+    );
+    await assert.rejects(
+      async () =>
+        await store.api.saveBook({
           row: original.row,
           token: original.token,
           requestId: randomUUID(),
@@ -102,13 +111,14 @@ test("collections, options, ownership, receipts, saved releases and catalog choi
         }),
       { status: 409 },
     );
-    assert.throws(
-      () => store.api.removeBook({ ...original, requestId: randomUUID() }),
+    await assert.rejects(
+      async () =>
+        await store.api.removeBook({ ...original, requestId: randomUUID() }),
       { status: 409 },
     );
-    assert.throws(
-      () =>
-        store.api.saveSeriesPurchases({
+    await assert.rejects(
+      async () =>
+        await store.api.saveSeriesPurchases({
           series: input.series,
           requestId: randomUUID(),
           changes: [{ ...original, source: "Stolen", price: "1", date: "" }],
@@ -117,70 +127,80 @@ test("collections, options, ownership, receipts, saved releases and catalog choi
     );
   });
   let removed;
-  as(alice, () => {
-    removed = store.api.removeBook({ ...original, requestId: randomUUID() });
+  await as(alice, async () => {
+    removed = await store.api.removeBook({
+      ...original,
+      requestId: randomUUID(),
+    });
   });
-  as(bob, () => {
-    assert.throws(
-      () =>
-        store.api.restoreBook({
+  await as(bob, async () => {
+    await assert.rejects(
+      async () =>
+        await store.api.restoreBook({
           trashId: removed.trashId,
           requestId: randomUUID(),
         }),
       { status: 409 },
     );
-    assert.throws(
-      () =>
-        store.api.updateBooks({
+    await assert.rejects(
+      async () =>
+        await store.api.updateBooks({
           action: "restore",
           requestId: randomUUID(),
           books: [{ ...original, trashId: removed.trashId }],
         }),
       { status: 409 },
     );
-    const backup = JSON.stringify(store.exportData());
+    const backup = JSON.stringify(await store.exportData());
     assert.ok(!backup.includes("Private gift note"));
-    assert.equal(store.api.getCollection().trash.length, 0);
+    assert.equal((await store.api.getCollection()).trash.length, 0);
   });
-  as(alice, () => {
-    assert.equal(store.api.getCollection().trash[0].book.note, input.note);
+  await as(alice, async () => {
     assert.equal(
-      store.api.getCollection().options.source.includes("Bob's shop"),
+      (await store.api.getCollection()).trash[0].book.note,
+      input.note,
+    );
+    assert.equal(
+      (await store.api.getCollection()).options.source.includes("Bob's shop"),
       false,
     );
   });
 });
 
 test("async requests keep their identities, and imports and image exports are scoped", async (t) => {
-  const { store, alice, bob, as } = setup(t);
+  const { store, alice, bob, as } = await setup(t);
   const plan = parseImport(Buffer.from(JSON.stringify([input])), "books.json");
   await Promise.all(
-    [alice, bob].map((user) =>
-      as(user, async () => {
-        await Promise.resolve();
-        assert.equal(store.currentUser().id, user.id);
-        assert.equal(store.importData(plan, plan.fingerprint).books, 1);
-        assert.equal(store.api.getCollection().books.length, 1);
-      }),
+    [alice, bob].map(
+      async (user) =>
+        await as(user, async () => {
+          await Promise.resolve();
+          assert.equal(store.currentUser().id, user.id);
+          assert.equal(
+            (await store.importData(plan, plan.fingerprint)).books,
+            1,
+          );
+          assert.equal((await store.api.getCollection()).books.length, 1);
+        }),
     ),
   );
   let privateCover;
-  as(alice, () => {
-    privateCover = store.covers.put({
+  await as(alice, async () => {
+    privateCover = await store.covers.put({
       body: Buffer.from("private-image"),
       contentType: "image/png",
     });
-    const book = store.api.getCollection().books[0];
-    store.covers.assign(book.row, privateCover.id, book.token);
-    assert.equal(store.exportData().covers[0].id, privateCover.id);
+    const book = (await store.api.getCollection()).books[0];
+    await store.covers.assign(book.row, privateCover.id, book.token);
+    assert.equal((await store.exportData()).covers[0].id, privateCover.id);
   });
-  as(bob, () => {
-    assert.equal(store.covers.canAccess(privateCover.id), false);
-    assert.deepEqual(store.exportData().covers, []);
-    const book = store.api.getCollection().books[0];
-    assert.throws(
-      () =>
-        store.api.saveBook({
+  await as(bob, async () => {
+    assert.equal(await store.covers.canAccess(privateCover.id), false);
+    assert.deepEqual((await store.exportData()).covers, []);
+    const book = (await store.api.getCollection()).books[0];
+    await assert.rejects(
+      async () =>
+        await store.api.saveBook({
           ...book,
           requestId: randomUUID(),
           book: { ...book, coverId: privateCover.id },
@@ -191,24 +211,24 @@ test("async requests keep their identities, and imports and image exports are sc
 });
 
 test("user sessions identify accounts and ordinary users cannot inspect caches or force scraping", async (t) => {
-  const { store, alice, bob, as } = setup(t);
-  const signedIn = signInWithGoogle(store, {
+  const { store, alice, bob, as } = await setup(t);
+  const signedIn = await signInWithGoogle(store, {
     sub: "alice-google",
     email: "alice@gmail.com",
     email_verified: true,
   });
-  assert.equal(sessionUser(store, signedIn.token).id, alice.id);
-  assert.throws(
-    () =>
-      signInWithGoogle(store, {
+  assert.equal((await sessionUser(store, signedIn.token)).id, alice.id);
+  await assert.rejects(
+    async () =>
+      await signInWithGoogle(store, {
         sub: "bob-google",
         email: "alice@gmail.com",
         email_verified: true,
       }),
     { status: 403 },
   );
-  signOut(store, signedIn.token);
-  assert.equal(sessionUser(store, signedIn.token), null);
+  await signOut(store, signedIn.token);
+  assert.equal(await sessionUser(store, signedIn.token), null);
   const api = createApplicationApi(
     store,
     {
@@ -233,45 +253,48 @@ test("user sessions identify accounts and ordinary users cannot inspect caches o
       api.findLowestPrices({ isbn: input.isbn, refresh: true }),
       { status: 403 },
     );
-    assert.throws(
-      () => createAccount(store, "mallory", "mallory@gmail.com", "admin"),
+    await assert.rejects(
+      async () =>
+        await createAccount(store, "mallory", "mallory@gmail.com", "admin"),
       { status: 403 },
     );
   });
 });
 
-test("unverified Google identities cannot claim a library or affect another account", (t) => {
-  const { store } = setup(t);
+test("unverified Google identities cannot claim a library or affect another account", async (t) => {
+  const { store } = await setup(t);
   for (let count = 0; count < 10; count++)
-    assert.throws(
-      () =>
-        signInWithGoogle(store, {
+    await assert.rejects(
+      async () =>
+        await signInWithGoogle(store, {
           sub: "mallory",
           email: "alice@gmail.com",
           email_verified: false,
         }),
       { status: 403 },
     );
-  const bob = signInWithGoogle(store, {
+  const bob = await signInWithGoogle(store, {
     sub: "bob-google",
     email: "bob@gmail.com",
     email_verified: true,
   });
-  assert.equal(sessionUser(store, bob.token).username, "bob");
+  assert.equal((await sessionUser(store, bob.token)).username, "bob");
   assert.equal(
-    store.db
-      .prepare("SELECT google_subject FROM users WHERE username='alice'")
-      .get().google_subject,
+    (
+      await store.db
+        .prepare("SELECT google_subject FROM users WHERE username='alice'")
+        .get()
+    ).google_subject,
     null,
   );
 });
 
-test("imported cover/source associations cannot overwrite shared publisher images", (t) => {
-  const { store, alice, bob, as } = setup(t);
+test("imported cover/source associations cannot overwrite shared publisher images", async (t) => {
+  const { store, alice, bob, as } = await setup(t);
   const url =
     "https://www.phoenixnext.com/media/catalog/product/private-import.png";
-  as(alice, () => {
-    store.importData(
+  await as(alice, async () => {
+    await store.importData(
       {
         books: [],
         trash: [],
@@ -289,16 +312,18 @@ test("imported cover/source associations cannot overwrite shared publisher image
       },
       "private-image-import",
     );
-    assert.ok(store.covers.bySource(url));
+    assert.ok(await store.covers.bySource(url));
   });
-  as(bob, () => {
-    assert.equal(store.covers.bySource(url), null);
-    assert.deepEqual(store.exportData().covers, []);
+  await as(bob, async () => {
+    assert.equal(await store.covers.bySource(url), null);
+    assert.deepEqual((await store.exportData()).covers, []);
   });
   assert.equal(
-    store.db
-      .prepare("SELECT COUNT(*) AS n FROM cover_sources WHERE url=?")
-      .get(url).n,
+    (
+      await store.db
+        .prepare("SELECT COUNT(*) AS n FROM cover_sources WHERE url=?")
+        .get(url)
+    ).n,
     0,
   );
 });

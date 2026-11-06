@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { createApplicationApi } from "../../lib/server/api.ts";
 import { SCRAPER_SOURCES } from "../../lib/server/scrapers/registry.ts";
@@ -13,9 +13,9 @@ const fixture = (name) =>
     "utf8",
   );
 const isbn = "9786166247275";
-function database(t) {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+async function database(t) {
+  const store = await openStore();
+  t.after(async () => await store.close());
   return store;
 }
 function source(id, load) {
@@ -71,7 +71,7 @@ test("price comparison verifies ISBNs, distinguishes outages, and only ranks kno
     source("invalidprice", async () => details("invalidprice", { price: -1 })),
   ];
   const api = createCatalogService(
-    database(t),
+    await database(t),
     () => assert.fail("No network expected"),
     definitions,
   );
@@ -115,7 +115,7 @@ test("price comparison verifies ISBNs, distinguishes outages, and only ranks kno
 });
 
 test("prices are cached across services, concurrent checks share work, refresh bypasses metadata caching, and failures do not become low prices", async (t) => {
-  const store = database(t);
+  const store = await database(t);
   let calls = 0,
     price = 125,
     failed = false;
@@ -151,7 +151,7 @@ test("prices are cached across services, concurrent checks share work, refresh b
 });
 
 test("invalid and missing ISBNs are rejected before any shop lookup", async (t) => {
-  const api = createCatalogService(database(t), fetch, [
+  const api = createCatalogService(await database(t), fetch, [
     source("shop", () => assert.fail("Must not search")),
   ]);
   for (const input of [undefined, {}, { isbn: "" }, { isbn: "9781234567890" }])
@@ -198,7 +198,7 @@ for (const [id, code, searchFixture, productFixture, price, stock] of [
     id + " extracts the verified product's selling price and stock",
     async (t) => {
       const api = createCatalogService(
-        database(t),
+        await database(t),
         async (url) =>
           new Response(
             fixture(
@@ -220,7 +220,7 @@ for (const [id, code, searchFixture, productFixture, price, stock] of [
 }
 
 test("Naiin sale prices and another shop can be compared through the application API without downloading covers", async (t) => {
-  const store = database(t);
+  const store = await database(t);
   const api = createApplicationApi(
     store,
     { ensure: () => assert.fail("Prices must not fetch cover images") },
@@ -275,7 +275,7 @@ test("a Naiin recommendation cannot attach a different book's price to the reque
       url: "https://www.naiin.com/product/detail/999",
     })}</script>`;
   const api = createCatalogService(
-    database(t),
+    await database(t),
     async (url) =>
       new Response(
         url.includes("search-result")
@@ -301,7 +301,7 @@ test("a Phoenix recommendation cannot establish the main book's stock", async (t
       },
     )}</script>`;
   const api = createCatalogService(
-    database(t),
+    await database(t),
     async (url) =>
       new Response(
         url.includes("catalogsearch") ? fixture("phoenix.html") : product,
@@ -314,7 +314,7 @@ test("a Phoenix recommendation cannot establish the main book's stock", async (t
 });
 
 test("an explicit zero price is preserved and can be the lowest in-stock offer", async (t) => {
-  const api = createCatalogService(database(t), fetch, [
+  const api = createCatalogService(await database(t), fetch, [
     source("free", async () => details("free", { price: 0 })),
   ]);
   const result = await api.findLowestPrices({ isbn });

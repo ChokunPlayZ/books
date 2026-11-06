@@ -1,4 +1,4 @@
-// Production Next.js + actual SQLite. Every database and server here belongs to this test.
+// Production Next.js + actual PostgreSQL. Every database and server here belongs to this test.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
@@ -8,7 +8,10 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { createCoverService, coverDigest } from "../../lib/server/covers.ts";
-import { openStore } from "../../lib/server/store.ts";
+import {
+  openTestStore as openStore,
+  testDatabaseUrl,
+} from "../helpers/database.mjs";
 import { seriesPath } from "../../lib/domain/navigation.ts";
 import { seedMetadataMaintenance } from "../helpers/metadata.mjs";
 import { signInWithGoogle } from "../../lib/server/auth.ts";
@@ -55,9 +58,10 @@ async function port() {
   return value;
 }
 async function start(name, seed) {
-  const seeded = openStore(join(directory, `${name}.sqlite`));
-  const fixtureSession = signInWithGoogle(seeded, owner, owner.email).token;
-  if (seed) seed(seeded);
+  const seeded = await openStore(join(directory, `${name}.sqlite`));
+  const fixtureSession = (await signInWithGoogle(seeded, owner, owner.email))
+    .token;
+  if (seed) await seed(seeded);
   const seedCovers = createCoverService(seeded, {
     fetchImpl: async () => new Response(coverBytes),
   });
@@ -65,7 +69,7 @@ async function start(name, seed) {
   await seedCovers.ensure(
     "https://www.phoenixnext.com/media/catalog/product/alternate-test.png",
   );
-  seeded.close();
+  await seeded.close();
   const selectedPort = await port(),
     url = `http://127.0.0.1:${selectedPort}`;
   fixtureSessions.set(url, fixtureSession);
@@ -83,7 +87,7 @@ async function start(name, seed) {
         NODE_ENV: "production",
         HOSTNAME: "127.0.0.1",
         PORT: String(selectedPort),
-        BOOKS_DATABASE_PATH: join(directory, `${name}.sqlite`),
+        DATABASE_URL: await testDatabaseUrl(join(directory, `${name}.sqlite`)),
         ...googleEnv,
         BOOKS_APP_URL: url,
       },
@@ -253,7 +257,7 @@ try {
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#addButton").click();
   await page.locator("#series").fill("Next.js browser check");
-  await page.locator("#type").selectOption("LN (TH)");
+  await page.locator("#type").selectOption("Light novel");
   await page.locator("#publisher").fill("PHOENIX Next");
   await page.locator("#status").selectOption("Read");
   await page.locator("#volume").fill("14.5");
@@ -345,9 +349,11 @@ try {
   await page.waitForFunction(() => !document.getElementById("bookDialog").open);
   await page.reload();
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
-  const metadataBook = (
-    await (await post({ name: "getCollection" })).json()
-  ).books.find((book) => book.row === added.row);
+  const metadataResponse = await post({ name: "getCollection" });
+  assert.equal(metadataResponse.status(), 200, await metadataResponse.text());
+  const metadataBook = (await metadataResponse.json()).books.find(
+    (book) => book.row === added.row,
+  );
   assert.equal(metadataBook.coverUrl, coverSource);
   assert.equal(metadataBook.publisherUrl, publisherPage);
   assert.equal(metadataBook.note, "Selected publisher cover");
@@ -460,10 +466,7 @@ try {
     "firstpage-types.browser.mjs",
     "publishers.browser.mjs",
     "release-filters.browser.mjs",
-    "yaakz.browser.mjs",
-    "yenpress.browser.mjs",
     "kinokuniya.browser.mjs",
-    "kodansha.browser.mjs",
     "lilyhouse.browser.mjs",
     "navigation.browser.mjs",
   ])

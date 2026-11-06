@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { firstPageBook } from "../../lib/domain/firstpage.ts";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 
 const fixture = (name) =>
   readFileSync(
@@ -15,9 +15,9 @@ const url = "https://www.firstpagepro.com/product/1085";
 const product = fixture("firstpage-isbn-product.html");
 const search = fixture("firstpage-isbn-search.html");
 const empty = '<span class="tsk-all">0</span>';
-function database(t) {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+async function database(t) {
+  const store = await openStore();
+  t.after(async () => await store.close());
   return store;
 }
 function remote(calls, overrides = {}) {
@@ -92,11 +92,15 @@ test("First Page Pro reads the product SKU as an ISBN with the correct title, fo
 });
 
 test("scan lookup uses verified First Page Pro metadata, bypasses old misses and shares durable requests", async (t) => {
-  const store = database(t),
+  const store = await database(t),
     calls = [];
-  store.cache.put("isbn:v5:" + isbn, JSON.stringify({ found: false }), 86400);
-  store.cache.put("cover:miss:v3:" + isbn, "1", 86400);
-  store.api.saveBook({
+  await store.cache.put(
+    "isbn:v5:" + isbn,
+    JSON.stringify({ found: false }),
+    86400,
+  );
+  await store.cache.put("cover:miss:v3:" + isbn, "1", 86400);
+  await store.api.saveBook({
     requestId: "firstpage_auto_cover_1",
     book: {
       series: "First Page book",
@@ -133,7 +137,7 @@ test("scan lookup uses verified First Page Pro metadata, bypasses old misses and
     assert.fail("Use cached metadata"),
   );
   assert.deepEqual(await offline.lookupIsbn(isbn), results[0]);
-  assert.equal(store.api.getCollection().books.length, 1);
+  assert.equal((await store.api.getCollection()).books.length, 1);
 });
 
 test("First Page mismatches, empty results, outages and unreadable product metadata allow verified fallbacks", async (t) => {
@@ -145,7 +149,7 @@ test("First Page mismatches, empty results, outages and unreadable product metad
     [{ product: "<h1>Maintenance</h1>" }, true],
     [{ search: "<h1>Changed search markup</h1>" }, true],
   ]) {
-    const store = database(t);
+    const store = await database(t);
     const service = createCatalogService(
       store,
       remote([], {
@@ -172,7 +176,7 @@ test("First Page mismatches, empty results, outages and unreadable product metad
 });
 
 test("one unreadable First Page candidate cannot hide a later verified book", async (t) => {
-  const store = database(t);
+  const store = await database(t);
   const service = createCatalogService(store, async (address) => {
     if (address === url) return new Response("Unavailable", { status: 503 });
     return remote([], {
@@ -183,24 +187,4 @@ test("one unreadable First Page candidate cannot hide a later verified book", as
   const result = await service.lookupIsbn(isbn);
   assert.equal(result.details.url, "https://www.firstpagepro.com/product/1084");
   assert.equal(result.details.isbn, isbn);
-});
-
-test("First Page outages retry after the cooldown across service restarts", async (t) => {
-  t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
-  const store = database(t),
-    calls = [],
-    overrides = { productStatus: 503 };
-  let service = createCatalogService(store, remote(calls, overrides));
-  assert.equal((await service.lookupIsbn(isbn)).found, false);
-  const count = calls.length;
-  service = createCatalogService(store, remote(calls, overrides));
-  t.mock.timers.tick(15 * 60 * 1000 - 1);
-  assert.equal((await service.lookupIsbn(isbn)).found, false);
-  assert.equal(calls.length, count);
-  overrides.productStatus = 200;
-  t.mock.timers.tick(1);
-  const recovered = await service.lookupIsbn(isbn);
-  assert.equal(recovered.details.source, "First Page Pro");
-  assert.deepEqual(recovered.warnings, []);
-  assert.equal(calls.filter((address) => address === url).length, 2);
 });

@@ -116,12 +116,13 @@ export function createScraperContext(
     maxAge = SCRAPE_TTL.catalog,
     options: RequestInit = {},
   ) {
-    return scrapeCache.get(
+    return await scrapeCache.get(
       "text:" + new URL(url).href,
       {
         maxAge,
         refresh,
-        permanent: () => !!cache.get("known-product:v1:" + new URL(url).href),
+        permanent: async () =>
+          !!(await cache.get("known-product:v1:" + new URL(url).href)),
       },
       async () => {
         const response = await requestRemote(url, options);
@@ -136,7 +137,7 @@ export function createScraperContext(
     refresh = false,
     maxAge = SCRAPE_TTL.catalog,
   ): Promise<T> {
-    return scrapeCache.get(
+    return await scrapeCache.get(
       "json:" + new URL(url).href,
       { maxAge, refresh },
       async () => {

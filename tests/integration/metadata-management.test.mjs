@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { createMetadataService } from "../../lib/server/metadata.ts";
 import { createApplicationApi } from "../../lib/server/api.ts";
@@ -23,81 +23,93 @@ const book = {
   date: "2026-10-30",
   note: "Keep my notes",
 };
-const save = (store, data = book) =>
-  store.api.saveBook({
+const save = async (store, data = book) =>
+  await store.api.saveBook({
     requestId: crypto.randomUUID(),
     book: data,
     allowDuplicate: true,
   });
-function setup(t, remote = async () => new Response("{}"), sources) {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+async function setup(t, remote = async () => new Response("{}"), sources) {
+  const store = await openStore();
+  t.after(async () => await store.close());
   const catalogs = createCatalogService(store, remote, sources);
   return { store, catalogs, ...createMetadataService(store, catalogs) };
 }
 
-test("cache maintenance filters and paginates records, inspects content and purges only the requested scope", (t) => {
-  const service = setup(t),
+test("cache maintenance filters and paginates records, inspects content and purges only the requested scope", async (t) => {
+  const service = await setup(t),
     { store } = service;
-  save(store);
+  await save(store);
   for (let index = 0; index < 25; index++)
-    store.cache.put(
+    await store.cache.put(
       `isbn:v15:test-${index}`,
       JSON.stringify({ details: { title: `Cached title ${index}` } }),
       index < 2 ? -1 : 3600,
     );
-  store.cache.put("cover:isbn:v1:" + isbn, source, 3600);
-  store.cache.put("scrape:v1:test:retry", "1", 900);
-  store.cache.put("anilist:cooldown", String(Date.now() + 60000), 60);
-  store.cache.put("cover:retry:v1:test", "1", 900);
-  const overview = service.getMetadataOverview({ group: "isbn", page: 2 });
+  await store.cache.put("cover:isbn:v1:" + isbn, source, 3600);
+  await store.cache.put("scrape:v1:test:retry", "1", 900);
+  await store.cache.put("anilist:cooldown", String(Date.now() + 60000), 60);
+  await store.cache.put("cover:retry:v1:test", "1", 900);
+  const overview = await service.getMetadataOverview({
+    group: "isbn",
+    page: 2,
+  });
   assert.equal(overview.total, 25);
   assert.equal(overview.entries.length, 5);
   assert.equal(overview.summary.cooldowns, 3);
   assert.equal(overview.summary.expired, 2);
   assert.equal(
-    service.getMetadataOverview({ search: "Cached title 24" }).total,
+    (await service.getMetadataOverview({ search: "Cached title 24" })).total,
     1,
   );
-  assert.equal(service.getMetadataOverview({ page: -20 }).page, 1);
+  assert.equal((await service.getMetadataOverview({ page: -20 })).page, 1);
   assert.equal(
-    service.getMetadataCacheEntry({ key: "cover:isbn:v1:" + isbn }).content,
+    (await service.getMetadataCacheEntry({ key: "cover:isbn:v1:" + isbn }))
+      .content,
     source,
   );
-  store.covers.put(
+  await store.covers.put(
     { body: new Uint8Array([1, 2, 3]), contentType: "image/png" },
     source,
   );
-  const before = store.exportData();
+  const before = await store.exportData();
   assert.equal(
-    service.purgeMetadataCache({ group: "isbn", expiredOnly: true }).purged,
+    (await service.purgeMetadataCache({ group: "isbn", expiredOnly: true }))
+      .purged,
     2,
   );
   assert.equal(
-    service.purgeMetadataCache({ search: "Cached title 24" }).purged,
+    (await service.purgeMetadataCache({ search: "Cached title 24" })).purged,
     1,
   );
   assert.equal(
-    service.purgeMetadataCache({ key: "scrape:v1:test:retry" }).purged,
+    (await service.purgeMetadataCache({ key: "scrape:v1:test:retry" })).purged,
     0,
   );
-  assert.equal(service.purgeMetadataCache().purged, 23);
-  assert.equal(service.getMetadataOverview().summary.count, 3);
-  const after = store.exportData();
+  assert.equal((await service.purgeMetadataCache()).purged, 23);
+  assert.equal((await service.getMetadataOverview()).summary.count, 3);
+  const after = await store.exportData();
   assert.deepEqual({ ...after, exportedAt: before.exportedAt }, before);
-  assert.ok(store.covers.bySource(source));
-  assert.throws(() => service.getMetadataOverview({ group: "invalid" }));
-  assert.throws(() => service.purgeMetadataCache(null));
-  assert.throws(() => service.purgeMetadataCache({ key: "" }));
-  assert.throws(() => service.getMetadataCacheEntry({ key: "gone" }), {
-    status: 404,
-  });
+  assert.ok(await store.covers.bySource(source));
+  await assert.rejects(
+    async () => await service.getMetadataOverview({ group: "invalid" }),
+  );
+  await assert.rejects(async () => await service.purgeMetadataCache(null));
+  await assert.rejects(
+    async () => await service.purgeMetadataCache({ key: "" }),
+  );
+  await assert.rejects(
+    async () => await service.getMetadataCacheEntry({ key: "gone" }),
+    {
+      status: 404,
+    },
+  );
 });
 
 test("ISBN re-crawls bypass both cache layers and fill only missing fields on matching owned copies", async (t) => {
   let pages = 200,
     requests = 0;
-  const service = setup(
+  const service = await setup(
     t,
     async (url) => {
       requests++;
@@ -123,18 +135,18 @@ test("ISBN re-crawls bypass both cache layers and fill only missing fields on ma
     },
     [googleBooks, openLibrary],
   );
-  save(service.store);
-  save(service.store, {
+  await save(service.store);
+  await save(service.store, {
     ...book,
     pageCount: 123,
     coverUrl: source.replace("maintenance", "manual"),
     publisherUrl: "https://example.com/manual",
   });
-  const target = service
-    .getMetadataOverview()
-    .targets.find((target) => target.kind === "isbn");
+  const target = (await service.getMetadataOverview()).targets.find(
+    (target) => target.kind === "isbn",
+  );
   assert.equal(
-    service.getMetadataOverview().targets.length,
+    (await service.getMetadataOverview()).targets.length,
     1,
     "Duplicate copies share one ISBN crawl",
   );
@@ -147,7 +159,10 @@ test("ISBN re-crawls bypass both cache layers and fill only missing fields on ma
   );
   assert.equal(requests, beforeRequests);
   assert.equal((await service.recrawlMetadata({ id: target.id })).filled, 0);
-  assert.equal(service.store.api.getCollection().books[0].pageCount, "");
+  assert.equal(
+    (await service.store.api.getCollection()).books[0].pageCount,
+    "",
+  );
   assert.ok(
     requests > beforeRequests,
     "A re-crawl fetches source APIs despite fresh page entries",
@@ -158,7 +173,7 @@ test("ISBN re-crawls bypass both cache layers and fill only missing fields on ma
   });
   assert.equal(result.filled, 1);
   assert.equal(result.status, "updated");
-  const books = service.store.api.getCollection().books;
+  const books = (await service.store.api.getCollection()).books;
   assert.equal(books[0].pageCount, 208);
   assert.equal(books[0].coverUrl, source);
   assert.equal(books[0].series, book.series);
@@ -169,7 +184,8 @@ test("ISBN re-crawls bypass both cache layers and fill only missing fields on ma
   assert.equal(books[1].pageCount, 123);
   assert.equal(books[1].publisherUrl, "https://example.com/manual");
   assert.equal(books[1].coverUrl, source.replace("maintenance", "manual"));
-  const retained = service.getMetadataOverview({ group: "responses" }).entries;
+  const retained = (await service.getMetadataOverview({ group: "responses" }))
+    .entries;
   assert.ok(retained.some((entry) => entry.label.includes("googleapis.com")));
   assert.ok(retained.every((entry) => entry.checkedAt));
 });
@@ -177,7 +193,7 @@ test("ISBN re-crawls bypass both cache layers and fill only missing fields on ma
 test("failed ISBN refreshes preserve metadata, report failure and respect cooldowns after purging", async (t) => {
   let offline = false,
     requests = 0;
-  const service = setup(
+  const service = await setup(
     t,
     async (url) => {
       requests++;
@@ -201,9 +217,9 @@ test("failed ISBN refreshes preserve metadata, report failure and respect cooldo
     },
     [googleBooks, openLibrary],
   );
-  save(service.store);
+  await save(service.store);
   await service.catalogs.lookupIsbn(isbn);
-  const target = service.getMetadataOverview().targets[0];
+  const target = (await service.getMetadataOverview()).targets[0];
   offline = true;
   const result = await service.recrawlMetadata({ id: target.id });
   assert.equal(result.status, "failed");
@@ -213,7 +229,7 @@ test("failed ISBN refreshes preserve metadata, report failure and respect cooldo
     "Previous metadata",
   );
   const before = requests;
-  service.purgeMetadataCache();
+  await service.purgeMetadataCache();
   assert.equal(
     (await service.recrawlMetadata({ id: target.id })).status,
     "failed",
@@ -230,18 +246,18 @@ test("linked series crawl uses the saved link, keeps stale catalogs, and validat
     ),
     "utf8",
   );
-  const service = setup(
+  const service = await setup(
     t,
     async () =>
       new Response(offline ? "Offline" : html, { status: offline ? 503 : 200 }),
   );
-  service.store.api.setSeriesCatalog({
+  await service.store.api.setSeriesCatalog({
     series: "Linked series",
     type: "Manga (TH)",
     publisherId: "phoenix",
     url: "https://www.phoenixnext.com/book-series/kaoru-hana-wa-rin-to-saku.html",
   });
-  const target = service.getMetadataOverview().targets[0];
+  const target = (await service.getMetadataOverview()).targets[0];
   assert.equal(
     (await service.recrawlMetadata({ id: target.id })).status,
     "updated",
@@ -250,8 +266,11 @@ test("linked series crawl uses the saved link, keeps stale catalogs, and validat
   const result = await service.recrawlMetadata({ id: target.id });
   assert.equal(result.status, "failed");
   assert.match(result.message, /previous check/);
-  service.purgeMetadataCache();
-  assert.equal(service.store.api.getCollection().seriesCatalogs.length, 1);
+  await service.purgeMetadataCache();
+  assert.equal(
+    (await service.store.api.getCollection()).seriesCatalogs.length,
+    1,
+  );
   await assert.rejects(
     service.recrawlMetadata({ id: "https://arbitrary.test/private" }),
     { status: 404 },
@@ -259,8 +278,8 @@ test("linked series crawl uses the saved link, keeps stale catalogs, and validat
 });
 
 test("the application exposes maintenance without interpreting previews as book data or fetching covers", async (t) => {
-  const { store } = setup(t);
-  store.cache.put(
+  const { store } = await setup(t);
+  await store.cache.put(
     "isbn:v15:" + isbn,
     JSON.stringify({ details: { coverUrl: source, title: "Preview" } }),
     3600,
@@ -276,24 +295,29 @@ test("the application exposes maintenance without interpreting previews as book 
 });
 
 test("overlapping re-crawls share work, block purges and preserve edits made while a source is loading", async (t) => {
-  const { store, catalogs } = setup(t);
-  save(store);
+  const { store, catalogs } = await setup(t);
+  await save(store);
   const gate = Promise.withResolvers();
+  const started = Promise.withResolvers();
   let lookups = 0;
   const service = createMetadataService(store, {
     ...catalogs,
     lookupIsbn: () => {
       lookups++;
+      started.resolve();
       return gate.promise;
     },
   });
-  const target = service.getMetadataOverview().targets[0];
+  const target = (await service.getMetadataOverview()).targets[0];
   const first = service.recrawlMetadata({ id: target.id, fillMissing: true });
   const second = service.recrawlMetadata({ id: target.id, fillMissing: true });
+  await started.promise;
   assert.equal(lookups, 1);
-  assert.throws(() => service.purgeMetadataCache(), { status: 409 });
-  const current = store.api.getCollection().books[0];
-  store.api.saveBook({
+  await assert.rejects(async () => await service.purgeMetadataCache(), {
+    status: 409,
+  });
+  const current = (await store.api.getCollection()).books[0];
+  await store.api.saveBook({
     row: current.row,
     token: current.token,
     requestId: crypto.randomUUID(),
@@ -311,7 +335,7 @@ test("overlapping re-crawls share work, block purges and preserve edits made whi
   });
   assert.deepEqual(await first, await second);
   assert.equal((await first).filled, 1);
-  const updated = store.api.getCollection().books[0];
+  const updated = (await store.api.getCollection()).books[0];
   assert.equal(updated.pageCount, 321);
   assert.equal(updated.note, "Edited while crawling");
   assert.equal(

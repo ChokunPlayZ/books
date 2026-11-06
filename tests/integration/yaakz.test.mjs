@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { createApplicationApi } from "../../lib/server/api.ts";
 import { createCoverService } from "../../lib/server/covers.ts";
@@ -66,9 +66,9 @@ test("Yaakz reads individual Nuxt product variants with their own ISBN, image an
 });
 
 test("Yaakz releases, discovery, series catalogs and cover choices support variant products and durable outages", async (t) => {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
-  store.api.saveBook({ requestId: "yaakz_volume_test_1", book: volume });
+  const store = await openStore();
+  t.after(async () => await store.close());
+  await store.api.saveBook({ requestId: "yaakz_volume_test_1", book: volume });
   let offline = false;
   const calls = [];
   const service = createCatalogService(store, async (url) => {
@@ -117,10 +117,10 @@ test("Yaakz releases, discovery, series catalogs and cover choices support varia
 });
 
 test("bookstores provide stored cover choices for unsupported publishers and reject a different ISBN", async (t) => {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+  const store = await openStore();
+  t.after(async () => await store.close());
   const isbn = "9786165890830";
-  store.api.saveBook({
+  await store.api.saveBook({
     requestId: "shop_cover_test_1",
     book: { ...volume, publisher: "Other publisher", isbn },
   });
@@ -148,7 +148,7 @@ test("bookstores provide stored cover choices for unsupported publishers and rej
   assert.equal(options.covers.length, 1);
   assert.equal(options.covers[0].source, "Naiin");
   assert.match(options.covers[0].coverId, /^[a-f0-9]{64}$/);
-  assert.deepEqual(covers.get(options.covers[0].coverId).body, png);
+  assert.deepEqual((await covers.get(options.covers[0].coverId)).body, png);
   correct = false;
   assert.equal((await api.getBookCoverOptions({ row: 1 })).covers.length, 1);
   assert.equal(
@@ -158,8 +158,8 @@ test("bookstores provide stored cover choices for unsupported publishers and rej
 });
 
 test("ISBN metadata falls back to Yaakz and verifies the child ISBN before accepting a cover", async (t) => {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+  const store = await openStore();
+  t.after(async () => await store.close());
   const service = createCatalogService(store, async (url) => {
     if (url.includes("naiin"))
       return new Response('<product-list :items="[]">');
@@ -175,8 +175,8 @@ test("ISBN metadata falls back to Yaakz and verifies the child ISBN before accep
 });
 
 test("Yaakz pagination uses bounded page numbers and rejects incomplete or changed product data", async (t) => {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+  const store = await openStore();
+  t.after(async () => await store.close());
   const calls = [];
   const one = {
     uuid: "12345",

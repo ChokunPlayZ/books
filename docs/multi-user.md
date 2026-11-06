@@ -1,6 +1,6 @@
 # Accounts, privacy and shared metadata
 
-Existing databases migrate in place: the existing collection belongs to the `admin` account. Back up the SQLite database before deploying a schema upgrade. [Google sign-in](authentication.md) is the only sign-in method; any verified Google account can register for an empty, private library. Only the explicitly configured owner can claim the existing admin library.
+Existing SQLite databases can be [copied safely to PostgreSQL](self-hosting.md#migrate-an-existing-sqlite-installation), preserving all account ownership. Back up PostgreSQL before deploying a schema upgrade. [Google sign-in](authentication.md) is the only sign-in method; any verified Google account can register for an empty, private library. Only the explicitly configured owner can claim the existing admin library.
 
 To reserve an account, run `npm run user:add -- username reader@gmail.com` on the server. Add `--admin` only for a trusted administrator. To map an existing password-era library before its first Google login, use `npm run user:add -- username reader@gmail.com --link`. Gmail or Google Workspace is required when claiming a reserved library. Linked identities are bound to Google's immutable subject, not a mutable email. Password sessions are revoked during migration, and unauthenticated mode cannot bypass sign-in.
 

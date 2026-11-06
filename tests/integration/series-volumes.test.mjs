@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { parseImport } from "../../lib/server/importer.ts";
 import { releaseItem } from "../../lib/domain.ts";
 
@@ -24,16 +24,20 @@ const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
   "base64",
 );
-function setup(t) {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+async function setup(t) {
+  const store = await openStore();
+  t.after(async () => await store.close());
   for (const book of [
     base,
     { ...base, volume: 2 },
     { ...base, type: "LN (TH)" },
     { ...base, series: "Another series" },
   ])
-    store.api.saveBook({ requestId: randomUUID(), book, allowDuplicate: true });
+    await store.api.saveBook({
+      requestId: randomUUID(),
+      book,
+      allowDuplicate: true,
+    });
   return store;
 }
 function request(
@@ -66,14 +70,14 @@ function request(
   };
 }
 
-test("volume saves update all details atomically, preserve intentional copies and untouched fields, and retry safely", (t) => {
-  const store = setup(t);
-  const before = store.api.getCollection().books;
-  const edit = request(before);
-  const result = store.api.saveSeriesVolumes(edit);
+test("volume saves update all details atomically, preserve intentional copies and untouched fields, and retry safely", async (t) => {
+  const store = await setup(t);
+  const before = (await store.api.getCollection()).books;
+  const edit = await request(before);
+  const result = await store.api.saveSeriesVolumes(edit);
   assert.deepEqual(result, { volumes: 2, action: "volumes updated" });
-  assert.deepEqual(store.api.saveSeriesVolumes(edit), result);
-  const after = store.api.getCollection();
+  assert.deepEqual(await store.api.saveSeriesVolumes(edit), result);
+  const after = await store.api.getCollection();
   assert.deepEqual(after.books.slice(2), before.slice(2));
   assert.equal(after.books[0].volume, 1.5);
   assert.equal(after.books[0].status, "Read");
@@ -95,9 +99,9 @@ test("volume saves update all details atomically, preserve intentional copies an
   assert.notEqual(after.books[0].token, before[0].token);
 });
 
-test("invalid details and duplicate, stale, missing or cross-series rows roll back every volume and its options", (t) => {
-  const store = setup(t);
-  const before = store.api.getCollection().books;
+test("invalid details and duplicate, stale, missing or cross-series rows roll back every volume and its options", async (t) => {
+  const store = await setup(t);
+  const before = (await store.api.getCollection()).books;
   for (const [patch, message] of [
     [{ volume: "-1" }, /non-negative/],
     [{ isbn: "invalid" }, /ISBN/],
@@ -109,11 +113,16 @@ test("invalid details and duplicate, stale, missing or cross-series rows roll ba
     [{ coverUrl: "https://example.com/cover.png" }, /cover URL/],
     [{ publisherUrl: "https://example.com/book" }, /publisher/],
   ]) {
-    const edit = request(before, [{ source: "Should roll back" }, patch]);
-    assert.throws(() => store.api.saveSeriesVolumes(edit), message);
-    assert.deepEqual(store.api.getCollection().books, before);
+    const edit = await request(before, [{ source: "Should roll back" }, patch]);
+    await assert.rejects(
+      async () => await store.api.saveSeriesVolumes(edit),
+      message,
+    );
+    assert.deepEqual((await store.api.getCollection()).books, before);
     assert.equal(
-      store.api.getCollection().options.source.includes("Should roll back"),
+      (await store.api.getCollection()).options.source.includes(
+        "Should roll back",
+      ),
       false,
     );
   }
@@ -123,27 +132,30 @@ test("invalid details and duplicate, stale, missing or cross-series rows roll ba
     [{ token: "stale" }, /book changed/],
     [{ row: 9999 }, /book changed/],
   ]) {
-    const edit = request(before, [
+    const edit = await request(before, [
       { source: "Should roll back" },
       { note: "Change" },
     ]);
     Object.assign(edit.changes[1], change);
-    assert.throws(() => store.api.saveSeriesVolumes(edit), message);
-    assert.deepEqual(store.api.getCollection().books, before);
+    await assert.rejects(
+      async () => await store.api.saveSeriesVolumes(edit),
+      message,
+    );
+    assert.deepEqual((await store.api.getCollection()).books, before);
   }
 });
 
-test("batch edits cannot rename series or replace stored cover IDs, and invalidate automatic artwork when identity changes", (t) => {
-  const store = setup(t);
-  let first = store.api.getCollection().books[0];
-  const cover = store.covers.put(
+test("batch edits cannot rename series or replace stored cover IDs, and invalidate automatic artwork when identity changes", async (t) => {
+  const store = await setup(t);
+  let first = (await store.api.getCollection()).books[0];
+  const cover = await store.covers.put(
     { contentType: "image/png", body: png },
     coverUrl,
   );
-  store.covers.assign(first.row, cover.id, first.token);
-  first = store.api.getCollection().books[0];
-  store.api.saveSeriesVolumes(
-    request(
+  await store.covers.assign(first.row, cover.id, first.token);
+  first = (await store.api.getCollection()).books[0];
+  await store.api.saveSeriesVolumes(
+    await request(
       [first],
       [
         {
@@ -154,40 +166,45 @@ test("batch edits cannot rename series or replace stored cover IDs, and invalida
       ],
     ),
   );
-  first = store.api.getCollection().books[0];
+  first = (await store.api.getCollection()).books[0];
   assert.equal(first.series, base.series);
   assert.equal(first.coverId, cover.id);
-  store.api.saveSeriesVolumes(request([first], [{ volume: 12 }]));
-  assert.equal(store.api.getCollection().books[0].coverId, "");
-  first = store.api.getCollection().books[0];
-  store.api.saveSeriesVolumes(request([first], [{ coverUrl }]));
-  first = store.api.getCollection().books[0];
+  await store.api.saveSeriesVolumes(await request([first], [{ volume: 12 }]));
+  assert.equal((await store.api.getCollection()).books[0].coverId, "");
+  first = (await store.api.getCollection()).books[0];
+  await store.api.saveSeriesVolumes(await request([first], [{ coverUrl }]));
+  first = (await store.api.getCollection()).books[0];
   assert.equal(first.coverId, cover.id);
-  const alternate = store.covers.put(
+  const alternate = await store.covers.put(
     { contentType: "image/png", body: Buffer.from("alternate") },
     otherCoverUrl,
   );
-  store.api.saveSeriesVolumes(request([first], [{ coverUrl: otherCoverUrl }]));
-  assert.equal(store.api.getCollection().books[0].coverId, alternate.id);
-  first = store.api.getCollection().books[0];
-  store.api.saveSeriesVolumes(request([first], [{ coverUrl: "" }]));
-  assert.equal(store.api.getCollection().books[0].coverId, "");
+  await store.api.saveSeriesVolumes(
+    await request([first], [{ coverUrl: otherCoverUrl }]),
+  );
+  assert.equal(
+    (await store.api.getCollection()).books[0].coverId,
+    alternate.id,
+  );
+  first = (await store.api.getCollection()).books[0];
+  await store.api.saveSeriesVolumes(await request([first], [{ coverUrl: "" }]));
+  assert.equal((await store.api.getCollection()).books[0].coverId, "");
 });
 
-test("series export isolates books, covers, settings and releases and restores the same copies to a fresh library", (t) => {
-  const store = setup(t);
-  const first = store.api.getCollection().books[0];
-  const cover = store.covers.put(
+test("series export isolates books, covers, settings and releases and restores the same copies to a fresh library", async (t) => {
+  const store = await setup(t);
+  const first = (await store.api.getCollection()).books[0];
+  const cover = await store.covers.put(
     { contentType: "image/png", body: png },
     coverUrl,
   );
-  store.covers.assign(first.row, cover.id, first.token);
-  store.covers.put(
+  await store.covers.assign(first.row, cover.id, first.token);
+  await store.covers.put(
     { contentType: "image/png", body: Buffer.from("unrelated") },
     otherCoverUrl,
   );
   for (const series of [base.series, "Another series"]) {
-    store.api.setSeriesCatalog({
+    await store.api.setSeriesCatalog({
       series,
       publisherId: "phoenix",
       type: base.type,
@@ -203,9 +220,12 @@ test("series export isolates books, covers, settings and releases and restores t
       "",
       base.type,
     );
-    store.api.setSavedRelease({ saved: true, release: { ...release, series } });
+    await store.api.setSavedRelease({
+      saved: true,
+      release: { ...release, series },
+    });
   }
-  const exportData = store.exportData(base.series);
+  const exportData = await store.exportData(base.series);
   assert.equal(exportData.format, "book-collection");
   assert.equal(exportData.books.length, 3);
   assert.equal(
@@ -218,25 +238,27 @@ test("series export isolates books, covers, settings and releases and restores t
   assert.equal(exportData.savedReleases.length, 1);
   assert.equal(exportData.seriesCatalogs.length, 1);
   assert.deepEqual(exportData.options.series, [base.series]);
-  assert.throws(() => store.exportData("Missing series"), { status: 404 });
-  const restored = openStore(":memory:");
-  t.after(() => restored.close());
+  await assert.rejects(async () => await store.exportData("Missing series"), {
+    status: 404,
+  });
+  const restored = await openStore();
+  t.after(async () => await restored.close());
   const plan = parseImport(
     Buffer.from(JSON.stringify(exportData)),
     "series.json",
   );
-  restored.importData(plan, plan.fingerprint);
+  await restored.importData(plan, plan.fingerprint);
   const withoutIdentity = ({ row, token, ...book }) => book;
   assert.deepEqual(
-    restored.api.getCollection().books.map(withoutIdentity),
+    (await restored.api.getCollection()).books.map(withoutIdentity),
     exportData.books.map(withoutIdentity),
   );
-  assert.deepEqual(restored.covers.get(cover.id).body, png);
-  assert.equal(restored.api.getCollection().savedReleases.length, 1);
-  assert.equal(restored.api.getCollection().seriesCatalogs.length, 1);
-  assert.equal(store.exportData().books.length, 4);
+  assert.deepEqual((await restored.covers.get(cover.id)).body, png);
+  assert.equal((await restored.api.getCollection()).savedReleases.length, 1);
+  assert.equal((await restored.api.getCollection()).seriesCatalogs.length, 1);
+  assert.equal((await store.exportData()).books.length, 4);
   assert.equal(
-    store.exportData().covers.length,
+    (await store.exportData()).covers.length,
     1,
     "Unreferenced cached images are not part of a private library backup",
   );

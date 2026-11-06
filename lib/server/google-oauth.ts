@@ -57,31 +57,39 @@ export function oauthCookieOptions() {
 export async function beginGoogleSignIn(store: Store, returnTo: unknown) {
   const settings = googleSettings();
   const now = Date.now();
-  store.db.prepare("DELETE FROM oauth_attempts WHERE expires_at<=?").run(now);
-  // A hard bound keeps unauthenticated requests from growing SQLite forever.
+  // A hard bound keeps unauthenticated requests from growing the database forever.
   const state = oidc.randomState();
   const browserToken = randomBytes(32).toString("hex");
   const verifier = oidc.randomPKCECodeVerifier();
   const nonce = oidc.randomNonce();
   const challenge = await oidc.calculatePKCECodeChallenge(verifier);
-  if (
-    Number(
-      store.db.prepare("SELECT COUNT(*) AS n FROM oauth_attempts").get().n,
-    ) >= 1000
-  )
-    throw new AppError("Sign-in is busy. Try again shortly.", 429);
-  store.db
-    .prepare(
-      "INSERT INTO oauth_attempts (state_hash,browser_hash,code_verifier,nonce,return_to,expires_at) VALUES (?,?,?,?,?,?)",
+  await store.transaction(async () => {
+    await store.db
+      .prepare("DELETE FROM oauth_attempts WHERE expires_at<=?")
+      .run(now);
+    if (
+      Number(
+        (
+          await store.db
+            .prepare("SELECT COUNT(*) AS n FROM oauth_attempts")
+            .get()
+        ).n,
+      ) >= 1000
     )
-    .run(
-      authHash(state),
-      authHash(browserToken),
-      verifier,
-      nonce,
-      safeReturnTo(returnTo),
-      now + ATTEMPT_SECONDS * 1000,
-    );
+      throw new AppError("Sign-in is busy. Try again shortly.", 429);
+    await store.db
+      .prepare(
+        "INSERT INTO oauth_attempts (state_hash,browser_hash,code_verifier,nonce,return_to,expires_at) VALUES (?,?,?,?,?,?)",
+      )
+      .run(
+        authHash(state),
+        authHash(browserToken),
+        verifier,
+        nonce,
+        safeReturnTo(returnTo),
+        now + ATTEMPT_SECONDS * 1000,
+      );
+  });
   const url = oidc.buildAuthorizationUrl(getClient(settings), {
     redirect_uri: settings.redirectUri,
     scope: "openid email",
@@ -95,7 +103,7 @@ export async function beginGoogleSignIn(store: Store, returnTo: unknown) {
   return { url, browserToken };
 }
 
-export function consumeGoogleAttempt(
+export async function consumeGoogleAttempt(
   store: Store,
   state: string | null,
   browserToken?: string,
@@ -108,7 +116,7 @@ export function consumeGoogleAttempt(
   )
     throw new AppError("Sign-in expired. Please try again.", 400);
   // Atomic deletion prevents replay, including concurrent callbacks.
-  const attempt = store.db
+  const attempt = await store.db
     .prepare(
       "DELETE FROM oauth_attempts WHERE state_hash=? AND browser_hash=? RETURNING *",
     )
@@ -133,7 +141,7 @@ export async function finishGoogleSignIn(
   const url = new URL(settings.redirectUri);
   url.search = callback.search;
   const state = url.searchParams.get("state");
-  const attempt = consumeGoogleAttempt(store, state, browserToken);
+  const attempt = await consumeGoogleAttempt(store, state, browserToken);
   const tokens = await oidc.authorizationCodeGrant(
     client ?? getClient(settings),
     url,
@@ -158,7 +166,7 @@ export async function finishGoogleSignIn(
   };
   // Access, refresh and ID tokens are neither persisted nor sent to the browser.
   return {
-    ...signInWithGoogle(store, identity, settings.adminEmail),
+    ...(await signInWithGoogle(store, identity, settings.adminEmail)),
     returnTo: attempt.returnTo,
   };
 }

@@ -4,7 +4,7 @@ import { discoverTitles } from "../../lib/client/matching.ts";
 import { readFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import {
   canonicalIsbn,
@@ -99,7 +99,7 @@ test("publisher category pagination reads the total, pairs covers with their own
     mkdtempSync(join(tmpdir(), "books-discovery-")),
     "books.sqlite",
   );
-  let store = openStore(path),
+  let store = await openStore(path),
     calls = [];
   const service = createCatalogService(store, async (requested) => {
     calls.push(requested);
@@ -113,8 +113,8 @@ test("publisher category pagination reads the total, pairs covers with their own
   assert.equal(catalogTotal("phoenix", page1), 4);
   await service.getPublisherCatalog({ url });
   assert.equal(calls.length, 2);
-  store.close();
-  store = openStore(path);
+  await store.close();
+  store = await openStore(path);
   try {
     const restarted = createCatalogService(store, async () => {
       throw new Error("Test outage");
@@ -126,12 +126,12 @@ test("publisher category pagination reads the total, pairs covers with their own
     assert.equal(stale.checkedAt, feed.checkedAt);
     assert.equal(stale.items.length, 3);
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
 test("a repeated or failed later page stays incomplete, and incomplete refreshes retain a previous complete catalog", async () => {
-  const store = openStore(":memory:");
+  const store = await openStore();
   try {
     let fail = false;
     const service = createCatalogService(store, async (requested) => {
@@ -159,7 +159,7 @@ test("a repeated or failed later page stays incomplete, and incomplete refreshes
     assert.equal(repeated.complete, false);
     assert.equal(repeated.pages, 2);
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
@@ -211,9 +211,9 @@ test("covers survive saved releases and Luckpim uses the verified thumbnail layo
 });
 
 test("owned covers use matching catalog volumes before ISBN lookup, and ISBN covers never accept another edition", async () => {
-  const store = openStore(":memory:");
+  const store = await openStore();
   try {
-    store.api.saveBook({
+    await store.api.saveBook({
       book: {
         series: "เรื่องใหม่",
         publisher: "PHOENIX Next",
@@ -223,7 +223,7 @@ test("owned covers use matching catalog volumes before ISBN lookup, and ISBN cov
       },
       requestId: "cover-volume-test",
     });
-    const row = store.api.getCollection().books[0].row;
+    const row = (await store.api.getCollection()).books[0].row;
     const service = createCatalogService(
       store,
       async (requested) =>
@@ -234,7 +234,7 @@ test("owned covers use matching catalog volumes before ISBN lookup, and ISBN cov
       (await service.getBookCover({ row })).coverUrl,
       image("yuri-1"),
     );
-    store.api.saveBook({
+    await store.api.saveBook({
       book: {
         series: "Matilda",
         publisher: "Publisher",
@@ -244,7 +244,7 @@ test("owned covers use matching catalog volumes before ISBN lookup, and ISBN cov
       },
       requestId: "cover-isbn-test",
     });
-    const isbnRow = store.api.getCollection().books[1].row;
+    const isbnRow = (await store.api.getCollection()).books[1].row;
     let calls = 0;
     const lookup = createCatalogService(store, async (requested) => {
       calls++;
@@ -298,7 +298,7 @@ test("owned covers use matching catalog volumes before ISBN lookup, and ISBN cov
     assert.equal(calls, 5);
     await assert.rejects(lookup.getBookCover({ row: 999 }), /no longer/);
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
@@ -351,7 +351,7 @@ test("First Page manga rating directories contain only titles from the selected 
     ),
     "utf8",
   );
-  const store = openStore(":memory:"),
+  const store = await openStore(),
     calls = [],
     seen = new Set();
   const service = createCatalogService(store, async (requested) => {
@@ -388,12 +388,12 @@ test("First Page manga rating directories contain only titles from the selected 
       [22, 7, 63].map((id) => "https://www.firstpagepro.com/category/" + id),
     );
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
 test("directory loading needs one navigation request, lazily resolves first volumes, and preserves stale directories", async () => {
-  const store = openStore(":memory:"),
+  const store = await openStore(),
     calls = [];
   const category = "https://www.phoenixnext.com/gl/new-title.html";
   let fail = false;
@@ -434,7 +434,7 @@ test("directory loading needs one navigation request, lazily resolves first volu
       /category/,
     );
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
@@ -456,7 +456,7 @@ test("Phoenix categories with an explicit empty message are complete empty catal
     catalogTotal("phoenix", '<div class="message info"></div>'),
     null,
   );
-  const store = openStore(":memory:");
+  const store = await openStore();
   const category =
     "https://www.phoenixnext.com/gl/the-story-of-unforgettable-witch.html";
   let body = html,
@@ -495,7 +495,7 @@ test("Phoenix categories with an explicit empty message are complete empty catal
     assert.equal(released.stale, false);
     assert.equal(calls, 2);
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
@@ -507,8 +507,8 @@ test("First Page categories with cover artwork but zero products are confirmed e
     ),
     "utf8",
   );
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+  const store = await openStore();
+  t.after(async () => await store.close());
   const category = "https://www.firstpagepro.com/category/154";
   let body = html;
   const service = createCatalogService(store, async () => new Response(body));
@@ -545,7 +545,7 @@ test("unrecognized publisher markup and outages do not confirm an empty series",
       ['<div class="message info">Unknown category markup</div>', 200],
       ["Publisher unavailable", 503],
     ]) {
-      const store = openStore(":memory:");
+      const store = await openStore();
       try {
         const service = createCatalogService(
           store,
@@ -560,13 +560,13 @@ test("unrecognized publisher markup and outages do not confirm an empty series",
         assert.equal(result.stale, true);
         assert.ok(result.error);
       } finally {
-        store.close();
+        await store.close();
       }
     }
 });
 
 test("First Page follows only same-category redirects and decodes raw UTF-8 Thai Location headers", async () => {
-  const store = openStore(":memory:"),
+  const store = await openStore(),
     calls = [];
   const target =
     "https://www.firstpagepro.com/category/56/manga-books/เรื่องหนึ่ง";
@@ -608,6 +608,6 @@ test("First Page follows only same-category redirects and decodes raw UTF-8 Thai
       assert.equal(count, 1);
     }
   } finally {
-    store.close();
+    await store.close();
   }
 });

@@ -7,7 +7,7 @@ export default function ShelfBrowser({
   series,
   removed,
 }: {
-  data: ReturnType<Store["api"]["getCollection"]>;
+  data: Awaited<ReturnType<Store["api"]["getCollection"]>>;
   series: string | null;
   removed: boolean;
 }) {

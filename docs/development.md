@@ -2,9 +2,9 @@
 
 ## Follow the data flow
 
-Pages and route handlers live in `app/`. Keep them small: check the session, validate the request shape and call the relevant service. `lib/server/app.ts` owns the shared application instance; SQLite records and transactions belong in `lib/server/store.ts`.
+Pages and route handlers live in `app/`. Keep them small: check the session, validate the request shape and call the relevant service. `lib/server/app.ts` owns the shared application instance; PostgreSQL records belong in `lib/server/store.ts`, pooled queries and transaction context in `database.ts`, and forward-only schema migrations in `schema.ts`. All database operations are asynchronous and must be awaited, including authentication and cache calls. Transactions keep one connection through async request context; account advisory locks preserve duplicate checks, revision checks and request receipts across pools.
 
-Put rules that do not need HTTP or SQLite in `lib/domain/`. The small `lib/domain.ts` file re-exports the public domain API for server callers. Browser code should import the specific browser-safe module it needs, such as `lib/domain/isbn.ts`, so Node-only hashing and storage never enter the client bundle.
+Put rules that do not need HTTP or PostgreSQL in `lib/domain/`. The small `lib/domain.ts` file re-exports the public domain API for server callers. Browser code should import the specific browser-safe module it needs, such as `lib/domain/isbn.ts`, so Node-only hashing and storage never enter the client bundle.
 
 The library uses separate server-rendered pages: `/` for the collection, `/series/[series]` for a title’s owned volumes, `/missing` for unowned catalog volumes and shelf gaps grouped by series, `/releases`, `/discover`, `/stats` for spending trends and collection insights, and `/removed`. Navigation uses ordinary links and loads a new document, so URLs can be bookmarked and refreshed and browser history works normally. `components/CollectionPage.tsx` checks the session and loads the collection for each page. `CollectionShell.tsx` includes only that route’s panels plus shared dialogs; `ShelfEntries.tsx` renders the initial shelf and volumes on the server. Keep controller-facing IDs stable: `lib/client/elements.d.ts` records the corresponding element types.
 
@@ -23,7 +23,7 @@ Pure shelf-gap, release matching and discovery grouping rules live in `lib/clien
 - **Change a panel or form:** edit the matching component in `components/collection/`, and its feature stylesheet in `app/styles/`.
 - **Change collection behavior:** update `lib/client/collection.ts`; extract reusable calculations into a focused module beside `matching.ts`.
 - **Change validation or ISBN handling:** edit `lib/domain/validation.ts` or `isbn.ts`, then add a unit regression.
-- **Change storage:** update `lib/server/store.ts` with an additive schema migration and a SQLite integration regression. Never reset an existing database.
+- **Change storage:** update `lib/server/store.ts`, append a migration in `lib/server/schema.ts`, and add a PostgreSQL integration regression. Never reset an existing database. SQLite is used only by the read-only migration command and its fixtures.
 - **Add or repair a publisher:** follow [publisher maintenance](web-scraping.md). Test saved fixtures and source outages before checking the live source.
 - **Change import/export:** update `lib/server/importer.ts` or the store’s export path; test a round trip including duplicate copies, gifts, blank prices and covers.
 
@@ -33,8 +33,8 @@ TypeScript checks every application source. Some inherited parser/controller cod
 
 ## Verify the change
 
-Run `npm run check` before finishing. For a UI or route change, also run `npm run build` and `npm run test:e2e`. Browser scenarios are launched directly without rewriting test source. The runner supplies `BOOKS_TEST_URL` and temporary SQLite databases; individual scenarios refuse to run without that test context.
+Run `npm run check` before finishing. Set `BOOKS_TEST_DATABASE_URL` to a dedicated PostgreSQL database first (see the README). For a UI or route change, also run `npm run build` and `npm run test:e2e`. Browser scenarios are launched directly without rewriting test source. The runner supplies `BOOKS_TEST_URL` and isolated PostgreSQL schemas; individual scenarios refuse to run without that test context.
 
-`tests/helpers/library.mjs` creates an in-memory SQLite library and mocked catalog responses for scenarios that need precise fixtures. Pure tests import real TypeScript modules directly. Add coverage for a changed behavior, not for formatting or implementation details.
+`tests/helpers/library.mjs` creates an isolated PostgreSQL library and mocked catalog responses for scenarios that need precise fixtures. `tests/helpers/database.mjs` creates random test schemas and removes only those schemas on exit; a stable test-local label lets restart tests reopen the same schema. It never falls back to the normal `DATABASE_URL`. Pure tests import real TypeScript modules directly and can run without a database using `npm run test:unit`. Add coverage for a changed behavior, not for formatting or implementation details.
 
 Formatting is shared through `.prettierrc.json`; run `npm run format` to apply it. Fixtures, local data, build output and screenshots are excluded from formatting. Keep fixture HTML unchanged unless a source regression requires a new snapshot.

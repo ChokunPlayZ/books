@@ -25,7 +25,7 @@ const base = {
   source: "Thai shop",
   date: "2026-09-01",
 };
-const h = createTestLibrary([
+const h = await createTestLibrary([
   { ...base, volume: 2, isbn: "0140328726" },
   { ...base, volume: 4 },
   { ...base, volume: 4 },
@@ -413,11 +413,9 @@ try {
     ["Vol. 3 +"],
   );
   assert.equal(
-    h.api
-      .getCollection()
-      .books.filter(
-        (b) => b.series === title && b.volume === 1 && b.type === "Manga (TH)",
-      ).length,
+    (await h.api.getCollection()).books.filter(
+      (b) => b.series === title && b.volume === 1 && b.type === "Manga (TH)",
+    ).length,
     1,
   );
   console.log(
@@ -437,14 +435,14 @@ try {
     /Test save/,
   );
   failSave = false;
-  const before = h.api.getCollection().books.length;
+  const before = (await h.api.getCollection()).books.length;
   await card(next.title)
     .getByRole("button", { name: "Save for later", exact: true })
     .click();
   await page.waitForFunction(
     () => !window.bookCollection?.state.savingReleases.size,
   );
-  assert.equal(h.api.getCollection().books.length, before);
+  assert.equal((await h.api.getCollection()).books.length, before);
   assert.equal(
     await card(next.title)
       .getByRole("button", { name: "Saved · Unsave" })
@@ -563,7 +561,7 @@ try {
     await page.locator("#seriesReleaseError").textContent(),
     /publisher.*category URL/,
   );
-  const beforeLink = h.api.getCollection().books.length;
+  const beforeLink = (await h.api.getCollection()).books.length;
   await form.getByLabel("Find the publisher’s series name").fill("ชิชุนกิจัง");
   await form
     .locator("select")
@@ -574,7 +572,7 @@ try {
       !window.bookCollection?.state.catalogLoading.size &&
       !document.querySelector(".catalog-editor"),
   );
-  assert.equal(h.api.getCollection().books.length, beforeLink);
+  assert.equal((await h.api.getCollection()).books.length, beforeLink);
   assert.equal(
     await page.locator("#seriesReleaseList .release-card").count(),
     10,
@@ -690,5 +688,5 @@ try {
 } finally {
   releaseGate();
   await browser.close();
-  h.close();
+  await h.close();
 }

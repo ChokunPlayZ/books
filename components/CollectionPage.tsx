@@ -19,8 +19,11 @@ export default async function CollectionPage({
   series?: string | null;
   priceIsbn?: string;
 }) {
-  const { store } = getApp();
-  const user = sessionUser(store, (await cookies()).get(SESSION_COOKIE)?.value);
+  const { store } = await getApp();
+  const user = await sessionUser(
+    store,
+    (await cookies()).get(SESSION_COOKIE)?.value,
+  );
   if (!user) {
     let destination =
       series === null ? collectionPaths[view] : seriesPath(series);
@@ -32,7 +35,10 @@ export default async function CollectionPage({
         : "/login?returnTo=" + encodeURIComponent(destination),
     );
   }
-  const data = store.forUser(user, () => store.api.getCollection());
+  const data = await store.forUser(
+    user,
+    async () => await store.api.getCollection(),
+  );
   return (
     <>
       <CollectionShell

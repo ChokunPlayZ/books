@@ -12,11 +12,13 @@ if (!username || !email) {
   );
   process.exit(1);
 }
-const store = openStore();
+const store = await openStore();
 try {
   if (process.argv.includes("--link")) {
-    const user = store.db
-      .prepare("SELECT id,google_subject FROM users WHERE username=?")
+    const user = await store.db
+      .prepare(
+        "SELECT id,google_subject FROM users WHERE lower(username)=lower(?)",
+      )
       .get(username);
     if (!user) throw new Error("That existing username was not found.");
     if (user.google_subject)
@@ -24,17 +26,19 @@ try {
         "This library is already linked. It cannot be reassigned by email.",
       );
     if (
-      store.db
-        .prepare("SELECT id FROM users WHERE email=? AND id<>?")
+      await store.db
+        .prepare("SELECT id FROM users WHERE lower(email)=lower(?) AND id<>?")
         .get(email, user.id)
     )
       throw new Error("That email is already assigned to another library.");
-    store.db.prepare("UPDATE users SET email=? WHERE id=?").run(email, user.id);
+    await store.db
+      .prepare("UPDATE users SET email=? WHERE id=?")
+      .run(email, user.id);
     console.log(
       `Linked ${username} to ${email}. Sign in with Google to claim this library.`,
     );
   } else {
-    const user = createAccount(
+    const user = await createAccount(
       store,
       username,
       email,
@@ -45,5 +49,5 @@ try {
     );
   }
 } finally {
-  store.close();
+  await store.close();
 }

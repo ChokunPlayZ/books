@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { setImmediate } from "node:timers/promises";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 
 const fixture = (name) =>
@@ -56,14 +56,16 @@ function googleResponse() {
   });
 }
 async function controlledLookup(t, respond = emptyResponse) {
-  const store = openStore(":memory:");
+  const store = await openStore();
   const gates = new Map(
     sources.map((source) => [source, Promise.withResolvers()]),
   );
   const calls = [];
   const completed = new Set();
+  const started = Promise.withResolvers();
   const service = createCatalogService(store, async (address) => {
     calls.push(address);
+    if (calls.length === sources.length) started.resolve();
     const host = new URL(address).hostname;
     await gates.get(host)?.promise;
     completed.add(host);
@@ -73,9 +75,9 @@ async function controlledLookup(t, respond = emptyResponse) {
   t.after(async () => {
     gates.forEach((gate) => gate.resolve());
     await result;
-    store.close();
+    await store.close();
   });
-  await setImmediate();
+  await started.promise;
   return { store, gates, calls, completed, result };
 }
 

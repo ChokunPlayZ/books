@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 
 const target = "ต้องทำยังไงถึงจะได้เป็นหวานใจเพื่อนวัยเด็ก!?";
 const source = "ต้องทำยังไงถึงได้เป็นหวานใจเพื่อนวัยเด็ก!?";
@@ -19,30 +19,30 @@ const base = {
   coverUrl: "https://www.phoenixnext.com/media/catalog/product/cover.jpg",
   publisherUrl: "https://www.phoenixnext.com/story-01.html",
 };
-function add(store, book) {
-  store.api.saveBook({
+async function add(store, book) {
+  await store.api.saveBook({
     requestId: randomUUID(),
     allowDuplicate: true,
     book: { ...base, ...book },
   });
 }
-function seed(store) {
-  add(store, {});
-  add(store, { series: source, volume: 2, status: "Sealed", price: "" });
-  add(store, { series: source, volume: 1, type: "LN (TH)", price: 0 });
-  add(store, { series: "Unrelated" });
+async function seed(store) {
+  await add(store, {});
+  await add(store, { series: source, volume: 2, status: "Sealed", price: "" });
+  await add(store, { series: source, volume: 1, type: "LN (TH)", price: 0 });
+  await add(store, { series: "Unrelated" });
 }
-function request(store, names = [target, source]) {
+async function request(store, names = [target, source]) {
   return {
     requestId: randomUUID(),
     series: target,
-    titles: store.api
-      .getCollection()
-      .titles.filter((title) => names.includes(title.series)),
+    titles: (await store.api.getCollection()).titles.filter((title) =>
+      names.includes(title.series),
+    ),
   };
 }
-function catalog(store, series, type, suffix) {
-  return store.api.setSeriesCatalog({
+async function catalog(store, series, type, suffix) {
+  return await store.api.setSeriesCatalog({
     series,
     publisherId: "phoenix",
     type,
@@ -50,25 +50,25 @@ function catalog(store, series, type, suffix) {
   });
 }
 
-test("merging keeps every copy and its details, destination catalog choices and other editions; retries are idempotent", () => {
-  const store = openStore(":memory:");
+test("merging keeps every copy and its details, destination catalog choices and other editions; retries are idempotent", async () => {
+  const store = await openStore();
   try {
-    seed(store);
-    const image = store.covers.put({
+    await seed(store);
+    const image = await store.covers.put({
       contentType: "image/png",
       body: Buffer.from("cover"),
     });
-    const first = store.api.getCollection().books[1];
-    store.covers.assign(first.row, image.id, first.token);
-    const kept = catalog(store, target, "Manga (TH)", "kept");
-    catalog(store, source, "Manga (TH)", "other");
-    const novel = catalog(store, source, "LN (TH)", "novel");
-    const before = store.api.getCollection();
-    const merge = request(store);
+    const first = (await store.api.getCollection()).books[1];
+    await store.covers.assign(first.row, image.id, first.token);
+    const kept = await catalog(store, target, "Manga (TH)", "kept");
+    await catalog(store, source, "Manga (TH)", "other");
+    const novel = await catalog(store, source, "LN (TH)", "novel");
+    const before = await store.api.getCollection();
+    const merge = await request(store);
     const result = { series: target, volumes: 3, merged: 2 };
-    assert.deepEqual(store.api.mergeSeries(merge), result);
-    assert.deepEqual(store.api.mergeSeries(merge), result);
-    const after = store.api.getCollection();
+    assert.deepEqual(await store.api.mergeSeries(merge), result);
+    assert.deepEqual(await store.api.mergeSeries(merge), result);
+    const after = await store.api.getCollection();
     assert.equal(after.books.length, 4);
     assert.equal(after.titles.length, 2);
     for (let index = 0; index < before.books.length; index++) {
@@ -89,57 +89,57 @@ test("merging keeps every copy and its details, destination catalog choices and 
       ),
     );
     assert.ok(!after.options.series.includes(source));
-    assert.deepEqual(store.exportData().books, after.books);
-    assert.throws(
-      () => store.api.mergeSeries({ ...merge, series: source }),
+    assert.deepEqual((await store.exportData()).books, after.books);
+    await assert.rejects(
+      async () => await store.api.mergeSeries({ ...merge, series: source }),
       /different change/,
     );
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
-test("merges reject edits, additions and removals made since the preview, without partial updates", () => {
+test("merges reject edits, additions and removals made since the preview, without partial updates", async () => {
   for (const change of ["edit", "add", "remove"]) {
-    const store = openStore(":memory:");
+    const store = await openStore();
     try {
-      seed(store);
-      const merge = request(store);
-      const book = store.api.getCollection().books[1];
+      await seed(store);
+      const merge = await request(store);
+      const book = (await store.api.getCollection()).books[1];
       if (change === "edit")
-        store.api.saveBook({
+        await store.api.saveBook({
           requestId: randomUUID(),
           allowDuplicate: true,
           row: book.row,
           token: book.token,
           book: { ...book, note: "Changed elsewhere" },
         });
-      if (change === "add") add(store, { series: source, volume: 3 });
+      if (change === "add") await add(store, { series: source, volume: 3 });
       if (change === "remove")
-        store.api.removeBook({
+        await store.api.removeBook({
           requestId: randomUUID(),
           row: book.row,
           token: book.token,
         });
-      const before = store.api.getCollection();
-      assert.throws(
-        () => store.api.mergeSeries(merge),
+      const before = await store.api.getCollection();
+      await assert.rejects(
+        async () => await store.api.mergeSeries(merge),
         /selected series changed/,
       );
-      assert.deepEqual(store.api.getCollection(), before);
+      assert.deepEqual(await store.api.getCollection(), before);
     } finally {
-      store.close();
+      await store.close();
     }
   }
 });
 
-test("invalid merges and transaction failures preserve books, catalog links and series options", () => {
-  const store = openStore(":memory:");
+test("invalid merges and transaction failures preserve books, catalog links and series options", async () => {
+  const store = await openStore();
   try {
-    seed(store);
-    catalog(store, source, "Manga (TH)", "other");
-    const before = store.api.getCollection();
-    const merge = request(store);
+    await seed(store);
+    await catalog(store, source, "Manga (TH)", "other");
+    const before = await store.api.getCollection();
+    const merge = await request(store);
     for (const extra of [
       { titles: [] },
       { titles: merge.titles.slice(0, 1) },
@@ -149,33 +149,38 @@ test("invalid merges and transaction failures preserve books, catalog links and 
       { series: "" },
       { series: null },
     ]) {
-      assert.throws(() => store.api.mergeSeries({ ...merge, ...extra }));
-      assert.deepEqual(store.api.getCollection(), before);
+      await assert.rejects(
+        async () => await store.api.mergeSeries({ ...merge, ...extra }),
+      );
+      assert.deepEqual(await store.api.getCollection(), before);
     }
-    store.db.exec(
-      "CREATE TRIGGER fail_merge_receipt BEFORE INSERT ON receipts BEGIN SELECT RAISE(ABORT,'simulated failure'); END;",
+    await store.db.exec(
+      "CREATE FUNCTION fail_merge_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'simulated failure'; END $$; CREATE TRIGGER fail_merge_receipt BEFORE INSERT ON receipts FOR EACH ROW EXECUTE FUNCTION fail_merge_receipt();",
     );
-    assert.throws(() => store.api.mergeSeries(merge), /simulated failure/);
-    assert.deepEqual(store.api.getCollection(), before);
+    await assert.rejects(
+      async () => await store.api.mergeSeries(merge),
+      /simulated failure/,
+    );
+    assert.deepEqual(await store.api.getCollection(), before);
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
-test("punctuation variants share catalog keys safely; removed books and unselected variants stay separate", () => {
-  const store = openStore(":memory:");
+test("punctuation variants share catalog keys safely; removed books and unselected variants stay separate", async () => {
+  const store = await openStore();
   try {
     for (const series of ["Story!", "Story?", "Story.", "Other"])
-      add(store, { series });
-    add(store, { series: "Story?", volume: 2 });
-    const removed = store.api.getCollection().books.at(-1);
-    store.api.removeBook({ requestId: randomUUID(), ...removed });
-    catalog(store, "Story?", "Manga (TH)", "story");
-    const beforeTrash = store.api.getCollection().trash;
-    const merge = request(store, ["Story!", "Story?"]);
+      await add(store, { series });
+    await add(store, { series: "Story?", volume: 2 });
+    const removed = (await store.api.getCollection()).books.at(-1);
+    await store.api.removeBook({ requestId: randomUUID(), ...removed });
+    await catalog(store, "Story?", "Manga (TH)", "story");
+    const beforeTrash = (await store.api.getCollection()).trash;
+    const merge = await request(store, ["Story!", "Story?"]);
     merge.series = "Story!";
-    store.api.mergeSeries(merge);
-    const after = store.api.getCollection();
+    await store.api.mergeSeries(merge);
+    const after = await store.api.getCollection();
     assert.deepEqual(
       after.books.map((book) => book.series),
       ["Story!", "Story!", "Story.", "Other"],
@@ -185,6 +190,6 @@ test("punctuation variants share catalog keys safely; removed books and unselect
     assert.equal(after.seriesCatalogs[0].series, "Story!");
     assert.ok(after.options.series.includes("Story?"));
   } finally {
-    store.close();
+    await store.close();
   }
 });

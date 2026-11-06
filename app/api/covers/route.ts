@@ -12,16 +12,16 @@ export async function GET(
   context?: { params: Promise<{ id?: string }> },
 ) {
   try {
-    const { store, covers } = getApp();
-    const user = authorize(store, request);
+    const { store, covers } = await getApp();
+    const user = await authorize(store, request);
     const params = await context?.params;
     const id = params?.id || new URL(request.url).searchParams.get("id");
     if (!/^[a-f0-9]{64}$/.test(id || ""))
       throw new AppError("Choose a stored cover.", 400);
-    const image = store.forUser(user, () => {
-      if (!store.covers.canAccess(id))
+    const image = await store.forUser(user, async () => {
+      if (!(await store.covers.canAccess(id)))
         throw new AppError("Cover not found.", 404);
-      return covers.get(id);
+      return await covers.get(id);
     });
     const headers = {
       "Content-Type": image.contentType,
@@ -40,6 +40,6 @@ export async function GET(
       headers: { ...headers, "Content-Length": String(image.body.length) },
     });
   } catch (error) {
-    return errorResponse(error);
+    return await errorResponse(error);
   }
 }

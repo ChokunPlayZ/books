@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
 import { testUrl } from "../helpers/browser.mjs";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createApplicationApi } from "../../lib/server/api.ts";
 import { createCoverService } from "../../lib/server/covers.ts";
 import { seriesPath } from "../../lib/domain/navigation.ts";
@@ -21,8 +21,8 @@ const bytes = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
   "base64",
 );
-const store = openStore(":memory:");
-store.api.saveBook({
+const store = await openStore();
+await store.api.saveBook({
   requestId: "lilyhouse_browser_seed",
   book: {
     series,
@@ -178,7 +178,7 @@ try {
       !document.getElementById("bookDialog").open &&
       !window.bookCollection.state.busy,
   );
-  assert.equal(store.api.getCollection().books.length, 2);
+  assert.equal((await store.api.getCollection()).books.length, 2);
   offline = true;
   await page.locator("#refreshSeriesReleases").click();
   await page.waitForFunction(
@@ -203,5 +203,5 @@ try {
   );
 } finally {
   await browser.close();
-  store.close();
+  await store.close();
 }

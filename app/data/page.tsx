@@ -10,11 +10,11 @@ import DataManager from "../../components/DataManager";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export default async function DataPage() {
-  const { store, api } = getApp();
-  const user = sessionUser(store, (await cookies()).get(SESSION_COOKIE)?.value);
+  const { store, api } = await getApp();
+  const user = await sessionUser(store, (await cookies()).get(SESSION_COOKIE)?.value);
   if (!user)
     redirect("/login");
-  const data = store.forUser(user, () => store.api.getCollection());
+  const data = await store.forUser(user, async () => await store.api.getCollection());
   return (
     <DataManager
       counts={{
@@ -23,7 +23,7 @@ export default async function DataPage() {
         savedReleases: data.savedReleases.length,
       }}
       canSignOut={true}
-      metadata={user.role === "admin" ? await store.forUser(user, () => api.getMetadataOverview()) : null}
+      metadata={user.role === "admin" ? await store.forUser(user, async () => await api.getMetadataOverview()) : null}
     />
   );
 }

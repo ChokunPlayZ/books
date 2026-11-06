@@ -15,9 +15,7 @@ RUN npm run build
 FROM base AS runner
 ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
-    PORT=3000 \
-    BOOKS_DATABASE_PATH=/app/data/books.sqlite
-RUN mkdir -p /app/data && chown node:node /app/data
+    PORT=3000
 # The postbuild script includes .next/static and public in the standalone bundle.
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 USER node

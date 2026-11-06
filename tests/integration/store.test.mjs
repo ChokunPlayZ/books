@@ -4,7 +4,7 @@ import { mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import * as XLSX from "xlsx";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 import { parseImport } from "../../lib/server/importer.ts";
 import { BOOK_APP, parseCatalog } from "../../lib/domain.ts";
 import {
@@ -43,17 +43,17 @@ const release = () =>
     ),
   )[0];
 
-test("SQLite writes, gifts, unknown prices, decimals, dates and options persist after restart", () => {
+test("PostgreSQL writes, gifts, unknown prices, decimals, dates and options persist after restart", async () => {
   const path = join(mkdtempSync(join(tmpdir(), "books-db-")), "books.sqlite");
-  let store = openStore(path);
-  const result = store.api.saveBook(request());
-  store.api.saveBook(
-    request({ ...input, isbn: "", series: "No price", price: "" }),
+  let store = await openStore(path);
+  const result = await store.api.saveBook(await request());
+  await store.api.saveBook(
+    await request({ ...input, isbn: "", series: "No price", price: "" }),
   );
-  store.close();
-  store = openStore(path);
+  await store.close();
+  store = await openStore(path);
   try {
-    const data = store.api.getCollection(),
+    const data = await store.api.getCollection(),
       book = data.books[0];
     assert.equal(book.row, result.row);
     assert.equal(book.volume, 14.5);
@@ -67,135 +67,148 @@ test("SQLite writes, gifts, unknown prices, decimals, dates and options persist 
       0,
     );
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
-test("request receipts survive restart, reject mismatched reuse and commit atomically with writes", () => {
+test("request receipts survive restart, reject mismatched reuse and commit atomically with writes", async () => {
   const path = join(
       mkdtempSync(join(tmpdir(), "books-retry-")),
       "books.sqlite",
     ),
-    arg = request();
-  let store = openStore(path);
-  const result = store.api.saveBook(arg);
-  store.close();
-  store = openStore(path);
+    arg = await request();
+  let store = await openStore(path);
+  const result = await store.api.saveBook(arg);
+  await store.close();
+  store = await openStore(path);
   try {
-    assert.deepEqual(store.api.saveBook(arg), result);
-    assert.equal(store.api.getCollection().books.length, 1);
-    assert.throws(
-      () =>
-        store.api.saveBook({ ...arg, book: { ...input, series: "Different" } }),
+    assert.deepEqual(await store.api.saveBook(arg), result);
+    assert.equal((await store.api.getCollection()).books.length, 1);
+    await assert.rejects(
+      async () =>
+        await store.api.saveBook({
+          ...arg,
+          book: { ...input, series: "Different" },
+        }),
       /different change/,
     );
-    store.db.exec(
-      "CREATE TRIGGER fail_receipt BEFORE INSERT ON receipts BEGIN SELECT RAISE(ABORT,'simulated write failure'); END;",
+    await store.db.exec(
+      "CREATE FUNCTION fail_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'simulated write failure'; END $$; CREATE TRIGGER fail_receipt BEFORE INSERT ON receipts FOR EACH ROW EXECUTE FUNCTION fail_receipt();",
     );
-    assert.throws(
-      () =>
-        store.api.saveBook(
-          request({ ...input, isbn: "", series: "Must roll back" }),
+    await assert.rejects(
+      async () =>
+        await store.api.saveBook(
+          await request({ ...input, isbn: "", series: "Must roll back" }),
         ),
       /simulated/,
     );
-    assert.equal(store.api.getCollection().books.length, 1);
+    assert.equal((await store.api.getCollection()).books.length, 1);
     assert.ok(
-      !store.api.getCollection().options.series.includes("Must roll back"),
+      !(await store.api.getCollection()).options.series.includes(
+        "Must roll back",
+      ),
     );
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
-test("equivalent ISBNs prevent duplicates, allow explicit copies and check ownership against current records", () => {
-  const store = openStore(":memory:");
+test("equivalent ISBNs prevent duplicates, allow explicit copies and check ownership against current records", async () => {
+  const store = await openStore();
   try {
-    store.api.saveBook(request());
-    assert.throws(
-      () => store.api.saveBook(request({ ...input, isbn: "9780140328721" })),
+    await store.api.saveBook(await request());
+    await assert.rejects(
+      async () =>
+        await store.api.saveBook(
+          await request({ ...input, isbn: "9780140328721" }),
+        ),
       /already/,
     );
-    store.api.saveBook(
-      request({ ...input, isbn: "9780140328721" }, { allowDuplicate: true }),
+    await store.api.saveBook(
+      await request(
+        { ...input, isbn: "9780140328721" },
+        { allowDuplicate: true },
+      ),
     );
-    store.api.saveBook(request({ ...input, isbn: "", series: "Unindexed" }));
-    const result = store.api.checkOwnership("978-0-140-32872-1");
+    await store.api.saveBook(
+      await request({ ...input, isbn: "", series: "Unindexed" }),
+    );
+    const result = await store.api.checkOwnership("978-0-140-32872-1");
     assert.equal(result.matches.length, 2);
     assert.equal(result.unindexedCount, 1);
     assert.equal(result.totalCount, 3);
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
-test("edits and ISBN-only saves reject stale versions and preserve every other field", () => {
-  const store = openStore(":memory:");
+test("edits and ISBN-only saves reject stale versions and preserve every other field", async () => {
+  const store = await openStore();
   try {
-    store.api.saveBook(request({ ...input, isbn: "" }));
-    const book = store.api.getCollection().books[0],
+    await store.api.saveBook(await request({ ...input, isbn: "" }));
+    const book = (await store.api.getCollection()).books[0],
       arg = {
         requestId: "isbn_request_0001",
         row: book.row,
         token: book.token,
         isbn: input.isbn,
       };
-    store.api.setBookIsbn(arg);
-    const updated = store.api.getCollection().books[0];
+    await store.api.setBookIsbn(arg);
+    const updated = (await store.api.getCollection()).books[0];
     for (const field of BOOK_APP.fields.filter((f) => f !== "isbn"))
       assert.equal(updated[field], book[field]);
     assert.notEqual(updated.token, book.token);
     assert.equal(updated.row, book.row);
-    assert.throws(
-      () =>
-        store.api.saveBook(
-          request(input, { row: book.row, token: book.token }),
+    await assert.rejects(
+      async () =>
+        await store.api.saveBook(
+          await request(input, { row: book.row, token: book.token }),
         ),
       /changed/,
     );
-    assert.deepEqual(store.api.setBookIsbn(arg), {
+    assert.deepEqual(await store.api.setBookIsbn(arg), {
       row: book.row,
       isbn: input.isbn,
       action: "isbn saved",
     });
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
-test("recoverable removal and restore are durable, idempotent, and never reuse another book ID", () => {
-  const store = openStore(":memory:");
+test("recoverable removal and restore are durable, idempotent, and never reuse another book ID", async () => {
+  const store = await openStore();
   try {
-    store.api.saveBook(request());
-    const original = store.api.getCollection().books[0];
+    await store.api.saveBook(await request());
+    const original = (await store.api.getCollection()).books[0];
     const arg = {
         requestId: "remove_request_001",
         row: original.row,
         token: original.token,
       },
-      removed = store.api.removeBook(arg);
-    assert.deepEqual(store.api.removeBook(arg), removed);
-    assert.equal(store.api.getCollection().books.length, 0);
-    assert.equal(store.api.getCollection().trash.length, 1);
-    const added = store.api.saveBook(
-      request({ ...input, isbn: "", series: "Another book" }),
+      removed = await store.api.removeBook(arg);
+    assert.deepEqual(await store.api.removeBook(arg), removed);
+    assert.equal((await store.api.getCollection()).books.length, 0);
+    assert.equal((await store.api.getCollection()).trash.length, 1);
+    const added = await store.api.saveBook(
+      await request({ ...input, isbn: "", series: "Another book" }),
     );
     assert.notEqual(added.row, original.row);
     const restore = {
         requestId: "restore_request_01",
         trashId: removed.trashId,
       },
-      restored = store.api.restoreBook(restore);
-    assert.deepEqual(store.api.restoreBook(restore), restored);
+      restored = await store.api.restoreBook(restore);
+    assert.deepEqual(await store.api.restoreBook(restore), restored);
     assert.equal(restored.row, original.row);
-    assert.equal(store.api.getCollection().books.length, 2);
-    assert.equal(store.api.getCollection().trash.length, 0);
+    assert.equal((await store.api.getCollection()).books.length, 2);
+    assert.equal((await store.api.getCollection()).trash.length, 0);
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
-test("workbook migration preserves owned books, hidden helper tabs and literal notes without remote writes", () => {
+test("workbook migration preserves owned books, hidden helper tabs and literal notes without remote writes", async () => {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(
     workbook,
@@ -270,67 +283,72 @@ test("workbook migration preserves owned books, hidden helper tabs and literal n
       XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }),
       "collection.xlsx",
     ),
-    store = openStore(":memory:");
+    store = await openStore();
   try {
-    const imported = store.importData(parsed, parsed.fingerprint),
-      data = store.api.getCollection();
+    const imported = await store.importData(parsed, parsed.fingerprint),
+      data = await store.api.getCollection();
     assert.equal(imported.books, 2);
     assert.equal(data.books[0].date, "2026-10-09");
     assert.equal(data.books[0].price, 0);
     assert.equal(data.books[1].price, "");
     assert.equal(data.trash.length, 1);
     assert.equal(data.savedReleases.length, 1);
-    assert.equal(store.savedSeriesCatalog(catalog).url, catalog.url);
+    assert.equal((await store.savedSeriesCatalog(catalog)).url, catalog.url);
     assert.equal(data.books[0].note, input.note);
     assert.equal(
-      store.importData(parsed, parsed.fingerprint).alreadyImported,
+      (await store.importData(parsed, parsed.fingerprint)).alreadyImported,
       true,
     );
-    assert.equal(store.api.getCollection().books.length, 2);
+    assert.equal((await store.api.getCollection()).books.length, 2);
   } finally {
-    store.close();
+    await store.close();
   }
 });
 
-test("JSON backup restores removed books, saved releases, editions, duplicates and unused dropdown choices", () => {
-  const source = openStore(":memory:"),
-    destination = openStore(":memory:");
+test("JSON backup restores removed books, saved releases, editions, duplicates and unused dropdown choices", async () => {
+  const source = await openStore(),
+    destination = await openStore();
   try {
-    source.api.saveBook(request());
-    source.api.saveBook(request(input, { allowDuplicate: true }));
-    const book = source.api.getCollection().books[0];
-    source.api.removeBook({
+    await source.api.saveBook(await request());
+    await source.api.saveBook(await request(input, { allowDuplicate: true }));
+    const book = (await source.api.getCollection()).books[0];
+    await source.api.removeBook({
       requestId: "backup_remove_001",
       row: book.row,
       token: book.token,
     });
-    source.api.setSavedRelease({ release: release(), saved: true });
-    source.db
+    await source.api.setSavedRelease({ release: release(), saved: true });
+    await source.db
       .prepare("INSERT INTO options VALUES (?,?,app_user_id())")
       .run("source", "Unused shop");
     const parsed = parseImport(
-      Buffer.from(JSON.stringify(source.exportData())),
+      Buffer.from(JSON.stringify(await source.exportData())),
       "backup.json",
     );
-    destination.importData(parsed, parsed.fingerprint);
-    assert.equal(destination.api.getCollection().books.length, 1);
-    assert.equal(destination.api.getCollection().trash.length, 1);
-    assert.equal(destination.api.getCollection().savedReleases.length, 1);
-    assert.ok(
-      destination.api.getCollection().options.source.includes("Unused shop"),
+    await destination.importData(parsed, parsed.fingerprint);
+    assert.equal((await destination.api.getCollection()).books.length, 1);
+    assert.equal((await destination.api.getCollection()).trash.length, 1);
+    assert.equal(
+      (await destination.api.getCollection()).savedReleases.length,
+      1,
     );
-    assert.throws(
-      () =>
-        destination.importData(
+    assert.ok(
+      (await destination.api.getCollection()).options.source.includes(
+        "Unused shop",
+      ),
+    );
+    await assert.rejects(
+      async () =>
+        await destination.importData(
           plan([{ ...input, series: "Another import" }]),
           "different-source",
         ),
       /empty library/,
     );
-    assert.equal(destination.api.getCollection().books.length, 1);
+    assert.equal((await destination.api.getCollection()).books.length, 1);
   } finally {
-    source.close();
-    destination.close();
+    await source.close();
+    await destination.close();
   }
 });
 
@@ -365,33 +383,36 @@ test("migration rejects malformed inputs and retains legacy scientific ISBNs, bl
   );
 });
 
-test("Google sessions are hashed, bound to an identity, revocable and expiring", () => {
-  const store = openStore(":memory:");
+test("Google sessions are hashed, bound to an identity, revocable and expiring", async () => {
+  const store = await openStore();
   try {
-    assert.equal(hasSession(store, null), false);
+    assert.equal(await hasSession(store, null), false);
     const identity = {
       sub: "google-owner",
       email: "owner@gmail.com",
       email_verified: true,
     };
-    const login = signInWithGoogle(store, identity, identity.email);
+    const login = await signInWithGoogle(store, identity, identity.email);
     assert.ok(login.token);
-    assert.equal(hasSession(store, login.token), true);
+    assert.equal(await hasSession(store, login.token), true);
     assert.notEqual(
-      store.db.prepare("SELECT token_hash FROM sessions").get().token_hash,
+      (await store.db.prepare("SELECT token_hash FROM sessions").get())
+        .token_hash,
       login.token,
     );
-    store.db.exec(
+    await store.db.exec(
       "UPDATE users SET google_subject='changed-identity' WHERE id=1",
     );
-    assert.equal(hasSession(store, login.token), false);
-    store.db.exec("UPDATE users SET google_subject='google-owner' WHERE id=1");
-    signOut(store, login.token);
-    assert.equal(hasSession(store, login.token), false);
-    const expired = signInWithGoogle(store, identity);
-    store.db.exec("UPDATE sessions SET expires_at=0");
-    assert.equal(hasSession(store, expired.token), false);
+    assert.equal(await hasSession(store, login.token), false);
+    await store.db.exec(
+      "UPDATE users SET google_subject='google-owner' WHERE id=1",
+    );
+    await signOut(store, login.token);
+    assert.equal(await hasSession(store, login.token), false);
+    const expired = await signInWithGoogle(store, identity);
+    await store.db.exec("UPDATE sessions SET expires_at=0");
+    assert.equal(await hasSession(store, expired.token), false);
   } finally {
-    store.close();
+    await store.close();
   }
 });

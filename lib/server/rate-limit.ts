@@ -2,19 +2,21 @@ import { AppError, type Store } from "./store.ts";
 
 // Stable, server-generated keys only: do not let callers choose an unbounded
 // namespace or spoof IP addresses through forwarded headers.
-export function enforceRateLimit(
+export async function enforceRateLimit(
   store: Store,
   key: string,
   limit: number,
   windowMs: number,
 ) {
   const now = Date.now();
-  store.db.prepare("DELETE FROM request_limits WHERE resets_at<=?").run(now);
-  const row = store.db
+  await store.db
+    .prepare("DELETE FROM request_limits WHERE resets_at<=?")
+    .run(now);
+  const row = await store.db
     .prepare(
       `
     INSERT INTO request_limits (key,attempts,resets_at) VALUES (?,1,?)
-    ON CONFLICT(key) DO UPDATE SET attempts=attempts+1
+    ON CONFLICT(key) DO UPDATE SET attempts=request_limits.attempts+1
     RETURNING attempts
   `,
     )

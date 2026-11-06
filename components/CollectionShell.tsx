@@ -31,7 +31,7 @@ export default function CollectionShell({
 }: {
   view: CollectionView;
   series: string | null;
-  data: ReturnType<Store["api"]["getCollection"]>;
+  data: Awaited<ReturnType<Store["api"]["getCollection"]>>;
   priceIsbn?: string;
 }) {
   const shelf = view === "collection" || view === "trash";

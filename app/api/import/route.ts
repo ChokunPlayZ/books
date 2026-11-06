@@ -16,10 +16,10 @@ import {
 export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   try {
-    const { store } = getApp();
-    const user = authorize(store, request);
+    const { store } = await getApp();
+    const user = await authorize(store, request);
     sameOrigin(request);
-    enforceRateLimit(store, `import:${user.id}`, 10, 15 * 60_000);
+    await enforceRateLimit(store, `import:${user.id}`, 10, 15 * 60_000);
     // Also cap aggregate uploads: public signup must not multiply the per-user
     // memory budget into an unbounded number of simultaneous large bodies.
     return await limitConcurrentRequests(
@@ -40,19 +40,22 @@ export async function POST(request: NextRequest) {
             file.name,
           );
           if (form.get("action") === "preview")
-            return json(importSummary(plan));
+            return await json(importSummary(plan));
           if (
             form.get("action") !== "import" ||
             form.get("fingerprint") !== plan.fingerprint
           )
             throw new AppError("Review this file before importing it.");
-          return json(
-            store.forUser(user, () => store.importData(plan, plan.fingerprint)),
+          return await json(
+            await store.forUser(
+              user,
+              async () => await store.importData(plan, plan.fingerprint),
+            ),
           );
         }),
       1,
     );
   } catch (error) {
-    return errorResponse(error);
+    return await errorResponse(error);
   }
 }

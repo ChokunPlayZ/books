@@ -31,7 +31,7 @@ export const yaakz: ScraperDefinition = {
       const safe = safeProductUrl(url, "yaakz");
       if (!safe) throw new Error("Choose a Yaakz product page.");
       const key = "yaakz-product:v1:" + digest(safe);
-      const previous = cachedJson_(cache, key);
+      const previous = await cachedJson_(cache, key);
       if (
         previous &&
         !refresh &&
@@ -44,7 +44,10 @@ export const yaakz: ScraperDefinition = {
       const uuid = safe.split("/").pop();
       const product = products.find((product) => String(product.uuid) === uuid);
       if (!product) throw new Error("Yaakz product markup changed.");
-      cacheJson_(cache, key, { product, checkedAt: new Date().toISOString() });
+      await cacheJson_(cache, key, {
+        product,
+        checkedAt: new Date().toISOString(),
+      });
       return product;
     }
 
@@ -116,7 +119,8 @@ export const yaakz: ScraperDefinition = {
     }
 
     return {
-      catalog: (url, refresh) => fetchYaakzCatalog_(url, 20, refresh),
+      catalog: async (url, refresh) =>
+        await fetchYaakzCatalog_(url, 20, refresh),
       releases: async (refresh) =>
         (
           await fetchYaakzCatalog_(

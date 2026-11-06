@@ -9,7 +9,7 @@ import { googleBooks } from "../../lib/server/scrapers/google-books.ts";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { createApplicationApi } from "../../lib/server/api.ts";
 import { createCoverService } from "../../lib/server/covers.ts";
-import { openStore } from "../../lib/server/store.ts";
+import { openTestStore as openStore } from "../helpers/database.mjs";
 
 const fixture = (volume) =>
   readFileSync(
@@ -28,13 +28,13 @@ const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
   "base64",
 );
-function database(t) {
-  const store = openStore(":memory:");
-  t.after(() => store.close());
+async function database(t) {
+  const store = await openStore();
+  t.after(async () => await store.close());
   return store;
 }
-function save(store, overrides = {}) {
-  store.api.saveBook({
+async function save(store, overrides = {}) {
+  await store.api.saveBook({
     requestId: "hanmoto_save_" + (overrides.volume || 1),
     book: {
       series: "Domestic na Kanojo",
@@ -89,18 +89,18 @@ test("Hanmoto ISBN lookups return the reported volumes despite old metadata cach
     ["9784065211557", "五等分の花嫁 フルカラー版（14）", 14],
     ["9784063959420", "ドメスティックな彼女（13）", 13],
   ]) {
-    const store = database(t);
+    const store = await database(t);
     const html = first
       .replaceAll(isbn, reportedIsbn)
       .replaceAll("ドメスティックな彼女（1）", title);
     const oldDetails = { ...hanmotoBook(html, reportedIsbn) };
     delete oldDetails.volume;
-    store.cache.put(
+    await store.cache.put(
       "isbn:v13:" + reportedIsbn,
       JSON.stringify({ found: true, details: oldDetails, warnings: [] }),
       86400,
     );
-    store.cache.put(
+    await store.cache.put(
       "scrape:v1:" + digest("hanmoto-isbn:v1:" + reportedIsbn),
       JSON.stringify({ value: oldDetails, checkedAt: Date.now() }),
       86400,
@@ -176,11 +176,15 @@ test("Hanmoto rejects wrong editions, changed identities, placeholders and recom
 });
 
 test("registered Hanmoto lookup bypasses old misses, shares ISBN-10 requests and reuses cached cover choices", async (t) => {
-  const store = database(t),
+  const store = await database(t),
     calls = [];
-  save(store);
-  store.cache.put("isbn:v10:" + isbn, JSON.stringify({ found: false }), 86400);
-  store.cache.put("cover:miss:v7:" + isbn, "1", 86400);
+  await save(store);
+  await store.cache.put(
+    "isbn:v10:" + isbn,
+    JSON.stringify({ found: false }),
+    86400,
+  );
+  await store.cache.put("cover:miss:v7:" + isbn, "1", 86400);
   const service = createCatalogService(
     store,
     async (url, options) => {
@@ -212,15 +216,15 @@ test("registered Hanmoto lookup bypasses old misses, shares ISBN-10 requests and
 });
 
 test("Hanmoto skips missing and non-Japanese ISBNs without network requests", async (t) => {
-  const store = database(t);
-  save(store, { volume: 20, isbn: "" });
-  save(store, { volume: 21, isbn: "9780385496490" });
+  const store = await database(t);
+  await save(store, { volume: 20, isbn: "" });
+  await save(store, { volume: 21, isbn: "9780385496490" });
   const service = createCatalogService(
     store,
     () => assert.fail("This ISBN does not use Hanmoto"),
     [hanmoto],
   );
-  for (const book of store.api.getCollection().books) {
+  for (const book of (await store.api.getCollection()).books) {
     assert.deepEqual(
       (await service.getBookCoverOptions({ row: book.row })).covers,
       [],
@@ -231,8 +235,8 @@ test("Hanmoto skips missing and non-Japanese ISBNs without network requests", as
 
 test("Hanmoto failures preserve Google Books fallback and a durable retry cooldown", async (t) => {
   t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
-  const store = database(t);
-  save(store);
+  const store = await database(t);
+  await save(store);
   let calls = 0,
     unavailable = true;
   const fetchImpl = async (url) => {
@@ -279,9 +283,9 @@ test("Hanmoto 404s are cached, while malformed pages and unsafe redirects remain
         headers: { location: "https://evil.test/" },
       }),
   ]) {
-    const store = database(t),
+    const store = await database(t),
       calls = [];
-    save(store);
+    await save(store);
     const service = createCatalogService(
       store,
       async (url) => {
@@ -299,10 +303,10 @@ test("Hanmoto 404s are cached, while malformed pages and unsafe redirects remain
 });
 
 test("default application finds and stores Hanmoto covers with the existing publisher link and offline reuse", async (t) => {
-  const store = database(t),
+  const store = await database(t),
     calls = [];
   const publisherUrl = "https://www.kodansha.co.jp/comic/products/0000019214";
-  save(store, { publisherUrl });
+  await save(store, { publisherUrl });
   const fetchImpl = async (url) => {
     calls.push(url);
     if (url === page) return new Response(first);
@@ -317,10 +321,13 @@ test("default application finds and stores Hanmoto covers with the existing publ
   assert.equal(choice.source, "Hanmoto");
   assert.equal(choice.sourceUrl, page);
   assert.equal(choice.publisherUrl, publisherUrl);
-  assert.deepEqual(covers.get(choice.coverId).body, png);
+  assert.deepEqual((await covers.get(choice.coverId)).body, png);
   const automatic = await api.getBookCover({ row: 1 });
   assert.equal(automatic.coverId, choice.coverId);
-  assert.equal(store.api.getCollection().books[0].publisherUrl, publisherUrl);
+  assert.equal(
+    (await store.api.getCollection()).books[0].publisherUrl,
+    publisherUrl,
+  );
   assert.equal(calls.filter((url) => url === page).length, 1);
   assert.equal(calls.filter((url) => url === image).length, 1);
   const offline = createApplicationApi(store, covers, () =>

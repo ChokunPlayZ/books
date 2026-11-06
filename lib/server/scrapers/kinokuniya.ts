@@ -17,7 +17,7 @@ export const kinokuniya: ScraperDefinition = {
   coverWarning: "Could not check Kinokuniya for this ISBN.",
   create({ scrapeCache, requestRemote }: ScraperContext) {
     async function lookupKinokuniya_(canonical: string, refresh = false) {
-      return scrapeCache.get(
+      return await scrapeCache.get(
         "kinokuniya-isbn:v3:" + canonical,
         { maxAge: SCRAPE_TTL.isbn, refresh },
         async () => {

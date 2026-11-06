@@ -40,7 +40,7 @@ export function createAnimeService(
   const cache = createScrapeCache(store.cache);
 
   async function query(document: string, variables: Record<string, unknown>) {
-    if (Number(store.cache.get("anilist:cooldown")) > Date.now())
+    if (Number(await store.cache.get("anilist:cooldown")) > Date.now())
       throw new Error("AniList is busy. Please try again in a few minutes.");
     const response = await fetchImpl("https://graphql.anilist.co", {
       method: "POST",
@@ -57,7 +57,7 @@ export function createAnimeService(
         60,
         Math.min(900, Number(response.headers.get("retry-after")) || 60),
       );
-      store.cache.put(
+      await store.cache.put(
         "anilist:cooldown",
         String(Date.now() + seconds * 1000),
         seconds,
@@ -97,10 +97,14 @@ export function createAnimeService(
         { maxAge, refresh },
         load,
       );
-      store.cache.put(savedKey, JSON.stringify(result), SCRAPE_TTL.retention);
+      await store.cache.put(
+        savedKey,
+        JSON.stringify(result),
+        SCRAPE_TTL.retention,
+      );
       return result;
     } catch (error) {
-      const saved = store.cache.get(savedKey);
+      const saved = await store.cache.get(savedKey);
       if (saved) {
         try {
           const previous = JSON.parse(saved) as T;
@@ -132,7 +136,7 @@ export function createAnimeService(
         throw new AppError("Choose Manga or light novels.");
       const search = request.search.trim(),
         type = String(request.type || "");
-      return cached(
+      return await cached(
         "search:" + JSON.stringify([search.toLocaleLowerCase(), type]),
         request.refresh === true,
         7 * 86400,
@@ -175,7 +179,7 @@ export function createAnimeService(
         Number(year) > current.year + 1
       )
         throw new AppError("Choose a valid anime season and year.");
-      return cached(
+      return await cached(
         "season:" + season + ":" + year,
         request.refresh === true,
         6 * 3600,
