@@ -91,7 +91,11 @@ function CachedRecord({
               <dt>
                 {entry.group === "cooldowns" ? "Retry after" : "Retained until"}
               </dt>
-              <dd>{timestamp(entry.expiresAt)}</dd>
+              <dd>
+                {entry.expiresAt === 0
+                  ? "Permanent · admin refresh only"
+                  : timestamp(entry.expiresAt)}
+              </dd>
             </div>
           </dl>
           <p className="metadata-key">{entry.key}</p>

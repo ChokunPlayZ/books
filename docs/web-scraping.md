@@ -4,20 +4,23 @@ The Next.js server fetches publisher pages using native `fetch`. `lib/server/cat
 
 Requests have a 15-second timeout and an 8 MB response bound. Source and redirect allowlists reject unexpected hosts and credentials. External markup is parsed as data and never executed. The browser displays titles as text.
 
-ISBN metadata includes an optional page count from Google Books, Open Library, Naiin, Kinokuniya, Yen Press and Japanese publisher records, plus matching structured product data when provided. Counts belong to the verified ISBN and edition; unknown, zero and malformed counts stay blank. When the preferred source omits pages, another successful lookup for the same ISBN can supply them without replacing the preferred title or other details. The Pages field can be edited or cleared in Book metadata and the series volume editor, and is preserved in JSON backups. Existing copies can fill a missing count using ISBN lookup in the book form.
+ISBN metadata includes optional page counts and MSRP/currency when explicitly available for the verified edition. MSRP comes from original/list-price fields (including Naiin PriceFull, DEXpress price_old, Animag original-price cards, structured ListPrice specifications and Japanese publisher 定価). Discounted selling prices never substitute for MSRP. Page count and MSRP can be filled from another successful exact-ISBN source without replacing the preferred title. Personal purchases and metadata overrides are never written to shared scraper records.
 
 Publisher requests use the following freshness windows, defined in `SCRAPE_TTL`:
 
-| Data                                            | Reuse window |
-| ----------------------------------------------- | ------------ |
-| Recent releases                                 | Six hours    |
-| Series and discovery title catalogs             | 24 hours     |
-| Publisher navigation/category directories       | Seven days   |
-| Product details and cover galleries             | Seven days   |
-| Exact-ISBN metadata, including confirmed misses | 24 hours     |
-| Lookup results containing provider warnings     | 15 minutes   |
+| Data                                            | Reuse window                  |
+| ----------------------------------------------- | ----------------------------- |
+| Recent releases                                 | Six hours                     |
+| Series and discovery title catalogs             | 24 hours                      |
+| Publisher navigation/category directories       | Seven days                    |
+| Confirmed ISBN/source matches and product pages | Permanent; admin refresh only |
+| Unconfirmed product details and cover galleries | Seven days                    |
+| Exact-ISBN misses                               | 24 hours                      |
+| Lookup results containing provider warnings     | 15 minutes                    |
 
-Successful catalog and page/API responses are retained for 30 days and survive restarts. Requests for the same resource share one in-flight operation, including concurrent refreshes. Shared results are copied before series-specific annotation. Opening the cover picker reuses catalogs and gallery pages instead of forcing another scrape. Stored image bytes remain permanent.
+Confirmed source matches have no expiry and are reused by ISBN lookup, price comparisons and cover requests, across users and restarts. Price and stock timestamps are snapshots, not live quotes. Other successful catalog/page responses are retained for 30 days. Requests for the same resource share one in-flight operation, including concurrent refreshes. Shared results are copied before series-specific annotation; personal series aliases are cached under the requesting user. Imported image/source associations remain private instead of overwriting public source images.
+
+Only administrators may force `refresh: true`, inspect raw caches, purge entries, or run re-crawls. Ordinary users can reuse public metadata and discover unknown books, but cannot re-scrape confirmed matches. See [accounts and privacy](multi-user.md).
 
 Explicit `refresh: true` bypasses fresh catalog and page/API entries. Failed requests impose a durable 15-minute cooldown on that resource, including explicit refreshes, so repeated views or restarts cannot hammer an unavailable source. Failed cover downloads use the same durable cooldown per image URL, so loading cached listings does not repeatedly wait on unavailable images. Stored images remain available during a cooldown. HTTP errors and invalid JSON are not cached as successful responses. Failed catalog refreshes keep previous records and their original check time with a stale warning. Saved releases and explicit series links are independent database records, so cache expiry does not remove them. SQLite owns this cache; outgoing `fetch` still uses `no-store` to avoid an additional framework cache overriding refresh behavior.
 

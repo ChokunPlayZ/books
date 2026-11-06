@@ -93,7 +93,12 @@ export function createSeasonalDiscoveryService(
                           (item) =>
                             !item.special &&
                             !item.bundle &&
-                            ["Manga (TH)", "LN (TH)"].includes(item.type),
+                            [
+                              "Manga",
+                              "Light novel",
+                              "Manga (TH)",
+                              "LN (TH)",
+                            ].includes(item.type),
                         )
                         .sort(representative);
                       for (const listing of listings) {

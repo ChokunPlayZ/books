@@ -1,5 +1,6 @@
 // Public domain API. Import a focused module for browser-safe code.
 export * from "./domain/constants.ts";
+export * from "./domain/book-type.ts";
 export * from "./domain/isbn.ts";
 export * from "./domain/validation.ts";
 export * from "./domain/page-count.ts";

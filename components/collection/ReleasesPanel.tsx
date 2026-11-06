@@ -72,8 +72,9 @@ export default function ReleasesPanel() {
         </label>
         <select id={"releaseType"}>
           <option value={""}>{"All types"}</option>
-          <option value={"LN"}>{"Light novels (LN)"}</option>
+          <option value="Light novel">Light novel</option>
           <option value={"Manga"}>{"Manga"}</option>
+          <option value="Others">Others</option>
         </select>
         <div
           className={"buttons release-visibility-filters"}

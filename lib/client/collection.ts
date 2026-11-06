@@ -14,6 +14,7 @@ import { createScanner } from "./scanner.ts";
 import { canonicalIsbn as canonical } from "../domain/isbn.ts";
 import { kinokuniyaSearchUrl } from "../domain/urls.ts";
 import { bookSourceApplies, isbnSearchLinks } from "../domain/book-sources.ts";
+import { normalizeBookType } from "../domain/book-type.ts";
 import {
   releaseSeriesKey,
   matchingBookType,
@@ -47,6 +48,9 @@ export function mountCollection({
     "date",
     "note",
     "pageCount",
+    "msrp",
+    "msrpCurrency",
+    "edition",
   ] as const;
 
   const COLLECTION_FILTERS = [
@@ -79,7 +83,7 @@ export function mountCollection({
       openBook(null, {
         series,
         volume,
-        type: edition.type || "Other",
+        type: edition.type || "Others",
         publisher: edition.publisher,
       });
     },
@@ -154,6 +158,13 @@ export function mountCollection({
     toastTimer = setTimeout(() => ($("toast").hidden = true), 4200);
   }
   async function rpc(name: string, arg?: unknown) {
+    if (
+      arg &&
+      typeof arg === "object" &&
+      Object.hasOwn(arg, "refresh") &&
+      document.getElementById("libraryMain")?.dataset.userRole !== "admin"
+    )
+      arg = { ...arg, refresh: false };
     const response = await fetch("/api/rpc", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1022,7 +1033,7 @@ export function mountCollection({
             "click",
             () => {
               openBook(null, { series: state.selectedSeries, volume: from });
-              $("type").value = edition.type || "Other";
+              $("type").value = normalizeBookType(edition.type);
               $("publisher").value = edition.publisher || "";
               renderBookDetails();
             },
@@ -1532,7 +1543,7 @@ export function mountCollection({
       (["type", "publisher"] as const).forEach(
         (k) =>
           ($(k).value = series
-            ? defaults[k] || (k === "type" ? "Manga (TH)" : "")
+            ? defaults[k] || (k === "type" ? "Manga" : "")
             : state.sharedDraft[k]),
       );
       state.formSeries = series;
@@ -3069,12 +3080,15 @@ export function mountCollection({
       series,
       volume: item.volume,
       isbn: item.isbn || item.searchedIsbn,
-      type: item.type || "Other",
+      type: normalizeBookType(item.type),
+      edition: item.edition || "",
+      msrp: item.msrp,
+      msrpCurrency: item.msrpCurrency,
       publisher: item.publisher,
       pageCount: item.pageCount,
     });
     // A publisher listing identifies this edition, including its language.
-    $("type").value = item.type || "Other";
+    $("type").value = normalizeBookType(item.type);
     state.typeTouched = true;
     $("publisher").value = item.publisher;
     $("publisherUrl").value = item.url || "";
@@ -3485,7 +3499,7 @@ export function mountCollection({
     renderMetadataCover();
     if (!book) {
       $("date").value = defaults?.date ?? state.data.today;
-      $("type").value = defaults?.type || "Manga (TH)";
+      $("type").value = normalizeBookType(defaults?.type || "Manga");
       $("status").value = defaults?.status || "Sealed";
     }
     $("bookDialogTitle").textContent = book
@@ -3551,6 +3565,10 @@ export function mountCollection({
     $("listedPriceHint").textContent = "";
   }
   function fillListedPrice(details) {
+    if (details.msrp !== "" && details.msrp != null && !$("msrp").value) {
+      $("msrp").value = String(details.msrp);
+      $("msrpCurrency").value = details.msrpCurrency || details.currency || "";
+    }
     const original =
       details.regularPrice !== "" && details.regularPrice != null;
     const price = original ? details.regularPrice : details.price;
@@ -3684,6 +3702,7 @@ export function mountCollection({
           $("type").value = d.type;
         if (d.pageCount && !$("pageCount").value)
           $("pageCount").value = String(d.pageCount);
+        if (d.edition && !$("edition").value) $("edition").value = d.edition;
         fillListedPrice(d);
         state.lookupMatched = !!$("series").value.trim();
         state.lookupDetailsExpanded = false;

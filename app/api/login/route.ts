@@ -15,8 +15,8 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
-    const { password } = await readJson(request);
-    const result = signIn(getApp().store, password);
+    const { password, username } = await readJson(request);
+    const result = signIn(getApp().store, password, username);
     if (result.error) throw result.error;
     const response = json({ signedIn: true });
     response.cookies.set(SESSION_COOKIE, result.token, cookieOptions());

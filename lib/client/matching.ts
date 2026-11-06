@@ -1,10 +1,11 @@
 import { canonicalIsbn as canonical } from "../domain/isbn.ts";
 import type { Book, Release } from "../types.ts";
+import { bookEditionKey } from "../domain/book-type.ts";
 
 export type MatchBook = Pick<
   Book,
   "series" | "publisher" | "type" | "volume" | "isbn"
->;
+> & { edition?: string };
 type MatchRelease = Pick<
   Release,
   "series" | "publisherId" | "type" | "volume" | "title"
@@ -88,7 +89,7 @@ export function seriesGaps<T extends MatchBook>(books: T[]) {
   >();
   books.forEach((b) => {
     const type = matchingBookType(b.type),
-      key = JSON.stringify([type, publisherKey(b.publisher)]);
+      key = JSON.stringify([bookEditionKey(b), publisherKey(b.publisher)]);
     if (!editions.has(key))
       editions.set(key, { type, publisher: b.publisher, books: [] });
     editions.get(key).books.push(b);
@@ -165,7 +166,7 @@ export function matchRelease<T extends MatchBook>(
       releaseSeriesKey(b.series) ===
         releaseSeriesKey(item.catalogSeries || item.series) &&
       publisherKey(b.publisher) === item.publisherId &&
-      (!item.type || matchingBookType(b.type) === matchingBookType(item.type)),
+      (!item.type || bookEditionKey(b) === bookEditionKey(item)),
   );
   const possible =
     releaseSingleVolume(item) &&
@@ -195,7 +196,7 @@ export function discoverTitles<T extends Release>(
       (["yenpress", "firstpage", "dexpress", "lilyhouse", "kodansha"].includes(
         item.publisherId,
       )
-        ? ":" + matchingBookType(item.type)
+        ? ":" + bookEditionKey(item)
         : "");
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(item);
@@ -223,8 +224,7 @@ export function discoverTitles<T extends Release>(
                   item.publisherId,
                 ) ||
                   !item.type ||
-                  matchingBookType(book.type) ===
-                    matchingBookType(item.type)) &&
+                  bookEditionKey(book) === bookEditionKey(item)) &&
                 (releaseSeriesKey(book.series) ===
                   releaseSeriesKey(item.series) ||
                   aliases.some(

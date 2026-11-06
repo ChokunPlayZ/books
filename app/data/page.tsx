@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getApp } from "../../lib/server/app.ts";
 import {
-  hasSession,
+  sessionUser,
   passwordRequired,
   SESSION_COOKIE,
 } from "../../lib/server/auth.ts";
@@ -12,9 +12,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export default async function DataPage() {
   const { store, api } = getApp();
-  if (!hasSession(store, (await cookies()).get(SESSION_COOKIE)?.value))
+  const user = sessionUser(store, (await cookies()).get(SESSION_COOKIE)?.value);
+  if (!user)
     redirect("/login");
-  const data = store.api.getCollection();
+  const data = store.forUser(user, () => store.api.getCollection());
   return (
     <DataManager
       counts={{
@@ -22,8 +23,8 @@ export default async function DataPage() {
         trash: data.trash.length,
         savedReleases: data.savedReleases.length,
       }}
-      canSignOut={passwordRequired()}
-      metadata={await api.getMetadataOverview()}
+      canSignOut={passwordRequired(store)}
+      metadata={user.role === "admin" ? await store.forUser(user, () => api.getMetadataOverview()) : null}
     />
   );
 }

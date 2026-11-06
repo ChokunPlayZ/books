@@ -139,6 +139,11 @@ export const naiin: ScraperDefinition = {
             Number.isFinite(regularPrice) && regularPrice >= 0
               ? regularPrice
               : "",
+          msrp:
+            Number.isFinite(regularPrice) && regularPrice >= 0
+              ? regularPrice
+              : "",
+          msrpCurrency: "THB",
           coverUrl: safeCoverUrl(book.image || meta(page, "og:image")),
         };
       }

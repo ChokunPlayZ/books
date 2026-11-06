@@ -2,6 +2,7 @@ import { BOOK_APP, PUBLISHERS } from "./constants.ts";
 import { normalizeIsbn } from "./isbn.ts";
 import { safeCoverUrl, safePublisherUrl } from "./urls.ts";
 import { normalizePageCount } from "./page-count.ts";
+import { normalizeBookType } from "./book-type.ts";
 
 export function normalizeBook(b) {
   const values: (string | number)[] = BOOK_APP.fields.map(function (key) {
@@ -14,6 +15,7 @@ export function normalizeBook(b) {
   if (!values[1]) throw new Error("Enter a series or book title.");
   values[0] = normalizeIsbn(values[0]);
   if (!values[2]) throw new Error("Choose a book type.");
+  values[2] = normalizeBookType(values[2]);
   if (!values[4]) throw new Error("Choose a reading status.");
   [5, 7].forEach(function (i) {
     if (values[i] !== "") {
@@ -75,7 +77,30 @@ export function bookMetadata(input) {
     coverUrl,
     publisherUrl,
     pageCount: normalizePageCount(input.pageCount),
+    msrp: normalizeMsrp(input.msrp),
+    msrpCurrency: normalizeCurrency(input.msrpCurrency),
+    edition: String(input.edition ?? "")
+      .trim()
+      .slice(0, 500),
   };
+}
+
+export function normalizeMsrp(value: unknown): number | "" {
+  if (value == null || value === "") return "";
+  if (!/^\d+(?:\.\d+)?$/.test(String(value)) || !Number.isFinite(Number(value)))
+    throw new Error("MSRP must be a non-negative number or blank.");
+  return Number(value);
+}
+
+export function normalizeCurrency(value: unknown): string {
+  const currency = String(value ?? "")
+    .trim()
+    .toUpperCase();
+  if (currency && !/^[A-Z]{3}$/.test(currency))
+    throw new Error(
+      "Use a three-letter MSRP currency, such as THB, USD or JPY.",
+    );
+  return currency;
 }
 
 export function seriesCatalogRequest(request) {
@@ -86,7 +111,7 @@ export function seriesCatalogRequest(request) {
     });
   if (!series || series.length > 500 || !publisher)
     throw new Error("Choose a series and a supported publisher.");
-  const type = String(request.type || "").trim();
+  const type = request.type ? normalizeBookType(request.type) : "";
   if (type.length > 100) throw new Error("Choose a valid book type.");
   return {
     series: series,

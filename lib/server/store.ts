@@ -4,6 +4,11 @@ import type { Book, StoredBook } from "../types.ts";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
+import { createUserContext, type User } from "./user-context.ts";
+import {
+  normalizeBookType,
+  normalizeRecordTypes,
+} from "../domain/book-type.ts";
 import {
   BOOK_APP,
   PUBLISHERS,
@@ -83,7 +88,7 @@ export function openStore(
   );
   // Add subsequent schema versions here; startup never drops or reseeds user data.
   const version = Number(db.prepare("PRAGMA user_version").get().user_version);
-  if (version > 4) {
+  if (version > 5) {
     db.close();
     throw new Error("This database needs a newer version of Book Collection.");
   }
@@ -135,6 +140,136 @@ export function openStore(
       PRAGMA user_version=4;
       COMMIT;
     `);
+  if (version < 5) {
+    db.exec(`
+      BEGIN IMMEDIATE;
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL COLLATE NOCASE UNIQUE,
+        password_hash TEXT NOT NULL DEFAULT '', role TEXT NOT NULL CHECK(role IN ('admin','user')),
+        created_at TEXT NOT NULL
+      );
+      INSERT INTO users (id,username,role,created_at) VALUES (1,'admin','admin',datetime('now'));
+      CREATE TABLE owned_books (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, isbn TEXT NOT NULL DEFAULT '',
+        canonical_isbn TEXT NOT NULL DEFAULT '', series TEXT NOT NULL, type TEXT NOT NULL DEFAULT '',
+        publisher TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT '', volume REAL,
+        source TEXT NOT NULL DEFAULT '', price REAL, purchased_on TEXT NOT NULL DEFAULT '',
+        note TEXT NOT NULL DEFAULT '', revision INTEGER NOT NULL DEFAULT 1,
+        trash_id TEXT, removed_at TEXT, cover_url TEXT NOT NULL DEFAULT '',
+        publisher_url TEXT NOT NULL DEFAULT '', cover_id TEXT REFERENCES covers(id),
+        page_count INTEGER CHECK(page_count IS NULL OR page_count > 0),
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        msrp REAL CHECK(msrp IS NULL OR msrp >= 0), msrp_currency TEXT NOT NULL DEFAULT '',
+        edition TEXT NOT NULL DEFAULT '', UNIQUE(user_id,trash_id)
+      );
+      INSERT INTO owned_books
+        (id,isbn,canonical_isbn,series,type,publisher,status,volume,source,price,purchased_on,note,revision,trash_id,removed_at,cover_url,publisher_url,cover_id,page_count,user_id,edition)
+        SELECT id,isbn,canonical_isbn,series,type,publisher,status,volume,source,price,purchased_on,note,revision,trash_id,removed_at,cover_url,publisher_url,cover_id,page_count,1,type FROM books;
+      DROP TABLE books;
+      ALTER TABLE owned_books RENAME TO books;
+      CREATE INDEX books_isbn ON books(user_id,canonical_isbn) WHERE removed_at IS NULL;
+      CREATE INDEX books_series ON books(user_id,series) WHERE removed_at IS NULL;
+      CREATE TABLE owned_sessions (
+        token_hash TEXT PRIMARY KEY, expires_at INTEGER NOT NULL,
+        user_id INTEGER NOT NULL REFERENCES users(id), credential_hash TEXT NOT NULL DEFAULT ''
+      );
+      INSERT INTO owned_sessions SELECT token_hash,expires_at,1,'' FROM sessions;
+      DROP TABLE sessions;
+      ALTER TABLE owned_sessions RENAME TO sessions;
+    `);
+    for (const [table, definition, keys] of [
+      [
+        "receipts",
+        "id TEXT NOT NULL, kind TEXT NOT NULL, hash TEXT NOT NULL, result TEXT NOT NULL, created_at TEXT NOT NULL",
+        "id",
+      ],
+      [
+        "saved_releases",
+        "id TEXT NOT NULL, data TEXT NOT NULL, updated_at TEXT NOT NULL",
+        "id",
+      ],
+      [
+        "series_catalogs",
+        "series_key TEXT NOT NULL, publisher_id TEXT NOT NULL, type TEXT NOT NULL, data TEXT NOT NULL",
+        "series_key,publisher_id,type",
+      ],
+      ["options", "field TEXT NOT NULL, value TEXT NOT NULL", "field,value"],
+      [
+        "imports",
+        "fingerprint TEXT NOT NULL, result TEXT NOT NULL, created_at TEXT NOT NULL",
+        "fingerprint",
+      ],
+    ]) {
+      db.exec(`CREATE TABLE owned_${table} (${definition},user_id INTEGER NOT NULL REFERENCES users(id),PRIMARY KEY(user_id,${keys}));
+        INSERT INTO owned_${table} SELECT *,1 FROM ${table};
+        DROP TABLE ${table}; ALTER TABLE owned_${table} RENAME TO ${table};`);
+    }
+    const rows = db.prepare("SELECT id,type FROM books").all();
+    const update = db.prepare("UPDATE books SET type=? WHERE id=?");
+    for (const row of rows) update.run(normalizeBookType(row.type), row.id);
+    const catalogs = db.prepare("SELECT * FROM series_catalogs").all();
+    // Keep every legacy link, including two language editions that now have the
+    // same three-way type. Internal keys need not be user-visible type labels.
+    const updateCatalog = db.prepare(
+      "UPDATE series_catalogs SET data=? WHERE series_key=? AND publisher_id=? AND type=? AND user_id=?",
+    );
+    for (const row of catalogs)
+      updateCatalog.run(
+        JSON.stringify(normalizeRecordTypes(JSON.parse(String(row.data)))),
+        row.series_key,
+        row.publisher_id,
+        row.type,
+        row.user_id,
+      );
+    // Legacy alias-derived catalogs belong to the original owner, not the public cache.
+    db.exec(
+      "UPDATE cache SET key='user:1:' || key WHERE key LIKE 'series:v1:%'",
+    );
+    for (const row of db
+      .prepare("SELECT key,value FROM cache WHERE key LIKE 'isbn:%'")
+      .all()) {
+      try {
+        const result = JSON.parse(String(row.value));
+        if (result?.found && result.details?.url) {
+          db.prepare("UPDATE cache SET expires_at=0 WHERE key=?").run(row.key);
+          const url = new URL(result.details.url).href;
+          const key = "scrape:v1:" + digest("text:" + url);
+          const response = db
+            .prepare("SELECT value FROM cache WHERE key=?")
+            .get(key);
+          if (response)
+            db.prepare("UPDATE cache SET value=?,expires_at=0 WHERE key=?").run(
+              JSON.stringify({
+                ...JSON.parse(String(response.value)),
+                permanent: true,
+              }),
+              key,
+            );
+        }
+      } catch {
+        /* Unreadable disposable cache records can be discovered again. */
+      }
+    }
+    db.exec(
+      "DELETE FROM options WHERE field='type'; PRAGMA user_version=5; COMMIT;",
+    );
+  }
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS cover_access (user_id INTEGER NOT NULL REFERENCES users(id),cover_id TEXT NOT NULL REFERENCES covers(id),PRIMARY KEY(user_id,cover_id))",
+  );
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS user_cover_sources (user_id INTEGER NOT NULL REFERENCES users(id),url TEXT NOT NULL,cover_id TEXT NOT NULL REFERENCES covers(id),PRIMARY KEY(user_id,url))",
+  );
+  const users = createUserContext();
+  db.function("app_user_id", () => users.current().id);
+  const owned = "user_id=app_user_id()";
+  function requireAdmin() {
+    if (users.current().role !== "admin")
+      throw new AppError(
+        "Only an administrator can manage shared metadata or re-scrape sources.",
+        403,
+      );
+  }
   const run = (sql: string, ...args: SQLInputValue[]) =>
     db.prepare(sql).run(...args);
   const all = <T = DatabaseRow>(sql: string, ...args: SQLInputValue[]) =>
@@ -159,6 +294,9 @@ export function openStore(
     data.coverUrl = row.cover_url;
     data.publisherUrl = row.publisher_url;
     data.pageCount = row.page_count == null ? "" : Number(row.page_count);
+    data.msrp = row.msrp == null ? "" : Number(row.msrp);
+    data.msrpCurrency = String(row.msrp_currency || "");
+    data.edition = String(row.edition || "");
     return {
       ...data,
       coverId: row.cover_id || "",
@@ -170,7 +308,7 @@ export function openStore(
     if (!Number.isSafeInteger(request.row))
       throw new AppError("Choose a book and try again.");
     const row = get(
-      "SELECT * FROM books WHERE id=? AND removed_at IS NULL",
+      `SELECT * FROM books WHERE ${owned} AND id=? AND removed_at IS NULL`,
       request.row,
     );
     if (!row || book(row).token !== request.token)
@@ -186,7 +324,7 @@ export function openStore(
     return transaction(() => {
       const hash = digest(stableJson(request));
       const previous = get(
-        "SELECT * FROM receipts WHERE id=?",
+        `SELECT * FROM receipts WHERE ${owned} AND id=?`,
         request.requestId,
       );
       if (previous) {
@@ -199,7 +337,7 @@ export function openStore(
       }
       const result = fn();
       run(
-        "INSERT INTO receipts VALUES (?,?,?,?,?)",
+        "INSERT INTO receipts VALUES (?,?,?,?,?,app_user_id())",
         request.requestId,
         kind,
         hash,
@@ -213,12 +351,17 @@ export function openStore(
     for (const field of ["series", "type", "publisher", "status", "source"])
       if (data[field])
         run(
-          "INSERT OR IGNORE INTO options VALUES (?,?)",
+          "INSERT OR IGNORE INTO options VALUES (?,?,app_user_id())",
           field,
           String(data[field]),
         );
   }
   function insertBook(data, removedAt = null, trashId = null) {
+    data = {
+      ...data,
+      edition: data.edition ?? data.type,
+      type: normalizeBookType(data.type),
+    };
     const args = fields.map((field) =>
       (field === "volume" || field === "price") && data[field] === ""
         ? null
@@ -226,7 +369,7 @@ export function openStore(
           (field === "volume" || field === "price" ? null : "")),
     );
     const result = run(
-      `INSERT INTO books (${columns.join(",")},canonical_isbn,removed_at,trash_id) VALUES (${Array(13).fill("?").join(",")})`,
+      `INSERT INTO books (${columns.join(",")},canonical_isbn,removed_at,trash_id,user_id) VALUES (${Array(13).fill("?").join(",")},app_user_id())`,
       ...args,
       canonicalIsbn(data.isbn),
       removedAt,
@@ -240,20 +383,26 @@ export function openStore(
   function writeMetadata(id, data) {
     const metadata = bookMetadata(data);
     let coverId = data.coverId;
-    const existing = get("SELECT cover_url,cover_id FROM books WHERE id=?", id);
+    const existing = get(
+      `SELECT cover_url,cover_id FROM books WHERE ${owned} AND id=?`,
+      id,
+    );
     if (coverId === undefined)
       coverId =
         metadata.coverUrl === existing?.cover_url
           ? existing.cover_id
           : covers.bySource(metadata.coverUrl)?.id;
-    if (coverId && !covers.get(coverId))
+    if (coverId && (!covers.get(coverId) || !covers.canAccess(coverId)))
       throw new AppError("Choose an available stored cover.");
     run(
-      "UPDATE books SET cover_url=?,publisher_url=?,cover_id=?,page_count=? WHERE id=?",
+      `UPDATE books SET cover_url=?,publisher_url=?,cover_id=?,page_count=?,msrp=?,msrp_currency=?,edition=? WHERE ${owned} AND id=?`,
       metadata.coverUrl,
       metadata.publisherUrl,
       coverId || null,
       metadata.pageCount === "" ? null : metadata.pageCount,
+      metadata.msrp === "" ? null : metadata.msrp,
+      metadata.msrpCurrency,
+      metadata.edition,
       id,
     );
   }
@@ -261,7 +410,7 @@ export function openStore(
     return (
       isbn &&
       get(
-        "SELECT id FROM books WHERE canonical_isbn=? AND removed_at IS NULL AND id<>?",
+        `SELECT id FROM books WHERE ${owned} AND canonical_isbn=? AND removed_at IS NULL AND id<>?`,
         isbn,
         id || 0,
       )
@@ -275,15 +424,16 @@ export function openStore(
       status: [...BOOK_APP.statuses],
       source: [],
     };
-    all("SELECT * FROM options").forEach((row) => {
-      if (options[row.field]) options[row.field].push(row.value);
+    all(`SELECT * FROM options WHERE ${owned}`).forEach((row) => {
+      if (row.field !== "type" && options[row.field])
+        options[row.field].push(row.value);
     });
     Object.keys(options).forEach(
       (key) => (options[key] = [...new Set(options[key])].sort()),
     );
     const timeZone = process.env.BOOKS_TIME_ZONE || "Asia/Bangkok";
     const rows = all(
-      "SELECT * FROM books WHERE removed_at IS NULL ORDER BY id",
+      `SELECT * FROM books WHERE ${owned} AND removed_at IS NULL ORDER BY id`,
     );
     const groups = new Map();
     for (const row of rows) {
@@ -291,13 +441,14 @@ export function openStore(
       groups.get(row.series).push(row);
     }
     return {
+      user: users.current(),
       books: rows.map(book),
       titles: [...groups].map(([series, volumes]) => ({
         series,
         token: titleToken(series, volumes),
       })),
       trash: all(
-        "SELECT * FROM books WHERE removed_at IS NOT NULL ORDER BY removed_at DESC,id DESC",
+        `SELECT * FROM books WHERE ${owned} AND removed_at IS NOT NULL ORDER BY removed_at DESC,id DESC`,
       ).map((row) => ({
         id: row.trash_id,
         removedAt: row.removed_at,
@@ -313,19 +464,19 @@ export function openStore(
       }).format(new Date()),
       publishers: PUBLISHERS,
       savedReleases: savedReleases(),
-      seriesCatalogs: all("SELECT data FROM series_catalogs").map((row) =>
-        JSON.parse(row.data),
-      ),
+      seriesCatalogs: all(
+        `SELECT data FROM series_catalogs WHERE ${owned}`,
+      ).map((row) => normalizeRecordTypes(JSON.parse(row.data))),
     };
   }
   function savedReleases() {
     return all(
-      "SELECT data FROM saved_releases ORDER BY updated_at DESC,id",
+      `SELECT data FROM saved_releases WHERE ${owned} ORDER BY updated_at DESC,id`,
     ).map((row) => {
       const item = JSON.parse(row.data);
       if (item.publisherId === "firstpage")
         item.type = splitFirstPageTitle(item.title).type || item.type;
-      return item;
+      return normalizeRecordTypes(item);
     });
   }
   function titleToken(series, rows) {
@@ -353,6 +504,11 @@ export function openStore(
         publisherUrl:
           request.book.publisherUrl ?? existing?.publisher_url ?? "",
         pageCount: request.book.pageCount ?? existing?.page_count ?? "",
+        msrp: request.book.msrp ?? existing?.msrp ?? "",
+        msrpCurrency:
+          request.book.msrpCurrency ?? existing?.msrp_currency ?? "",
+        edition:
+          request.book.edition ?? existing?.edition ?? request.book.type ?? "",
       }),
     );
     if (request.book.coverId !== undefined) data.coverId = request.book.coverId;
@@ -384,7 +540,7 @@ export function openStore(
           : data[field],
       );
       run(
-        `UPDATE books SET ${columns.map((c) => c + "=?").join(",")},canonical_isbn=?,revision=revision+1 WHERE id=?`,
+        `UPDATE books SET ${columns.map((c) => c + "=?").join(",")},canonical_isbn=?,revision=revision+1 WHERE ${owned} AND id=?`,
         ...args,
         canonicalIsbn(data.isbn),
         existing.id,
@@ -433,7 +589,7 @@ export function openStore(
             )
               throw new AppError("Choose removed books to restore.");
             const row = get(
-              "SELECT * FROM books WHERE id=? AND trash_id=? AND removed_at IS NOT NULL",
+              `SELECT * FROM books WHERE ${owned} AND id=? AND trash_id=? AND removed_at IS NOT NULL`,
               selected.row,
               selected.trashId,
             );
@@ -443,20 +599,20 @@ export function openStore(
                 409,
               );
             run(
-              "UPDATE books SET removed_at=NULL,trash_id=NULL,revision=revision+1 WHERE id=?",
+              `UPDATE books SET removed_at=NULL,trash_id=NULL,revision=revision+1 WHERE ${owned} AND id=?`,
               row.id,
             );
           } else {
             const row = current(selected);
             if (request.action === "status")
               run(
-                "UPDATE books SET status=?,revision=revision+1 WHERE id=?",
+                `UPDATE books SET status=?,revision=revision+1 WHERE ${owned} AND id=?`,
                 status,
                 row.id,
               );
             else
               run(
-                "UPDATE books SET trash_id=?,removed_at=?,revision=revision+1 WHERE id=?",
+                `UPDATE books SET trash_id=?,removed_at=?,revision=revision+1 WHERE ${owned} AND id=?`,
                 randomUUID(),
                 removedAt,
                 row.id,
@@ -489,7 +645,7 @@ export function openStore(
             throw new AppError("Include each series only once.");
           names.add(title.series);
           const rows = all(
-            "SELECT * FROM books WHERE series=? AND removed_at IS NULL ORDER BY id",
+            `SELECT * FROM books WHERE ${owned} AND series=? AND removed_at IS NULL ORDER BY id`,
             title.series,
           );
           if (!rows.length || titleToken(title.series, rows) !== title.token)
@@ -507,12 +663,12 @@ export function openStore(
         for (const title of titles) {
           if (title.series === series) continue;
           run(
-            "UPDATE books SET series=?,revision=revision+1 WHERE series=? AND removed_at IS NULL",
+            `UPDATE books SET series=?,revision=revision+1 WHERE ${owned} AND series=? AND removed_at IS NULL`,
             series,
             title.series,
           );
           run(
-            "DELETE FROM options WHERE field='series' AND value=? AND NOT EXISTS (SELECT 1 FROM books WHERE series=?)",
+            `DELETE FROM options WHERE ${owned} AND field='series' AND value=? AND NOT EXISTS (SELECT 1 FROM books WHERE ${owned} AND series=?)`,
             title.series,
             title.series,
           );
@@ -522,16 +678,16 @@ export function openStore(
         // The destination's catalog choices take priority when editions overlap.
         const targetKey = catalogSeriesKey(series);
         for (const row of all(
-          "SELECT data FROM series_catalogs WHERE series_key=?",
+          `SELECT data,type FROM series_catalogs WHERE ${owned} AND series_key=?`,
           targetKey,
         )) {
           const catalog = JSON.parse(row.data);
           run(
-            "UPDATE series_catalogs SET data=? WHERE series_key=? AND publisher_id=? AND type=?",
+            `UPDATE series_catalogs SET data=? WHERE ${owned} AND series_key=? AND publisher_id=? AND type=?`,
             JSON.stringify({ ...catalog, series }),
             targetKey,
             catalog.publisherId,
-            catalog.type,
+            row.type,
           );
         }
         const sourceKeys = new Set(
@@ -539,26 +695,29 @@ export function openStore(
         );
         sourceKeys.delete(targetKey);
         const remainingKeys = new Set(
-          all("SELECT DISTINCT series FROM books WHERE removed_at IS NULL").map(
-            (row) => catalogSeriesKey(row.series),
-          ),
+          all(
+            `SELECT DISTINCT series FROM books WHERE ${owned} AND removed_at IS NULL`,
+          ).map((row) => catalogSeriesKey(row.series)),
         );
         for (const key of sourceKeys) {
           for (const row of all(
-            "SELECT data FROM series_catalogs WHERE series_key=?",
+            `SELECT data,type FROM series_catalogs WHERE ${owned} AND series_key=?`,
             key,
           )) {
             const catalog = JSON.parse(row.data);
             run(
-              "INSERT OR IGNORE INTO series_catalogs VALUES (?,?,?,?)",
+              "INSERT OR IGNORE INTO series_catalogs VALUES (?,?,?,?,app_user_id())",
               targetKey,
               catalog.publisherId,
-              catalog.type,
+              row.type,
               JSON.stringify({ ...catalog, series }),
             );
           }
           if (!remainingKeys.has(key))
-            run("DELETE FROM series_catalogs WHERE series_key=?", key);
+            run(
+              `DELETE FROM series_catalogs WHERE ${owned} AND series_key=?`,
+              key,
+            );
         }
         return {
           series,
@@ -574,7 +733,7 @@ export function openStore(
       return receipt("title", request, () => {
         const original = String(request.series || "");
         const rows = all(
-          "SELECT * FROM books WHERE series=? AND removed_at IS NULL ORDER BY id",
+          `SELECT * FROM books WHERE ${owned} AND series=? AND removed_at IS NULL ORDER BY id`,
           original,
         );
         if (!rows.length || titleToken(original, rows) !== request.token)
@@ -587,7 +746,7 @@ export function openStore(
           throw new AppError("Enter a series name of up to 500 characters.");
         if (
           all(
-            "SELECT DISTINCT series FROM books WHERE removed_at IS NULL",
+            `SELECT DISTINCT series FROM books WHERE ${owned} AND removed_at IS NULL`,
           ).some(
             (row) =>
               row.series !== original &&
@@ -603,10 +762,10 @@ export function openStore(
           throw new AppError("Include the editions for this title.");
         for (const edition of request.title.editions) {
           const key = JSON.stringify([
-            edition.originalType,
+            normalizeBookType(edition.originalType),
             edition.originalPublisher,
           ]);
-          const type = String(edition.type || "").trim();
+          const type = edition.type ? normalizeBookType(edition.type) : "";
           const publisher = String(edition.publisher || "").trim();
           if (
             !type ||
@@ -635,7 +794,7 @@ export function openStore(
             JSON.stringify([row.type, row.publisher]),
           );
           run(
-            "UPDATE books SET series=?,type=?,publisher=?,publisher_url=?,revision=revision+1 WHERE id=?",
+            `UPDATE books SET series=?,type=?,publisher=?,publisher_url=?,revision=revision+1 WHERE ${owned} AND id=?`,
             series,
             edition.type,
             edition.publisher,
@@ -650,18 +809,19 @@ export function openStore(
         }
         // Keep selected catalog categories attached when a title or edition is renamed.
         const catalogs = all(
-          "SELECT data FROM series_catalogs WHERE series_key=?",
+          `SELECT data FROM series_catalogs WHERE ${owned} AND series_key=?`,
           catalogSeriesKey(original),
         );
         run(
-          "DELETE FROM series_catalogs WHERE series_key=?",
+          `DELETE FROM series_catalogs WHERE ${owned} AND series_key=?`,
           catalogSeriesKey(original),
         );
         for (const row of catalogs) {
           const catalog = JSON.parse(row.data);
           const edition = [...editions.values()].find(
             (entry) =>
-              entry.originalType === catalog.type &&
+              normalizeBookType(entry.originalType) ===
+                normalizeBookType(catalog.type) &&
               publisherKey(entry.originalPublisher) === catalog.publisherId,
           );
           if (
@@ -732,6 +892,9 @@ export function openStore(
               "coverUrl",
               "publisherUrl",
               "pageCount",
+              "msrp",
+              "msrpCurrency",
+              "edition",
             ]
               .filter((field) => Object.hasOwn(change.book, field))
               .map((field) => [field, change.book[field]]),
@@ -777,7 +940,7 @@ export function openStore(
             throw new AppError("Choose volumes from the same series.");
           const details = normalizePurchaseDetails(change);
           run(
-            "UPDATE books SET purchased_on=?,price=?,source=?,revision=revision+1 WHERE id=?",
+            `UPDATE books SET purchased_on=?,price=?,source=?,revision=revision+1 WHERE ${owned} AND id=?`,
             details.date,
             details.price === "" ? null : details.price,
             details.source,
@@ -799,7 +962,7 @@ export function openStore(
             409,
           );
         run(
-          "UPDATE books SET isbn=?,canonical_isbn=?,cover_id=CASE WHEN cover_url='' THEN NULL ELSE cover_id END,revision=revision+1 WHERE id=?",
+          `UPDATE books SET isbn=?,canonical_isbn=?,cover_id=CASE WHEN cover_url='' THEN NULL ELSE cover_id END,revision=revision+1 WHERE ${owned} AND id=?`,
           isbn,
           canonicalIsbn(isbn),
           row.id,
@@ -812,7 +975,7 @@ export function openStore(
         const row = current(request),
           trashId = randomUUID();
         run(
-          "UPDATE books SET trash_id=?,removed_at=?,revision=revision+1 WHERE id=?",
+          `UPDATE books SET trash_id=?,removed_at=?,revision=revision+1 WHERE ${owned} AND id=?`,
           trashId,
           new Date().toISOString(),
           row.id,
@@ -823,7 +986,7 @@ export function openStore(
     restoreBook(request) {
       return receipt("restore", request, () => {
         const row = get(
-          "SELECT * FROM books WHERE trash_id=? AND removed_at IS NOT NULL",
+          `SELECT * FROM books WHERE ${owned} AND trash_id=? AND removed_at IS NOT NULL`,
           String(request.trashId || ""),
         );
         if (!row)
@@ -832,7 +995,7 @@ export function openStore(
             409,
           );
         run(
-          "UPDATE books SET removed_at=NULL,trash_id=NULL,revision=revision+1 WHERE id=?",
+          `UPDATE books SET removed_at=NULL,trash_id=NULL,revision=revision+1 WHERE ${owned} AND id=?`,
           row.id,
         );
         return { row: row.id, trashId: request.trashId, action: "restored" };
@@ -841,15 +1004,17 @@ export function openStore(
     setSavedRelease(request) {
       if (typeof request?.saved !== "boolean")
         throw new AppError("Choose Save for later or Unsave.");
-      const item = cleanRelease(request.release);
+      const item = normalizeRecordTypes(cleanRelease(request.release));
+      if (item.coverId && !covers.canAccess(item.coverId))
+        throw new AppError("Choose an available stored cover.");
       if (request.saved)
         run(
-          "INSERT INTO saved_releases VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data,updated_at=excluded.updated_at",
+          "INSERT INTO saved_releases VALUES (?,?,?,app_user_id()) ON CONFLICT(user_id,id) DO UPDATE SET data=excluded.data,updated_at=excluded.updated_at",
           item.id,
           JSON.stringify(item),
           new Date().toISOString(),
         );
-      else run("DELETE FROM saved_releases WHERE id=?", item.id);
+      else run(`DELETE FROM saved_releases WHERE ${owned} AND id=?`, item.id);
       return { savedReleases: savedReleases() };
     },
     setSeriesCatalog(request) {
@@ -862,12 +1027,15 @@ export function openStore(
         type: spec.type,
         url,
         title: String(request.title || spec.series).slice(0, 500),
+        ...(request.edition
+          ? { edition: String(request.edition).slice(0, 500) }
+          : {}),
       };
       run(
-        "INSERT INTO series_catalogs VALUES (?,?,?,?) ON CONFLICT(series_key,publisher_id,type) DO UPDATE SET data=excluded.data",
+        "INSERT INTO series_catalogs VALUES (?,?,?,?,app_user_id()) ON CONFLICT(user_id,series_key,publisher_id,type) DO UPDATE SET data=excluded.data",
         catalogSeriesKey(spec.series),
         spec.publisherId,
-        spec.type,
+        data.edition ? spec.type + "\n" + data.edition : spec.type,
         JSON.stringify(data),
       );
       return data;
@@ -876,7 +1044,7 @@ export function openStore(
   function importData(plan, fingerprint?: string) {
     return transaction(() => {
       const previous = get(
-        "SELECT result FROM imports WHERE fingerprint=?",
+        `SELECT result FROM imports WHERE ${owned} AND fingerprint=?`,
         fingerprint,
       );
       if (previous)
@@ -884,9 +1052,9 @@ export function openStore(
       // An import into an occupied library is ambiguous: preserve real duplicate copies.
       // Require an empty library instead of guessing whether matching volumes are duplicates.
       if (
-        get("SELECT COUNT(*) AS n FROM books").n ||
-        get("SELECT COUNT(*) AS n FROM saved_releases").n ||
-        get("SELECT COUNT(*) AS n FROM series_catalogs").n
+        get(`SELECT COUNT(*) AS n FROM books WHERE ${owned}`).n ||
+        get(`SELECT COUNT(*) AS n FROM saved_releases WHERE ${owned}`).n ||
+        get(`SELECT COUNT(*) AS n FROM series_catalogs WHERE ${owned}`).n
       )
         throw new AppError(
           "Import into an empty library. Download a backup first, or use a new database to restore it.",
@@ -895,7 +1063,7 @@ export function openStore(
       for (const image of plan.covers || []) {
         const stored = covers.put(image);
         for (const url of image.sources || [])
-          covers.linkSource(url, stored.id);
+          covers.linkPrivateSource(url, stored.id);
       }
       plan.books.forEach((data) => insertBook(data));
       plan.trash.forEach((entry) =>
@@ -908,7 +1076,7 @@ export function openStore(
       for (const [field, values] of Object.entries(plan.options || {}))
         for (const value of values as string[])
           run(
-            "INSERT OR IGNORE INTO options VALUES (?,?)",
+            "INSERT OR IGNORE INTO options VALUES (?,?,app_user_id())",
             field,
             String(value),
           );
@@ -920,7 +1088,7 @@ export function openStore(
         warnings: plan.warnings,
       };
       run(
-        "INSERT INTO imports VALUES (?,?,?)",
+        "INSERT INTO imports VALUES (?,?,?,app_user_id())",
         fingerprint,
         JSON.stringify(result),
         new Date().toISOString(),
@@ -930,23 +1098,40 @@ export function openStore(
   }
   const cache = {
     get(key) {
+      if (key.startsWith("series:v1:"))
+        key = `user:${users.current().id}:` + key;
       const row = get(
-        "SELECT value FROM cache WHERE key=? AND expires_at>?",
+        "SELECT value FROM cache WHERE key=? AND (expires_at=0 OR expires_at>?)",
         key,
         Date.now(),
       );
       return row?.value || null;
     },
     put(key, value, seconds) {
+      if (key.startsWith("series:v1:"))
+        key = `user:${users.current().id}:` + key;
       run(
         "INSERT INTO cache VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,expires_at=excluded.expires_at",
         key,
         value,
-        Date.now() + seconds * 1000,
+        seconds === Infinity ? 0 : Date.now() + seconds * 1000,
       );
     },
   };
   const covers = {
+    canAccess(id: string) {
+      return !!get(
+        `SELECT 1 FROM cover_access WHERE ${owned} AND cover_id=?
+        UNION ALL SELECT 1 FROM books WHERE ${owned} AND cover_id=?
+        UNION ALL SELECT 1 FROM saved_releases WHERE ${owned} AND json_extract(data,'$.coverId')=? LIMIT 1`,
+        id,
+        id,
+        id,
+      );
+    },
+    allow(id: string) {
+      run("INSERT OR IGNORE INTO cover_access VALUES (app_user_id(),?)", id);
+    },
     get(id) {
       const row = get<CoverRow>("SELECT * FROM covers WHERE id=?", id);
       return row
@@ -958,12 +1143,25 @@ export function openStore(
         : null;
     },
     bySource(url) {
-      const row = get("SELECT cover_id FROM cover_sources WHERE url=?", url);
+      const row = get(
+        `SELECT cover_id FROM user_cover_sources WHERE ${owned} AND url=?
+        UNION ALL SELECT cover_id FROM cover_sources WHERE url=? LIMIT 1`,
+        url,
+        url,
+      );
+      if (row) covers.allow(row.cover_id);
       return row ? covers.get(row.cover_id) : null;
     },
     linkSource(url, id) {
       run(
         "INSERT INTO cover_sources VALUES (?,?) ON CONFLICT(url) DO UPDATE SET cover_id=excluded.cover_id",
+        url,
+        id,
+      );
+    },
+    linkPrivateSource(url: string, id: string) {
+      run(
+        "INSERT INTO user_cover_sources VALUES (app_user_id(),?,?) ON CONFLICT(user_id,url) DO UPDATE SET cover_id=excluded.cover_id",
         url,
         id,
       );
@@ -981,23 +1179,38 @@ export function openStore(
         new Date().toISOString(),
       );
       if (url) covers.linkSource(url, id);
+      covers.allow(id);
       return { id, body: Buffer.from(body), contentType };
     },
     assign(row, coverId, token) {
-      const current = get("SELECT * FROM books WHERE id=?", row);
+      if (!covers.canAccess(coverId)) return "";
+      const current = get(`SELECT * FROM books WHERE ${owned} AND id=?`, row);
       if (!current) return "";
       if (token && book(current).token !== token) return current.cover_id || "";
       // Automatic cover association is derived metadata; it does not invalidate edits.
       run(
-        "UPDATE books SET cover_id=? WHERE id=? AND cover_id IS NULL",
+        `UPDATE books SET cover_id=? WHERE ${owned} AND id=? AND cover_id IS NULL`,
         coverId,
         row,
       );
-      return get("SELECT cover_id FROM books WHERE id=?", row)?.cover_id || "";
+      return (
+        get(`SELECT cover_id FROM books WHERE ${owned} AND id=?`, row)
+          ?.cover_id || ""
+      );
     },
   };
   return {
     db,
+    currentUser: users.current,
+    requireAdmin,
+    forUser<T>(user: User, action: () => T): T {
+      const account = get<{ id: number; username: string; role: User["role"] }>(
+        "SELECT id,username,role FROM users WHERE id=?",
+        user.id,
+      );
+      if (!account) throw new AppError("Sign in to open your library.", 401);
+      return users.run(account, action);
+    },
     api,
     transaction,
     cache,
@@ -1006,12 +1219,21 @@ export function openStore(
     close: () => db.close(),
     savedSeriesCatalog(spec) {
       const row = get(
-        "SELECT data FROM series_catalogs WHERE series_key=? AND publisher_id=? AND type=?",
+        `SELECT data FROM series_catalogs WHERE ${owned} AND series_key=? AND publisher_id=? AND type=?`,
         catalogSeriesKey(spec.series),
         spec.publisherId,
-        spec.type,
+        spec.type ? normalizeBookType(spec.type) : "",
       );
-      return row ? JSON.parse(row.data) : null;
+      if (row) return normalizeRecordTypes(JSON.parse(row.data));
+      const legacy = all(
+        `SELECT data FROM series_catalogs WHERE ${owned} AND series_key=? AND publisher_id=?`,
+        catalogSeriesKey(spec.series),
+        spec.publisherId,
+      )
+        .map((entry) => normalizeRecordTypes(JSON.parse(entry.data)))
+        .filter((entry) => entry.type === normalizeBookType(spec.type));
+      // Several legacy language links require an explicit choice, never a guess.
+      return legacy.length === 1 ? legacy[0] : null;
     },
     exportData(series?: string) {
       return transaction(() => {
@@ -1034,24 +1256,26 @@ export function openStore(
             ].sort();
         }
         const coverIds = new Set(
-          [...data.books, ...data.savedReleases]
+          [
+            ...data.books,
+            ...data.trash.map((entry) => entry.book),
+            ...data.savedReleases,
+          ]
             .map((record) => record.coverId)
             .filter(Boolean),
         );
-        const imageFilter =
-          series === undefined
-            ? ""
-            : ` WHERE id IN (${[...coverIds].map(() => "?").join(",") || "NULL"})`;
+        const imageFilter = ` WHERE id IN (${[...coverIds].map(() => "?").join(",") || "NULL"})`;
         return {
           covers: all<CoverRow>(
             "SELECT * FROM covers" + imageFilter,
-            ...(series === undefined ? [] : [...coverIds]),
+            ...coverIds,
           ).map((image) => ({
             id: image.id,
             contentType: image.content_type,
             data: Buffer.from(image.body).toString("base64"),
             sources: all(
-              "SELECT url FROM cover_sources WHERE cover_id=?",
+              `SELECT url FROM cover_sources WHERE cover_id=? UNION SELECT url FROM user_cover_sources WHERE ${owned} AND cover_id=?`,
+              image.id,
               image.id,
             ).map((source) => source.url),
           })),

@@ -1,3 +1,5 @@
+import { BOOK_TYPES } from "./book-type.ts";
+
 export const BOOK_APP = Object.freeze({
   headers: [
     "ISBN",
@@ -24,16 +26,7 @@ export const BOOK_APP = Object.freeze({
     "note",
   ],
   statuses: ["Sealed", "Un Sealed", "Reading", "Read"],
-  types: [
-    "LN (EN)",
-    "Manga (EN)",
-    "Manga (JP) (Color)",
-    "Manga (TH)",
-    "LN (TH)",
-    "Manga (JP)",
-    "Manga (TH) (Color)",
-    "Other",
-  ],
+  types: BOOK_TYPES,
 });
 
 export const PUBLISHERS = Object.freeze([

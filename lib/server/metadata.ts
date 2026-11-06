@@ -34,6 +34,7 @@ function parse(value: string) {
   }
 }
 function groupFor(key: string): CacheGroup {
+  key = key.replace(/^user:\d+:/, "");
   if (cooldown(key)) return "cooldowns";
   if (key.startsWith("isbn:")) return "isbn";
   if (/^(publisher-|series:|series-categories:|releases:)/.test(key))
@@ -51,9 +52,9 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
   const cacheRows = () =>
     store.db
       .prepare(
-        "SELECT key, value, expires_at, length(CAST(value AS BLOB)) AS bytes FROM cache ORDER BY key",
+        "SELECT key, value, expires_at, length(CAST(value AS BLOB)) AS bytes FROM cache WHERE key NOT LIKE 'user:%' OR key LIKE ? ORDER BY key",
       )
-      .all() as unknown as {
+      .all(`user:${store.currentUser().id}:%`) as unknown as {
       key: string;
       value: string;
       expires_at: number;
@@ -78,7 +79,7 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
             row.key,
         ),
         expiresAt: row.expires_at,
-        expired: row.expires_at <= now,
+        expired: row.expires_at !== 0 && row.expires_at <= now,
         checkedAt: Number.isNaN(date.getTime()) ? "" : date.toISOString(),
       };
     });
@@ -125,9 +126,10 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
         link.type + " · " + link.publisherId,
       );
     for (const row of rows) {
+      const key = row.key.replace(/^user:\d+:/, "");
       if (
         !/^(isbn:|releases:v1:|publisher-catalog:v1:|publisher-directory:|series:v1:)/.test(
-          row.key,
+          key,
         )
       )
         continue;
@@ -161,7 +163,7 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
           "Publisher directory",
         );
       } else if (
-        row.key.startsWith("series:v1:") &&
+        key.startsWith("series:v1:") &&
         value?.series &&
         value?.publisherId &&
         value?.type
@@ -181,6 +183,7 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
     return [...result.values()];
   }
   function getMetadataOverview(request: MetadataQuery = {}): MetadataOverview {
+    store.requireAdmin();
     const rows = cacheRows(),
       all = entries(rows),
       filtered = queryEntries(request, all);
@@ -221,6 +224,7 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
     };
   }
   function purgeMetadataCache(request: MetadataQuery & { key?: string } = {}) {
+    store.requireAdmin();
     if (pending.size)
       throw new AppError(
         "Wait for the current re-crawl to finish before purging.",
@@ -244,8 +248,14 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
     });
   }
   function getMetadataCacheEntry(request: { key: string }) {
+    store.requireAdmin();
     if (typeof request?.key !== "string")
       throw new AppError("Choose a cached record.");
+    if (
+      request.key.startsWith("user:") &&
+      !request.key.startsWith(`user:${store.currentUser().id}:`)
+    )
+      throw new AppError("This cached record is not available.", 404);
     const row = store.db
       .prepare("SELECT value FROM cache WHERE key=?")
       .get(request.key);
@@ -289,10 +299,16 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
             next.publisherUrl = safePublisherUrl(details.url, book.publisher);
           if (!book.pageCount)
             next.pageCount = parsePageCount(details.pageCount);
+          if (book.msrp === "" || book.msrp == null) {
+            next.msrp = details.msrp ?? "";
+            next.msrpCurrency = details.msrpCurrency || details.currency || "";
+          }
           if (
             next.coverUrl !== book.coverUrl ||
             next.publisherUrl !== book.publisherUrl ||
-            next.pageCount !== book.pageCount
+            next.pageCount !== book.pageCount ||
+            next.msrp !== book.msrp ||
+            next.msrpCurrency !== book.msrpCurrency
           ) {
             store.api.saveBook({
               row: book.row,
@@ -355,6 +371,7 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
     id: string;
     fillMissing?: boolean;
   }) {
+    store.requireAdmin();
     if (typeof request?.id !== "string")
       throw new AppError("Choose a source to re-crawl.");
     const target = targets().find((entry) => entry.id === request.id);
@@ -363,7 +380,12 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
         "This source is no longer available. Reload the list.",
         404,
       );
-    const pendingKey = target.id + ":" + (request.fillMissing === true);
+    const pendingKey =
+      store.currentUser().id +
+      ":" +
+      target.id +
+      ":" +
+      (request.fillMissing === true);
     if (!pending.has(pendingKey)) {
       const operation = crawl(target, request.fillMissing === true)
         .catch((error) => ({

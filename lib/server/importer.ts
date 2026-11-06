@@ -13,6 +13,7 @@ import {
 import { imageType, MAX_IMAGE_BYTES, coverDigest } from "./covers.ts";
 import { AppError } from "./store.ts";
 import type { Book, ImportReview } from "../types.ts";
+import { normalizeBookType } from "../domain/book-type.ts";
 
 const MAX_RECORDS = 20000;
 function objectBook(input, warnings, location) {
@@ -64,6 +65,8 @@ function objectBook(input, warnings, location) {
   }
   if (!data.series)
     throw new AppError(`${location}: a series or title is required.`);
+  const legacyType = data.type;
+  data.type = normalizeBookType(data.type);
   if (data.isbn && !canonicalIsbn(data.isbn))
     warnings.push(
       `${location}: kept an existing ISBN with an invalid checksum. Correct it with Add ISBN before relying on barcode ownership checks.`,
@@ -84,6 +87,9 @@ function objectBook(input, warnings, location) {
       coverUrl: input.coverUrl,
       publisherUrl: input.publisherUrl,
       pageCount: input.pageCount,
+      msrp: input.msrp,
+      msrpCurrency: input.msrpCurrency,
+      edition: input.edition ?? legacyType,
     }),
   );
 }
@@ -237,6 +243,9 @@ export function parseImport(buffer, filename) {
       ...spec,
       url,
       title: String(item.title || spec.series).slice(0, 500),
+      ...(item.edition || item.type !== spec.type
+        ? { edition: String(item.edition || item.type).slice(0, 500) }
+        : {}),
     };
   });
   const options = {};
@@ -282,7 +291,7 @@ export function parseImport(buffer, filename) {
   });
   const coverIds = new Set(covers.map((image) => image.id));
   if (
-    [...books, ...trash.map((entry) => entry.book)].some(
+    [...books, ...trash.map((entry) => entry.book), ...savedReleases].some(
       (book) => book.coverId && !coverIds.has(book.coverId),
     )
   )

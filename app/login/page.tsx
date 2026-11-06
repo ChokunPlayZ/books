@@ -16,6 +16,7 @@ export default function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          username: new FormData(event.currentTarget).get("username"),
           password: new FormData(event.currentTarget).get("password"),
         }),
       });
@@ -49,8 +50,20 @@ export default function LoginPage() {
         <h1>Open your library</h1>
         <p className="intro">Sign in to manage your books and collection.</p>
         <form className="grid" onSubmit={submit}>
+          <label htmlFor="username">
+            Username
+            <input
+              id="username"
+              name="username"
+              autoComplete="username"
+              defaultValue="admin"
+              required
+              maxLength={64}
+              disabled={busy}
+            />
+          </label>
           <label htmlFor="password">
-            Library password
+            Password
             <input
               id="password"
               name="password"

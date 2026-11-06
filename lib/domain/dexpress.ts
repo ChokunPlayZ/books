@@ -62,6 +62,12 @@ export function dexpressProduct(html: string, productUrl: string) {
           : data.status?.instock
             ? "In stock"
             : "Check availability";
+      item.msrp =
+        Number.isFinite(data.price_old) && data.price_old >= 0
+          ? data.price_old
+          : "";
+      item.msrpCurrency = "THB";
+      item.isbnVerified = !!item.isbn;
       return { item, data };
     } catch (error) {
       if (!(error instanceof SyntaxError)) throw error;

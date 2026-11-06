@@ -145,7 +145,9 @@ export function createCoverService(
             .finally(() => pending.delete(url)),
         );
       }
-      return pending.get(url);
+      const image = await pending.get(url);
+      store.covers.allow(image.id);
+      return image;
     },
     get(id) {
       if (!/^[a-f0-9]{64}$/.test(String(id || "")))

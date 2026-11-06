@@ -1,4 +1,5 @@
 import { decodeHtml, attr, textHtml } from "./html.ts";
+import { bookEditionKey, normalizeBookType } from "./book-type.ts";
 import { digest } from "./hash.ts";
 import { publisherKey, safeSeriesCatalogUrl } from "./urls.ts";
 import { animagCategories } from "./animag.ts";
@@ -20,6 +21,7 @@ export function specialSet(title) {
 }
 
 export function volumeCoverKey(book) {
+  book = { ...book, type: book.type ? bookEditionKey(book) : "" };
   if (book.volume === "" || book.volume == null || !book.type) return "";
   return (
     "cover:volume:v1:" +
@@ -76,7 +78,7 @@ export function matchSeriesCategory(series, categories, type) {
     return (
       !type ||
       !category.type ||
-      category.type.split(" (")[0] === type.split(" (")[0]
+      normalizeBookType(category.type) === normalizeBookType(type)
     );
   });
   const key = catalogSeriesKey(series);

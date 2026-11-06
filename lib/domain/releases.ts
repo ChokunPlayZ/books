@@ -18,6 +18,8 @@ import { parsePageCount } from "./page-count.ts";
 import { animagCategories, animagProducts, animagTotal } from "./animag.ts";
 import { lnwProducts, lnwTotal } from "./lnwshop.ts";
 import { lilyHousePage, lilyHouseTotal } from "./lilyhouse.ts";
+import { money } from "./msrp.ts";
+import { normalizeMsrp, normalizeCurrency } from "./validation.ts";
 
 export function parsePublisherTitles(id, html, sourceUrl) {
   if (id === "animag")
@@ -241,6 +243,15 @@ export function cleanRelease(input) {
     throw new Error("Invalid release volume.");
   item.availability = String(input.availability || "").slice(0, 100);
   item.coverUrl = safeCoverUrl(input.coverUrl);
+  if (input.coverId) {
+    if (!/^[a-f0-9]{64}$/.test(input.coverId))
+      throw new Error("Invalid stored cover ID.");
+    item.coverId = input.coverId;
+  }
+  if (input.edition) item.edition = String(input.edition).slice(0, 500);
+  if (input.msrp != null) item.msrp = normalizeMsrp(input.msrp);
+  if (input.msrpCurrency)
+    item.msrpCurrency = normalizeCurrency(input.msrpCurrency);
   const pageCount = parsePageCount(input.pageCount);
   if (pageCount !== "") item.pageCount = pageCount;
   if (p.id === "lilyhouse" && input.variantGroup) {
@@ -391,6 +402,12 @@ export function parseCatalog(id, html, sourceUrl = "") {
         categoryType,
       );
       if (/เลือกแบบสินค้า/.test(card)) item.variantGroup = true;
+      const oldPrice =
+        /<div\b[^>]*class=["'][^"']*\bproduct_price_old\b[^"']*["'][^>]*>/i.exec(
+          card,
+        )?.[0];
+      item.msrp = oldPrice ? money(attr(oldPrice, "realprice")) : "";
+      item.msrpCurrency = "THB";
       item.coverUrl = safeCoverUrl(
         (Array.isArray(product?.image) ? product.image[0] : product?.image) ||
           attr(img, "data-src") ||

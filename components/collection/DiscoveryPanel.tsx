@@ -158,7 +158,8 @@ export default function DiscoveryPanel() {
           <select id="discoveryType">
             <option value="">All types</option>
             <option value="Manga">Manga</option>
-            <option value="LN">Light novels (LN)</option>
+            <option value="Light novel">Light novel</option>
+            <option value="Others">Others</option>
           </select>
         </div>
         <p className="hint">

@@ -26,7 +26,8 @@ export function restorePagePreferences(view: CollectionView) {
             "discoveryType",
           ] as const)
         : [];
-  const key = "books:page-preferences:" + view;
+  const user = document.getElementById("libraryMain")?.dataset.userId;
+  const key = "books:page-preferences:" + (user || "anonymous") + ":" + view;
   try {
     const values: unknown = JSON.parse(sessionStorage.getItem(key) || "{}");
     if (values && typeof values === "object") {

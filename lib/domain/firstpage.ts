@@ -3,6 +3,7 @@ import { meta, names, structuredBooks, textHtml } from "./html.ts";
 import { releaseItem } from "./releases.ts";
 import { safeCoverUrl, safeProductUrl } from "./urls.ts";
 import { parsePageCount } from "./page-count.ts";
+import { productMsrp } from "./msrp.ts";
 
 export function firstPageBook(html: string, isbn: string, productUrl: string) {
   const canonical = canonicalIsbn(isbn);
@@ -30,9 +31,12 @@ export function firstPageBook(html: string, isbn: string, productUrl: string) {
   if (!item.isbn || item.bundle) return null;
   return {
     ...item,
+    isbnVerified: true,
     authors: names(product.author),
     pageCount: parsePageCount(product.numberOfPages),
     currency: offer?.priceCurrency || "THB",
+    msrp: productMsrp(html, product),
+    msrpCurrency: offer?.priceCurrency || "THB",
     availability: offer?.availability || "",
     source: "First Page Pro",
     coverUrl: safeCoverUrl(

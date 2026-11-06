@@ -123,7 +123,7 @@ test("prices are cached across services, concurrent checks share work, refresh b
     source("shop", async (code, refresh) => {
       calls++;
       assert.equal(code, isbn);
-      assert.equal(refresh, true);
+      assert.equal(refresh, calls > 1);
       if (failed) throw new Error("Unavailable");
       return details("shop", { price });
     }),

@@ -245,7 +245,9 @@ test("DEXpress series checks traverse both formats with query-safe pagination, c
     ),
   );
   assert.ok(
-    result.items.some((item) => item.type === "LN (TH)" && item.volume === 1),
+    result.items.some(
+      (item) => item.type === "Light novel" && item.volume === 1,
+    ),
   );
   assert.ok(calls.some(({ url }) => url.includes("&category_id=2&tskp=2")));
   assert.equal(
@@ -302,9 +304,9 @@ test("DEXpress release checks fill unlabeled formats from product data, deduplic
     publisherId: "dexpress",
   });
   assert.equal(result.items.length, 3);
-  assert.equal(result.items[0].type, "LN (TH)");
+  assert.equal(result.items[0].type, "Light novel");
   assert.equal(result.items[0].price, 370);
-  assert.equal(result.items[1].type, "Manga (TH)");
+  assert.equal(result.items[1].type, "Manga");
   assert.equal(calls.filter(({ url }) => url.includes("/product/")).length, 1);
   fail = true;
   const stale = await service.getPublisherReleases({

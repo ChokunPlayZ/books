@@ -3,6 +3,7 @@ import { canonicalIsbn } from "./isbn.ts";
 import { splitKodanshaTitle } from "./titles.ts";
 import { safeCoverUrl } from "./urls.ts";
 import { parsePageCount } from "./page-count.ts";
+import { publisherYenMsrp } from "./msrp.ts";
 
 export function hanmotoBook(html: string, isbn: string) {
   const statedIsbn = canonicalIsbn(meta(html, "books:isbn"));
@@ -59,6 +60,8 @@ export function hanmotoBook(html: string, isbn: string) {
       ),
     ),
     source: "Hanmoto",
+    msrp: publisherYenMsrp(article),
+    msrpCurrency: "JPY",
     url: "https://www.hanmoto.com/bd/isbn/" + isbn,
     coverUrl,
   };

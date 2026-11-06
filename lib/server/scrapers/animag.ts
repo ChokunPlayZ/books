@@ -9,6 +9,7 @@ import {
   textHtml,
 } from "../../domain.ts";
 import { animagProducts } from "../../domain/animag.ts";
+import { productMsrp } from "../../domain/msrp.ts";
 import type { Release } from "../../types.ts";
 import { publisherRedirectIdentity } from "./http.ts";
 import { createHtmlCatalog, htmlDirectory } from "./html-catalog.ts";
@@ -112,9 +113,12 @@ export const animag: ScraperDefinition = {
               candidate.url,
             ),
             source: "Animag",
+            isbnVerified: true,
             authors: names(product.author),
             pageCount: parsePageCount(product.numberOfPages),
             currency: offer?.priceCurrency || "THB",
+            msrp: productMsrp(page, product) || candidate.msrp || ("" as const),
+            msrpCurrency: offer?.priceCurrency || "THB",
             availability: offer?.availability || candidate.availability,
           };
           if (!item.isbn || item.bundle) continue;

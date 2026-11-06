@@ -10,7 +10,7 @@ import type { ImportResult, ImportReview } from "../lib/types";
 type DataManagerProps = {
   counts: { books: number; trash: number; savedReleases: number };
   canSignOut: boolean;
-  metadata: MetadataOverview;
+  metadata: MetadataOverview | null;
 };
 
 export default function DataManager({
@@ -92,10 +92,10 @@ export default function DataManager({
           </span>
         </div>
         <nav className="data-sections" aria-label="Data management">
-          <a href="#metadata-maintenance">Metadata &amp; cache</a>
+          {metadata && <a href="#metadata-maintenance">Metadata &amp; cache</a>}
           <a href="#library-backups">Backups &amp; import</a>
         </nav>
-        <MetadataManager initial={metadata} />
+        {metadata && <MetadataManager initial={metadata} />}
         <div id="library-backups" className="data-grid">
           <section className="data-card backup-card">
             <span className="data-icon">

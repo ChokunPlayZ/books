@@ -291,6 +291,42 @@ export default function BookDialog() {
                 >
                   <legend>Book metadata</legend>
                   <div className="field">
+                    <label htmlFor="msrp">MSRP / list price</label>
+                    <input
+                      id="msrp"
+                      name="msrp"
+                      type="number"
+                      min="0"
+                      step="any"
+                      inputMode="decimal"
+                      placeholder="Not available"
+                    />
+                    <p className="hint">
+                      Separate from the shop price and your private price paid.
+                    </p>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="msrpCurrency">MSRP currency</label>
+                    <input
+                      id="msrpCurrency"
+                      name="msrpCurrency"
+                      maxLength={3}
+                      placeholder="THB, USD, JPY"
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="edition">Edition details</label>
+                    <input
+                      id="edition"
+                      name="edition"
+                      maxLength={500}
+                      placeholder="Language, colour or edition"
+                    />
+                    <p className="hint">
+                      Your edition label is private to your library.
+                    </p>
+                  </div>
+                  <div className="field">
                     <label htmlFor="pageCount">Pages</label>
                     <input
                       id="pageCount"

@@ -3,11 +3,12 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { openStore } from "../../lib/server/store.ts";
 import { parseImport } from "../../lib/server/importer.ts";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { publisherCovers } from "../../lib/server/publisher-covers.ts";
-import { specialSet } from "../../lib/domain.ts";
+import { specialSet, catalogSeriesKey } from "../../lib/domain.ts";
 
 const book = {
   series: "Cover story",
@@ -119,19 +120,83 @@ test("volume metadata survives restart, edits, trash, restore and JSON backup im
 test("version 1 databases migrate without losing books and invalid metadata rolls back", () => {
   const directory = mkdtempSync(join(tmpdir(), "books-migration-"));
   const path = join(directory, "books.sqlite");
-  let store = openStore(path);
-  save(store, book);
-  store.db.exec(
-    "ALTER TABLE books DROP COLUMN page_count; ALTER TABLE books DROP COLUMN cover_id; DROP TABLE cover_sources; DROP TABLE covers; ALTER TABLE books DROP COLUMN cover_url; ALTER TABLE books DROP COLUMN publisher_url; PRAGMA user_version=1;",
-  );
-  store.close();
-  store = openStore(path);
+  const legacy = new DatabaseSync(path);
+  legacy.exec(`
+    CREATE TABLE books (id INTEGER PRIMARY KEY AUTOINCREMENT,isbn TEXT NOT NULL DEFAULT '',canonical_isbn TEXT NOT NULL DEFAULT '',series TEXT NOT NULL,type TEXT NOT NULL DEFAULT '',publisher TEXT NOT NULL DEFAULT '',status TEXT NOT NULL DEFAULT '',volume REAL,source TEXT NOT NULL DEFAULT '',price REAL,purchased_on TEXT NOT NULL DEFAULT '',note TEXT NOT NULL DEFAULT '',revision INTEGER NOT NULL DEFAULT 1,trash_id TEXT UNIQUE,removed_at TEXT);
+    CREATE TABLE receipts (id TEXT PRIMARY KEY,kind TEXT NOT NULL,hash TEXT NOT NULL,result TEXT NOT NULL,created_at TEXT NOT NULL);
+    CREATE TABLE saved_releases (id TEXT PRIMARY KEY,data TEXT NOT NULL,updated_at TEXT NOT NULL);
+    CREATE TABLE series_catalogs (series_key TEXT NOT NULL,publisher_id TEXT NOT NULL,type TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(series_key,publisher_id,type));
+    CREATE TABLE options (field TEXT NOT NULL,value TEXT NOT NULL,PRIMARY KEY(field,value));
+    CREATE TABLE cache (key TEXT PRIMARY KEY,value TEXT NOT NULL,expires_at INTEGER NOT NULL);
+    CREATE TABLE imports (fingerprint TEXT PRIMARY KEY,result TEXT NOT NULL,created_at TEXT NOT NULL);
+    CREATE TABLE sessions (token_hash TEXT PRIMARY KEY,expires_at INTEGER NOT NULL);
+    CREATE TABLE login_attempts (key TEXT PRIMARY KEY,attempts INTEGER NOT NULL,resets_at INTEGER NOT NULL);
+    PRAGMA user_version=1;
+  `);
+  legacy
+    .prepare(
+      "INSERT INTO books (series,type,publisher,status,volume) VALUES (?,?,?,?,?)",
+    )
+    .run(book.series, book.type, book.publisher, book.status, book.volume);
+  for (const type of ["Manga (TH)", "Manga (EN)"]) {
+    const link = {
+      series: "Legacy editions",
+      publisherId: "lilyhouse",
+      type,
+      title: type,
+      url:
+        "https://lily-house.com/?s=" +
+        encodeURIComponent(type) +
+        "&post_type=product",
+    };
+    legacy
+      .prepare("INSERT INTO series_catalogs VALUES (?,?,?,?)")
+      .run(
+        catalogSeriesKey(link.series),
+        link.publisherId,
+        type,
+        JSON.stringify(link),
+      );
+  }
+  legacy
+    .prepare("INSERT INTO sessions VALUES (?,?)")
+    .run("existing-session", Date.now() + 86400000);
+  legacy.close();
+  const store = openStore(path);
   try {
-    assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 4);
+    assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 5);
     const volume = store.api.getCollection().books[0];
     assert.equal(volume.series, book.series);
     assert.equal(volume.coverUrl, "");
     assert.equal(volume.pageCount, "");
+    assert.equal(
+      store.db
+        .prepare("SELECT user_id FROM sessions WHERE token_hash=?")
+        .get("existing-session").user_id,
+      1,
+    );
+    assert.deepEqual(
+      store.api
+        .getCollection()
+        .seriesCatalogs.map((link) => link.edition)
+        .sort(),
+      ["Manga (EN)", "Manga (TH)"],
+    );
+    const restored = openStore(":memory:");
+    try {
+      const plan = parseImport(
+        Buffer.from(JSON.stringify(store.exportData())),
+        "legacy.json",
+      );
+      restored.importData(plan, plan.fingerprint);
+      assert.equal(
+        restored.api.getCollection().seriesCatalogs.length,
+        2,
+        "Three-way type migration must not discard another language's private catalog choice",
+      );
+    } finally {
+      restored.close();
+    }
     for (const data of [
       { coverUrl: "https://evil.test/cover.jpg" },
       { publisherUrl: "javascript:alert(1)" },

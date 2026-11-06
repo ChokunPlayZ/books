@@ -3,6 +3,7 @@ import { canonicalIsbn } from "./isbn.ts";
 import { safeCoverUrl } from "./urls.ts";
 import { splitBookTitle } from "./titles.ts";
 import { parsePageCount } from "./page-count.ts";
+import { productMsrp } from "./msrp.ts";
 
 export function kinokuniyaBook(html: string, isbn: string) {
   const fields = new Map<string, string>();
@@ -57,6 +58,8 @@ export function kinokuniyaBook(html: string, isbn: string) {
     source: "Kinokuniya",
     price: Number.isFinite(price) && price >= 0 ? price : ("" as const),
     currency: offer?.priceCurrency || "THB",
+    msrp: productMsrp(html, product),
+    msrpCurrency: offer?.priceCurrency || "THB",
     availability: offer?.availability || "",
     url,
     coverUrl: safeCoverUrl(product.image, url),

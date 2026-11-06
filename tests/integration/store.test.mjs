@@ -302,7 +302,7 @@ test("JSON backup restores removed books, saved releases, editions, duplicates a
     });
     source.api.setSavedRelease({ release: release(), saved: true });
     source.db
-      .prepare("INSERT INTO options VALUES (?,?)")
+      .prepare("INSERT INTO options VALUES (?,?,app_user_id())")
       .run("source", "Unused shop");
     const parsed = parseImport(
       Buffer.from(JSON.stringify(source.exportData())),

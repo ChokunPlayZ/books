@@ -254,7 +254,7 @@ test("Kodansha series links traverse every page and count digital records withou
   assert.ok(catalog.items.length < 86);
   const first = catalog.items.find((item) => item.url === productUrl);
   assert.equal(first.volume, 1);
-  assert.equal(first.type, "Manga (JP)");
+  assert.equal(first.type, "Manga");
   assert.equal(first.catalogSeries, "Blue Lock");
   assert.equal(first.catalogVariant, false);
   assert.ok(catalog.items.some((item) => item.catalogVariant));

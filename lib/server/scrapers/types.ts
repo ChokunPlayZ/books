@@ -78,9 +78,12 @@ export type BookDetails = {
   type?: string;
   releaseDate?: string;
   regularPrice?: number | "";
+  msrp?: number | "";
+  msrpCurrency?: string;
   price?: number | "";
   currency?: string;
   availability?: string;
+  checkedAt?: string;
 };
 
 export type CoverOption = {

@@ -1,4 +1,5 @@
 import type { Release } from "../types.ts";
+import { normalizeBookType } from "./book-type.ts";
 import { bookSeriesTitle, seriesCategoryTitle } from "./title-normalization.ts";
 
 export const ANIME_SEASONS = ["WINTER", "SPRING", "SUMMER", "FALL"] as const;
@@ -126,11 +127,22 @@ export function animeCatalogTitleKeys(value: string) {
 
 export function matchAnimeCatalogTitle(
   book: AnimeMedia,
-  entry: { series: string; title?: string; type: string; url: string },
+  entry: {
+    series: string;
+    title?: string;
+    type: string;
+    edition?: string;
+    url: string;
+  },
 ): { matchedTitle: string; matchedBy: "title" | "catalog URL" } | null {
+  const language = /\((TH|EN|JP)\)/i
+    .exec(entry.edition || entry.type)?.[1]
+    .toUpperCase();
+  if (language && language !== "TH") return null;
   if (
     entry.type &&
-    entry.type !== (book.kind === "LN" ? "LN (TH)" : "Manga (TH)")
+    normalizeBookType(entry.type) !==
+      (book.kind === "LN" ? "Light novel" : "Manga")
   )
     return null;
   const keys = new Set(

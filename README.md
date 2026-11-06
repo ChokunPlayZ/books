@@ -65,3 +65,5 @@ An installed browser can be selected with `--browser-executable=/absolute/path/t
 | `tests/fixtures/`                     | Stable publisher responses, photos and sample collection                    |
 
 See the [development guide](docs/development.md) for module boundaries and common changes, [library workflows](docs/library.md), [import formats](docs/imports.md), [self-hosting and backups](docs/self-hosting.md), and [publisher maintenance](docs/web-scraping.md).
+
+See [accounts and privacy](docs/multi-user.md) for adding users, private collection fields, permanent ISBN/source caching and administrator-only refreshes.

@@ -97,7 +97,15 @@ export function createApplicationApi(
   const api = Object.fromEntries(
     Object.entries(methods).map(([name, method]) => [
       name,
-      async (arg) => attachImages(await method(arg)),
+      async (arg) => {
+        if (
+          arg &&
+          typeof arg === "object" &&
+          (arg as { refresh?: boolean }).refresh === true
+        )
+          store.requireAdmin();
+        return attachImages(await method(arg));
+      },
     ]),
   );
   api.getCollection = async () => {

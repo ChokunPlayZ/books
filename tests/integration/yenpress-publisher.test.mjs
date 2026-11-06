@@ -343,7 +343,7 @@ test("long series follow only same-series print continuation links, deduplicate 
   assert.equal(catalog.items.length, 25);
   assert.equal(catalog.pages, 2);
   assert.ok(catalog.items.some((item) => item.volume === 1));
-  assert.ok(catalog.items.every((item) => item.type === "LN (EN)"));
+  assert.ok(catalog.items.every((item) => item.type === "Light novel"));
   assert.equal(calls.length, 2);
   failing = true;
   const stale = await service.getSeriesCatalog({

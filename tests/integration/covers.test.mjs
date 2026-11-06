@@ -318,6 +318,10 @@ test("backups restore image payloads larger than a megabyte", (t) => {
   const store = database(t);
   const body = Buffer.concat([png, Buffer.alloc(1100000)]);
   const image = store.covers.put({ body, contentType: "image/png" }, source);
+  store.api.saveBook({
+    requestId: "large_image_book_001",
+    book: { ...book, coverId: image.id },
+  });
   const plan = parseImport(
     Buffer.from(JSON.stringify(store.exportData())),
     "large-cover.json",

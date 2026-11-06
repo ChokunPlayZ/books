@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export function GET(request: NextRequest) {
   try {
     const { store } = getApp();
-    authorize(store, request);
+    const user = authorize(store, request);
     const series = request.nextUrl.searchParams.get("series") ?? undefined;
     const date = new Date().toISOString().slice(0, 10);
     const filename =
@@ -24,13 +24,20 @@ export function GET(request: NextRequest) {
     );
     const titleFilename =
       series === undefined ? "" : `; filename*=UTF-8''${encodedName}`;
-    return new Response(JSON.stringify(store.exportData(series), null, 2), {
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store",
-        "Content-Disposition": `attachment; filename="${filename}"${titleFilename}`,
+    return new Response(
+      JSON.stringify(
+        store.forUser(user, () => store.exportData(series)),
+        null,
+        2,
+      ),
+      {
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store",
+          "Content-Disposition": `attachment; filename="${filename}"${titleFilename}`,
+        },
       },
-    });
+    );
   } catch (error) {
     return errorResponse(error);
   }

@@ -35,6 +35,10 @@ import {
   cacheJson as cacheJson_,
 } from "./scrapers/cache.ts";
 import type { ScraperDefinition } from "./scrapers/types.ts";
+import {
+  normalizeBookType,
+  normalizeRecordTypes,
+} from "../domain/book-type.ts";
 type CatalogRequest = {
   row?: number;
   publisherUrl?: string;
@@ -71,6 +75,18 @@ export function createCatalogService(
   const pendingTitles = new Map();
   function rememberCovers(items) {
     for (const item of items) {
+      const verifiedIsbn = canonicalIsbn(item.isbn);
+      if (
+        item.isbnVerified &&
+        verifiedIsbn &&
+        safeProductUrl(item.url, item.publisherId) &&
+        !item.bundle &&
+        !item.special
+      ) {
+        const url = new URL(item.url).href;
+        cache.put("known-product:v1:" + url, verifiedIsbn, Infinity);
+        context.scrapeCache.pin("text:" + url);
+      }
       const cover = safeCoverUrl(item.coverUrl);
       if (!cover || item.bundle || item.special) continue;
       const isbn = canonicalIsbn(item.isbn),
@@ -163,7 +179,22 @@ export function createCatalogService(
             return parsePageCount(book.pageCount);
           })
           .find((count) => count !== "") ?? "";
-      details = { ...details, pageCount };
+      const msrpSource = results
+        .flatMap((result) =>
+          result.status === "fulfilled" && result.value ? [result.value] : [],
+        )
+        .find(
+          (book) =>
+            (!book.isbn || canonicalIsbn(book.isbn) === canonical) &&
+            book.msrp !== "" &&
+            book.msrp != null,
+        );
+      details = {
+        ...details,
+        pageCount,
+        msrp: msrpSource?.msrp ?? "",
+        msrpCurrency: msrpSource?.msrpCurrency || msrpSource?.currency || "",
+      };
     }
     if (!details && warnings.length && cached && refresh)
       return { ...JSON.parse(cached), stale: true, warnings };
@@ -173,6 +204,7 @@ export function createCatalogService(
       details: details,
       warnings: warnings,
       stale: false,
+      checkedAt: details?.checkedAt ?? new Date().toISOString(),
       searchUrl:
         "https://www.naiin.com/search-result?title=" +
         encodeURIComponent(canonical),
@@ -181,7 +213,11 @@ export function createCatalogService(
     cache.put(
       "isbn:v15:" + canonical,
       JSON.stringify(result),
-      warnings.length ? SCRAPE_TTL.retry : SCRAPE_TTL.isbn,
+      details && !warnings.length
+        ? Infinity
+        : warnings.length
+          ? SCRAPE_TTL.retry
+          : SCRAPE_TTL.isbn,
     );
     return result;
   }
@@ -225,7 +261,7 @@ export function createCatalogService(
           !item.catalogVariant &&
           Number(item.volume) === Number(book.volume) &&
           item.volume !== "" &&
-          item.type === book.type,
+          normalizeBookType(item.type) === normalizeBookType(book.type),
       );
       return { row, token: book.token, coverUrl: match?.coverUrl || "" };
     }
@@ -274,10 +310,7 @@ export function createCatalogService(
           refresh: request.refresh,
         })
       : { items: [] };
-    const matchingType = (type) =>
-      String(type || "")
-        .replace(/\s*\(colou?r\)/gi, "")
-        .trim();
+    const matchingType = normalizeBookType;
     // Revised editions can supply alternate covers without changing the saved series.
     const coverSeriesKey = (title) =>
       catalogSeriesKey(
@@ -327,7 +360,7 @@ export function createCatalogService(
             if (scraper?.gallery) {
               for (const option of await scraper.gallery(
                 item,
-                book,
+                { ...book, type: book.edition || book.type },
                 request.refresh,
               ))
                 add(option.coverUrl, { ...item, ...option });
@@ -661,7 +694,28 @@ export function createCatalogService(
         digest(
           spec.series + "\n" + spec.type + "\n" + (saved ? saved.url : ""),
         );
-    const cached = reparseItems(cachedJson_(cache, key));
+    const legacyTypes =
+      spec.type === "Light novel"
+        ? ["LN (TH)", "LN (EN)"]
+        : spec.type === "Manga"
+          ? ["Manga (TH)", "Manga (EN)", "Manga (JP)"]
+          : ["Other"];
+    const cached = reparseItems(
+      cachedJson_(cache, key) ||
+        legacyTypes
+          .map((type) =>
+            cachedJson_(
+              cache,
+              "series:v1:" +
+                spec.publisherId +
+                ":" +
+                digest(
+                  spec.series + "\n" + type + "\n" + (saved ? saved.url : ""),
+                ),
+            ),
+          )
+          .find(Boolean),
+    );
     const previous = cached ? annotateSeriesItems(cached, spec, cached) : null;
     if (
       previous &&
@@ -823,7 +877,7 @@ export function createCatalogService(
     }
   }
 
-  return {
+  const methods = {
     lookupIsbn,
     findLowestPrices: createPriceFinder(
       scrapers.priceProviders,
@@ -839,4 +893,14 @@ export function createCatalogService(
     getSeriesCatalog,
     getSeriesCategories,
   };
+  return Object.fromEntries(
+    Object.entries(methods).map(([name, method]) => [
+      name,
+      async (request) => {
+        if (request && typeof request === "object" && request.refresh === true)
+          store.requireAdmin?.();
+        return normalizeRecordTypes(await method(request));
+      },
+    ]),
+  ) as typeof methods;
 }

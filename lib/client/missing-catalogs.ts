@@ -1,5 +1,6 @@
 import { PUBLISHERS } from "../domain/constants.ts";
 import { bookSourceApplies } from "../domain/book-sources.ts";
+import { bookEditionKey, normalizeBookType } from "../domain/book-type.ts";
 import type { Release } from "../types.ts";
 import {
   matchingBookType,
@@ -90,14 +91,15 @@ export function collectionMissing<T extends MatchBook>(
             if (
               catalog.series !== series ||
               catalog.publisherId !== publisherKey(edition.publisher) ||
-              matchingBookType(catalog.type) !== edition.type
+              normalizeBookType(catalog.type) !==
+                normalizeBookType(edition.type)
             )
               continue;
             for (const source of catalog.feed?.items || []) {
               if (
                 source.publisherId !== catalog.publisherId ||
                 !source.type ||
-                matchingBookType(source.type) !== edition.type ||
+                bookEditionKey(source) !== bookEditionKey(edition.books[0]) ||
                 source.catalogVariant ||
                 !releaseSingleVolume(source) ||
                 Number(source.volume) < 0

@@ -172,10 +172,10 @@ test("application API joins AniList and Thai publisher catalogs and reuses persi
       feed.items[0].thaiEditions[0].item.series,
       "ห้องสมุดใต้แสงจันทร์",
     );
-    assert.equal(feed.items[0].thaiEditions[0].item.type, "Manga (TH)");
+    assert.equal(feed.items[0].thaiEditions[0].item.type, "Manga");
     assert.equal(feed.thaiSources.length, 3);
     assert.equal(feed.items[1].thaiEditions[0].item.publisherId, "firstpage");
-    assert.equal(feed.items[1].thaiEditions[0].item.type, "LN (TH)");
+    assert.equal(feed.items[1].thaiEditions[0].item.type, "Light novel");
     assert.equal(
       feed.items[1].thaiEditions[0].item.series,
       "บรรณารักษ์คนสุดท้าย",

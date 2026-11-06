@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import CollectionShell from "./CollectionShell";
 import CollectionController from "./CollectionController";
 import { getApp } from "../lib/server/app.ts";
-import { hasSession, SESSION_COOKIE } from "../lib/server/auth.ts";
+import { sessionUser, SESSION_COOKIE } from "../lib/server/auth.ts";
 import {
   collectionPaths,
   seriesPath,
@@ -20,7 +20,8 @@ export default async function CollectionPage({
   priceIsbn?: string;
 }) {
   const { store } = getApp();
-  if (!hasSession(store, (await cookies()).get(SESSION_COOKIE)?.value)) {
+  const user = sessionUser(store, (await cookies()).get(SESSION_COOKIE)?.value);
+  if (!user) {
     let destination =
       series === null ? collectionPaths[view] : seriesPath(series);
     if (view === "prices" && priceIsbn)
@@ -31,7 +32,7 @@ export default async function CollectionPage({
         : "/login?returnTo=" + encodeURIComponent(destination),
     );
   }
-  const data = store.api.getCollection();
+  const data = store.forUser(user, () => store.api.getCollection());
   return (
     <>
       <CollectionShell

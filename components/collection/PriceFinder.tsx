@@ -14,6 +14,7 @@ const stockLabels: Record<PriceAvailability, string> = {
 };
 
 function checkedTime(value: string) {
+  if (!value) return "Not recorded";
   return new Date(value).toLocaleString(undefined, {
     month: "short",
     day: "numeric",
@@ -24,8 +25,10 @@ function checkedTime(value: string) {
 
 export default function PriceFinder({
   initialIsbn = "",
+  canRefresh = false,
 }: {
   initialIsbn?: string;
+  canRefresh?: boolean;
 }) {
   const [isbn, setIsbn] = useState(initialIsbn);
   const [result, setResult] = useState<PriceComparison | null>(null);
@@ -181,13 +184,15 @@ export default function PriceFinder({
                   matching listing
                 </p>
               </div>
-              <button
-                className="btn"
-                type="button"
-                onClick={() => void search(result.isbn, true)}
-              >
-                Refresh prices
-              </button>
+              {canRefresh && (
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => void search(result.isbn, true)}
+                >
+                  Refresh prices
+                </button>
+              )}
             </div>
             <p className="price-search-status" role="status">
               {result.offers.length
@@ -232,6 +237,15 @@ export default function PriceFinder({
                         </p>
                       </div>
                       <div className="price-offer-amount">
+                        {offer.msrp != null && (
+                          <p className="hint">
+                            MSRP{" "}
+                            {new Intl.NumberFormat(undefined, {
+                              style: "currency",
+                              currency: offer.msrpCurrency || offer.currency,
+                            }).format(offer.msrp)}
+                          </p>
+                        )}
                         <strong>
                           {offer.price === null
                             ? "Price unavailable"
@@ -264,8 +278,9 @@ export default function PriceFinder({
             )}
             <p className="hint price-terms">
               Item prices exclude shipping, membership discounts and checkout
-              coupons. Currencies are compared separately. Prices are cached for
-              up to an hour; refresh to check again.
+              coupons. Currencies are compared separately. Prices and stock are
+              saved snapshots; only an administrator can refresh them. Open the
+              shop for current prices.
             </p>
             <details className="price-sources">
               <summary>All {result.sources.length} shop checks</summary>

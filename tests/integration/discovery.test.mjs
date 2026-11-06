@@ -369,7 +369,7 @@ test("First Page manga rating directories contain only titles from the selected 
       assert.equal(directory.stale, false);
       assert.equal(directory.url, url);
       assert.equal(directory.titles.length, count);
-      assert.ok(directory.titles.every((title) => title.type === "Manga (TH)"));
+      assert.ok(directory.titles.every((title) => title.type === "Manga"));
       const categories = directory.titles.flatMap((title) => title.categories);
       assert.ok(categories.some((category) => category.url === sample));
       for (const category of categories) {

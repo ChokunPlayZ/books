@@ -46,6 +46,8 @@ export default function CollectionShell({
       <CollectionTabs view={view} data={data} />
       <main
         id="libraryMain"
+        data-user-id={data.user.id}
+        data-user-role={data.user.role}
         className={"library-main" + (series !== null ? " series-page" : "")}
         tabIndex={-1}
       >
@@ -65,7 +67,12 @@ export default function CollectionShell({
         {series !== null && <SeriesCatalogPanel />}
         {view === "releases" && <ReleasesPanel />}
         {view === "discover" && <DiscoveryPanel />}
-        {view === "prices" && <PriceFinder initialIsbn={priceIsbn} />}
+        {view === "prices" && (
+          <PriceFinder
+            initialIsbn={priceIsbn}
+            canRefresh={data.user.role === "admin"}
+          />
+        )}
         {view === "missing" && <MissingPanel books={data.books} />}
         {view === "stats" && (
           <StatisticsPanel

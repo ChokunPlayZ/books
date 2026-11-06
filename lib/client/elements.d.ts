@@ -202,6 +202,9 @@ interface LibraryElements {
   refreshReleases: HTMLButtonElement;
   refreshSeriesReleases: HTMLButtonElement;
   regularPrice: HTMLInputElement;
+  msrp: HTMLInputElement;
+  msrpCurrency: HTMLInputElement;
+  edition: HTMLInputElement;
   releaseCount: HTMLSpanElement;
   releaseError: HTMLDivElement;
   releaseList: HTMLDivElement;

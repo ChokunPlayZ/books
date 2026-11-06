@@ -13,13 +13,13 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   try {
     const { store, api } = getApp();
-    authorize(store, request);
+    const user = authorize(store, request);
     sameOrigin(request);
     // Bulk volume edits can include many volumes in a single transaction.
     const { name, arg } = await readJson(request, 1_000_000);
     if (!Object.hasOwn(api, name))
       throw new AppError("Unknown library action.", 404);
-    return json(await api[name](arg));
+    return json(await store.forUser(user, () => api[name](arg)));
   } catch (error) {
     return errorResponse(error);
   }

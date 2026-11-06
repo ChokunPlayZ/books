@@ -82,10 +82,12 @@ test("merging keeps every copy and its details, destination catalog choices and 
       assert.equal(series, index < 3 ? target : "Unrelated");
       if (oldSeries === source) assert.notEqual(token, oldToken);
     }
-    assert.deepEqual(after.seriesCatalogs, [
-      kept,
-      { ...novel, series: target },
-    ]);
+    assert.deepEqual(
+      [...after.seriesCatalogs].sort((a, b) => a.type.localeCompare(b.type)),
+      [kept, { ...novel, series: target }].sort((a, b) =>
+        a.type.localeCompare(b.type),
+      ),
+    );
     assert.ok(!after.options.series.includes(source));
     assert.deepEqual(store.exportData().books, after.books);
     assert.throws(

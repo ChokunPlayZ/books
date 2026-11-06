@@ -10,7 +10,12 @@ import {
   yenPressCandidates,
   yenPressSearchKey,
 } from "../../lib/domain/yenpress.ts";
-import { BOOK_APP, safeCoverUrl, safeProductUrl } from "../../lib/domain.ts";
+import {
+  BOOK_APP,
+  normalizeBookType,
+  safeCoverUrl,
+  safeProductUrl,
+} from "../../lib/domain.ts";
 
 const fixture = (name) =>
   readFileSync(
@@ -79,7 +84,7 @@ test("Yen Press reads exact print and digital details, English formats, authors 
   assert.equal(print.series, "Solo Leveling (comic)");
   assert.equal(print.volume, 1);
   assert.equal(print.type, "Manga (EN)");
-  assert.ok(BOOK_APP.types.includes(print.type));
+  assert.ok(BOOK_APP.types.includes(normalizeBookType(print.type)));
   assert.equal(print.publisher, "Ize Press");
   assert.equal(print.authors, "Chugong");
   assert.equal(print.releaseDate, "Mar 02, 2021");

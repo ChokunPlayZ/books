@@ -24,6 +24,9 @@ export type Book = {
   coverUrl: string;
   publisherUrl: string;
   pageCount?: number | "";
+  msrp?: number | "";
+  msrpCurrency?: string;
+  edition?: string;
   coverId?: string;
 };
 
@@ -57,8 +60,12 @@ export type Release = {
   type: string;
   url: string;
   isbn: string;
+  isbnVerified?: boolean;
   price: number | "";
   pageCount?: number | "";
+  msrp?: number | "";
+  msrpCurrency?: string;
+  edition?: string;
   special: boolean;
   bundle: boolean;
   availability: string;
@@ -80,6 +87,8 @@ export type PriceOffer = {
   title: string;
   url: string;
   price: number | null;
+  msrp?: number | null;
+  msrpCurrency?: string;
   currency: string;
   availability: PriceAvailability;
   checkedAt: string;

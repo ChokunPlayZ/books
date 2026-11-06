@@ -158,26 +158,29 @@ test("old merged directories and incorrect cached releases/ISBN results are corr
     assert.equal(
       (await api.getPublisherReleases({ publisherId: "firstpage" })).items[0]
         .type,
-      "LN (TH)",
+      "Light novel",
     );
     const correctedDirectory = await api.getPublisherDirectory({
       url: "https://www.firstpagepro.com/",
     });
     assert.deepEqual(
       correctedDirectory.titles.map((title) => title.type).sort(),
-      ["LN (TH)", "Manga (TH)"],
+      ["Light novel", "Manga"],
     );
     const result = await api.searchPublisherIsbn({
       publisherId: "firstpage",
       isbn,
     });
-    assert.equal(result.items[0].type, "LN (TH)");
+    assert.equal(result.items[0].type, "Light novel");
     assert.equal(result.items[0].coverId, "existing-cover");
     store.api.setSavedRelease({ release: items[1], saved: true });
     store.db
       .prepare("UPDATE saved_releases SET data=? WHERE id=?")
       .run(JSON.stringify(incorrect), incorrect.id);
-    assert.equal(store.api.getCollection().savedReleases[0].type, "LN (TH)");
+    assert.equal(
+      store.api.getCollection().savedReleases[0].type,
+      "Light novel",
+    );
     assert.equal(
       store.api.getCollection().savedReleases[0].coverId,
       "existing-cover",

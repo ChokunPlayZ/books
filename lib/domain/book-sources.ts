@@ -21,13 +21,15 @@ export const BOOK_SOURCE_ISBN_PREFIXES: Readonly<
 
 export function bookSourceApplies(
   sourceId: string,
-  book: { isbn?: string; type?: string },
+  book: { isbn?: string; type?: string; edition?: string },
 ) {
   const prefixes = Object.hasOwn(BOOK_SOURCE_ISBN_PREFIXES, sourceId)
     ? BOOK_SOURCE_ISBN_PREFIXES[sourceId]
     : undefined;
   if (!prefixes) return true;
-  const language = /\((TH|EN|JP)\)/i.exec(book.type || "")?.[1].toUpperCase();
+  const language = /\((TH|EN|JP)\)/i
+    .exec(book.edition || book.type || "")?.[1]
+    .toUpperCase();
   const group = { TH: "thai", EN: "english", JP: "japanese" }[language];
   if (
     group &&

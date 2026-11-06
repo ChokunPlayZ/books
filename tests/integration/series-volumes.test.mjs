@@ -78,7 +78,7 @@ test("volume saves update all details atomically, preserve intentional copies an
   assert.equal(after.books[0].volume, 1.5);
   assert.equal(after.books[0].status, "Read");
   assert.equal(after.books[0].isbn, "0140328726");
-  assert.equal(after.books[0].type, "LN (EN)");
+  assert.equal(after.books[0].type, "Light novel");
   assert.equal(after.books[0].publisher, "Yen Press");
   assert.equal(after.books[0].note, "=literal note");
   assert.equal(after.books[0].date, "");
@@ -235,5 +235,9 @@ test("series export isolates books, covers, settings and releases and restores t
   assert.equal(restored.api.getCollection().savedReleases.length, 1);
   assert.equal(restored.api.getCollection().seriesCatalogs.length, 1);
   assert.equal(store.exportData().books.length, 4);
-  assert.equal(store.exportData().covers.length, 2);
+  assert.equal(
+    store.exportData().covers.length,
+    1,
+    "Unreferenced cached images are not part of a private library backup",
+  );
 });

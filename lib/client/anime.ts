@@ -83,7 +83,7 @@ export function createAnimeBrowser({
       (book) =>
         titles.has(animeTitleKey(book.series)) &&
         (media.kind === "LN"
-          ? /^LN\b/i.test(book.type)
+          ? /^(?:LN\b|Light novel)/i.test(book.type)
           : /^Manga\b/i.test(book.type)),
     );
   }
@@ -118,7 +118,9 @@ export function createAnimeBrowser({
         "release-meta",
         [
           item.publisher,
-          item.type === "LN (TH)" ? "Light novel · Thai" : "Manga · Thai",
+          /^(?:LN\b|Light novel)/i.test(item.type)
+            ? "Light novel · Thai"
+            : "Manga · Thai",
           item.volume !== "" ? "Volume " + item.volume : "",
           item.availability,
         ]
@@ -247,7 +249,7 @@ export function createAnimeBrowser({
               series: owned?.series || item.book.title,
               type:
                 owned?.type ||
-                (item.book.kind === "LN" ? "LN (TH)" : "Manga (TH)"),
+                (item.book.kind === "LN" ? "Light novel" : "Manga"),
             }),
           { signal },
         );
@@ -490,7 +492,7 @@ export function createAnimeBrowser({
           books()
             .filter((book) => book.series === $("seriesTitle").textContent)
             .map((book) =>
-              /^LN\b/i.test(book.type)
+              /^(?:LN\b|Light novel)/i.test(book.type)
                 ? "LN"
                 : /^Manga\b/i.test(book.type)
                   ? "Manga"

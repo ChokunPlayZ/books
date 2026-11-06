@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { getApp } from "../../../lib/server/app.ts";
 import { authorize } from "../../../lib/server/auth.ts";
 import { errorResponse } from "../../../lib/server/http.ts";
+import { AppError } from "../../../lib/server/store.ts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,14 +13,19 @@ export async function GET(
 ) {
   try {
     const { store, covers } = getApp();
-    authorize(store, request);
+    const user = authorize(store, request);
     const params = await context?.params;
-    const image = covers.get(
-      params?.id || new URL(request.url).searchParams.get("id"),
-    );
+    const id = params?.id || new URL(request.url).searchParams.get("id");
+    if (!/^[a-f0-9]{64}$/.test(id || ""))
+      throw new AppError("Choose a stored cover.", 400);
+    const image = store.forUser(user, () => {
+      if (!store.covers.canAccess(id))
+        throw new AppError("Cover not found.", 404);
+      return covers.get(id);
+    });
     const headers = {
       "Content-Type": image.contentType,
-      "Cache-Control": "private, max-age=31536000, immutable",
+      "Cache-Control": "private, no-store",
       ETag: image.etag,
       "X-Content-Type-Options": "nosniff",
     };

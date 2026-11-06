@@ -3,6 +3,7 @@ import { meta, structuredBooks, textHtml } from "./html.ts";
 import { releaseItem } from "./releases.ts";
 import { safeProductUrl, safeCoverUrl } from "./urls.ts";
 import { parsePageCount } from "./page-count.ts";
+import { productMsrp } from "./msrp.ts";
 
 // Read the main product's labeled barcode, never a recommendation's ISBN.
 export function phoenixBook(html: string, isbn: string, productUrl: string) {
@@ -39,8 +40,11 @@ export function phoenixBook(html: string, isbn: string, productUrl: string) {
       canonical,
     ),
     isbn: canonical,
+    isbnVerified: true,
     pageCount: parsePageCount(product?.numberOfPages),
     currency: meta(html, "product:price:currency") || "THB",
+    msrp: productMsrp(html, product),
+    msrpCurrency: meta(html, "product:price:currency") || "THB",
     availability:
       meta(html, "product:availability") || offer?.availability || "",
     coverUrl: safeCoverUrl(meta(html, "og:image")),

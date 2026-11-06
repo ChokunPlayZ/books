@@ -241,7 +241,7 @@ test("scan lookup uses verified Phoenix metadata and covers, bypasses old misses
   );
   assert.equal(results[0].details.source, "Phoenix Next");
   assert.equal(results[0].details.series, "เส้นทางจาริกอาถรรพ์");
-  assert.equal(results[0].details.type, "LN (TH)");
+  assert.equal(results[0].details.type, "Light novel");
   assert.deepEqual(results[0].warnings, []);
   assert.equal(calls.filter((address) => address === url).length, 1);
   assert.equal(

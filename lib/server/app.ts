@@ -13,9 +13,9 @@ type BookApplication = {
 const applicationGlobal = globalThis as typeof globalThis & {
   __bookCollectionApp?: BookApplication;
 };
-const API_VERSION = 4;
+const API_VERSION = 6;
 // Reopen the store when its in-memory methods change during development.
-const STORE_VERSION = 4;
+const STORE_VERSION = 6;
 
 // Next development reloads modules; keep one connection per process.
 export function getApp(): BookApplication {

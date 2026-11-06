@@ -25,11 +25,18 @@ export function createPriceFinder(
       applicable.map((provider) =>
         scrapeCache.get(
           "book-price:v1:" + provider.id + ":" + isbn,
-          { maxAge: 3600, refresh: request.refresh === true },
+          {
+            maxAge: 3600,
+            refresh: request.refresh === true,
+            permanent: (result) => !!result.offer,
+          },
           async () => {
-            // Price checks bypass the longer-lived book metadata/product cache.
-            const book = await provider.lookupIsbn(isbn, true);
-            const checkedAt = new Date().toISOString();
+            // Ordinary comparisons reuse confirmed source metadata, including its timestamp.
+            const book = await provider.lookupIsbn(
+              isbn,
+              request.refresh === true,
+            );
+            const checkedAt = book?.checkedAt ?? new Date().toISOString();
             if (!book || canonicalIsbn(book.isbn) !== isbn)
               return { offer: null, checkedAt };
             const url = new URL(book.url);
@@ -61,6 +68,11 @@ export function createPriceFinder(
               title: book.title,
               url: url.href,
               price,
+              msrp:
+                book.msrp === "" || book.msrp == null
+                  ? null
+                  : Number(book.msrp),
+              msrpCurrency: book.msrpCurrency || currency,
               currency,
               availability: priceAvailability(book.availability),
               checkedAt,

@@ -118,7 +118,11 @@ export function createScraperContext(
   ) {
     return scrapeCache.get(
       "text:" + new URL(url).href,
-      { maxAge, refresh },
+      {
+        maxAge,
+        refresh,
+        permanent: () => !!cache.get("known-product:v1:" + new URL(url).href),
+      },
       async () => {
         const response = await requestRemote(url, options);
         if (response.status !== 200) throw new Error("Website unavailable");

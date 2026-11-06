@@ -80,7 +80,7 @@ test("title edits update all volumes, preserve separate editions and volume deta
     const data = store.api.getCollection();
     data.books.forEach((book, index) => {
       assert.equal(book.series, "Renamed story");
-      assert.equal(book.type, index < 2 ? "LN (TH)" : "Manga (JP)");
+      assert.equal(book.type, index < 2 ? "Light novel" : "Manga");
       assert.equal(
         book.publisher,
         index < 2 ? "PHOENIX Next" : "Japanese press",
@@ -100,7 +100,7 @@ test("title edits update all volumes, preserve separate editions and volume deta
       assert.notEqual(book.token, before[index].token);
     });
     assert.equal(data.seriesCatalogs[0].series, "Renamed story");
-    assert.equal(data.seriesCatalogs[0].type, "LN (TH)");
+    assert.equal(data.seriesCatalogs[0].type, "Light novel");
     assert.ok(data.options.series.includes("Renamed story"));
     assert.notEqual(data.titles[0].token, request.token);
     const backup = store.exportData();

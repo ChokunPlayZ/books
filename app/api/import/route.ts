@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   try {
     const { store } = getApp();
-    authorize(store, request);
+    const user = authorize(store, request);
     sameOrigin(request);
     const buffer = await readBody(request, 129 * 1024 * 1024);
     const form = await new Response(new Uint8Array(buffer), {
@@ -29,7 +29,9 @@ export async function POST(request: NextRequest) {
       form.get("fingerprint") !== plan.fingerprint
     )
       throw new AppError("Review this file before importing it.");
-    return json(store.importData(plan, plan.fingerprint));
+    return json(
+      store.forUser(user, () => store.importData(plan, plan.fingerprint)),
+    );
   } catch (error) {
     return errorResponse(error);
   }
