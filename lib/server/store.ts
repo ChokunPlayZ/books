@@ -88,7 +88,7 @@ export function openStore(
   );
   // Add subsequent schema versions here; startup never drops or reseeds user data.
   const version = Number(db.prepare("PRAGMA user_version").get().user_version);
-  if (version > 5) {
+  if (version > 6) {
     db.close();
     throw new Error("This database needs a newer version of Book Collection.");
   }
@@ -254,6 +254,29 @@ export function openStore(
       "DELETE FROM options WHERE field='type'; PRAGMA user_version=5; COMMIT;",
     );
   }
+  if (version < 6)
+    db.exec(`
+      BEGIN IMMEDIATE;
+      ALTER TABLE users ADD COLUMN google_subject TEXT;
+      ALTER TABLE users ADD COLUMN email TEXT NOT NULL DEFAULT '' COLLATE NOCASE;
+      CREATE UNIQUE INDEX users_google_subject ON users(google_subject) WHERE google_subject IS NOT NULL;
+      CREATE UNIQUE INDEX users_email ON users(email) WHERE email<>'';
+      -- Password sessions must never survive the switch to Google-only auth.
+      DELETE FROM sessions;
+      UPDATE users SET password_hash='';
+      CREATE TABLE oauth_attempts (
+        state_hash TEXT PRIMARY KEY, browser_hash TEXT NOT NULL,
+        code_verifier TEXT NOT NULL, nonce TEXT NOT NULL, return_to TEXT NOT NULL,
+        expires_at INTEGER NOT NULL
+      );
+      CREATE INDEX oauth_attempts_expiry ON oauth_attempts(expires_at);
+      CREATE TABLE request_limits (key TEXT PRIMARY KEY, attempts INTEGER NOT NULL, resets_at INTEGER NOT NULL);
+      CREATE INDEX request_limits_expiry ON request_limits(resets_at);
+      CREATE INDEX sessions_expiry ON sessions(expires_at);
+      CREATE INDEX sessions_user_expiry ON sessions(user_id,expires_at);
+      PRAGMA user_version=6;
+      COMMIT;
+    `);
   db.exec(
     "CREATE TABLE IF NOT EXISTS cover_access (user_id INTEGER NOT NULL REFERENCES users(id),cover_id TEXT NOT NULL REFERENCES covers(id),PRIMARY KEY(user_id,cover_id))",
   );

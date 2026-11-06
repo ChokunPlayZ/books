@@ -1,7 +1,7 @@
 // Build and exercise the real image using a disposable Compose project and volume.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { randomBytes, createHash } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,8 +14,10 @@ const envFile = join(directory, ".env");
 writeFileSync(envFile, "");
 const env = {
   ...process.env,
-  BOOKS_PASSWORD: randomBytes(24).toString("hex"),
-  BOOKS_SECURE_COOKIES: "false",
+  BOOKS_APP_URL: "http://localhost:3000",
+  BOOKS_GOOGLE_CLIENT_ID: "docker-test-google-client",
+  BOOKS_GOOGLE_CLIENT_SECRET: "docker-test-google-secret",
+  BOOKS_ADMIN_EMAIL: "owner@gmail.com",
   BOOKS_BIND_ADDRESS: "127.0.0.1",
   BOOKS_PORT: "0",
 };
@@ -43,7 +45,11 @@ let cookie;
 async function request(path, options = {}) {
   return fetch(url + path, {
     ...options,
-    headers: { Cookie: cookie || "", ...options.headers },
+    headers: {
+      Cookie: cookie || "",
+      Origin: env.BOOKS_APP_URL,
+      ...options.headers,
+    },
     signal: AbortSignal.timeout(10000),
   });
 }
@@ -72,14 +78,43 @@ try {
   const protectedDataPage = await request("/data", { redirect: "manual" });
   assert.equal(protectedDataPage.status, 307);
   assert.equal(protectedDataPage.headers.get("location"), "/login");
-  const login = await request("/api/login", {
+  assert.equal(
+    (
+      await request("/api/login", {
+        method: "POST",
+      })
+    ).status,
+    410,
+  );
+  const login = await request("/api/auth/google", {
     method: "POST",
-    headers: { "Content-Type": "application/json", Origin: url },
-    body: JSON.stringify({ password: env.BOOKS_PASSWORD }),
+    redirect: "manual",
   });
-  assert.equal(login.status, 200);
-  cookie = login.headers.get("set-cookie")?.split(";")[0];
-  assert.ok(cookie, "Sign-in must set a session cookie");
+  assert.equal(login.status, 303);
+  assert.equal(
+    new URL(login.headers.get("location")).origin,
+    "https://accounts.google.com",
+  );
+  assert.match(login.headers.get("set-cookie"), /HttpOnly/);
+  // Seed a real subject-bound session directly in the disposable database.
+  // Real Cloud Console credentials are intentionally not needed by this test.
+  const token = randomBytes(32).toString("hex");
+  const hash = (value) => createHash("sha256").update(value).digest("hex");
+  compose([
+    "exec",
+    "-T",
+    "books",
+    "node",
+    "-e",
+    `
+    const {DatabaseSync}=require('node:sqlite');
+    const db=new DatabaseSync(process.env.BOOKS_DATABASE_PATH);
+    db.prepare("UPDATE users SET google_subject='docker-owner',email='owner@gmail.com' WHERE id=1").run();
+    db.prepare("INSERT INTO sessions (token_hash,expires_at,user_id,credential_hash) VALUES (?,?,1,?)").run(${JSON.stringify(hash(token))},Date.now()+86400000,${JSON.stringify(hash("google:docker-owner"))});
+    db.close();
+  `,
+  ]);
+  cookie = "book_collection_session=" + token;
   assert.equal((await rpc("getCollection")).books.length, 0);
   const page = await request("/");
   assert.equal(page.status, 200);
@@ -152,7 +187,7 @@ try {
   assert.equal(collection.books[0].series, "Docker persistence check");
   assert.equal((await json("/api/backup")).books.length, 1);
   console.log(
-    "PASS Docker health, non-root user, sign-in, static assets, Data & backups page, Excel import, and persistence after container recreation",
+    "PASS Docker health, non-root user, Google auth start, protected sessions, static assets, Data & backups page, Excel import, and persistence after container recreation",
   );
 } finally {
   try {

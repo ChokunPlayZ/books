@@ -1,39 +1,28 @@
-"use client";
-import { useState } from "react";
-import type { FormEvent } from "react";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import Icon from "../../components/Icon";
 import LibraryBrand from "../../components/LibraryBrand";
 import ThemeToggle from "../../components/ThemeToggle";
-export default function LoginPage() {
-  const [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      const response = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: new FormData(event.currentTarget).get("username"),
-          password: new FormData(event.currentTarget).get("password"),
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message);
-      const returnTo =
-        new URLSearchParams(window.location.search).get("returnTo") || "/";
-      const destination = new URL(returnTo, window.location.origin);
-      window.location.assign(
-        destination.origin === window.location.origin ? destination.href : "/",
-      );
-    } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : "Sign in failed. Try again.",
-      );
-      setBusy(false);
-    }
+import { googleSettings, safeReturnTo } from "../../lib/server/auth-config.ts";
+import { sessionUser, SESSION_COOKIE } from "../../lib/server/auth.ts";
+import { getApp } from "../../lib/server/app.ts";
+
+export const runtime = "nodejs";
+
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ returnTo?: string; error?: string }>;
+}) {
+  const params = await searchParams;
+  const returnTo = safeReturnTo(params.returnTo);
+  if (sessionUser(getApp().store, (await cookies()).get(SESSION_COOKIE)?.value))
+    redirect(returnTo);
+  let configured = true;
+  try {
+    googleSettings();
+  } catch {
+    configured = false;
   }
   return (
     <main className="login-page">
@@ -48,48 +37,34 @@ export default function LoginPage() {
           <Icon name="book" />
         </span>
         <h1>Open your library</h1>
-        <p className="intro">Sign in to manage your books and collection.</p>
-        <form className="grid" onSubmit={submit}>
-          <label htmlFor="username">
-            Username
-            <input
-              id="username"
-              name="username"
-              autoComplete="username"
-              defaultValue="admin"
-              required
-              maxLength={64}
-              disabled={busy}
-            />
-          </label>
-          <label htmlFor="password">
-            Password
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              autoFocus
-              placeholder="Enter your library password"
-              disabled={busy}
-              aria-invalid={Boolean(error)}
-              aria-describedby={error ? "loginError" : undefined}
-            />
-          </label>
-          {error && (
-            <p id="loginError" role="alert" className="form-error">
-              {error}
+        <p className="intro">
+          Sign in with Google to manage your books. New here? Your private
+          library is created automatically.
+        </p>
+        <form
+          className="grid"
+          action={"/api/auth/google?returnTo=" + encodeURIComponent(returnTo)}
+          method="post"
+        >
+          {!configured ? (
+            <p role="alert" className="form-error">
+              Google sign-in is not configured yet. Contact the server
+              administrator.
             </p>
-          )}
-          <button className="btn primary" disabled={busy}>
+          ) : params.error ? (
+            <p role="alert" className="form-error">
+              Google sign-in could not be completed. Please try again, or
+              contact the administrator if your library needs linking.
+            </p>
+          ) : null}
+          <button className="btn primary" type="submit" disabled={!configured}>
             <Icon name="lock" />
-            {busy ? "Signing in…" : "Sign in"}
+            Continue with Google
           </button>
         </form>
         <p className="login-note">
           <Icon name="lock" />
-          Your personal collection, in your own space.
+          Your books stay private. We only request your email address.
         </p>
       </section>
     </main>

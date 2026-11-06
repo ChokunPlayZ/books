@@ -7,9 +7,11 @@ services:
     ports:
       - "${BOOKS_BIND_ADDRESS:-127.0.0.1}:${BOOKS_PORT:-3000}:3000"
     environment:
-      BOOKS_PASSWORD: "${BOOKS_PASSWORD:?Set BOOKS_PASSWORD in .env before starting}"
+      BOOKS_APP_URL: "${BOOKS_APP_URL:?Set BOOKS_APP_URL in .env before starting}"
+      BOOKS_GOOGLE_CLIENT_ID: "${BOOKS_GOOGLE_CLIENT_ID:?Set BOOKS_GOOGLE_CLIENT_ID in .env before starting}"
+      BOOKS_GOOGLE_CLIENT_SECRET: "${BOOKS_GOOGLE_CLIENT_SECRET:?Set BOOKS_GOOGLE_CLIENT_SECRET in .env before starting}"
+      BOOKS_ADMIN_EMAIL: "${BOOKS_ADMIN_EMAIL:?Set BOOKS_ADMIN_EMAIL in .env before starting}"
       BOOKS_TIME_ZONE: "${BOOKS_TIME_ZONE:-Asia/Bangkok}"
-      BOOKS_SECURE_COOKIES: "${BOOKS_SECURE_COOKIES:-false}"
     volumes:
       - books-data:/app/data
     security_opt:

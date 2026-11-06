@@ -11,6 +11,11 @@ import { createCoverService, coverDigest } from "../../lib/server/covers.ts";
 import { openStore } from "../../lib/server/store.ts";
 import { seriesPath } from "../../lib/domain/navigation.ts";
 import { seedMetadataMaintenance } from "../helpers/metadata.mjs";
+import { signInWithGoogle } from "../../lib/server/auth.ts";
+import {
+  googleTestEnvironment,
+  mockGooglePage,
+} from "../helpers/mock-google.mjs";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const directory = mkdtempSync(join(tmpdir(), "book-collection-e2e-"));
@@ -20,7 +25,13 @@ const executable =
   process.argv
     .find((arg) => arg.startsWith("--browser-executable="))
     ?.slice("--browser-executable=".length);
-const password = "book-collection-test-password";
+const googleEnv = googleTestEnvironment();
+const owner = {
+  sub: "browser-owner",
+  email: "owner@gmail.com",
+  email_verified: true,
+};
+const fixtureSessions = new Map();
 const coverSource =
   "https://www.phoenixnext.com/media/catalog/product/cached-test.png";
 const coverPath =
@@ -43,8 +54,9 @@ async function port() {
   await new Promise((resolve) => socket.close(resolve));
   return value;
 }
-async function start(name, extra = {}, seed) {
+async function start(name, seed) {
   const seeded = openStore(join(directory, `${name}.sqlite`));
+  const fixtureSession = signInWithGoogle(seeded, owner, owner.email).token;
   if (seed) seed(seeded);
   const seedCovers = createCoverService(seeded, {
     fetchImpl: async () => new Response(coverBytes),
@@ -56,21 +68,28 @@ async function start(name, extra = {}, seed) {
   seeded.close();
   const selectedPort = await port(),
     url = `http://127.0.0.1:${selectedPort}`;
-  const child = spawn(process.execPath, [".next/standalone/server.js"], {
-    cwd: root,
-    env: {
-      ...process.env,
-      NODE_ENV: "production",
-      HOSTNAME: "127.0.0.1",
-      PORT: String(selectedPort),
-      BOOKS_DATABASE_PATH: join(directory, `${name}.sqlite`),
-      BOOKS_PASSWORD: "",
-      BOOKS_ALLOW_UNAUTHENTICATED: "false",
-      BOOKS_SECURE_COOKIES: "false",
-      ...extra,
+  fixtureSessions.set(url, fixtureSession);
+  const child = spawn(
+    process.execPath,
+    [
+      "--import",
+      "./tests/helpers/mock-google.mjs",
+      ".next/standalone/server.js",
+    ],
+    {
+      cwd: root,
+      env: {
+        ...process.env,
+        NODE_ENV: "production",
+        HOSTNAME: "127.0.0.1",
+        PORT: String(selectedPort),
+        BOOKS_DATABASE_PATH: join(directory, `${name}.sqlite`),
+        ...googleEnv,
+        BOOKS_APP_URL: url,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
     },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  );
   launched.push(child);
   let logs = "";
   child.stdout.on("data", (value) => (logs = (logs + value).slice(-4000)));
@@ -94,6 +113,9 @@ async function runBrowserScenario(name, url) {
         ...process.env,
         ...(executable ? { BOOKS_BROWSER_EXECUTABLE: executable } : {}),
         BOOKS_TEST_URL: url,
+        ...(name === "pwa.browser.mjs"
+          ? {}
+          : { BOOKS_TEST_SESSION: fixtureSessions.get(url) }),
       },
       stdio: "inherit",
     },
@@ -107,7 +129,7 @@ async function runBrowserScenario(name, url) {
 
 let browser;
 try {
-  const url = await start("protected", { BOOKS_PASSWORD: password });
+  const url = await start("protected");
   await runBrowserScenario("pwa.browser.mjs", url);
   browser = await chromium.launch({
     headless: true,
@@ -131,11 +153,19 @@ try {
   assert.equal((await page.request.post(url + "/api/import")).status(), 401);
   await page.goto(url);
   await page.waitForURL("**/login");
-  await page.getByLabel("Library password").fill("incorrect");
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await page.getByRole("alert").waitFor();
-  await page.getByLabel("Library password").fill(password);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  assert.equal(await page.locator('input[type="password"]').count(), 0);
+  assert.equal(
+    (
+      await page.request.post(url + "/api/login", {
+        data: { password: "obsolete-password" },
+      })
+    ).status(),
+    410,
+  );
+  await mockGooglePage(page, owner);
+  await page
+    .getByRole("button", { name: "Continue with Google", exact: true })
+    .click();
   await page.waitForURL(url + "/");
   await page.waitForFunction(
     () => !document.getElementById("addButton").disabled,
@@ -158,8 +188,10 @@ try {
     new URL(bookmark.url()).searchParams.get("returnTo"),
     bookmarkedPath,
   );
-  await bookmark.getByLabel("Library password").fill(password);
-  await bookmark.getByRole("button", { name: "Sign in", exact: true }).click();
+  await mockGooglePage(bookmark, owner);
+  await bookmark
+    .getByRole("button", { name: "Continue with Google", exact: true })
+    .click();
   await bookmark.waitForURL(url + bookmarkedPath);
   assert.equal(
     await bookmark.locator("#seriesTitle").textContent(),
@@ -171,10 +203,7 @@ try {
   assert.equal(cover.status(), 200);
   assert.deepEqual(await cover.body(), coverBytes);
   assert.equal(cover.headers()["content-type"], "image/png");
-  assert.match(
-    cover.headers()["cache-control"],
-    /^private, max-age=31536000, immutable$/,
-  );
+  assert.match(cover.headers()["cache-control"], /^private, no-store$/);
   assert.equal(
     (
       await page.request.get(url + coverPath, {
@@ -371,57 +400,50 @@ try {
 
   await runBrowserScenario(
     "metadata-management.browser.mjs",
-    await start(
-      "metadata-maintenance",
-      { BOOKS_ALLOW_UNAUTHENTICATED: "true" },
-      seedMetadataMaintenance,
-    ),
+    await start("metadata-maintenance", seedMetadataMaintenance),
   );
-  const fixturesUrl = await start("ui-regressions", {
-    BOOKS_ALLOW_UNAUTHENTICATED: "true",
-  });
+  const fixturesUrl = await start("ui-regressions");
   assert.deepEqual(
-    Buffer.from(await (await fetch(fixturesUrl + coverPath)).arrayBuffer()),
+    Buffer.from(
+      await (
+        await fetch(fixturesUrl + coverPath, {
+          headers: {
+            Cookie:
+              "book_collection_session=" + fixtureSessions.get(fixturesUrl),
+          },
+        })
+      ).arrayBuffer(),
+    ),
     coverBytes,
   );
   console.log(
     "PASS protected cover endpoint, private caching, ETags and image persistence across server processes",
   );
-  await runBrowserScenario(
-    "statistics.browser.mjs",
-    await start("statistics", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
-  );
-  await runBrowserScenario(
-    "missing.browser.mjs",
-    await start("missing", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
-  );
+  await runBrowserScenario("statistics.browser.mjs", await start("statistics"));
+  await runBrowserScenario("missing.browser.mjs", await start("missing"));
   await runBrowserScenario(
     "bulk-selection.browser.mjs",
-    await start("bulk-selection", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
+    await start("bulk-selection"),
   );
   await runBrowserScenario(
     "merge-series.browser.mjs",
-    await start("merge-series", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
+    await start("merge-series"),
   );
   await runBrowserScenario(
     "book-sources.browser.mjs",
-    await start("book-sources", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
+    await start("book-sources"),
   );
   await runBrowserScenario(
     "publisher-isbn-search.browser.mjs",
-    await start("publisher-isbn-search", {
-      BOOKS_ALLOW_UNAUTHENTICATED: "true",
-    }),
+    await start("publisher-isbn-search"),
   );
   await runBrowserScenario(
     "firstpage-lookup.browser.mjs",
-    await start("firstpage-lookup", {
-      BOOKS_ALLOW_UNAUTHENTICATED: "true",
-    }),
+    await start("firstpage-lookup"),
   );
   await runBrowserScenario(
     "missing-catalogs.browser.mjs",
-    await start("missing-catalogs", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
+    await start("missing-catalogs"),
   );
   for (const name of [
     "theme.browser.mjs",
@@ -448,12 +470,12 @@ try {
     await runBrowserScenario(
       name,
       name === "publishers.browser.mjs"
-        ? await start("publishers", { BOOKS_ALLOW_UNAUTHENTICATED: "true" })
+        ? await start("publishers")
         : fixturesUrl,
     );
   await runBrowserScenario(
     "yenpress-publisher.browser.mjs",
-    await start("yenpress-publisher", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
+    await start("yenpress-publisher"),
   );
   if (
     process.env.BOOKS_TEST_SCANNING === "true" ||
@@ -462,20 +484,10 @@ try {
     await runBrowserScenario("scan-photos.browser.mjs", fixturesUrl);
   await runBrowserScenario(
     "infinite-scroll.browser.mjs",
-    await start("infinite-scroll", {
-      BOOKS_ALLOW_UNAUTHENTICATED: "true",
-    }),
+    await start("infinite-scroll"),
   );
-  await runBrowserScenario(
-    "anime.browser.mjs",
-    await start("anime", { BOOKS_ALLOW_UNAUTHENTICATED: "true" }),
-  );
-  await runBrowserScenario(
-    "discovery.browser.mjs",
-    await start("discovery", {
-      BOOKS_ALLOW_UNAUTHENTICATED: "true",
-    }),
-  );
+  await runBrowserScenario("anime.browser.mjs", await start("anime"));
+  await runBrowserScenario("discovery.browser.mjs", await start("discovery"));
   console.log("PASS all standalone app browser checks");
 } finally {
   if (browser) await browser.close();

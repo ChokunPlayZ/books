@@ -9,12 +9,16 @@ import { randomUUID } from "node:crypto";
 import { chromium } from "playwright";
 import { openStore } from "../../lib/server/store.ts";
 import { createAccount } from "../../lib/server/auth.ts";
+import {
+  googleTestEnvironment,
+  mockGooglePage,
+} from "../helpers/mock-google.mjs";
 
 const directory = mkdtempSync(join(tmpdir(), "books-users-browser-"));
 const database = join(directory, "books.sqlite");
 const store = openStore(database);
-const alice = createAccount(store, "alice", "alice-browser-password");
-createAccount(store, "bob", "bob-browser-password");
+const alice = createAccount(store, "alice", "alice@gmail.com");
+createAccount(store, "bob", "bob@gmail.com");
 let aliceBook;
 const image = store.covers.put({
   contentType: "image/png",
@@ -52,19 +56,22 @@ await new Promise((resolve) => socket.listen(0, "127.0.0.1", resolve));
 const port = socket.address().port;
 await new Promise((resolve) => socket.close(resolve));
 const url = `http://127.0.0.1:${port}`;
-const server = spawn(process.execPath, [".next/standalone/server.js"], {
-  env: {
-    ...process.env,
-    NODE_ENV: "production",
-    HOSTNAME: "127.0.0.1",
-    PORT: String(port),
-    BOOKS_DATABASE_PATH: database,
-    BOOKS_PASSWORD: "admin-browser-password",
-    BOOKS_SECURE_COOKIES: "false",
-    BOOKS_ALLOW_UNAUTHENTICATED: "false",
+const server = spawn(
+  process.execPath,
+  ["--import", "./tests/helpers/mock-google.mjs", ".next/standalone/server.js"],
+  {
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+      HOSTNAME: "127.0.0.1",
+      PORT: String(port),
+      BOOKS_DATABASE_PATH: database,
+      ...googleTestEnvironment(),
+      BOOKS_APP_URL: url,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
   },
-  stdio: ["ignore", "pipe", "pipe"],
-});
+);
 let logs = "";
 server.stdout.on("data", (chunk) => {
   logs = (logs + chunk).slice(-4000);
@@ -94,18 +101,52 @@ try {
   const bobContext = await browser.newContext();
   const alicePage = await aliceContext.newPage();
   const bobPage = await bobContext.newPage();
+  assert.equal(
+    (
+      await alicePage.request.post(url + "/api/rpc", {
+        data: { name: "getCollection" },
+      })
+    ).status(),
+    401,
+  );
+  assert.equal(
+    (await alicePage.request.get(url + "/api/auth/google")).status(),
+    405,
+  );
+  assert.equal(
+    (
+      await alicePage.request.post(url + "/api/auth/google", {
+        headers: { Origin: "https://evil.test" },
+        maxRedirects: 0,
+      })
+    ).status(),
+    403,
+  );
+  const invalid = await alicePage.request.get(
+    url + "/api/auth/google/callback?state=invalid&code=forged",
+    { maxRedirects: 0 },
+  );
+  assert.equal(invalid.status(), 303);
+  assert.equal(invalid.headers().location, url + "/login?error=google");
   const errors = [];
   for (const page of [alicePage, bobPage])
     page.on("pageerror", (error) => errors.push(error.message));
   async function login(page, username) {
     await page.goto(url);
     await page.waitForURL("**/login");
-    await page.getByLabel("Username", { exact: true }).fill(username);
+    await mockGooglePage(page, {
+      sub: "google-" + username,
+      email: username + "@gmail.com",
+      email_verified: true,
+    });
     await page
-      .getByLabel("Password", { exact: true })
-      .fill(username + "-browser-password");
-    await page.getByRole("button", { name: "Sign in", exact: true }).click();
-    await page.waitForURL(url + "/");
+      .getByRole("button", { name: "Continue with Google", exact: true })
+      .click();
+    await page.waitForURL(url + "/").catch((error) => {
+      throw new Error(
+        `${error.message}\nCurrent page: ${page.url()}\nServer: ${logs}`,
+      );
+    });
     await page.waitForFunction(
       () => !document.getElementById("addButton").disabled,
     );
@@ -155,9 +196,39 @@ try {
   await bobPage.locator("#cancelBook").click();
   await bobPage.goto(url + "/data");
   assert.equal(await bobPage.locator("#metadata-maintenance").count(), 0);
+  const publicContext = await browser.newContext();
+  const publicPage = await publicContext.newPage();
+  await login(publicPage, "new-reader");
+  const publicData = await (await rpc(publicPage, "getCollection")).json();
+  assert.equal(publicData.user.role, "user");
+  assert.deepEqual(publicData.books, []);
+  const session = (await publicContext.cookies()).find(
+    (cookie) => cookie.name === "book_collection_session",
+  );
+  assert.equal(session.httpOnly, true);
+  assert.equal(session.sameSite, "Lax");
+  assert.equal(
+    (
+      await publicPage.request.post(url + "/api/logout", {
+        headers: { Origin: url },
+      })
+    ).status(),
+    200,
+  );
+  assert.equal((await rpc(publicPage, "getCollection")).status(), 401);
+  assert.equal(
+    (
+      await publicPage.request.post(url + "/api/rpc", {
+        headers: { Cookie: "book_collection_session=" + session.value },
+        data: { name: "getCollection" },
+      })
+    ).status(),
+    401,
+  );
+  await publicContext.close();
   assert.deepEqual(errors, []);
   console.log(
-    "PASS separate account login, private libraries/backups/covers, admin-only refresh, and three book types",
+    "PASS Google-only login, public signup, callback/CSRF protection, private libraries/backups/covers, admin-only refresh, and session revocation",
   );
 } finally {
   await browser?.close();

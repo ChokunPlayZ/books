@@ -1,36 +1,49 @@
 import { openStore } from "../lib/server/store.ts";
 import { createAccount } from "../lib/server/auth.ts";
+import { normalizeEmail } from "../lib/server/auth-config.ts";
 import { configureEnvironment } from "./environment.mjs";
 
 configureEnvironment();
-const username = process.argv[2];
-const password = process.env.BOOKS_NEW_USER_PASSWORD;
-if (!username || !password) {
+const [username, rawEmail] = process.argv.slice(2);
+const email = normalizeEmail(rawEmail);
+if (!username || !email) {
   console.error(
-    "Set BOOKS_NEW_USER_PASSWORD, then run: npm run user:add -- username [--admin]",
+    "Run: npm run user:add -- username google-email [--admin | --link]",
   );
   process.exit(1);
 }
 const store = openStore();
 try {
-  if (
-    !process.env.BOOKS_PASSWORD &&
-    !store.db
-      .prepare("SELECT 1 FROM users WHERE id=1 AND password_hash<>''")
-      .get()
-  )
-    throw new Error(
-      "Set BOOKS_PASSWORD for the existing admin library before enabling multiple users.",
+  if (process.argv.includes("--link")) {
+    const user = store.db
+      .prepare("SELECT id,google_subject FROM users WHERE username=?")
+      .get(username);
+    if (!user) throw new Error("That existing username was not found.");
+    if (user.google_subject)
+      throw new Error(
+        "This library is already linked. It cannot be reassigned by email.",
+      );
+    if (
+      store.db
+        .prepare("SELECT id FROM users WHERE email=? AND id<>?")
+        .get(email, user.id)
+    )
+      throw new Error("That email is already assigned to another library.");
+    store.db.prepare("UPDATE users SET email=? WHERE id=?").run(email, user.id);
+    console.log(
+      `Linked ${username} to ${email}. Sign in with Google to claim this library.`,
     );
-  const user = createAccount(
-    store,
-    username,
-    password,
-    process.argv.includes("--admin") ? "admin" : "user",
-  );
-  console.log(
-    `Created ${user.role} account: ${user.username}. Its library starts empty.`,
-  );
+  } else {
+    const user = createAccount(
+      store,
+      username,
+      email,
+      process.argv.includes("--admin") ? "admin" : "user",
+    );
+    console.log(
+      `Created ${user.role} account: ${user.username}, reserved for ${email}. Its library starts empty.`,
+    );
+  }
 } finally {
   store.close();
 }

@@ -53,7 +53,7 @@ test("confirmed ISBN/source matches survive time, restart, other users, prices a
   store.db.prepare("UPDATE cache SET expires_at=1 WHERE expires_at<>0").run();
   store.close();
   store = openStore(path);
-  const user = createAccount(store, "reader", "reader-password-123");
+  const user = createAccount(store, "reader", "reader@gmail.com");
   catalogs = createCatalogService(store, () => assert.fail("No network"), [
     definition,
   ]);

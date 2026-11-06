@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { openStore } from "../../lib/server/store.ts";
 import {
   createAccount,
-  signIn,
+  signInWithGoogle,
   sessionUser,
   signOut,
 } from "../../lib/server/auth.ts";
@@ -29,8 +29,8 @@ const input = {
 function setup(t) {
   const store = openStore(":memory:");
   t.after(() => store.close());
-  const alice = createAccount(store, "alice", "alice-password-123");
-  const bob = createAccount(store, "bob", "bob-password-456");
+  const alice = createAccount(store, "alice", "alice@gmail.com");
+  const bob = createAccount(store, "bob", "bob@gmail.com");
   return {
     store,
     alice,
@@ -192,9 +192,21 @@ test("async requests keep their identities, and imports and image exports are sc
 
 test("user sessions identify accounts and ordinary users cannot inspect caches or force scraping", async (t) => {
   const { store, alice, bob, as } = setup(t);
-  const signedIn = signIn(store, "alice-password-123", "ALICE");
+  const signedIn = signInWithGoogle(store, {
+    sub: "alice-google",
+    email: "alice@gmail.com",
+    email_verified: true,
+  });
   assert.equal(sessionUser(store, signedIn.token).id, alice.id);
-  assert.equal(signIn(store, "bob-password-456", "alice").error.status, 401);
+  assert.throws(
+    () =>
+      signInWithGoogle(store, {
+        sub: "bob-google",
+        email: "alice@gmail.com",
+        email_verified: true,
+      }),
+    { status: 403 },
+  );
   signOut(store, signedIn.token);
   assert.equal(sessionUser(store, signedIn.token), null);
   const api = createApplicationApi(
@@ -222,20 +234,36 @@ test("user sessions identify accounts and ordinary users cannot inspect caches o
       { status: 403 },
     );
     assert.throws(
-      () => createAccount(store, "mallory", "mallory-password-123", "admin"),
+      () => createAccount(store, "mallory", "mallory@gmail.com", "admin"),
       { status: 403 },
     );
   });
 });
 
-test("one user's failed sign-ins do not lock or clear another user's attempts", (t) => {
+test("unverified Google identities cannot claim a library or affect another account", (t) => {
   const { store } = setup(t);
   for (let count = 0; count < 10; count++)
-    assert.equal(signIn(store, "wrong", "alice").error.status, 401);
-  assert.equal(signIn(store, "alice-password-123", "alice").error.status, 429);
-  const bob = signIn(store, "bob-password-456", "bob");
+    assert.throws(
+      () =>
+        signInWithGoogle(store, {
+          sub: "mallory",
+          email: "alice@gmail.com",
+          email_verified: false,
+        }),
+      { status: 403 },
+    );
+  const bob = signInWithGoogle(store, {
+    sub: "bob-google",
+    email: "bob@gmail.com",
+    email_verified: true,
+  });
   assert.equal(sessionUser(store, bob.token).username, "bob");
-  assert.equal(signIn(store, "alice-password-123", "alice").error.status, 429);
+  assert.equal(
+    store.db
+      .prepare("SELECT google_subject FROM users WHERE username='alice'")
+      .get().google_subject,
+    null,
+  );
 });
 
 test("imported cover/source associations cannot overwrite shared publisher images", (t) => {

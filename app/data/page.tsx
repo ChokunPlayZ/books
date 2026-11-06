@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { getApp } from "../../lib/server/app.ts";
 import {
   sessionUser,
-  passwordRequired,
   SESSION_COOKIE,
 } from "../../lib/server/auth.ts";
 import DataManager from "../../components/DataManager";
@@ -23,7 +22,7 @@ export default async function DataPage() {
         trash: data.trash.length,
         savedReleases: data.savedReleases.length,
       }}
-      canSignOut={passwordRequired(store)}
+      canSignOut={true}
       metadata={user.role === "admin" ? await store.forUser(user, () => api.getMetadataOverview()) : null}
     />
   );

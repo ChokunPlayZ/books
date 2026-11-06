@@ -164,7 +164,7 @@ test("version 1 databases migrate without losing books and invalid metadata roll
   legacy.close();
   const store = openStore(path);
   try {
-    assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 5);
+    assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 6);
     const volume = store.api.getCollection().books[0];
     assert.equal(volume.series, book.series);
     assert.equal(volume.coverUrl, "");
@@ -172,8 +172,8 @@ test("version 1 databases migrate without losing books and invalid metadata roll
     assert.equal(
       store.db
         .prepare("SELECT user_id FROM sessions WHERE token_hash=?")
-        .get("existing-session").user_id,
-      1,
+        .get("existing-session"),
+      undefined,
     );
     assert.deepEqual(
       store.api

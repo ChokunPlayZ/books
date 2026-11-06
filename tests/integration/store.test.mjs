@@ -7,7 +7,11 @@ import * as XLSX from "xlsx";
 import { openStore } from "../../lib/server/store.ts";
 import { parseImport } from "../../lib/server/importer.ts";
 import { BOOK_APP, parseCatalog } from "../../lib/domain.ts";
-import { hasSession, signIn, signOut } from "../../lib/server/auth.ts";
+import {
+  hasSession,
+  signInWithGoogle,
+  signOut,
+} from "../../lib/server/auth.ts";
 import { readFileSync } from "node:fs";
 
 const input = {
@@ -361,29 +365,33 @@ test("migration rejects malformed inputs and retains legacy scientific ISBNs, bl
   );
 });
 
-test("authentication persists sessions, invalidates old passwords, expires sessions and rate-limits failures", () => {
-  const oldPassword = process.env.BOOKS_PASSWORD;
-  process.env.BOOKS_PASSWORD = "test-library-password";
+test("Google sessions are hashed, bound to an identity, revocable and expiring", () => {
   const store = openStore(":memory:");
   try {
     assert.equal(hasSession(store, null), false);
-    const login = signIn(store, "test-library-password");
+    const identity = {
+      sub: "google-owner",
+      email: "owner@gmail.com",
+      email_verified: true,
+    };
+    const login = signInWithGoogle(store, identity, identity.email);
     assert.ok(login.token);
     assert.equal(hasSession(store, login.token), true);
-    process.env.BOOKS_PASSWORD = "changed-password";
+    assert.notEqual(
+      store.db.prepare("SELECT token_hash FROM sessions").get().token_hash,
+      login.token,
+    );
+    store.db.exec(
+      "UPDATE users SET google_subject='changed-identity' WHERE id=1",
+    );
     assert.equal(hasSession(store, login.token), false);
-    process.env.BOOKS_PASSWORD = "test-library-password";
+    store.db.exec("UPDATE users SET google_subject='google-owner' WHERE id=1");
     signOut(store, login.token);
     assert.equal(hasSession(store, login.token), false);
-    const expired = signIn(store, "test-library-password");
+    const expired = signInWithGoogle(store, identity);
     store.db.exec("UPDATE sessions SET expires_at=0");
     assert.equal(hasSession(store, expired.token), false);
-    for (let i = 0; i < 10; i++)
-      assert.equal(signIn(store, "wrong").error.status, 401);
-    assert.equal(signIn(store, "test-library-password").error.status, 429);
   } finally {
     store.close();
-    if (oldPassword === undefined) delete process.env.BOOKS_PASSWORD;
-    else process.env.BOOKS_PASSWORD = oldPassword;
   }
 });

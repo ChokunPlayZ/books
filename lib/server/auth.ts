@@ -1,46 +1,33 @@
-import {
-  createHash,
-  randomBytes,
-  scryptSync,
-  timingSafeEqual,
-} from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { AppError } from "./store.ts";
 import type { Store } from "./store.ts";
 import type { User } from "./user-context.ts";
+import { appOrigin, normalizeEmail } from "./auth-config.ts";
 
-export const SESSION_COOKIE = "book_collection_session";
-const hash = (value) => createHash("sha256").update(value).digest("hex");
-export function passwordRequired(store?: Store) {
-  return (
-    !!store?.db
-      .prepare("SELECT 1 FROM users WHERE password_hash<>'' LIMIT 1")
-      .get() ||
-    !!process.env.BOOKS_PASSWORD ||
-    (process.env.NODE_ENV === "production" &&
-      process.env.BOOKS_ALLOW_UNAUTHENTICATED !== "true")
-  );
-}
+// __Host- cookies cannot be planted for this host by sibling subdomains.
+export const SESSION_COOKIE = process.env.BOOKS_APP_URL?.trim()
+  .toLowerCase()
+  .startsWith("https:")
+  ? "__Host-book_collection_session"
+  : "book_collection_session";
+export const SESSION_SECONDS = 14 * 86400;
+export const authHash = (value: string) =>
+  createHash("sha256").update(value).digest("hex");
+
 export function sessionUser(store: Store, token?: string): User | null {
-  if (!passwordRequired(store))
-    return { id: 1, username: "admin", role: "admin" };
   if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
   const row = store.db
     .prepare(
-      `SELECT users.id,users.username,users.role,users.password_hash,sessions.credential_hash
-       FROM sessions JOIN users ON users.id=sessions.user_id
-       WHERE (token_hash=? OR token_hash=?) AND expires_at>?`,
+      `
+    SELECT users.id,users.username,users.role,users.google_subject,sessions.credential_hash
+    FROM sessions JOIN users ON users.id=sessions.user_id
+    WHERE token_hash=? AND expires_at>?
+  `,
     )
-    .get(
-      hash(token),
-      hash(token + (process.env.BOOKS_PASSWORD || "")),
-      Date.now(),
-    );
-  if (!row) return null;
-  const credential =
-    row.password_hash || (row.id === 1 ? process.env.BOOKS_PASSWORD : "");
+    .get(authHash(token), Date.now());
   if (
-    !credential ||
-    (row.credential_hash && row.credential_hash !== hash(credential))
+    !row?.google_subject ||
+    row.credential_hash !== authHash("google:" + row.google_subject)
   )
     return null;
   return {
@@ -49,22 +36,30 @@ export function sessionUser(store: Store, token?: string): User | null {
     role: row.role as User["role"],
   };
 }
-export function hasSession(store: Store, token?: string) {
-  return !!sessionUser(store, token);
+
+export function hasSession(store: Store, token?: string | null) {
+  return !!sessionUser(store, token ?? undefined);
 }
-export function authorize(store, request) {
-  const token = request.cookies?.get(SESSION_COOKIE)?.value;
-  const user = sessionUser(store, token);
+
+export function authorize(
+  store: Store,
+  request: { cookies?: { get(name: string): { value: string } | undefined } },
+) {
+  const user = sessionUser(store, request.cookies?.get(SESSION_COOKIE)?.value);
   if (!user) throw new AppError("Sign in to open your library.", 401);
   return user;
 }
+
+// Server-side provisioning only. A verified Google email can claim this mapping
+// once; subsequent sign-ins are bound to Google's immutable subject, not email.
 export function createAccount(
   store: Store,
   username: string,
-  password: string,
+  rawEmail: string,
   role: User["role"] = "user",
 ) {
   store.requireAdmin();
+  const email = normalizeEmail(rawEmail);
   if (
     !/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}$/.test(username) ||
     !["user", "admin"].includes(role)
@@ -72,119 +67,150 @@ export function createAccount(
     throw new AppError(
       "Use a username of 1–64 letters, numbers, dots, underscores or hyphens.",
     );
+  if (!email) throw new AppError("Use a valid Google email address.");
   if (
-    typeof password !== "string" ||
-    password.length < 12 ||
-    password.length > 1024
+    store.db
+      .prepare("SELECT id FROM users WHERE username=? OR email=?")
+      .get(username, email)
   )
-    throw new AppError("Use a password between 12 and 1,024 characters.");
-  const salt = randomBytes(16).toString("hex");
-  const encoded = salt + ":" + scryptSync(password, salt, 32).toString("hex");
-  if (store.db.prepare("SELECT id FROM users WHERE username=?").get(username))
-    throw new AppError("That username is already in use.", 409);
+    throw new AppError("That username or email is already in use.", 409);
   const result = store.db
     .prepare(
-      "INSERT INTO users (username,password_hash,role,created_at) VALUES (?,?,?,?)",
+      "INSERT INTO users (username,email,role,created_at) VALUES (?,?,?,?)",
     )
-    .run(username, encoded, role, new Date().toISOString());
+    .run(username, email, role, new Date().toISOString());
   return { id: Number(result.lastInsertRowid), username, role };
 }
-export function signIn(
+
+export type GoogleIdentity = {
+  sub: string;
+  email: string;
+  email_verified: boolean;
+  hd?: string;
+};
+
+// Only call with claims validated by the OIDC client (issuer, audience,
+// signature, expiry and nonce). No HTTP endpoint accepts identity claims.
+export function signInWithGoogle(
   store: Store,
-  password: unknown,
-  username: unknown = "admin",
+  identity: GoogleIdentity,
+  adminEmail = process.env.BOOKS_ADMIN_EMAIL,
 ) {
+  const email = normalizeEmail(identity.email);
   if (
-    !process.env.BOOKS_PASSWORD &&
-    !store.db
-      .prepare("SELECT 1 FROM users WHERE password_hash<>'' LIMIT 1")
-      .get()
+    !email ||
+    identity.email_verified !== true ||
+    typeof identity.sub !== "string" ||
+    !/^[\x21-\x7e]{1,255}$/.test(identity.sub)
   )
     throw new AppError(
-      "Set BOOKS_PASSWORD on the server before signing in.",
-      503,
+      "Use a Google account with a verified email address.",
+      403,
     );
   return store.transaction(() => {
-    const name =
-      typeof username === "string" ? username.trim().toLowerCase() : "";
-    const attemptKey = "login:" + hash(name.slice(0, 64));
-    const now = Date.now(),
-      previous = store.db
-        .prepare("SELECT * FROM login_attempts WHERE key=?")
-        .get(attemptKey);
-    if (
-      previous &&
-      Number(previous.resets_at) > now &&
-      Number(previous.attempts) >= 10
-    )
-      return {
-        error: new AppError("Too many attempts. Try again in 15 minutes.", 429),
-      };
-    if (typeof password !== "string" || password.length > 1024)
-      return { error: new AppError("Incorrect password.", 401) };
-    const user =
-      name.length <= 64
-        ? store.db.prepare("SELECT * FROM users WHERE username=?").get(name)
-        : null;
-    const credential = String(
-      user?.password_hash ||
-        (user?.id === 1 ? process.env.BOOKS_PASSWORD || "" : ""),
-    );
-    const [salt, expected] = user?.password_hash
-      ? credential.split(":")
-      : ["book-collection-login", ""];
-    const actual = scryptSync(password, salt, 32);
-    const target = expected
-      ? Buffer.from(expected, "hex")
-      : scryptSync(credential || "invalid-account", salt, 32);
-    const correct =
-      !!user &&
-      !!credential &&
-      target.length === actual.length &&
-      timingSafeEqual(actual, target);
-    if (!correct) {
-      const attempts =
-        previous && Number(previous.resets_at) > now
-          ? Number(previous.attempts) + 1
-          : 1;
-      store.db
-        .prepare(
-          "INSERT INTO login_attempts VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET attempts=excluded.attempts,resets_at=excluded.resets_at",
+    let user = store.db
+      .prepare("SELECT * FROM users WHERE google_subject=?")
+      .get(identity.sub);
+    const reserved = store.db
+      .prepare("SELECT * FROM users WHERE email=?")
+      .get(email);
+    if (user && reserved && reserved.id !== user.id)
+      throw new AppError(
+        "This Google email is already assigned to another library. Contact the administrator.",
+        409,
+      );
+    if (!user) {
+      const admin = store.db.prepare("SELECT * FROM users WHERE id=1").get();
+      const target =
+        reserved ||
+        (email === normalizeEmail(adminEmail) && !admin.google_subject
+          ? admin
+          : null);
+      if (target) {
+        if (target.google_subject)
+          throw new AppError(
+            "This library is already linked to a different Google account.",
+            403,
+          );
+        // Google is authoritative for Gmail and verified Workspace domains, but
+        // not for arbitrary third-party email addresses attached to Google.
+        if (
+          !email.endsWith("@gmail.com") &&
+          (!identity.hd || identity.hd.toLowerCase() !== email.split("@")[1])
         )
-        .run(
-          attemptKey,
-          attempts,
-          previous && Number(previous.resets_at) > now
-            ? previous.resets_at
-            : now + 15 * 60 * 1000,
-        );
-      return { error: new AppError("Incorrect password.", 401) };
+          throw new AppError(
+            "Use a Gmail or Google Workspace account to link an existing library.",
+            403,
+          );
+        store.db
+          .prepare("UPDATE users SET google_subject=?,email=? WHERE id=?")
+          .run(identity.sub, email, target.id);
+        user = target;
+      } else {
+        // An old email may still be another account's display username after an
+        // email change. Never merge identities or let that collision block signup.
+        const username = store.db
+          .prepare("SELECT id FROM users WHERE username=?")
+          .get(email)
+          ? "google-" + authHash(identity.sub).slice(0, 32)
+          : email;
+        const result = store.db
+          .prepare(
+            "INSERT INTO users (username,email,google_subject,role,created_at) VALUES (?,?,?,'user',?)",
+          )
+          .run(username, email, identity.sub, new Date().toISOString());
+        user = { id: result.lastInsertRowid, username, role: "user" };
+      }
+    } else {
+      store.db
+        .prepare("UPDATE users SET email=? WHERE id=?")
+        .run(email, user.id);
     }
-    store.db.prepare("DELETE FROM login_attempts WHERE key=?").run(attemptKey);
-    store.db.prepare("DELETE FROM sessions WHERE expires_at<?").run(now);
+    const now = Date.now();
+    store.db.prepare("DELETE FROM sessions WHERE expires_at<=?").run(now);
+    // Bound the number of active sessions per account.
+    store.db
+      .prepare(
+        "DELETE FROM sessions WHERE user_id=? AND token_hash NOT IN (SELECT token_hash FROM sessions WHERE user_id=? ORDER BY expires_at DESC LIMIT 9)",
+      )
+      .run(user.id, user.id);
     const token = randomBytes(32).toString("hex");
     store.db
       .prepare(
         "INSERT INTO sessions (token_hash,expires_at,user_id,credential_hash) VALUES (?,?,?,?)",
       )
-      .run(hash(token), now + 14 * 86400000, user.id, hash(credential));
-    return { token };
+      .run(
+        authHash(token),
+        now + SESSION_SECONDS * 1000,
+        user.id,
+        authHash("google:" + identity.sub),
+      );
+    return {
+      token,
+      user: {
+        id: Number(user.id),
+        username: String(user.username),
+        role: user.role as User["role"],
+      },
+    };
   });
 }
-export function signOut(store, token) {
-  if (token)
+
+export function signOut(store: Store, token?: string) {
+  if (token && /^[a-f0-9]{64}$/.test(token))
     store.db
-      .prepare("DELETE FROM sessions WHERE token_hash=? OR token_hash=?")
-      .run(hash(token), hash(token + (process.env.BOOKS_PASSWORD || "")));
+      .prepare("DELETE FROM sessions WHERE token_hash=?")
+      .run(authHash(token));
 }
+
 export function cookieOptions() {
   return {
     httpOnly: true,
-    sameSite: "strict" as const,
-    secure: process.env.BOOKS_SECURE_COOKIES
-      ? process.env.BOOKS_SECURE_COOKIES === "true"
+    sameSite: "lax" as const,
+    secure: process.env.BOOKS_APP_URL
+      ? appOrigin().startsWith("https:")
       : process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 14 * 86400,
+    maxAge: SESSION_SECONDS,
   };
 }
