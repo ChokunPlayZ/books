@@ -1,5 +1,5 @@
 ---
-name: Book Collection
+name: meemai
 description: A handheld collection utility with a desktop shelf.
 colors:
   "primary": "#3156c8"
@@ -189,7 +189,7 @@ components:
     width: "100%"
 ---
 
-# Design System: Book Collection
+# Design System: meemai
 
 ## Overview
 

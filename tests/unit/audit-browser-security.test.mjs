@@ -319,6 +319,7 @@ function serviceWorkerHarness() {
 test("browser audit: worker caches only public offline HTML and deletes only its old caches", async () => {
   const worker = serviceWorkerHarness();
   worker.entries.set("book-collection-offline-v0", new Map());
+  worker.entries.set("book-collection-offline-v1", new Map());
   worker.entries.set("unrelated-application", new Map());
   await worker.lifecycle("install");
   assert.equal(worker.skipped, true);
@@ -327,7 +328,10 @@ test("browser audit: worker caches only public offline HTML and deletes only its
   assert.equal(worker.writes[0].cache, "reload");
   await worker.lifecycle("activate");
   assert.equal(worker.claimed, true);
-  assert.deepEqual(worker.deleted, ["book-collection-offline-v0"]);
+  assert.deepEqual(worker.deleted, [
+    "book-collection-offline-v0",
+    "book-collection-offline-v1",
+  ]);
   assert.equal(worker.entries.has("unrelated-application"), true);
 
   assert.equal(

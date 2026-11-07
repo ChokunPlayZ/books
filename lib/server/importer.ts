@@ -299,12 +299,12 @@ export function parseImport(buffer, filename) {
       raw = JSON.parse(buffer.toString("utf8").replace(/^\uFEFF/, ""));
       if (Array.isArray(raw)) raw = { books: raw };
       else if (raw.format !== "book-collection" || raw.version !== 1)
-        throw new AppError("This is not a supported Book Collection backup.");
+        throw new AppError("This is not a supported meemai backup.");
     } else if (/\.(csv|xlsx)$/i.test(filename))
       raw = fromWorkbook(buffer, filename);
     else
       throw new AppError(
-        "Choose a Google Sheets Excel export, collection CSV, or Book Collection JSON backup.",
+        "Choose a Google Sheets Excel export, collection CSV, or meemai JSON backup.",
       );
   } catch (error) {
     if (error instanceof AppError) throw error;

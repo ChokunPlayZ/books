@@ -7,13 +7,13 @@ import PreferencesProvider from "../components/PreferencesProvider";
 import { accountPreferences } from "../lib/server/preferences.ts";
 
 export const metadata: Metadata = {
-  title: "Book Collection",
-  applicationName: "Book Collection",
+  title: "meemai",
+  applicationName: "meemai",
   description:
     "Your personal library of manga, light novels and every volume in between.",
   appleWebApp: {
     capable: true,
-    title: "Book Collection",
+    title: "meemai",
     statusBarStyle: "default",
   },
 };

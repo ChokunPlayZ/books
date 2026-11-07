@@ -16,7 +16,7 @@ async function seriesName(params: Props["params"]) {
 }
 
 export async function generateMetadata({ params }: Props) {
-  return { title: (await seriesName(params)) + " · Book Collection" };
+  return { title: (await seriesName(params)) + " · meemai" };
 }
 
 export default async function SeriesPage({ params }: Props) {

@@ -25,6 +25,13 @@ test("Thai and English translations preserve interpolation and unknown text", ()
   }
 });
 
+test("meemai branding uses the original Thai name in the Thai interface", () => {
+  assert.equal(translator("en")("meemai"), "meemai");
+  assert.equal(translator("th")("meemai"), "มีมั้ย");
+  assert.equal(translator("en")("meemai home"), "meemai home");
+  assert.equal(translator("th")("meemai home"), "หน้าหลักมีมั้ย");
+});
+
 test("every explicitly translated interface literal has a Thai translation", () => {
   function scan(directory) {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {

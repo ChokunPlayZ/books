@@ -9,13 +9,13 @@ export default function LibraryBrand() {
     <a
       className="brand flex shrink-0 items-center no-underline"
       href="/"
-      aria-label={t("Book Collection home")}
+      aria-label={t("meemai home")}
     >
       <span className="brand-mark">
         <Icon name="book" />
       </span>
       <span>
-        <span className="brand-name">Book Collection</span>
+        <span className="brand-name">{t("meemai")}</span>
       </span>
     </a>
   );

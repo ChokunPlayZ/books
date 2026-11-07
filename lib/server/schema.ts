@@ -64,9 +64,7 @@ export async function migrateDatabase(pool: Pool) {
     );
     const version = Number(result.rows[0].version || 0);
     if (version > migrations.length)
-      throw new Error(
-        "This database needs a newer version of Book Collection.",
-      );
+      throw new Error("This database needs a newer version of meemai.");
     for (let index = version; index < migrations.length; index++) {
       await client.query(migrations[index]);
       await client.query(

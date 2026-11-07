@@ -3,8 +3,8 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "Book Collection",
-    short_name: "Books",
+    name: "meemai",
+    short_name: "meemai",
     description:
       "Your personal library of manga, light novels and every volume in between.",
     lang: "en",

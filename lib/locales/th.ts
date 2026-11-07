@@ -52,7 +52,8 @@ export const thai: Record<string, string> = {
   "Changes are saved automatically.": "บันทึกการเปลี่ยนแปลงโดยอัตโนมัติ",
   "Preferences could not be saved. Please try again.":
     "บันทึกการตั้งค่าไม่สำเร็จ กรุณาลองอีกครั้ง",
-  "Book Collection home": "หน้าหลักคลังหนังสือ",
+  meemai: "มีมั้ย",
+  "meemai home": "หน้าหลักมีมั้ย",
   "Skip to library": "ข้ามไปยังคลังหนังสือ",
   "Book entry": "เพิ่มหนังสือ",
   "Check a book": "ตรวจสอบหนังสือ",

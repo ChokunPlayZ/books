@@ -71,7 +71,7 @@ test("audit IO: backup exports are account-rate-limited and share the import's a
   assert.equal(response.headers.get("Cache-Control"), "no-store");
   assert.match(
     response.headers.get("Content-Disposition"),
-    /^attachment; filename="book-collection-/,
+    /^attachment; filename="meemai-/,
   );
   assert.equal((await response.json()).format, "book-collection");
   await limitConcurrentRequests(

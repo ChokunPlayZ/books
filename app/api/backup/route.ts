@@ -14,9 +14,7 @@ export async function GET(request: NextRequest) {
     const series = request.nextUrl.searchParams.get("series") ?? undefined;
     const date = new Date().toISOString().slice(0, 10);
     const filename =
-      series === undefined
-        ? `book-collection-${date}.json`
-        : `book-series-${date}.json`;
+      series === undefined ? `meemai-${date}.json` : `book-series-${date}.json`;
     const title = Array.from(series ?? "")
       .slice(0, 100)
       .join("")

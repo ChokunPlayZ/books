@@ -31,7 +31,10 @@ try {
     /application\/manifest\+json/,
   );
   const manifest = await response.json();
-  assert.equal(manifest.name, "Book Collection");
+  assert.equal(manifest.name, "meemai");
+  assert.equal(manifest.short_name, "meemai");
+  assert.equal(await page.title(), "meemai");
+  assert.equal(await page.locator(".brand-name").textContent(), "meemai");
   assert.equal(manifest.id, "/");
   assert.equal(manifest.start_url, "/");
   assert.equal(manifest.scope, "/");
@@ -80,6 +83,8 @@ try {
   const destination = testUrl + "/stats?period=year";
   await page.goto(destination);
   await page.getByRole("heading", { name: "You're offline" }).waitFor();
+  assert.equal(await page.title(), "You're offline · meemai");
+  assert.equal(await page.locator(".brand").textContent(), "meemai");
   assert.equal(page.url(), destination);
   await page.getByRole("link", { name: "Try again" }).click();
   await page.getByRole("heading", { name: "You're offline" }).waitFor();

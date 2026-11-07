@@ -139,6 +139,8 @@ try {
   await page.waitForFunction(
     () => !document.getElementById("addButton").disabled,
   );
+  assert.equal(await page.locator(".brand-name").textContent(), "meemai");
+  await page.getByRole("link", { name: "meemai home", exact: true }).waitFor();
   await page.getByRole("button", { name: "Dark theme", exact: true }).click();
   await page.waitForFunction(
     () => document.documentElement.dataset.theme === "dark",
@@ -150,6 +152,10 @@ try {
   await page.waitForFunction(() => document.documentElement.lang === "th");
   await page
     .getByRole("heading", { name: "คลังหนังสือของคุณ", exact: true })
+    .waitFor();
+  assert.equal(await page.locator(".brand-name").textContent(), "มีมั้ย");
+  await page
+    .getByRole("link", { name: "หน้าหลักมีมั้ย", exact: true })
     .waitFor();
   await page.waitForFunction(
     () => !document.getElementById("addButton").disabled,

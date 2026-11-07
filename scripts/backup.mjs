@@ -5,8 +5,7 @@ import { configureEnvironment } from "./environment.mjs";
 configureEnvironment();
 
 const path =
-  process.argv[2] ||
-  `book-collection-${new Date().toISOString().slice(0, 10)}.json`;
+  process.argv[2] || `meemai-${new Date().toISOString().slice(0, 10)}.json`;
 const store = await openStore();
 try {
   writeFileSync(path, JSON.stringify(await store.exportData(), null, 2), {

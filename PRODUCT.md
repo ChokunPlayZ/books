@@ -1,4 +1,4 @@
-# Book Collection
+# meemai
 
 <!-- impeccable:product-schema 1 -->
 
@@ -11,6 +11,8 @@ web
 Personal manga and light novel collector. Primarily enters and checks books on a handheld device; desktop is primarily for viewing.
 
 ## Product Purpose
+
+meemai takes its name from the Thai มีมั้ย (“Do you have it?”). Use lowercase **meemai** in English and **มีมั้ย** in the Thai interface.
 
 Maintain owned volumes, identify missing volumes, discover releases, and track reading and spending.
 

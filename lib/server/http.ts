@@ -12,7 +12,7 @@ export function errorResponse(error: unknown) {
   const expected = error instanceof AppError;
   if (!expected && !(error instanceof SyntaxError))
     console.error(
-      "Book Collection request failed:",
+      "meemai request failed:",
       error instanceof Error ? error.message : "Unknown error",
     );
   const status = expected

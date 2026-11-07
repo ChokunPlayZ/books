@@ -21,12 +21,12 @@ The image uses Node.js 24, a multi-stage build and the standalone Next.js bundle
 To build an image without Compose:
 
 ```sh
-docker build -t book-collection .
-docker run -d --name book-collection --init \
+docker build -t meemai .
+docker run -d --name meemai --init \
   -p 127.0.0.1:3000:3000 \
   --env-file .env \
   -e DATABASE_URL=postgresql://books:YOUR_PASSWORD@YOUR_DATABASE_HOST:5432/books \
-  book-collection
+  meemai
 ```
 
 The standalone app needs an existing PostgreSQL database reachable from its container. Use a verified TLS connection for a remote database (for example `sslmode=verify-full` with your provider's CA); do not disable certificate validation. Startup applies forward schema migrations under a database lock. The app uses a bounded connection pool, with account mutations serialized transactionally across connections.
@@ -49,7 +49,7 @@ Live camera access requires HTTPS or localhost. Taking or choosing barcode photo
 
 ## Install as an app
 
-Book Collection can be installed as a Progressive Web App (PWA) from a production deployment. In Chrome or Edge, use the browser's **Install app** option. On iPhone or iPad, open the library in Safari, tap **Share**, then **Add to Home Screen**. The installed app opens in its own window with the library's book icon.
+meemai can be installed as a Progressive Web App (PWA) from a production deployment. In Chrome or Edge, use the browser's **Install app** option. On iPhone or iPad, open the library in Safari, tap **Share**, then **Add to Home Screen**. The installed app opens in its own window with the library's book icon.
 
 Installation and offline support require HTTPS, or localhost for local use. A plain HTTP address on your local network does not enable the service worker. Build with `npm run build` and run with `npm start`; service worker registration is disabled during `npm run dev`.
 
@@ -62,10 +62,12 @@ Choose **Data & backups → Download library backup**. The JSON file contains ow
 The command-line equivalent is:
 
 ```sh
-npm run backup -- /path/to/book-collection-backup.json
+npm run backup -- /path/to/meemai-backup.json
 ```
 
 To restore, import that backup into an empty database through the UI or CLI. Record IDs and revision tokens are regenerated during restoration; the library records are preserved. A logical export uses one database transaction for a consistent snapshot. It excludes login sessions, request receipts and disposable catalog caches.
+
+Existing backups remain compatible. The JSON format identifier stays `book-collection` even though downloaded files now use the `meemai` name.
 
 For a full database backup, including all accounts and settings, use PostgreSQL's consistent logical backup:
 
