@@ -3,6 +3,7 @@ import { canonicalIsbn, volumeCoverKey } from "../domain.ts";
 import { createAnimeService } from "./anime.ts";
 import { createSeasonalDiscoveryService } from "./seasonal-discovery.ts";
 import { createMetadataService } from "./metadata.ts";
+import { AppError } from "./store.ts";
 
 async function eachLimit(items, action, limit = 4) {
   let cursor = 0;
@@ -98,12 +99,14 @@ export function createApplicationApi(
     Object.entries(methods).map(([name, method]) => [
       name,
       async (arg) => {
-        if (
-          arg &&
-          typeof arg === "object" &&
-          (arg as { refresh?: boolean }).refresh === true
-        )
-          store.requireAdmin();
+        if (arg && typeof arg === "object") {
+          const refresh = (arg as { refresh?: unknown }).refresh;
+          // Some source adapters use truthiness. Validate before authorization
+          // so JSON values such as "true", 1 or {} cannot force a refresh.
+          if (Object.hasOwn(arg, "refresh") && typeof refresh !== "boolean")
+            throw new AppError("Choose a boolean refresh value.");
+          if (refresh === true) store.requireAdmin();
+        }
         return await attachImages(await method(arg));
       },
     ]),
