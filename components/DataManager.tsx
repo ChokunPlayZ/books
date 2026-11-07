@@ -5,6 +5,7 @@ import LibraryBrand from "./LibraryBrand";
 import ThemeToggle from "./ThemeToggle";
 import LanguageSelect from "./LanguageSelect";
 import AccountPreferences from "./AccountPreferences";
+import LegalLinks from "./LegalLinks";
 import type { ImportResult, ImportReview } from "../lib/types";
 import { useTranslations } from "./PreferencesProvider";
 
@@ -233,6 +234,7 @@ export default function DataManager({ counts, canSignOut }: DataManagerProps) {
             <Icon name="lock" />
             {t("Stored in your library. Always yours.")}
           </span>
+          <LegalLinks />
           {canSignOut && (
             <button className="text-btn" onClick={logout}>
               <Icon name="logout" />

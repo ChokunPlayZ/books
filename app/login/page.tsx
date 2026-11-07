@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Icon from "../../components/Icon";
 import LibraryBrand from "../../components/LibraryBrand";
 import ThemeToggle from "../../components/ThemeToggle";
+import LegalLinks from "../../components/LegalLinks";
 import { googleSettings, safeReturnTo } from "../../lib/server/auth-config.ts";
 import { sessionUser, SESSION_COOKIE } from "../../lib/server/auth.ts";
 import { getApp } from "../../lib/server/app.ts";
@@ -43,7 +44,7 @@ export default async function LoginPage({
         </span>
         <h1>Open your library</h1>
         <p className="intro">
-          Sign in with Google to manage your books. New here? Your private
+          Sign in with Google to manage your books. New here? Your personal
           library is created automatically.
         </p>
         <form
@@ -67,10 +68,7 @@ export default async function LoginPage({
             Continue with Google
           </button>
         </form>
-        <p className="login-note">
-          <Icon name="lock" />
-          Your books stay private. We only request your email address.
-        </p>
+        <LegalLinks />
       </section>
     </main>
   );

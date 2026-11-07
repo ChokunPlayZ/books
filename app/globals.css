@@ -21,6 +21,7 @@
 @import "./styles/prices.css" layer(components);
 @import "./styles/search.css" layer(components);
 @import "./styles/preferences.css" layer(components);
+@import "./styles/legal.css" layer(components);
 @source "../components";
 @source "../lib/client";
 

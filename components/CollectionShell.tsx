@@ -15,6 +15,7 @@ import MissingPanel from "./collection/MissingPanel";
 import StatisticsPanel from "./collection/StatisticsPanel";
 import PriceFinder from "./collection/PriceFinder";
 import UniversalSearch from "./collection/UniversalSearch";
+import LegalLinks from "./LegalLinks";
 import TitleDialog from "./collection/dialogs/TitleDialog";
 import BookDialog from "./collection/dialogs/BookDialog";
 import ScanDialog from "./collection/dialogs/ScanDialog";
@@ -88,6 +89,7 @@ export default async function CollectionShell({
         )}
         <footer className={"footer"}>
           <span id={"syncNote"}>{t("Saved in your library")}</span>
+          <LegalLinks />
         </footer>
       </main>
       <TitleDialog />

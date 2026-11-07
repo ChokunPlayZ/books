@@ -134,6 +134,7 @@ async function runBrowserScenario(name, url) {
 let browser;
 try {
   const url = await start("protected");
+  await runBrowserScenario("legal.browser.mjs", url);
   await runBrowserScenario("audit-browser-security.browser.mjs", url);
   await runBrowserScenario("audit-deployment.browser.mjs", url);
   await runBrowserScenario("pwa.browser.mjs", url);
@@ -167,6 +168,15 @@ try {
   assert.equal((await page.request.post(url + "/api/import")).status(), 401);
   await page.goto(url);
   await page.waitForURL("**/login");
+  for (const path of ["/terms", "/privacy"])
+    assert.equal(
+      await page.locator(`.legal-links a[href="${path}"]`).count(),
+      1,
+    );
+  assert.doesNotMatch(
+    await page.locator("main").innerText(),
+    /books stay private|sharing with book publishers/i,
+  );
   assert.equal(await page.locator('input[type="password"]').count(), 0);
   assert.equal(
     (
@@ -184,6 +194,11 @@ try {
   await page.waitForFunction(
     () => !document.getElementById("addButton").disabled,
   );
+  for (const path of ["/terms", "/privacy"])
+    assert.equal(
+      await page.locator(`.footer .legal-links a[href="${path}"]`).count(),
+      1,
+    );
   const bookmarkContext = await browser.newContext();
   const bookmark = await bookmarkContext.newPage();
   const bookmarkedPath = seriesPath("Bookmarked title");
@@ -247,6 +262,11 @@ try {
   );
 
   await page.goto(url + "/data");
+  for (const path of ["/terms", "/privacy"])
+    assert.equal(
+      await page.locator(`.data-footer .legal-links a[href="${path}"]`).count(),
+      1,
+    );
   await page
     .locator("#importFile")
     .setInputFiles(join(root, "tests/fixtures/collection.json"));
