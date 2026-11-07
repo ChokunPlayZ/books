@@ -27,10 +27,8 @@ function checkedTime(value: string, locale: string) {
 
 export default function PriceFinder({
   initialIsbn = "",
-  canRefresh = false,
 }: {
   initialIsbn?: string;
-  canRefresh?: boolean;
 }) {
   const t = useTranslations();
   const { preferences } = usePreferences();
@@ -42,7 +40,7 @@ export default function PriceFinder({
   const pending = useRef<AbortController | null>(null);
 
   const search = useCallback(
-    async (raw: string, refresh = false) => {
+    async (raw: string) => {
       pending.current?.abort();
       const controller = new AbortController();
       pending.current = controller;
@@ -69,7 +67,7 @@ export default function PriceFinder({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: "findLowestPrices",
-            arg: { isbn: canonical, refresh },
+            arg: { isbn: canonical },
           }),
           signal: controller.signal,
         });
@@ -203,15 +201,6 @@ export default function PriceFinder({
                   )}
                 </p>
               </div>
-              {canRefresh && (
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => void search(result.isbn, true)}
-                >
-                  {t("Refresh prices")}
-                </button>
-              )}
             </div>
             <p className="price-search-status" role="status">
               {t(
@@ -306,7 +295,7 @@ export default function PriceFinder({
             )}
             <p className="hint price-terms">
               {t(
-                "Item prices exclude shipping, membership discounts and checkout coupons. Currencies are compared separately. Prices and stock are saved snapshots; only an administrator can refresh them. Open the shop for current prices.",
+                "Item prices exclude shipping, membership discounts and checkout coupons. Currencies are compared separately. Prices and stock may have changed since the time shown. Open the shop for current prices.",
               )}
             </p>
             <details className="price-sources">

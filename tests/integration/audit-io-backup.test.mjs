@@ -42,7 +42,7 @@ test("audit IO: backup exports are account-rate-limited and share the import's a
     release = resolve;
   });
   let exports = 0;
-  t.mock.method(store, "exportData", async () => {
+  t.mock.method(store, "exportLibrary", async () => {
     exports++;
     start();
     await blocked;
@@ -99,7 +99,7 @@ test("audit IO: cancelled backups release their slots and streamed UTF-8 never s
   };
   const store = {
     forUser: (_user, action) => action(),
-    exportData: async () => data,
+    exportLibrary: async () => data,
   };
   const user = { id: 99117 };
   const cancelled = await createBackupDownload(store, user, undefined, {});

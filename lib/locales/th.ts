@@ -221,26 +221,27 @@ export const thai: Record<string, string> = {
   "Light novel": "ไลท์โนเวล",
   Others: "อื่น ๆ",
   "Keep your library yours": "ดูแลคลังหนังสือของคุณ",
-  "Manage source metadata, maintain your cache, and keep a copy of your library.":
-    "จัดการข้อมูลจากแหล่งหนังสือ ดูแลแคช และสำรองคลังหนังสือของคุณ",
+  "Manage your preferences, export your books, or bring over a collection.":
+    "จัดการการตั้งค่า ส่งออกหนังสือ หรือนำเข้าคลังหนังสือของคุณ",
   "Library records": "ข้อมูลในคลังหนังสือ",
   "owned books": "เล่มที่มี",
   "recently removed": "เล่มที่นำออกล่าสุด",
   "saved releases": "รายการที่บันทึกไว้",
   "Data management": "จัดการข้อมูล",
   "Metadata & cache": "ข้อมูลหนังสือและแคช",
-  "Backups & import": "สำรองและนำเข้าข้อมูล",
+  "Export & import": "ส่งออกและนำเข้าข้อมูล",
   "Take a copy with you": "เก็บสำเนาไว้กับคุณ",
-  "Download a backup": "ดาวน์โหลดข้อมูลสำรอง",
-  "Save your books, recently removed volumes, saved releases, catalog links and dropdown choices in one file. You can restore it into an empty library.":
-    "บันทึกหนังสือ เล่มที่นำออก รายการที่บันทึก ลิงก์แค็ตตาล็อก และตัวเลือกต่าง ๆ ในไฟล์เดียว นำไปกู้คืนในคลังหนังสือว่างได้",
-  "Download library backup": "ดาวน์โหลดคลังหนังสือสำรอง",
-  "One file. Your whole library.": "ไฟล์เดียว ครบทั้งคลังหนังสือ",
+  "Export your books": "ส่งออกหนังสือของคุณ",
+  "Download your owned books with ISBNs, titles, book types, volumes, edition labels, reading status, purchase details and notes. Duplicate copies stay separate.":
+    "ดาวน์โหลดหนังสือที่คุณมี พร้อม ISBN ชื่อเรื่อง ประเภท เล่ม ฉบับ สถานะการอ่าน ข้อมูลการซื้อ และบันทึก โดยแยกหนังสือซ้ำแต่ละเล่มไว้",
+  "Export library": "ส่งออกคลังหนังสือ",
+  "Books and personal details only. Covers, publisher metadata, saved releases and removed books are not included.":
+    "เฉพาะหนังสือและข้อมูลส่วนตัว ไม่รวมปก ข้อมูลจากสำนักพิมพ์ รายการที่บันทึกไว้ และหนังสือที่นำออก",
   "Give your books a new home": "ย้ายคลังหนังสือมาที่นี่",
   "Bring over your collection": "นำเข้าคลังหนังสือของคุณ",
   "Choose your collection file": "เลือกไฟล์คลังหนังสือ",
-  "Excel workbook, CSV or a library JSON backup":
-    "ไฟล์ Excel, CSV หรือข้อมูลสำรอง JSON",
+  "Excel workbook, CSV, JSON export or backup":
+    "ไฟล์ Excel, CSV, JSON ที่ส่งออก หรือข้อมูลสำรอง",
   "Reading file…": "กำลังอ่านไฟล์…",
   "Review import": "ตรวจสอบข้อมูลนำเข้า",
   "Ready to import": "พร้อมนำเข้า",
@@ -253,8 +254,8 @@ export const thai: Record<string, string> = {
     "เก็บไว้ในคลังหนังสือของคุณ เป็นของคุณเสมอ",
   "Sign out": "ออกจากระบบ",
   "Import failed. Try again.": "นำเข้าไม่สำเร็จ กรุณาลองอีกครั้ง",
-  "In Google Sheets, choose File → Download → Microsoft Excel (.xlsx). The full workbook includes the helper tabs for recently removed books, saved releases and linked series catalogs. CSV imports owned books only. A library JSON backup works too.":
-    "ใน Google Sheets เลือก ไฟล์ → ดาวน์โหลด → Microsoft Excel (.xlsx) ไฟล์ทั้งเวิร์กบุ๊กจะรวมแท็บหนังสือที่นำออก รายการที่บันทึก และแค็ตตาล็อกที่เชื่อมไว้ CSV นำเข้าเฉพาะหนังสือที่มี และใช้ไฟล์สำรอง JSON ได้เช่นกัน",
+  "In Google Sheets, choose File → Download → Microsoft Excel (.xlsx). CSV files, library JSON exports and older JSON backups work too. You can import into an empty library.":
+    "ใน Google Sheets เลือก ไฟล์ → ดาวน์โหลด → Microsoft Excel (.xlsx) หรือใช้ไฟล์ CSV, JSON ที่ส่งออกจากคลัง หรือข้อมูลสำรอง JSON เดิม โดยนำเข้าในคลังหนังสือว่าง",
   "Imports require an empty library and keep duplicate copies, gifts with a price of zero, blank prices and decimal volumes. Review the contents before saving.":
     "ต้องนำเข้าในคลังหนังสือว่าง โดยจะเก็บหนังสือซ้ำ ของขวัญราคา 0 ราคาที่เว้นว่าง และเลขเล่มทศนิยมไว้ กรุณาตรวจสอบก่อนบันทึก",
   "{books} owned books · {trash} removed books · {releases} saved releases · {catalogs} catalog links":
@@ -586,8 +587,8 @@ export const thai: Record<string, string> = {
   "View book at {shop} (opens in a new tab)":
     "ดูหนังสือที่ {shop} (เปิดแท็บใหม่)",
   "View at shop ↗": "ดูที่ร้าน ↗",
-  "Item prices exclude shipping, membership discounts and checkout coupons. Currencies are compared separately. Prices and stock are saved snapshots; only an administrator can refresh them. Open the shop for current prices.":
-    "ราคาไม่รวมค่าจัดส่ง ส่วนลดสมาชิก และคูปอง โดยเทียบแยกตามสกุลเงิน ราคาและสินค้าเป็นข้อมูลที่บันทึกไว้ เฉพาะผู้ดูแลระบบเท่านั้นที่รีเฟรชได้ เปิดร้านเพื่อดูราคาปัจจุบัน",
+  "Item prices exclude shipping, membership discounts and checkout coupons. Currencies are compared separately. Prices and stock may have changed since the time shown. Open the shop for current prices.":
+    "ราคาไม่รวมค่าจัดส่ง ส่วนลดสมาชิก และคูปอง โดยเทียบแยกตามสกุลเงิน ราคาและสินค้าอาจเปลี่ยนไปจากเวลาที่แสดง เปิดร้านเพื่อดูราคาปัจจุบัน",
   "All {count} shop checks": "ผลตรวจสอบร้านค้าทั้ง {count} ร้าน",
   "Exact ISBN match": "ISBN ตรงกัน",
   "No exact ISBN match": "ไม่พบ ISBN ที่ตรงกัน",

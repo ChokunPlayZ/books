@@ -25,8 +25,9 @@ export default function AccountPreferences() {
           <LanguageSelect />
         </label>
         <label className="field">
-          <span>{t("Appearance")}</span>
+          <span id="appearanceLabel">{t("Appearance")}</span>
           <select
+            aria-labelledby="appearanceLabel"
             value={preferences.theme}
             disabled={saving}
             onChange={(event) =>

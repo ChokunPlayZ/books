@@ -398,8 +398,12 @@ try {
   assert.equal(backup.books.length, 151);
   assert.equal(backup.format, "book-collection");
   assert.equal(
-    backup.books.find((book) => book.row === added.row).coverUrl,
-    coverSource,
+    backup.books.find((book) => book.title === added.series).note,
+    "Selected publisher cover",
+  );
+  assert.equal(
+    backup.books.some((book) => "coverUrl" in book || "row" in book),
+    false,
   );
   await page.screenshot({
     path: join(root, "outputs", "next-collection-phone.png"),
@@ -421,7 +425,7 @@ try {
   browser = null;
 
   await runBrowserScenario(
-    "metadata-management.browser.mjs",
+    "library-data.browser.mjs",
     await start("metadata-maintenance", seedMetadataMaintenance),
   );
   const fixturesUrl = await start("ui-regressions");

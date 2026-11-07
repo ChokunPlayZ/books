@@ -160,12 +160,9 @@ export function mountCollection({
     toastTimer = setTimeout(() => ($("toast").hidden = true), 4200);
   }
   async function rpc(name: string, arg?: unknown) {
-    if (
-      arg &&
-      typeof arg === "object" &&
-      Object.hasOwn(arg, "refresh") &&
-      document.getElementById("libraryMain")?.dataset.userRole !== "admin"
-    )
+    // Library controls reload available results, never invalidate shared sources.
+    // This applies to administrators using their personal library too.
+    if (arg && typeof arg === "object" && Object.hasOwn(arg, "refresh"))
       arg = { ...arg, refresh: false };
     const response = await fetch("/api/rpc", {
       method: "POST",

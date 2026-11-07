@@ -52,7 +52,6 @@ export default async function CollectionShell({
       <main
         id="libraryMain"
         data-user-id={data.user.id}
-        data-user-role={data.user.role}
         className={"library-main" + (series !== null ? " series-page" : "")}
         tabIndex={-1}
       >
@@ -73,12 +72,7 @@ export default async function CollectionShell({
         {view === "releases" && <ReleasesPanel />}
         {view === "discover" && <DiscoveryPanel />}
         {view === "search" && <UniversalSearch initialQuery={searchQuery} />}
-        {view === "prices" && (
-          <PriceFinder
-            initialIsbn={priceIsbn}
-            canRefresh={data.user.role === "admin"}
-          />
-        )}
+        {view === "prices" && <PriceFinder initialIsbn={priceIsbn} />}
         {view === "missing" && <MissingPanel books={data.books} />}
         {view === "stats" && (
           <StatisticsPanel

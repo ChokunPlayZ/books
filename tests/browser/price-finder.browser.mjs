@@ -126,15 +126,21 @@ try {
     true,
   );
 
-  await page.getByRole("button", { name: "Refresh prices" }).click();
-  await page.locator(".price-offer").first().waitFor();
-  assert.equal(requests.at(-1).refresh, true);
+  assert.equal(
+    await page.getByRole("button", { name: "Refresh prices" }).count(),
+    0,
+  );
+  assert.doesNotMatch(
+    await page.locator(".price-terms").textContent(),
+    /administrator|cache/i,
+  );
+  assert.ok(requests.every((request) => !request.refresh));
 
   // Editing the query cancels the old search and removes stale results.
   hold = new Promise((resolve) => {
     release = resolve;
   });
-  await page.getByRole("button", { name: "Refresh prices" }).click();
+  await page.getByRole("button", { name: "Compare prices" }).click();
   await page.getByRole("button", { name: "Checking shops…" }).waitFor();
   await page.locator("#priceSearchIsbn").fill("9786166247275");
   release();
@@ -168,13 +174,13 @@ try {
       status: "unavailable",
     })),
   };
-  await page.getByRole("button", { name: "Refresh prices" }).click();
+  await page.getByRole("button", { name: "Compare prices" }).click();
   await page
     .getByText("The shops could not be reached.", { exact: false })
     .waitFor();
   status = 500;
   response = { message: "Prices could not be checked. Try again." };
-  await page.getByRole("button", { name: "Refresh prices" }).click();
+  await page.getByRole("button", { name: "Compare prices" }).click();
   await page.locator("#priceSearchError").waitFor();
   assert.match(
     await page.locator("#priceSearchError").textContent(),

@@ -14,7 +14,7 @@ Your existing columns remain the import contract:
 
 The importer preserves intentional duplicate copies, fractional volumes, zero prices for gifts and blank prices for unknown amounts. It expands safely representable scientific-notation ISBNs and reports a warning for review. Invalid legacy ISBNs are kept and flagged; barcode ownership checks cannot match those until corrected. Notes beginning with `=` remain literal text.
 
-CSV and JSON arrays also import owned books. CSV dates must be `YYYY-MM-DD`; use `.xlsx` to carry over spreadsheet date cells without ambiguity. A complete app JSON backup also restores removed books, saved releases, catalog links and unused dropdown choices.
+CSV and JSON arrays also import owned books. CSV dates must be `YYYY-MM-DD`; use `.xlsx` to carry over spreadsheet date cells without ambiguity. Library and series JSON exports restore ISBNs, titles and personal book fields only; `title` maps to the library's series/title field. They preserve duplicates, blank amounts, gifts and fractional volumes, but do not contain publisher metadata, covers, saved releases or removed books. A complete server JSON backup (`npm run backup`) or an older app backup also restores removed books, saved releases, catalog links and unused dropdown choices.
 
 CSV is parsed as text, not auto-detected as a binary spreadsheet: renaming XLSX/ZIP files to `.csv` is rejected. Quoted/multiline fields, comma/semicolon/tab separators, UTF-8 and BOM-marked UTF-16 are supported; CSV fields are limited to 8,192 characters.
 

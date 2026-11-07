@@ -57,15 +57,15 @@ After the first online visit, the app can show an offline screen when the librar
 
 ## Backups and restoration
 
-Choose **Data & backups → Download library backup**. The JSON file contains owned books, removed books, saved releases, catalog links, dropdown choices and stored cover images. Download it regularly and keep a copy outside the server.
+Choose **Data & backups → Export library** for a portable JSON file containing owned books' ISBNs, titles and personal collection fields. This is not a full backup: publisher metadata, covers, removed books, saved releases, catalog links, dropdown choices and internal IDs/tokens are excluded. Library and series exports can be imported into an empty library.
 
-The command-line equivalent is:
+For a complete single-library backup, including metadata, removed books, saved releases, catalog links, dropdown choices and stored cover images, run this on the server and keep a copy outside the host:
 
 ```sh
 npm run backup -- /path/to/meemai-backup.json
 ```
 
-To restore, import that backup into an empty database through the UI or CLI. Record IDs and revision tokens are regenerated during restoration; the library records are preserved. A logical export uses one database transaction for a consistent snapshot. It excludes login sessions, request receipts and disposable catalog caches.
+To restore, import that backup into an empty database through the UI or CLI. Record IDs and revision tokens are regenerated during restoration; the library records are preserved. The full backup uses one database transaction for a consistent snapshot. It excludes login sessions, request receipts and disposable catalog caches.
 
 Existing backups remain compatible. The JSON format identifier stays `book-collection` even though downloaded files now use the `meemai` name.
 

@@ -523,7 +523,7 @@ try {
     await page.locator("#seriesReleaseList .release-card").count(),
     3,
   );
-  assert.ok(feedCalls.slice(-2).every((call) => call.refresh));
+  assert.ok(feedCalls.slice(-2).every((call) => call.refresh === false));
   failPhoenix = false;
   failShelf = false;
   feeds.phoenix = [owned, possible];

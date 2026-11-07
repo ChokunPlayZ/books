@@ -104,7 +104,7 @@ function objectBook(input, warnings, location) {
     throw new AppError(`${location}: invalid book record.`);
   const data = {} as Book;
   for (const field of BOOK_APP.fields) {
-    let value = input[field] ?? "";
+    let value = input[field] ?? (field === "series" ? input.title : "") ?? "";
     if (
       field === "isbn" &&
       typeof value === "string" &&

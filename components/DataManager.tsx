@@ -5,22 +5,15 @@ import LibraryBrand from "./LibraryBrand";
 import ThemeToggle from "./ThemeToggle";
 import LanguageSelect from "./LanguageSelect";
 import AccountPreferences from "./AccountPreferences";
-import MetadataManager from "./MetadataManager";
-import type { MetadataOverview } from "../lib/metadata";
 import type { ImportResult, ImportReview } from "../lib/types";
 import { useTranslations } from "./PreferencesProvider";
 
 type DataManagerProps = {
   counts: { books: number; trash: number; savedReleases: number };
   canSignOut: boolean;
-  metadata: MetadataOverview | null;
 };
 
-export default function DataManager({
-  counts,
-  canSignOut,
-  metadata,
-}: DataManagerProps) {
+export default function DataManager({ counts, canSignOut }: DataManagerProps) {
   const t = useTranslations();
   const [file, setFile] = useState<File | null>(null),
     [review, setReview] = useState<ImportReview | null>(null),
@@ -83,7 +76,7 @@ export default function DataManager({
           </h1>
           <p className="intro">
             {t(
-              "Manage source metadata, maintain your cache, and keep a copy of your library.",
+              "Manage your preferences, export your books, or bring over a collection.",
             )}
           </p>
         </div>
@@ -100,32 +93,30 @@ export default function DataManager({
         </div>
         <nav className="data-sections" aria-label={t("Data management")}>
           <a href="#account-preferences">{t("Account preferences")}</a>
-          {metadata && (
-            <a href="#metadata-maintenance">{t("Metadata & cache")}</a>
-          )}
-          <a href="#library-backups">{t("Backups & import")}</a>
+          <a href="#library-backups">{t("Export & import")}</a>
         </nav>
         <AccountPreferences />
-        {metadata && <MetadataManager initial={metadata} />}
         <div id="library-backups" className="data-grid">
           <section className="data-card backup-card">
             <span className="data-icon">
               <Icon name="download" />
             </span>
             <p className="eyebrow">{t("Take a copy with you")}</p>
-            <h2>{t("Download a backup")}</h2>
+            <h2>{t("Export your books")}</h2>
             <p>
               {t(
-                "Save your books, recently removed volumes, saved releases, catalog links and dropdown choices in one file. You can restore it into an empty library.",
+                "Download your owned books with ISBNs, titles, book types, volumes, edition labels, reading status, purchase details and notes. Duplicate copies stay separate.",
               )}
             </p>
             <a className="btn primary" href="/api/backup" download>
               <Icon name="download" />
-              {t("Download library backup")}
+              {t("Export library")}
             </a>
             <p className="backup-note">
               <Icon name="archive" />
-              {t("One file. Your whole library.")}
+              {t(
+                "Books and personal details only. Covers, publisher metadata, saved releases and removed books are not included.",
+              )}
             </p>
           </section>
           <section className="data-card">
@@ -136,7 +127,7 @@ export default function DataManager({
             <h2>{t("Bring over your collection")}</h2>
             <p>
               {t(
-                "In Google Sheets, choose File → Download → Microsoft Excel (.xlsx). The full workbook includes the helper tabs for recently removed books, saved releases and linked series catalogs. CSV imports owned books only. A library JSON backup works too.",
+                "In Google Sheets, choose File → Download → Microsoft Excel (.xlsx). CSV files, library JSON exports and older JSON backups work too. You can import into an empty library.",
               )}
             </p>
             <p>
@@ -149,7 +140,7 @@ export default function DataManager({
                 {t("Choose your collection file")}
               </label>
               <p id="importFormats" className="hint">
-                {t("Excel workbook, CSV or a library JSON backup")}
+                {t("Excel workbook, CSV, JSON export or backup")}
               </p>
               <input
                 id="importFile"

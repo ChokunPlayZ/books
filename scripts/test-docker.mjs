@@ -136,7 +136,7 @@ try {
   assert.equal((await request(asset[1])).status, 200);
   const dataPage = await request("/data");
   assert.equal(dataPage.status, 200);
-  assert.match(await dataPage.text(), /Download library backup/);
+  assert.match(await dataPage.text(), /Export library/);
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(

@@ -37,6 +37,8 @@ Choose **English / ไทย** in the library header, or open **Data & backups �
 
 Run `npm run build && npm run test:preferences` for the isolated account-preferences browser checks.
 
+**Data & backups → Export library** downloads only owned books: ISBN, title, type, volume, edition, reading status, purchase source/price/date and notes. It excludes publisher metadata, covers, removed books, saved releases and internal records. Duplicate copies and blank versus zero prices are preserved. Import the JSON into an empty library; use `npm run backup` on the server for a complete backup with covers and saved/removed records.
+
 ## Universal search
 
 Open **Search** to find a title, publisher, bookshop or ISBN. Your own library, saved titles and previously cached catalog matches appear first, without contacting external sources. Applicable publishers and bookshops are then checked in the background; results are deduplicated and better matches move up as each source responds. Thai queries check Thai publishers and Naiin; English titles also check English catalogs, and Google Books supports multilingual title searches. ISBN searches use the existing language-specific lookup providers.
@@ -91,6 +93,6 @@ An installed browser can be selected with `--browser-executable=/absolute/path/t
 
 See the [development guide](docs/development.md) for module boundaries and common changes, [library workflows](docs/library.md), [import formats](docs/imports.md), [self-hosting and backups](docs/self-hosting.md), and [publisher maintenance](docs/web-scraping.md).
 
-See [accounts and privacy](docs/multi-user.md) for adding users, private collection fields, permanent ISBN/source caching and administrator-only refreshes.
+See [accounts and privacy](docs/multi-user.md) for adding users, private collection fields, permanent ISBN/source caching and administrator-only maintenance. Cache inspection, purges and re-crawls are not part of the library UI, including for administrators.
 
 Before public deployment, review [authentication setup](docs/authentication.md) and the [security deployment checklist](docs/security.md).

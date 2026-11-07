@@ -191,7 +191,7 @@ try {
   fail = true;
   await page.locator("#refreshDiscovery").click();
   await page.locator("#discoveryList .source-error").waitFor();
-  assert.equal(calls.at(-1).refresh, true);
+  assert.equal(calls.at(-1).refresh, false);
   assert.match(
     await page.locator("#discoveryList .source-error").textContent(),
     /Publisher unavailable/,

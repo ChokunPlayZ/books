@@ -88,7 +88,7 @@ try {
   assert.equal(exported.format, "book-collection");
   assert.equal(exported.books.length, 3);
   assert.equal(
-    exported.books.every((book) => book.series === series),
+    exported.books.every((book) => book.title === series),
     true,
   );
   assert.equal(
@@ -299,8 +299,9 @@ try {
     )
   ).json();
   assert.equal(afterExport.books.length, 3);
-  assert.equal(afterExport.covers.length, 1);
-  assert.equal(afterExport.books[0].coverId, afterExport.covers[0].id);
+  assert.equal(afterExport.covers, undefined);
+  assert.equal(afterExport.books[0].coverId, undefined);
+  assert.equal(afterExport.books[0].note, saved[0].note);
   assert.match(
     await page.locator("#seriesSummary").textContent(),
     /฿0 recorded spending/,

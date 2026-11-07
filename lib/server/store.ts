@@ -3,6 +3,7 @@ import type { Book, StoredBook } from "../types.ts";
 import { createHash, randomUUID } from "node:crypto";
 import { createUserContext, type User } from "./user-context.ts";
 import type { Preferences } from "../preferences.ts";
+import { exportLibraryBook } from "../domain/library-export.ts";
 import {
   normalizeBookType,
   normalizeRecordTypes,
@@ -1125,6 +1126,23 @@ export async function openStore(
       // Several legacy language links require an explicit choice, never a guess.
       return legacy.length === 1 ? legacy[0] : null;
     },
+    async exportLibrary(series?: string) {
+      const rows = await all(
+        `SELECT * FROM books WHERE ${owned} AND removed_at IS NULL ORDER BY id`,
+      );
+      const books = rows
+        .map(book)
+        .filter(
+          (record) =>
+            series === undefined ||
+            (record.series.trim() || "Untitled series") === series,
+        )
+        .map(exportLibraryBook);
+      if (series !== undefined && !books.length)
+        throw new AppError("This series has no owned volumes to export.", 404);
+      return { format: "book-collection", version: 1, books };
+    },
+    // Full-fidelity server backups are separate from the user-facing export.
     async exportData(series?: string) {
       return await transaction(async () => {
         const data = await collection();

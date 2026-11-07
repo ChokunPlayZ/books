@@ -15,7 +15,7 @@ export async function createBackupDownload(
       () =>
         limitConcurrentRequests(user.id, async () => {
           let text = JSON.stringify(
-            await store.forUser(user, () => store.exportData(series)),
+            await store.forUser(user, () => store.exportLibrary(series)),
             null,
             2,
           );

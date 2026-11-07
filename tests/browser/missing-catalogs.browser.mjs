@@ -249,7 +249,7 @@ try {
   await page.waitForFunction(
     () => !document.getElementById("refreshMissingCatalogs").disabled,
   );
-  assert.equal(requests.filter((request) => request.refresh).length, 6);
+  assert.equal(requests.filter((request) => request.refresh).length, 0);
   assert.equal(
     await card("Consecutive").locator(".missing-total").textContent(),
     "2 missing",

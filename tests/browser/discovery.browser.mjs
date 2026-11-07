@@ -399,7 +399,7 @@ try {
   failVolumes = false;
   await volumes.getByRole("button", { name: "Retry volumes" }).click();
   await volumes.getByRole("button", { name: "Refresh volumes" }).waitFor();
-  assert.equal(volumeCalls.at(-1).refresh, true);
+  assert.equal(volumeCalls.at(-1).refresh, false);
   await fresh()
     .getByRole("button", { name: "Hide volumes", exact: true })
     .click();
@@ -585,8 +585,14 @@ try {
     "Saving a title must preserve its cover image",
   );
   const backup = await (await page.request.get(url + "/api/backup")).json();
+  assert.equal(backup.savedReleases, undefined);
+  const savedLibrary = await (
+    await page.request.post(url + "/api/rpc", {
+      data: { name: "getCollection" },
+    })
+  ).json();
   assert.equal(
-    backup.savedReleases.find((item) => item.id === items[3].id).coverUrl,
+    savedLibrary.savedReleases.find((item) => item.id === items[3].id).coverUrl,
     items[3].coverUrl,
   );
   fail = true;

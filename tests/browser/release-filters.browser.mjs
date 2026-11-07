@@ -405,7 +405,7 @@ try {
   await volumes
     .getByText("3 listings from the publisher", { exact: true })
     .waitFor();
-  assert.equal(volumeCalls.at(-1).refresh, true);
+  assert.equal(volumeCalls.at(-1).refresh, false);
   await page.locator("#refreshReleases").click();
   await page.waitForFunction(
     () => !window.bookCollection?.state.releasesLoading,

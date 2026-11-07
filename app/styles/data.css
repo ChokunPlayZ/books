@@ -36,6 +36,26 @@
   @apply tabular-nums;
 }
 
+.data-sections {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.data-sections a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  text-underline-offset: 4px;
+}
+
+#library-backups {
+  scroll-margin-top: 100px;
+}
+
 .data-grid {
   @apply grid;
   grid-template-columns: 0.85fr 1.15fr;
