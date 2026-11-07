@@ -1,6 +1,8 @@
 import { AppError, type Store } from "./store.ts";
 import { createScrapeCache, SCRAPE_TTL } from "./scrape-cache.ts";
 import { digest } from "../domain/hash.ts";
+import { outboundFetch } from "./outbound.ts";
+import { readBody } from "./http.ts";
 import {
   ANIME_SEASONS,
   currentAnimeSeason,
@@ -37,12 +39,13 @@ export function createAnimeService(
   store: Pick<Store, "cache">,
   fetchImpl = globalThis.fetch,
 ) {
+  const fetchRemote = outboundFetch(fetchImpl);
   const cache = createScrapeCache(store.cache);
 
   async function query(document: string, variables: Record<string, unknown>) {
     if (Number(await store.cache.get("anilist:cooldown")) > Date.now())
       throw new Error("AniList is busy. Please try again in a few minutes.");
-    const response = await fetchImpl("https://graphql.anilist.co", {
+    const response = await fetchRemote("https://graphql.anilist.co", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -51,8 +54,10 @@ export function createAnimeService(
       body: JSON.stringify({ query: document, variables }),
       signal: AbortSignal.timeout(20_000),
       cache: "no-store",
+      redirect: "error",
     });
     if (response.status === 429) {
+      await response.body?.cancel();
       const seconds = Math.max(
         60,
         Math.min(900, Number(response.headers.get("retry-after")) || 60),
@@ -66,9 +71,13 @@ export function createAnimeService(
         "AniList’s request limit was reached. Please try again in a few minutes.",
       );
     }
-    if (!response.ok)
+    if (!response.ok) {
+      await response.body?.cancel();
       throw new Error("AniList is unavailable. Please try again later.");
-    const body = await response.json();
+    }
+    const body = JSON.parse(
+      (await readBody(response, 8 * 1024 * 1024)).toString("utf8"),
+    );
     if (
       !body ||
       body.errors?.length ||

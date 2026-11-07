@@ -4,6 +4,8 @@ import { join, resolve } from "node:path";
 import { safeCoverUrl } from "../domain.ts";
 import { AppError } from "./store.ts";
 import { SCRAPE_TTL } from "./scrape-cache.ts";
+import { outboundFetch } from "./outbound.ts";
+import { readBody } from "./http.ts";
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const coverDigest = (value) =>
@@ -46,11 +48,12 @@ export function createCoverService(
     ),
   } = {},
 ) {
+  const fetchRemote = outboundFetch(fetchImpl);
   const pending = new Map();
   async function download(url) {
     const signal = AbortSignal.timeout(15000);
     for (let hop = 0; hop <= 3; hop++) {
-      const response = await fetchImpl(url, {
+      const response = await fetchRemote(url, {
         headers: { "User-Agent": "Mozilla/5.0", Accept: "image/*" },
         redirect: "manual",
         cache: "no-store",
@@ -71,24 +74,7 @@ export function createCoverService(
         await response.body?.cancel();
         throw new Error("Cover image is unavailable or too large.");
       }
-      const reader = response.body.getReader();
-      const chunks = [];
-      let size = 0;
-      try {
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          size += value.byteLength;
-          if (size > MAX_IMAGE_BYTES) {
-            await reader.cancel();
-            throw new Error("Cover image is too large.");
-          }
-          chunks.push(Buffer.from(value));
-        }
-      } finally {
-        reader.releaseLock();
-      }
-      const body = Buffer.concat(chunks);
+      const body = await readBody(response, MAX_IMAGE_BYTES, 15_000);
       const contentType = imageType(body);
       if (!contentType) throw new Error("Unsupported cover image format.");
       return { body, contentType };

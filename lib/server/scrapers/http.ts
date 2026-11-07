@@ -1,5 +1,7 @@
 import { safeProductUrl, safePublisherTitleUrl } from "../../domain/urls.ts";
 import { createScrapeCache, SCRAPE_TTL } from "../scrape-cache.ts";
+import { outboundFetch } from "../outbound.ts";
+import { readBody } from "../http.ts";
 import type {
   ScraperCache,
   ScraperContext,
@@ -22,6 +24,7 @@ export function createScraperContext(
   fetchImpl: typeof fetch,
   definitions: readonly ScraperDefinition[],
 ): ScraperContext {
+  const fetchRemote = outboundFetch(fetchImpl);
   const scrapeCache = createScrapeCache(cache);
   const allowed = new Set(definitions.flatMap((source) => source.hosts));
   async function requestRemote(url: string, options: RequestInit = {}) {
@@ -44,8 +47,9 @@ export function createScraperContext(
     let current = parsed,
       response;
     for (let hop = 0; hop <= 3; hop++) {
-      response = await fetchImpl(current.href, fetchOptions);
+      response = await fetchRemote(current.href, fetchOptions);
       if (![301, 302, 303, 307, 308].includes(response.status)) break;
+      await response.body?.cancel();
       let location = response.headers.get("location");
       if (
         !definitions.some(
@@ -83,26 +87,11 @@ export function createScraperContext(
         canonical(next) !== canonical(current)
       )
         throw new Error("Unsupported catalog redirect.");
-      await response.body?.cancel();
       current = next;
     }
-    let body = "",
-      size = 0;
-    if (response.body) {
-      const reader = response.body.getReader(),
-        decoder = new TextDecoder();
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        size += value.byteLength;
-        if (size > 8 * 1024 * 1024) {
-          await reader.cancel();
-          throw new Error("Catalog response too large.");
-        }
-        body += decoder.decode(value, { stream: true });
-      }
-      body += decoder.decode();
-    }
+    const body = (await readBody(response, 8 * 1024 * 1024, 15_000)).toString(
+      "utf8",
+    );
     const headers: Record<string, string | string[]> = Object.fromEntries(
       response.headers,
     );
