@@ -13,7 +13,12 @@ export function validateWorkbookArchive(buffer: Buffer) {
       "This workbook is invalid or too large. Use an XLSX smaller than 16 MB and 32 MB when expanded.",
     );
   };
-  if (buffer.length < 22 || buffer.length > MAX_ARCHIVE_BYTES) fail();
+  if (
+    buffer.length < 22 ||
+    buffer.length > MAX_ARCHIVE_BYTES ||
+    buffer.readUInt32LE(0) !== 0x04034b50
+  )
+    fail();
   let end = buffer.length - 22;
   for (; end >= Math.max(0, buffer.length - 65557); end--)
     if (
@@ -80,8 +85,14 @@ export function validateWorkbookArchive(buffer: Buffer) {
       const name = buffer
         .subarray(cursor + 46, cursor + 46 + nameLength)
         .toString("utf8");
-      if (names.has(name)) fail();
-      names.add(name);
+      // No files are extracted to disk, but reject normalized-path aliases so
+      // the validator and spreadsheet archive lookup cannot disagree.
+      if (
+        names.has(name.toLowerCase()) ||
+        /(?:^\/|\\|(?:^|\/)\.{1,2}(?:\/|$)|[\x00-\x1f\x7f])/.test(name)
+      )
+        fail();
+      names.add(name.toLowerCase());
       checkExtra(cursor + 46 + nameLength, extraLength);
       if (
         buffer.readUInt32LE(offset) !== 0x04034b50 ||

@@ -7,12 +7,8 @@ import {
   limitConcurrentRequests,
 } from "../../../lib/server/rate-limit.ts";
 import { parseImport, importSummary } from "../../../lib/server/importer.ts";
-import {
-  json,
-  errorResponse,
-  sameOrigin,
-  readBody,
-} from "../../../lib/server/http.ts";
+import { readImportForm } from "../../../lib/server/import-upload.ts";
+import { json, errorResponse, sameOrigin } from "../../../lib/server/http.ts";
 export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   try {
@@ -26,12 +22,7 @@ export async function POST(request: NextRequest) {
       0,
       () =>
         limitConcurrentRequests(user.id, async () => {
-          const buffer = await readBody(request, 129 * 1024 * 1024);
-          const form = await new Response(new Uint8Array(buffer), {
-            headers: {
-              "Content-Type": request.headers.get("content-type") || "",
-            },
-          }).formData();
+          const form = await readImportForm(request);
           const file = form.get("file");
           if (!file || typeof file === "string")
             throw new AppError("Choose an import file.");

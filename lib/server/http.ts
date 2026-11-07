@@ -47,27 +47,65 @@ export function sameOrigin(request: Request) {
     throw new AppError("Open this action from your library.", 403);
 }
 export async function readBody(
-  request: Request,
+  request: Pick<Request, "headers" | "body">,
   limit = 20000,
+  timeoutMs = 30_000,
 ): Promise<Buffer> {
-  if (Number(request.headers.get("content-length")) > limit)
+  if (Number(request.headers.get("content-length")) > limit) {
+    void request.body?.cancel().catch(() => {});
     throw new AppError("Request too large.", 413);
+  }
   const chunks: Buffer[] = [];
   let size = 0;
   if (request.body) {
     const reader = request.body.getReader();
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      size += value.byteLength;
-      if (size > limit) {
-        await reader.cancel();
-        throw new AppError("Request too large.", 413);
-      }
-      chunks.push(Buffer.from(value));
+    let chunk: Buffer,
+      used = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => {
+        reject(new AppError("Request body timed out.", 408));
+        void reader.cancel().catch(() => {});
+      }, timeoutMs);
+    });
+    try {
+      await Promise.race([
+        (async () => {
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            size += value.byteLength;
+            if (size > limit) {
+              void reader.cancel().catch(() => {});
+              throw new AppError("Request too large.", 413);
+            }
+            // Coalesce tiny network chunks. A byte cap alone otherwise allows
+            // millions of Buffer objects and stream-promise bookkeeping.
+            for (let offset = 0; offset < value.byteLength;) {
+              if (!chunk || used === chunk.length) {
+                chunk = Buffer.allocUnsafe(Math.min(64 * 1024, limit));
+                chunks.push(chunk);
+                used = 0;
+              }
+              const count = Math.min(
+                chunk.length - used,
+                value.byteLength - offset,
+              );
+              chunk.set(value.subarray(offset, offset + count), used);
+              offset += count;
+              used += count;
+            }
+          }
+        })(),
+        timeout,
+      ]);
+      if (chunk) chunks[chunks.length - 1] = chunk.subarray(0, used);
+    } finally {
+      clearTimeout(timer);
+      reader.releaseLock();
     }
   }
-  return Buffer.concat(chunks);
+  return Buffer.concat(chunks, size);
 }
 export async function readJson(request: Request, limit = 20000) {
   if (

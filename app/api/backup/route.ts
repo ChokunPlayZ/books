@@ -2,12 +2,15 @@ import type { NextRequest } from "next/server";
 import { getApp } from "../../../lib/server/app.ts";
 import { authorize } from "../../../lib/server/auth.ts";
 import { errorResponse } from "../../../lib/server/http.ts";
+import { enforceRateLimit } from "../../../lib/server/rate-limit.ts";
+import { createBackupDownload } from "../../../lib/server/backup-download.ts";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
     const { store } = await getApp();
     const user = await authorize(store, request);
+    await enforceRateLimit(store, `backup:${user.id}`, 20, 15 * 60_000);
     const series = request.nextUrl.searchParams.get("series") ?? undefined;
     const date = new Date().toISOString().slice(0, 10);
     const filename =
@@ -24,20 +27,11 @@ export async function GET(request: NextRequest) {
     );
     const titleFilename =
       series === undefined ? "" : `; filename*=UTF-8''${encodedName}`;
-    return new Response(
-      JSON.stringify(
-        await store.forUser(user, async () => await store.exportData(series)),
-        null,
-        2,
-      ),
-      {
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          "Cache-Control": "no-store",
-          "Content-Disposition": `attachment; filename="${filename}"${titleFilename}`,
-        },
-      },
-    );
+    return await createBackupDownload(store, user, series, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Content-Disposition": `attachment; filename="${filename}"${titleFilename}`,
+    });
   } catch (error) {
     return await errorResponse(error);
   }

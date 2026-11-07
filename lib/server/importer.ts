@@ -17,6 +17,88 @@ import { normalizeBookType } from "../domain/book-type.ts";
 import { validateWorkbookArchive } from "./workbook-archive.ts";
 
 const MAX_RECORDS = 20000;
+
+// Do not send CSV uploads through SheetJS's binary-format auto-detection. A ZIP
+// renamed to .csv otherwise bypasses the XLSX expansion checks entirely. Bound
+// rows and columns while parsing, rather than after allocating a huge sheet.
+function csvWorkbook(buffer: Buffer) {
+  let text: string;
+  if (buffer[0] === 0xff && buffer[1] === 0xfe)
+    text = new TextDecoder("utf-16le", { fatal: true }).decode(buffer);
+  else if (buffer[0] === 0xfe && buffer[1] === 0xff)
+    text = new TextDecoder("utf-16be", { fatal: true }).decode(buffer);
+  else text = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+  if (/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text))
+    throw new AppError(
+      "Choose a text CSV file, not a renamed binary workbook.",
+    );
+  // Header inference must not split an unvalidated 16 MB line into millions
+  // of empty strings before the column limit has a chance to run.
+  const firstLine = text.slice(0, 8192).split(/[\r\n]/, 1)[0];
+  const counts = new Map([
+    [",", 0],
+    [";", 0],
+    ["\t", 0],
+  ]);
+  for (const char of firstLine)
+    if (counts.has(char)) counts.set(char, counts.get(char) + 1);
+  const separator = [...counts].sort((a, b) => b[1] - a[1])[0][0];
+  const rows: string[][] = [];
+  let row: string[] = [],
+    cell = "",
+    quoted = false,
+    closed = false;
+  function field() {
+    row.push(cell);
+    cell = "";
+    closed = false;
+    if (row.length > 32)
+      throw new AppError(
+        "Each import sheet must contain at most 20,000 records and 32 columns.",
+      );
+  }
+  function record() {
+    field();
+    if (row.some((value) => value !== "")) rows.push(row);
+    row = [];
+    if (rows.length > MAX_RECORDS + 1)
+      throw new AppError("The import must contain at most 20,000 books.");
+  }
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index];
+    if (quoted) {
+      if (char === '"') {
+        if (text[index + 1] === '"') {
+          cell += '"';
+          index++;
+        } else {
+          quoted = false;
+          closed = true;
+        }
+      } else cell += char;
+    } else if (char === separator) field();
+    else if (char === "\r" || char === "\n") {
+      if (char === "\r" && text[index + 1] === "\n") index++;
+      record();
+    } else if (char === '"' && !cell && !closed) quoted = true;
+    else if (closed) {
+      if (char !== " ")
+        throw new AppError("The CSV contains an invalid quoted field.");
+    } else cell += char;
+    if (cell.length > 8192)
+      throw new AppError("The CSV contains an overlong field.");
+  }
+  if (quoted) throw new AppError("The CSV contains an unclosed quoted field.");
+  record();
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet(rows),
+    "Sheet1",
+  );
+  return workbook;
+}
+
 function objectBook(input, warnings, location) {
   if (!input || typeof input !== "object")
     throw new AppError(`${location}: invalid book record.`);
@@ -98,13 +180,16 @@ function objectBook(input, warnings, location) {
 function fromWorkbook(buffer, filename) {
   if (buffer.length > 16 * 1024 * 1024)
     throw new AppError("Choose an XLSX or CSV file smaller than 16 MB.");
-  if (/\.xlsx$/i.test(filename)) validateWorkbookArchive(buffer);
-  const workbook = XLSX.read(buffer, {
-    type: "buffer",
-    raw: true,
-    cellDates: false,
-    sheetRows: MAX_RECORDS + 2,
-  });
+  const csv = /\.csv$/i.test(filename);
+  if (!csv) validateWorkbookArchive(buffer);
+  const workbook = csv
+    ? csvWorkbook(buffer)
+    : XLSX.read(buffer, {
+        type: "buffer",
+        raw: true,
+        cellDates: false,
+        sheetRows: MAX_RECORDS + 2,
+      });
   if (workbook.SheetNames.length > 10)
     throw new AppError("The workbook has too many sheets.");
   for (const sheet of Object.values(workbook.Sheets)) {
@@ -274,7 +359,14 @@ export function parseImport(buffer, filename) {
     };
   });
   const options = {};
-  for (const [field, values] of Object.entries(raw.options || {})) {
+  if (
+    raw.options != null &&
+    (typeof raw.options !== "object" || Array.isArray(raw.options))
+  )
+    throw new AppError("Invalid dropdown choices in the backup.");
+  // Avoid Object.entries on unvalidated strings (one allocated pair per byte).
+  for (const field in raw.options || {}) {
+    const values = raw.options[field];
     if (
       !["series", "type", "publisher", "status", "source"].includes(field) ||
       !Array.isArray(values) ||

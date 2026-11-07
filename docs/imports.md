@@ -16,7 +16,9 @@ The importer preserves intentional duplicate copies, fractional volumes, zero pr
 
 CSV and JSON arrays also import owned books. CSV dates must be `YYYY-MM-DD`; use `.xlsx` to carry over spreadsheet date cells without ambiguity. A complete app JSON backup also restores removed books, saved releases, catalog links and unused dropdown choices.
 
-CSV/XLSX files are limited to 16 MiB; XLSX archives must expand to at most 32 MiB. Import sheets may contain up to 20,000 records and 32 columns, with at most ten sheets. JSON backups may contain up to 128 MiB to accommodate stored covers. Only one web upload is processed at a time, and each account may make ten upload requests per 15 minutes (preview and import each count).
+CSV is parsed as text, not auto-detected as a binary spreadsheet: renaming XLSX/ZIP files to `.csv` is rejected. Quoted/multiline fields, comma/semicolon/tab separators, UTF-8 and BOM-marked UTF-16 are supported; CSV fields are limited to 8,192 characters.
+
+CSV/XLSX files are limited to 16 MiB; XLSX archives must expand to at most 32 MiB. Import sheets may contain up to 20,000 records and 32 columns, with at most ten sheets. JSON backups may contain up to 128 MiB to accommodate stored covers. Web imports and backup downloads share one process-local transfer slot; uploads have a 120-second body deadline, and each account may make ten upload requests per 15 minutes (preview and import each count).
 
 Imports require an empty library to avoid confusing intentional second copies with records already imported. For a fresh library, create a separate PostgreSQL database and point `DATABASE_URL` at it:
 
