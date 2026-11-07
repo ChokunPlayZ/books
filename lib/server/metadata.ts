@@ -52,9 +52,9 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
   const cacheRows = async () =>
     (await store.db
       .prepare(
-        "SELECT key, value, expires_at, octet_length(value) AS bytes FROM cache WHERE key NOT LIKE 'user:%' OR key LIKE ? ORDER BY key",
+        "SELECT key, value, expires_at, octet_length(value) AS bytes FROM cache ORDER BY key",
       )
-      .all(`user:${store.currentUser().id}:%`)) as unknown as {
+      .all()) as unknown as {
       key: string;
       value: string;
       expires_at: number;
@@ -176,6 +176,7 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
         );
       } else if (
         key.startsWith("series:v1:") &&
+        row.key.startsWith(`user:${store.currentUser().id}:`) &&
         value?.series &&
         value?.publisherId &&
         value?.type
@@ -258,6 +259,16 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
         (!request.key || entry.key === request.key),
     );
     return store.transaction(async () => {
+      // Serialize the check/delete with worker claims, not just this process.
+      await store.db.query("SELECT pg_advisory_xact_lock(726005::bigint)");
+      const running = await store.db
+        .prepare("SELECT 1 FROM scrape_jobs WHERE status='running' LIMIT 1")
+        .get();
+      if (running)
+        throw new AppError(
+          "Wait for running scraping tasks to finish before purging.",
+          409,
+        );
       const remove = store.db.prepare("DELETE FROM cache WHERE key=?");
       for (const entry of selected) await remove.run(entry.key);
       return { purged: selected.length };
@@ -267,11 +278,6 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
     store.requireAdmin();
     if (typeof request?.key !== "string")
       throw new AppError("Choose a cached record.");
-    if (
-      request.key.startsWith("user:") &&
-      !request.key.startsWith(`user:${store.currentUser().id}:`)
-    )
-      throw new AppError("This cached record is not available.", 404);
     const row = await store.db
       .prepare("SELECT value FROM cache WHERE key=?")
       .get(request.key);
@@ -383,6 +389,25 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
         `Refreshed ${result.titles?.length ?? result.items?.length ?? 0} records.`,
     };
   }
+  async function validateCrawlTarget(request: {
+    id: string;
+    fillMissing?: boolean;
+  }) {
+    store.requireAdmin();
+    if (
+      typeof request?.id !== "string" ||
+      (Object.hasOwn(request, "fillMissing") &&
+        typeof request.fillMissing !== "boolean")
+    )
+      throw new AppError("Choose a source and a boolean fill-missing value.");
+    const target = (await targets()).find((entry) => entry.id === request.id);
+    if (!target)
+      throw new AppError(
+        "This source is no longer available. Reload the list.",
+        404,
+      );
+    return target;
+  }
   async function recrawlMetadata(request: {
     id: string;
     fillMissing?: boolean;
@@ -398,14 +423,7 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
       (request.fillMissing === true);
     if (!pending.has(pendingKey)) {
       const operation = (async () => {
-        const target = (await targets()).find(
-          (entry) => entry.id === request.id,
-        );
-        if (!target)
-          throw new AppError(
-            "This source is no longer available. Reload the list.",
-            404,
-          );
+        const target = await validateCrawlTarget(request);
         return crawl(target, request.fillMissing === true).catch((error) => ({
           id: target.id,
           status: "failed" as const,
@@ -418,6 +436,7 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
     return pending.get(pendingKey);
   }
   return {
+    validateCrawlTarget,
     getMetadataOverview,
     getMetadataCacheEntry,
     purgeMetadataCache,

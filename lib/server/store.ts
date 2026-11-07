@@ -69,8 +69,18 @@ type CoverRow = {
 export type Store = Awaited<ReturnType<typeof openStore>>;
 export class AppError extends Error {
   readonly status: number;
+  // Instrumentation, RSC and route handlers can load separate server bundles.
+  // Preserve typed HTTP errors across those bundles without trusting arbitrary
+  // objects containing a caller-controlled `status` property.
+  static [Symbol.hasInstance](value: unknown) {
+    return (
+      value instanceof Error &&
+      Reflect.get(value, Symbol.for("meemai.AppError")) === true
+    );
+  }
   constructor(message, status = 400) {
     super(message);
+    Object.defineProperty(this, Symbol.for("meemai.AppError"), { value: true });
     this.status = status;
   }
 }
@@ -80,6 +90,7 @@ export async function openStore(
 ) {
   const users = createUserContext();
   const db = await openDatabase(connectionString, () => users.current().id);
+  const closeHandlers = new Set<() => Promise<void>>();
   const owned = "user_id=app_user_id()";
   function requireAdmin() {
     if (users.current().role !== "admin")
@@ -1105,7 +1116,11 @@ export async function openStore(
     cache,
     covers,
     importData,
-    close: async () => await db.close(),
+    onClose: (handler: () => Promise<void>) => closeHandlers.add(handler),
+    close: async () => {
+      for (const handler of closeHandlers) await handler();
+      await db.close();
+    },
     async savedSeriesCatalog(spec) {
       const row = await get(
         `SELECT data FROM series_catalogs WHERE ${owned} AND series_key=? AND publisher_id=? AND type=?`,

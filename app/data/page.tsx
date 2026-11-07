@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getApp } from "../../lib/server/app.ts";
 import { sessionUser, SESSION_COOKIE } from "../../lib/server/auth.ts";
 import DataManager from "../../components/DataManager";
+import AdminLink from "../../components/AdminLink";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,7 @@ export default async function DataPage() {
         savedReleases: data.savedReleases.length,
       }}
       canSignOut={true}
+      adminLink={<AdminLink />}
     />
   );
 }

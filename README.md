@@ -95,6 +95,6 @@ An installed browser can be selected with `--browser-executable=/absolute/path/t
 
 See the [development guide](docs/development.md) for module boundaries and common changes, [library workflows](docs/library.md), [import formats](docs/imports.md), [self-hosting and backups](docs/self-hosting.md), and [publisher maintenance](docs/web-scraping.md).
 
-See [accounts and privacy](docs/multi-user.md) for adding users, private collection fields, permanent ISBN/source caching and administrator-only maintenance. Cache inspection, purges and re-crawls are not part of the library UI, including for administrators.
+See [accounts and privacy](docs/multi-user.md) for adding users, private collection fields, permanent ISBN/source caching and administrator-only maintenance. Administrators have a separate **Administration** workspace at `/admin` for the scraping queue, cache maintenance and read-only system-wide inspection. The page and its navigation are gated on the server; ordinary accounts cannot receive admin components or data. Run `npm run build && npm run test:admin` for the isolated production authorization and queue-control browser checks.
 
 Before public deployment, review [authentication setup](docs/authentication.md) and the [security deployment checklist](docs/security.md).

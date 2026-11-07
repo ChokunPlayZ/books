@@ -76,6 +76,20 @@ test("unexpected errors never leak internal messages to public clients", async (
   );
 });
 
+test("typed errors preserve HTTP status across instrumentation and route bundles", async () => {
+  const { AppError: OtherBundleError } =
+    await import("../../lib/server/store.ts?other-server-bundle");
+  assert.notEqual(OtherBundleError, AppError);
+  const error = new OtherBundleError("Administrator access required.", 403);
+  assert.ok(error instanceof AppError);
+  const response = errorResponse(error);
+  assert.equal(response.status, 403);
+  assert.equal(
+    (await response.json()).message,
+    "Administrator access required.",
+  );
+});
+
 test("JSON and streaming body limits reject malformed, oversized and non-object requests", async () => {
   const request = (body, contentType = "application/json") =>
     new Request("https://books.example.org", {

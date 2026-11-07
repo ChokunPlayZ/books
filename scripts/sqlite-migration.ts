@@ -18,6 +18,7 @@ const tables = [
   "request_limits",
   "cover_access",
   "user_cover_sources",
+  "scrape_jobs",
 ] as const;
 
 export async function migrateSqlite(path: string, connectionString?: string) {

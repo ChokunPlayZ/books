@@ -1,5 +1,5 @@
 import { openStore, type Store } from "./store.ts";
-import { createApplicationApi } from "./api.ts";
+import { createApplicationApi, applicationQueue } from "./api.ts";
 import { createCoverService } from "./covers.ts";
 
 type BookApplication = {
@@ -14,9 +14,9 @@ const applicationGlobal = globalThis as typeof globalThis & {
   __bookCollectionApp?: BookApplication;
   __bookCollectionOpening?: Promise<BookApplication>;
 };
-const API_VERSION = 7;
+const API_VERSION = 8;
 // Reopen the store when its in-memory methods change during development.
-const STORE_VERSION = 10;
+const STORE_VERSION = 11;
 
 // Next development reloads modules; share one pool and one initialization promise.
 export async function getApp(): Promise<BookApplication> {
@@ -43,5 +43,7 @@ export async function getApp(): Promise<BookApplication> {
     app.api = createApplicationApi(app.store, app.covers);
     app.apiVersion = API_VERSION;
   }
-  return applicationGlobal.__bookCollectionApp;
+  const app = applicationGlobal.__bookCollectionApp;
+  applicationQueue(app.store)?.start();
+  return app;
 }

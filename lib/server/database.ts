@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { Pool, types, type PoolClient } from "pg";
 import { migrateDatabase } from "./schema.ts";
 
-export type DatabaseValue = string | number | Uint8Array | null;
+export type DatabaseValue = string | number | boolean | Uint8Array | null;
 
 export async function openDatabase(
   connectionString: string,

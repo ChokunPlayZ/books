@@ -21,6 +21,8 @@ async function sqliteFixture(store, path, version) {
       "SELECT table_name FROM information_schema.tables WHERE table_schema=current_schema() AND table_name<>'schema_migrations'",
     );
     for (const { table_name: table } of tables) {
+      // The durable queue was introduced after SQLite support ended.
+      if (table.startsWith("scrape_")) continue;
       if (version < 6 && ["oauth_attempts", "request_limits"].includes(table))
         continue;
       const { rows: columns } = await store.db.query(

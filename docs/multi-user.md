@@ -13,7 +13,7 @@ To reserve an account, run `npm run user:add -- username reader@gmail.com` on th
 - Removed books, removal history, restores, imports and import receipts, mutation retry receipts, and exports.
 - Browser search/filter preferences are namespaced by user. Downloaded backup files remain the user's responsibility.
 
-Every collection read and mutation, including bulk edits and image association, checks the authenticated owner. Even administrators use only their own library through the app; database/server administrators inherently have access to the underlying database.
+Every ordinary collection read and mutation, including bulk edits and image association, checks the authenticated owner. Administrators still use their own library in the library UI. The separate `/admin` workspace additionally allows trusted administrators to inspect all accounts' records read-only, including private books, removed books, notes, purchases, saved releases and linked catalogs. Do not grant administrator access to anyone who should not see this information. Account credentials, OAuth handshakes and session secrets are never exposed.
 
 ## Shared public data
 
@@ -21,7 +21,11 @@ Independently scraped book metadata, ISBN/product URLs, MSRP and currency, publi
 
 Confirmed ISBN/source matches and their metadata are retained without expiry. Subsequent ISBN lookups, comparisons and cover requests reuse them, including after restarts. Prices and availability are snapshots, not live quotes; check their timestamps or open the shop. MSRP is distinct from selling price and price paid; missing MSRP remains blank rather than being inferred from a discount price.
 
-Only administrators may request `refresh: true`, re-crawl metadata, inspect raw cache entries, or purge caches through the maintenance API. These operations are not exposed in **Data & backups** or elsewhere in the library UI, even for administrators; library refresh controls reuse available results without forcing source invalidation. Purging is an explicit administrative invalidation; future requests can fetch the removed source again. Failed refreshes retain successful data, with a retry cooldown. Unconfirmed misses still expire, so newly listed books can be discovered. Release feeds and category/directory pages still refresh on their normal schedule to discover new books; confirmed product pages do not.
+Only administrators may request `refresh: true`, re-crawl metadata, inspect raw cache entries, or purge caches. **Administration** links are rendered on the server only for current administrators. Both the `/admin` layout and page verify the database-backed session before returning any admin components or initial data; every maintenance/inspection RPC independently checks the role. Anonymous visits redirect to sign-in and ordinary users receive a server-side not-found result, including RSC navigation requests (Next.js may encode a streamed not-found result in an HTTP 200 response). Role revocation takes effect on the next request.
+
+The workspace shows scraping tasks from all accounts, with inputs, results, errors, attempts, timestamps and event history. Administrators can pause/resume the shared queue, fast-track or cancel waiting tasks, and requeue finished tasks. Running tasks finish safely rather than being preempted. Forced re-scrapes bypass freshness caches but never source failure cooldowns. Optional filling of blank metadata affects only the administrator's own library.
+
+Library refresh controls still reuse available results without forcing source invalidation. Purging is an explicit administrative invalidation; future requests can fetch the removed source again. Failed refreshes retain successful data, with a retry cooldown. Unconfirmed misses still expire, so newly listed books can be discovered. Release feeds and category/directory pages still refresh on their normal schedule to discover new books; confirmed product pages do not.
 
 Book type choices are **Manga**, **Light novel**, and **Others**. Legacy type strings are mapped on migration/import; their language/colour labels are retained in the private edition-details field.
 

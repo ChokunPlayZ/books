@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Icon from "./Icon";
 import LibraryBrand from "./LibraryBrand";
 import ThemeToggle from "./ThemeToggle";
@@ -14,9 +14,14 @@ import { useTranslations } from "./PreferencesProvider";
 type DataManagerProps = {
   counts: { books: number; trash: number; savedReleases: number };
   canSignOut: boolean;
+  adminLink?: ReactNode;
 };
 
-export default function DataManager({ counts, canSignOut }: DataManagerProps) {
+export default function DataManager({
+  counts,
+  canSignOut,
+  adminLink,
+}: DataManagerProps) {
   const t = useTranslations();
   const [file, setFile] = useState<File | null>(null),
     [review, setReview] = useState<ImportReview | null>(null),
@@ -67,6 +72,7 @@ export default function DataManager({ counts, canSignOut }: DataManagerProps) {
         <div className="top-inner flex items-center justify-between">
           <LibraryBrand />
           <div className="header-links">
+            {adminLink}
             <LanguageSelect />
             <ThemeToggle />
             <a className="btn return-link" href="/">

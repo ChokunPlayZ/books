@@ -1,10 +1,20 @@
-import { createCatalogService, knownBookCoverUrl } from "./catalogs.ts";
+import {
+  CATALOG_REUSE,
+  createCatalogService,
+  knownBookCoverUrl,
+} from "./catalogs.ts";
 import { canonicalIsbn, volumeCoverKey } from "../domain.ts";
 import { createAnimeService } from "./anime.ts";
 import { createSeasonalDiscoveryService } from "./seasonal-discovery.ts";
 import { createMetadataService } from "./metadata.ts";
 import { AppError } from "./store.ts";
 import { createSearchService } from "./search.ts";
+import { createScrapeQueue } from "./scrape-queue.ts";
+import { createAdminService } from "./admin.ts";
+import type { Store } from "./store.ts";
+
+const queues = new WeakMap<Store, ReturnType<typeof createScrapeQueue>>();
+export const applicationQueue = (store: Store) => queues.get(store);
 
 async function eachLimit(items, action, limit = 4) {
   let cursor = 0;
@@ -23,6 +33,17 @@ export function createApplicationApi(
 ) {
   const catalogs = createCatalogService(store, fetchImpl);
   const anime = createAnimeService(store, fetchImpl);
+  const seasonal = createSeasonalDiscoveryService(anime, catalogs);
+  const maintenance = createMetadataService(store, catalogs);
+  const { validateCrawlTarget, ...maintenanceApi } = maintenance;
+  const search = createSearchService(store, catalogs, fetchImpl);
+  function authorizeRefresh(arg: unknown) {
+    if (!arg || typeof arg !== "object") return;
+    const refresh = (arg as { refresh?: unknown }).refresh;
+    if (Object.hasOwn(arg, "refresh") && typeof refresh !== "boolean")
+      throw new AppError("Choose a boolean refresh value.");
+    if (refresh === true) store.requireAdmin();
+  }
   async function attachImages(result) {
     const records = [];
     function visit(value) {
@@ -90,24 +111,58 @@ export function createApplicationApi(
     }
     return result;
   }
+  const queued = {
+    ...Object.fromEntries(
+      Object.entries({ ...catalogs, ...anime, ...seasonal }).map(
+        ([name, method]) => [
+          name,
+          async (arg) => {
+            authorizeRefresh(arg);
+            return attachImages(await method(arg));
+          },
+        ],
+      ),
+    ),
+    searchExternalTitles: search.searchExternalTitles,
+    recrawlMetadata: maintenance.recrawlMetadata,
+  };
+  const queue = queues.get(store) ?? createScrapeQueue(store, queued);
+  queue.updateHandlers(queued);
+  queues.set(store, queue);
+  const label = (name: string, arg: any) =>
+    [
+      name,
+      typeof arg === "string"
+        ? arg
+        : arg?.isbn ||
+          arg?.series ||
+          arg?.query ||
+          arg?.url ||
+          arg?.publisherId ||
+          arg?.id ||
+          "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
   const methods: Record<string, (arg?: unknown) => unknown> = {
     ...store.api,
     ...catalogs,
     ...anime,
-    ...createSeasonalDiscoveryService(anime, catalogs),
+    ...seasonal,
   };
   const api = Object.fromEntries(
     Object.entries(methods).map(([name, method]) => [
       name,
       async (arg) => {
-        if (arg && typeof arg === "object") {
-          const refresh = (arg as { refresh?: unknown }).refresh;
-          // Some source adapters use truthiness. Validate before authorization
-          // so JSON values such as "true", 1 or {} cannot force a refresh.
-          if (Object.hasOwn(arg, "refresh") && typeof refresh !== "boolean")
-            throw new AppError("Choose a boolean refresh value.");
-          if (refresh === true) store.requireAdmin();
-        }
+        // Validate before enqueueing and again in the worker after role lookup.
+        authorizeRefresh(arg);
+        if (
+          Object.hasOwn(catalogs, name) &&
+          (await catalogs[CATALOG_REUSE](name, arg))
+        )
+          return attachImages(await method(arg));
+        if (Object.hasOwn(queued, name))
+          return queue.run(name, arg, label(name, arg));
         return await attachImages(await method(arg));
       },
     ]),
@@ -142,7 +197,52 @@ export function createApplicationApi(
   // Search must never wait for cover downloads or mutate a user's shelf.
   return {
     ...api,
-    ...createMetadataService(store, catalogs),
-    ...createSearchService(store, catalogs, fetchImpl),
+    ...maintenanceApi,
+    ...search,
+    ...createAdminService(store),
+    getScrapeQueue: queue.getScrapeQueue,
+    getScrapeJob: queue.getScrapeJob,
+    manageScrapeQueue: queue.manageScrapeQueue,
+    manageScrapeJob: queue.manageScrapeJob,
+    searchExternalTitles: async (arg) =>
+      queue.run(
+        "searchExternalTitles",
+        arg,
+        label("searchExternalTitles", arg),
+      ),
+    recrawlMetadata: async (arg) => {
+      store.requireAdmin();
+      return queue.run("recrawlMetadata", arg, label("recrawlMetadata", arg));
+    },
+    enqueueMetadataRecrawl: async (arg) => {
+      store.requireAdmin();
+      const target = await validateCrawlTarget(arg);
+      return {
+        id: await queue.enqueue(
+          "recrawlMetadata",
+          arg,
+          `Re-scrape · ${target.label}`,
+        ),
+      };
+    },
+    enqueueScrapeTask: async (request) => {
+      store.requireAdmin();
+      if (!request || !Object.hasOwn(catalogs, request.kind))
+        throw new AppError("Choose a supported scraping task.");
+      if (
+        !request.arg ||
+        typeof request.arg !== "object" ||
+        Array.isArray(request.arg)
+      )
+        throw new AppError("Choose a scraping target.");
+      const arg = { ...request.arg, refresh: true };
+      return {
+        id: await queue.enqueue(
+          request.kind,
+          arg,
+          `Force re-scrape · ${label(request.kind, arg)}`,
+        ),
+      };
+    },
   };
 }

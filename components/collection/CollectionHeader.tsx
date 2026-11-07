@@ -2,6 +2,7 @@ import LibraryBrand from "../LibraryBrand";
 import ThemeToggle from "../ThemeToggle";
 import LanguageSelect from "../LanguageSelect";
 import { getTranslations } from "../../lib/server/preferences.ts";
+import AdminLink from "../AdminLink";
 
 export default async function CollectionHeader({
   series,
@@ -15,6 +16,7 @@ export default async function CollectionHeader({
         <LibraryBrand />
         <div className={"top-actions"}>
           <div className="header-links">
+            <AdminLink />
             <LanguageSelect />
             <ThemeToggle />
           </div>

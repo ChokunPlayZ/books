@@ -49,6 +49,33 @@ const migrations = [
   CREATE TABLE cover_access (user_id INTEGER NOT NULL REFERENCES users(id), cover_id TEXT NOT NULL REFERENCES covers(id), PRIMARY KEY(user_id,cover_id));
   CREATE TABLE user_cover_sources (user_id INTEGER NOT NULL REFERENCES users(id), url TEXT NOT NULL, cover_id TEXT NOT NULL REFERENCES covers(id), PRIMARY KEY(user_id,url));
   `,
+  `
+  CREATE TABLE scrape_queue_settings (
+    id INTEGER PRIMARY KEY CHECK(id=1), paused BOOLEAN NOT NULL DEFAULT false
+  );
+  INSERT INTO scrape_queue_settings(id) VALUES (1);
+  CREATE TABLE scrape_jobs (
+    id TEXT PRIMARY KEY, dedupe_key TEXT NOT NULL, kind TEXT NOT NULL,
+    sequence BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL UNIQUE,
+    payload JSONB NOT NULL, label TEXT NOT NULL,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    status TEXT NOT NULL CHECK(status IN ('queued','running','succeeded','failed','cancelled')),
+    priority INTEGER NOT NULL DEFAULT 0, attempts INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 3, available_at BIGINT NOT NULL,
+    created_at BIGINT NOT NULL, started_at BIGINT, finished_at BIGINT,
+    lease_token TEXT, lease_until BIGINT, result JSONB, error TEXT NOT NULL DEFAULT ''
+  );
+  CREATE UNIQUE INDEX scrape_jobs_active ON scrape_jobs(dedupe_key) WHERE status IN ('queued','running');
+  CREATE INDEX scrape_jobs_next ON scrape_jobs(priority DESC,sequence) WHERE status='queued';
+  CREATE INDEX scrape_jobs_history ON scrape_jobs(created_at DESC,id);
+  CREATE TABLE scrape_job_events (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    job_id TEXT NOT NULL REFERENCES scrape_jobs(id) ON DELETE CASCADE,
+    created_at BIGINT NOT NULL, message TEXT NOT NULL,
+    actor_id INTEGER REFERENCES users(id)
+  );
+  CREATE INDEX scrape_job_events_job ON scrape_job_events(job_id,id);
+  `,
 ];
 
 export async function migrateDatabase(pool: Pool) {

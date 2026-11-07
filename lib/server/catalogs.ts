@@ -61,6 +61,7 @@ export async function knownBookCoverUrl(store, book) {
 }
 
 // Catalog caches are durable; failed refreshes keep the previous successful result.
+export const CATALOG_REUSE = Symbol("catalog-cache-reuse");
 export function createCatalogService(
   store,
   fetchImpl = globalThis.fetch,
@@ -353,19 +354,24 @@ export function createCatalogService(
         });
     };
     // Fetch a few product pages at a time so alternate editions remain selectable.
-    for (let start = 0; start < candidates.length; start += 3)
-      await Promise.all(
+    for (let start = 0; start < candidates.length; start += 3) {
+      const batch = await Promise.all(
         candidates.slice(start, start + 3).map(async (item) => {
           try {
             const scraper = scrapers.get(publisherId);
             if (scraper?.gallery) {
-              for (const option of await scraper.gallery(
+              const options = await scraper.gallery(
                 item,
                 { ...book, type: book.edition || book.type },
                 request.refresh,
-              ))
-                await add(option.coverUrl, { ...item, ...option });
-              return;
+              );
+              return {
+                options: options.map((option) => ({
+                  coverUrl: option.coverUrl,
+                  item: { ...item, ...option },
+                })),
+                warning: "",
+              };
             }
             const html = await fetchText_(
               item.url,
@@ -378,16 +384,28 @@ export function createCatalogService(
                 /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1] ||
                 "",
             );
-            if (specialSet(title)) return;
+            if (specialSet(title)) return { options: [], warning: "" };
             const gallery = await publisherCovers(html, item.url);
-            for (const cover of gallery.length ? gallery : [item.coverUrl])
-              await add(cover, item);
+            return {
+              options: (gallery.length ? gallery : [item.coverUrl]).map(
+                (coverUrl) => ({ coverUrl, item }),
+              ),
+              warning: "",
+            };
           } catch {
-            await add(item.coverUrl, item);
-            warnings.push("Could not read the gallery for " + item.title + ".");
+            return {
+              options: [{ coverUrl: item.coverUrl, item }],
+              warning: "Could not read the gallery for " + item.title + ".",
+            };
           }
         }),
       );
+      // Keep results stable across workers, cached reads and network timings.
+      for (const result of batch) {
+        for (const option of result.options) add(option.coverUrl, option.item);
+        if (result.warning) warnings.push(result.warning);
+      }
+    }
     if (catalog.error) warnings.push(catalog.error);
     const isbn = canonicalIsbn(book.isbn);
     for (const source of scrapers.coverProviders) {
@@ -900,7 +918,7 @@ export function createCatalogService(
     getSeriesCatalog,
     getSeriesCategories,
   };
-  return Object.fromEntries(
+  const api = Object.fromEntries(
     Object.entries(methods).map(([name, method]) => [
       name,
       async (request) => {
@@ -910,4 +928,60 @@ export function createCatalogService(
       },
     ]),
   ) as typeof methods;
+  // Cache-only operations must not wait behind remote work or a paused queue.
+  // This private symbol is not enumerable and can never become an RPC method.
+  async function canReuse(name: string, request: any) {
+    if (request?.refresh === true) return false;
+    try {
+      let key = "",
+        maxAge = 0;
+      if (name === "lookupIsbn") {
+        const isbn = canonicalIsbn(
+          typeof request === "string" ? request : request?.isbn,
+        );
+        return !!isbn && !!(await cache.get("isbn:v15:" + isbn));
+      }
+      if (name === "getPublisherReleases") {
+        key = "releases:v1:" + request?.publisherId;
+        maxAge = SCRAPE_TTL.releases;
+      } else if (
+        name === "getPublisherCatalog" ||
+        name === "getPublisherDirectory"
+      ) {
+        const source = publisherCatalogSource(
+          request?.url || "https://www.phoenixnext.com/gl.html",
+        );
+        const scraper = scrapers.require(source.publisherId);
+        const directory =
+          name === "getPublisherDirectory" &&
+          scraper.directory &&
+          !scraper.directoryAsCatalog?.(source.url);
+        key =
+          (directory ? "publisher-directory:v1:" : "publisher-catalog:v1:") +
+          digest(source.url);
+        maxAge = directory ? SCRAPE_TTL.directory : SCRAPE_TTL.catalog;
+      } else if (name === "getSeriesCatalog") {
+        const spec = seriesCatalogRequest(request);
+        const saved = await savedSeriesCatalog_(spec);
+        key =
+          "series:v1:" +
+          spec.publisherId +
+          ":" +
+          digest(spec.series + "\n" + spec.type + "\n" + (saved?.url || ""));
+        maxAge = SCRAPE_TTL.catalog;
+      }
+      if (!key) return false;
+      const cached = await cachedJson_(cache, key);
+      return (
+        !!cached && Date.now() - Date.parse(cached.checkedAt) < maxAge * 1000
+      );
+    } catch {
+      return false;
+    }
+  }
+  return Object.defineProperty(api, CATALOG_REUSE, {
+    value: canReuse,
+  }) as typeof api & {
+    [CATALOG_REUSE]: typeof canReuse;
+  };
 }
