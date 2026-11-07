@@ -77,7 +77,6 @@ try {
     "/discover",
     "/stats",
     "/removed",
-    "/prices",
     "/search",
     "/data",
   ]) {

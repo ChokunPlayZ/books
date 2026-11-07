@@ -18,7 +18,7 @@ Publisher requests use the following freshness windows, defined in `SCRAPE_TTL`:
 | Exact-ISBN misses                               | 24 hours                      |
 | Lookup results containing provider warnings     | 15 minutes                    |
 
-Confirmed source matches have no expiry and are reused by ISBN lookup, price comparisons and cover requests, across users and restarts. Price and stock timestamps are snapshots, not live quotes. Other successful catalog/page responses are retained for 30 days. Requests for the same resource share one in-flight operation, including concurrent refreshes. Shared results are copied before series-specific annotation; personal series aliases are cached under the requesting user. Imported image/source associations remain private instead of overwriting public source images.
+Confirmed source matches have no expiry and are reused by ISBN lookup and cover requests, across users and restarts. Price and stock timestamps are snapshots, not live quotes. Other successful catalog/page responses are retained for 30 days. Requests for the same resource share one in-flight operation, including concurrent refreshes. Shared results are copied before series-specific annotation; personal series aliases are cached under the requesting user. Imported image/source associations remain private instead of overwriting public source images.
 
 Only administrators may force `refresh: true`, inspect raw caches, purge entries, or run re-crawls. Ordinary users can reuse public metadata and discover unknown books, but cannot re-scrape confirmed matches. See [accounts and privacy](multi-user.md).
 
@@ -183,7 +183,7 @@ Special-edition detection recognizes markers including `Special Set`, `Complete 
 
 ## ISBN source selection
 
-Automatic metadata lookup, supplementary ISBN cover choices and price comparison select sources using canonical ISBN-13 prefixes. A source declares optional `isbnPrefixes` alongside its capabilities; omitted prefixes mean the source serves multiple countries/languages. ISBN-10 inputs use the same routing after conversion.
+Automatic metadata lookup and supplementary ISBN cover choices select sources using canonical ISBN-13 prefixes. A source declares optional `isbnPrefixes` alongside its capabilities; omitted prefixes mean the source serves multiple countries/languages. ISBN-10 inputs use the same routing after conversion.
 
 | Registration group                                         | Applicable local sources                                     |
 | ---------------------------------------------------------- | ------------------------------------------------------------ |
@@ -194,7 +194,7 @@ Automatic metadata lookup, supplementary ISBN cover choices and price comparison
 
 Kinokuniya, Google Books and Open Library remain eligible for every group, within their supported capabilities. In particular, `979-10`/`11`/`12`/`13` do not match the English `978-1` group. The International ISBN Agency documents the distinction between [English-speaking `978-0`/`978-1` and US `979-8`](https://www.isbn-international.org/index.php/content/changes-united-states-isbn-prefixes); Thailand's National Library documents its [country registration groups](https://www.nlt.go.th/storage/contents/file/TjLGCPVzFahIvMgSlxnKfrwbyg9mGhWLk19PvhR8.pdf).
 
-Applicable metadata sources start concurrently and retain their configured preference and warning order. Skipped sources make no request and contribute no outage warning or price-comparison status. Unknown groups retain the multilingual fallbacks. Supplementary cover lookups without an ISBN retain their existing title-based matching. Explicit publisher searches and product/series links use the selected publisher. The aggregate ISBN cache uses a new version so previously cached unrelated warnings are discarded.
+Applicable metadata sources start concurrently and retain their configured preference and warning order. Skipped sources make no request and contribute no outage warning. Unknown groups retain the multilingual fallbacks. Supplementary cover lookups without an ISBN retain their existing title-based matching. Explicit publisher searches and product/series links use the selected publisher. The aggregate ISBN cache uses a new version so previously cached unrelated warnings are discarded.
 
 Publisher suggestions, ISBN search links, release source choices and discovery categories hide sources that do not support the entered ISBN. When a title has a recorded TH/EN/JP language, a source must support that language as well as the ISBN: Thai-only publishers stay hidden for EN/JP titles, and Japanese-only publishers stay hidden for TH/EN titles, even if the ISBN conflicts with the recorded language. Without a valid ISBN, suggestions use the recorded language alone. Publisher choices and search links update when either field changes. Unknown publishers remain editable. A discovery ISBN search moves to an applicable category and never automatically searches an incompatible publisher. Lily House remains available for its Thai and English catalogs. Series catalog checks and supplementary cover choices also skip publishers that do not support the edition.
 

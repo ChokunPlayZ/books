@@ -249,10 +249,7 @@ test("user sessions identify accounts and ordinary users cannot inspect caches o
     await assert.rejects(api.lookupIsbn({ isbn: input.isbn, refresh: true }), {
       status: 403,
     });
-    await assert.rejects(
-      api.findLowestPrices({ isbn: input.isbn, refresh: true }),
-      { status: 403 },
-    );
+    assert.equal(Object.hasOwn(api, "findLowestPrices"), false);
     await assert.rejects(
       async () =>
         await createAccount(store, "mallory", "mallory@gmail.com", "admin"),

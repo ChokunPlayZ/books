@@ -435,11 +435,7 @@ export function mountCollection({
     $("activeCount").textContent = number(books.length);
     $("trashCount").textContent = number(trash.length);
     $("trashCount").hidden = !trash.length;
-    if (
-      state.view === "stats" ||
-      state.view === "prices" ||
-      state.view === "search"
-    ) {
+    if (state.view === "stats" || state.view === "search") {
       onBooksChange?.(books);
       return;
     }
@@ -4160,27 +4156,6 @@ export function mountCollection({
   $("price")?.addEventListener("input", enterSalePrice, {
     signal: events.signal,
   });
-  $("findBookPrices")?.addEventListener(
-    "click",
-    () => {
-      const isbn = canonical($("isbn").value);
-      if (!isbn) {
-        errorAt(
-          "formError",
-          new Error(
-            "Enter this book’s ISBN to compare the same edition across shops.",
-          ),
-        );
-        return;
-      }
-      window.open(
-        "/prices?isbn=" + encodeURIComponent(isbn),
-        "_blank",
-        "noopener,noreferrer",
-      );
-    },
-    { signal: events.signal },
-  );
   $("lookupButton")?.addEventListener("click", lookup, {
     signal: events.signal,
   });

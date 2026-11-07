@@ -13,12 +13,10 @@ import {
 export default async function CollectionPage({
   view = "collection",
   series = null,
-  priceIsbn = "",
   searchQuery = "",
 }: {
   view?: CollectionView;
   series?: string | null;
-  priceIsbn?: string;
   searchQuery?: string;
 }) {
   const { store } = await getApp();
@@ -29,8 +27,6 @@ export default async function CollectionPage({
   if (!user) {
     let destination =
       series === null ? collectionPaths[view] : seriesPath(series);
-    if (view === "prices" && priceIsbn)
-      destination += "?isbn=" + encodeURIComponent(priceIsbn);
     if (view === "search" && searchQuery)
       destination += "?q=" + encodeURIComponent(searchQuery);
     redirect(
@@ -49,7 +45,6 @@ export default async function CollectionPage({
         view={view}
         series={series}
         data={data}
-        priceIsbn={priceIsbn}
         searchQuery={searchQuery}
       />
       {view !== "stats" && <CollectionController view={view} series={series} />}

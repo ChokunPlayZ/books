@@ -88,6 +88,17 @@ try {
 
   await page.goto(testUrl);
   await ready(page);
+  assert.equal(await page.locator("#pricesTab, #findBookPrices").count(), 0);
+  assert.equal(await page.locator('a[href^="/prices"]').count(), 0);
+  assert.equal((await page.request.get(testUrl + "/prices")).status(), 404);
+  assert.equal(
+    (
+      await page.request.post(testUrl + "/api/rpc", {
+        data: { name: "findLowestPrices", arg: { isbn: "9786166247275" } },
+      })
+    ).status(),
+    404,
+  );
   await page.locator("#search").fill(series);
   await page.evaluate(() => {
     window.documentMarker = true;

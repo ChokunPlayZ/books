@@ -18,7 +18,6 @@
 @import "./styles/statistics.css" layer(components);
 @import "./styles/anime.css" layer(components);
 @import "./styles/interface.css" layer(components);
-@import "./styles/prices.css" layer(components);
 @import "./styles/search.css" layer(components);
 @import "./styles/preferences.css" layer(components);
 @import "./styles/legal.css" layer(components);

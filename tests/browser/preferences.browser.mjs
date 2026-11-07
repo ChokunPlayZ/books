@@ -219,7 +219,6 @@ try {
 
   for (const [path, heading] of [
     ["/stats", "สถิติ"],
-    ["/prices", "ค้นหาราคาถูกที่สุด"],
     ["/removed", "ที่นำออกล่าสุด"],
   ]) {
     await page.goto(url + path);

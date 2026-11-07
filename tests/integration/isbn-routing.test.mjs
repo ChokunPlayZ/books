@@ -89,33 +89,6 @@ test("old unfiltered ISBN results do not retain unrelated availability warnings"
   assert.deepEqual(result.warnings, []);
 });
 
-test("price comparison only checks applicable shops and omits skipped source statuses", async (t) => {
-  for (const [isbn, shops] of [
-    [
-      "9786166247275",
-      ["animag", "dexpress", "firstpage", "kinokuniya", "naiin", "phoenix"],
-    ],
-    ["0140328726", ["kinokuniya"]],
-    ["4063951375", ["kinokuniya"]],
-    [withChecksum("979100000000"), ["kinokuniya"]],
-  ])
-    await t.test(isbn, async (t) => {
-      const store = await openStore();
-      t.after(async () => await store.close());
-      const hosts = [];
-      const service = createCatalogService(store, async (url) => {
-        hosts.push(new URL(url).hostname);
-        return new Response("Unavailable", { status: 503 });
-      });
-      const result = await service.findLowestPrices({ isbn, refresh: true });
-      assert.deepEqual(result.sources.map((source) => source.id).sort(), shops);
-      assert.equal(hosts.length, shops.length);
-      assert.ok(
-        result.sources.every((source) => source.status === "unavailable"),
-      );
-    });
-});
-
 test("cover choices require compatible ISBN prefixes and recorded title languages", async (t) => {
   for (const [isbn, type, expected] of [
     [

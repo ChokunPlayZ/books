@@ -52,9 +52,6 @@ for (const [source, isbn, search, product, msrp, price] of [
       assert.equal(result.details.msrp, msrp);
       assert.equal(result.details.msrpCurrency, "THB");
       assert.equal(result.details.price, price);
-      const offer = (await catalogs.findLowestPrices({ isbn })).offers[0];
-      assert.equal(offer.msrp, msrp);
-      assert.equal(offer.price, price);
     },
   );
 }

@@ -2,7 +2,7 @@
 
 Named after the Thai **มีมั้ย** — “Do you have it?”
 
-A personal book library built with Next.js 16, TypeScript, Tailwind CSS 4 and PostgreSQL. Track volumes, purchases and reading status, scan ISBNs, compare publisher catalogs, find the lowest book prices and keep backups. Run locally with PostgreSQL or deploy both services with Docker Compose.
+A personal book library built with Next.js 16, TypeScript, Tailwind CSS 4 and PostgreSQL. Track volumes, purchases and reading status, scan ISBNs, compare publisher catalogs and keep backups. Run locally with PostgreSQL or deploy both services with Docker Compose.
 
 ## Start developing
 

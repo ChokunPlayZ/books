@@ -48,7 +48,7 @@ test("internal navigation, downloads and non-web links remain untouched", () => 
     "/api/backup?series=My%20books",
     "?q=books",
     "#libraryMain",
-    "https://meemai.ckl.moe/prices?isbn=9780385496490",
+    "https://meemai.ckl.moe/search?q=9780385496490",
     "//meemai.ckl.moe/privacy",
     "mailto:chokunplayz@ckl.moe",
     "tel:+66000000000",

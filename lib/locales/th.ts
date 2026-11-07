@@ -68,7 +68,6 @@ export const thai: Record<string, string> = {
   "What’s missing": "เล่มที่ยังขาด",
   "New releases": "หนังสือออกใหม่",
   "Discover titles": "ค้นพบเรื่องใหม่",
-  "Lowest prices": "ราคาถูกที่สุด",
   Statistics: "สถิติ",
   "Recently removed": "ที่นำออกล่าสุด",
   Removed: "ที่นำออก",
@@ -269,7 +268,6 @@ export const thai: Record<string, string> = {
   "Purchase price": "ราคาซื้อ",
   "Price paid": "ราคาที่จ่าย",
   "Use your collection’s currency.": "ใช้สกุลเงินของคลังหนังสือของคุณ",
-  "Find lowest price ↗": "ค้นหาราคาถูกที่สุด ↗",
   "Calculate a discounted price": "คำนวณราคาหลังส่วนลด",
   "Regular price": "ราคาปกติ",
   "Before discount": "ก่อนลดราคา",
@@ -552,51 +550,7 @@ export const thai: Record<string, string> = {
   "Out of stock": "สินค้าหมด",
   "Pre-order": "พรีออเดอร์",
   "Check availability": "ตรวจสอบสินค้า",
-  "Enter a valid ISBN-10 or ISBN-13. You can include spaces or hyphens.":
-    "กรอก ISBN-10 หรือ ISBN-13 ที่ถูกต้อง ใส่ช่องว่างหรือขีดคั่นได้",
-  "Prices could not be checked. Try again.":
-    "ตรวจสอบราคาไม่สำเร็จ กรุณาลองอีกครั้ง",
-  "Find the lowest price": "ค้นหาราคาถูกที่สุด",
-  "Compare the same book across shops before you buy.":
-    "เปรียบเทียบหนังสือเล่มเดียวกันจากหลายร้านก่อนซื้อ",
-  "Book ISBN": "ISBN หนังสือ",
-  "Checking shops…": "กำลังตรวจสอบร้านค้า…",
-  "Compare prices": "เปรียบเทียบราคา",
-  "Use the ISBN on the barcode to compare the same language, volume and edition.":
-    "ใช้ ISBN บนบาร์โค้ดเพื่อเปรียบเทียบภาษา เล่ม และฉบับเดียวกัน",
-  "Checking Naiin, Kinokuniya, Phoenix Next, First Page Pro, Animag and DEXpress…":
-    "กำลังตรวจสอบ Naiin, Kinokuniya, Phoenix Next, First Page Pro, Animag และ DEXpress…",
-  "One ISBN. Six shops.": "ISBN เดียว เทียบหกร้าน",
-  "See listed prices and stock, with the lowest in-stock price highlighted. Open a shop to check delivery and place your order.":
-    "ดูราคาและสถานะสินค้า พร้อมไฮไลต์ราคาต่ำสุดที่มีสินค้า เปิดร้านเพื่อตรวจสอบการจัดส่งและสั่งซื้อ",
-  "No matching listings found": "ไม่พบรายการที่ตรงกัน",
-  "{count} shop with a matching listing": "พบรายการตรงกันใน {count} ร้าน",
-  "{count} shops with a matching listing": "พบรายการตรงกันใน {count} ร้าน",
-  "Refresh prices": "รีเฟรชราคา",
-  "Lowest in-stock prices are highlighted below.":
-    "ไฮไลต์ราคาต่ำสุดที่มีสินค้าด้านล่าง",
-  "No shop has confirmed this book is in stock. Check availability before ordering.":
-    "ยังไม่มีร้านยืนยันว่ามีหนังสือเล่มนี้ กรุณาตรวจสอบก่อนสั่งซื้อ",
-  "The shops could not be reached. Try again later or use the shop search links below.":
-    "ติดต่อร้านค้าไม่ได้ ลองอีกครั้งภายหลังหรือใช้ลิงก์ค้นหาด้านล่าง",
-  "No exact ISBN matches were found. Check the ISBN or try the shop search links below.":
-    "ไม่พบ ISBN ที่ตรงกัน ตรวจสอบ ISBN หรือลองใช้ลิงก์ค้นหาร้านด้านล่าง",
-  "Could not check {shops}. The lowest price is based on the shops that responded.":
-    "ตรวจสอบ {shops} ไม่สำเร็จ ราคาต่ำสุดอ้างอิงเฉพาะร้านที่ตอบกลับ",
-  "Shop price comparison": "เปรียบเทียบราคาร้านค้า",
   Checked: "ตรวจสอบเมื่อ",
-  "Price unavailable": "ไม่มีข้อมูลราคา",
-  "Lowest in stock": "ราคาต่ำสุดที่มีสินค้า",
-  "View book at {shop} (opens in a new tab)":
-    "ดูหนังสือที่ {shop} (เปิดแท็บใหม่)",
-  "View at shop ↗": "ดูที่ร้าน ↗",
-  "Item prices exclude shipping, membership discounts and checkout coupons. Currencies are compared separately. Prices and stock may have changed since the time shown. Open the shop for current prices.":
-    "ราคาไม่รวมค่าจัดส่ง ส่วนลดสมาชิก และคูปอง โดยเทียบแยกตามสกุลเงิน ราคาและสินค้าอาจเปลี่ยนไปจากเวลาที่แสดง เปิดร้านเพื่อดูราคาปัจจุบัน",
-  "All {count} shop checks": "ผลตรวจสอบร้านค้าทั้ง {count} ร้าน",
-  "Exact ISBN match": "ISBN ตรงกัน",
-  "No exact ISBN match": "ไม่พบ ISBN ที่ตรงกัน",
-  "Could not check · try again later": "ตรวจสอบไม่สำเร็จ · ลองอีกครั้งภายหลัง",
-  "Search shop ↗": "ค้นหาในร้าน ↗",
   "Edit volume details": "แก้ไขรายละเอียดเล่ม",
   "Edit reading status and purchases in the table. Open Book details on any row to edit its volume number, ISBN, edition, notes and cover links. Save all changes together.":
     "แก้ไขสถานะการอ่านและการซื้อในตาราง เปิดรายละเอียดหนังสือเพื่อแก้ไขเลขเล่ม ISBN ฉบับ บันทึก และลิงก์ปก แล้วบันทึกการเปลี่ยนแปลงทั้งหมดพร้อมกัน",

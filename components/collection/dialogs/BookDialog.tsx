@@ -209,13 +209,6 @@ export default async function BookDialog() {
                     {t("Use your collection’s currency.")}
                   </p>
                   <p id="listedPriceHint" className="hint" hidden />
-                  <button
-                    id="findBookPrices"
-                    className="text-btn price-form-link"
-                    type="button"
-                  >
-                    {t("Find lowest price ↗")}
-                  </button>
                 </div>
                 <details
                   id={"priceCalculator"}

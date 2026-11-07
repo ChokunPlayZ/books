@@ -8,7 +8,7 @@ import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { createAccount } from "../../lib/server/auth.ts";
 
 const isbn = "9786166247275";
-test("confirmed ISBN/source matches survive time, restart, other users, prices and cover lookups until admin refresh", async (t) => {
+test("confirmed ISBN/source matches survive time, restart and other users until admin refresh", async (t) => {
   const path = join(
     mkdtempSync(join(tmpdir(), "books-permanent-")),
     "books.sqlite",
@@ -19,11 +19,6 @@ test("confirmed ISBN/source matches survive time, restart, other users, prices a
   const definition = {
     id: "shop",
     hosts: ["shop.example"],
-    priceSource: {
-      name: "Shop",
-      currency: "THB",
-      searchUrl: (code) => "https://shop.example/search?q=" + code,
-    },
     create: () => ({
       lookupIsbn: async () => {
         calls++;
@@ -45,10 +40,7 @@ test("confirmed ISBN/source matches survive time, restart, other users, prices a
   ]);
   const initial = await catalogs.lookupIsbn(isbn);
   assert.equal(initial.details.msrp, 175);
-  assert.equal(
-    (await catalogs.findLowestPrices({ isbn })).offers[0].price,
-    150,
-  );
+  assert.equal(initial.details.price, 150);
   assert.equal(calls, 1);
   await store.db
     .prepare("UPDATE cache SET expires_at=1 WHERE expires_at<>0")
@@ -64,24 +56,21 @@ test("confirmed ISBN/source matches survive time, restart, other users, prices a
       (await catalogs.lookupIsbn(isbn)).details.title,
       "Public book",
     );
-    assert.equal(
-      (await catalogs.findLowestPrices({ isbn })).offers[0].price,
-      150,
-    );
+    assert.equal((await catalogs.lookupIsbn(isbn)).details.price, 150);
     await assert.rejects(catalogs.lookupIsbn({ isbn, refresh: true }), {
       status: 403,
     });
   });
   assert.equal(calls, 1);
   assert.equal(
-    (await catalogs.findLowestPrices({ isbn, refresh: true })).offers[0].price,
+    (await catalogs.lookupIsbn({ isbn, refresh: true })).details.price,
     160,
   );
   assert.equal(calls, 2);
   assert.equal(
     (await catalogs.lookupIsbn(isbn)).details.price,
     160,
-    "An admin price refresh also updates the aggregate ISBN snapshot",
+    "An admin metadata refresh updates the aggregate ISBN snapshot",
   );
 });
 

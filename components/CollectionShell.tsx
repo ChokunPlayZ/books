@@ -13,7 +13,6 @@ import DiscoveryPanel from "./collection/DiscoveryPanel";
 import AdaptationPanel from "./collection/AdaptationPanel";
 import MissingPanel from "./collection/MissingPanel";
 import StatisticsPanel from "./collection/StatisticsPanel";
-import PriceFinder from "./collection/PriceFinder";
 import UniversalSearch from "./collection/UniversalSearch";
 import LegalLinks from "./LegalLinks";
 import TitleDialog from "./collection/dialogs/TitleDialog";
@@ -30,13 +29,11 @@ export default async function CollectionShell({
   view,
   series,
   data,
-  priceIsbn = "",
   searchQuery = "",
 }: {
   view: CollectionView;
   series: string | null;
   data: Awaited<ReturnType<Store["api"]["getCollection"]>>;
-  priceIsbn?: string;
   searchQuery?: string;
 }) {
   const t = await getTranslations();
@@ -73,7 +70,6 @@ export default async function CollectionShell({
         {view === "releases" && <ReleasesPanel />}
         {view === "discover" && <DiscoveryPanel />}
         {view === "search" && <UniversalSearch initialQuery={searchQuery} />}
-        {view === "prices" && <PriceFinder initialIsbn={priceIsbn} />}
         {view === "missing" && <MissingPanel books={data.books} />}
         {view === "stats" && (
           <StatisticsPanel

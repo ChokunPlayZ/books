@@ -1,5 +1,4 @@
 interface LibraryElements {
-  findBookPrices: HTMLButtonElement;
   discoveryMode: HTMLSelectElement;
   publisherDiscovery: HTMLDivElement;
   seasonalDiscovery: HTMLElement;

@@ -22,7 +22,6 @@ import {
 } from "../domain.ts";
 import { publisherCovers } from "./publisher-covers.ts";
 import { bookSourceApplies } from "../domain/book-sources.ts";
-import { createPriceFinder } from "./prices.ts";
 import { SCRAPE_TTL } from "./scrape-cache.ts";
 import { createScraperContext } from "./scrapers/http.ts";
 import {
@@ -891,10 +890,6 @@ export function createCatalogService(
 
   const methods = {
     lookupIsbn,
-    findLowestPrices: createPriceFinder(
-      scrapers.priceProviders,
-      context.scrapeCache,
-    ),
     searchPublisherIsbn,
     getBookCover,
     getBookCoverOptions,

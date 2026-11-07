@@ -236,11 +236,6 @@ export default function UniversalSearch({
                       {source.name} ↗
                     </ExternalLink>
                   ))}
-                {item.isbn && (
-                  <a href={"/prices?isbn=" + item.isbn}>
-                    {t("Compare prices")}
-                  </a>
-                )}
               </div>
             </li>
           ))}
@@ -261,7 +256,7 @@ export default function UniversalSearch({
         </div>
       )}
       {!progress && !loading && !error && (
-        <div className="price-intro">
+        <div className="universal-search-intro">
           <h2>{t("One search, across your book world.")}</h2>
           <p>
             {t(
