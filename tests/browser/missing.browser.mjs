@@ -45,6 +45,7 @@ try {
       .isVisible(),
     true,
   );
+  const seededRows = [];
   for (const entry of [
     { volume: 1, type: "Manga (TH) (Color)" },
     { volume: 2 },
@@ -62,22 +63,33 @@ try {
     { volume: "", series: prefix + " Unnumbered" },
     { volume: 3, series: title },
   ]) {
-    await rpc("saveBook", {
+    const saved = await rpc("saveBook", {
       requestId: crypto.randomUUID(),
       book: { ...base, ...entry },
       allowDuplicate: true,
     });
+    seededRows.push(saved.row);
   }
   const records = (await rpc("getCollection")).books.filter((book) =>
     book.series.startsWith(prefix),
   );
-  const removed = records.find(
-    (book) =>
-      book.series === title &&
-      book.volume === 3 &&
-      book.type === "Manga (TH)" &&
-      book.publisher === base.publisher,
+  assert.equal(
+    records.length,
+    seededRows.length,
+    "Every fixture write must produce an owned book",
   );
+  // Types are canonical; legacy language/colour labels are retained in edition.
+  // Identify the last fixture by its receipt so the JP volume 3 cannot match it.
+  const removed = records.find((book) => book.row === seededRows.at(-1));
+  assert.ok(
+    removed,
+    `Removable fixture row ${seededRows.at(-1)} was not returned by getCollection`,
+  );
+  assert.equal(removed.series, title);
+  assert.equal(removed.volume, 3);
+  assert.equal(removed.type, "Manga");
+  assert.equal(removed.edition, base.type);
+  assert.equal(removed.publisher, base.publisher);
   await rpc("removeBook", {
     requestId: crypto.randomUUID(),
     row: removed.row,
@@ -162,13 +174,14 @@ try {
   }
   await page
     .getByRole("button", {
-      name: `Add missing volume 3 of ${title}, Manga (TH), PHOENIX Next`,
+      name: `Add missing volume 3 of ${title}, Manga, PHOENIX Next`,
       exact: true,
     })
     .click();
   assert.equal(await page.locator("#series").inputValue(), title);
   assert.equal(await page.locator("#volume").inputValue(), "3");
-  assert.equal(await page.locator("#type").inputValue(), "Manga (TH)");
+  assert.equal(await page.locator("#type").inputValue(), "Manga");
+  assert.equal(await page.locator("#edition").inputValue(), "Manga (TH)");
   assert.equal(await page.locator("#publisher").inputValue(), base.publisher);
   assert.equal(await page.locator("#source").inputValue(), "");
   await page.locator("#saveButton").click();
@@ -180,12 +193,13 @@ try {
   );
   await page
     .getByRole("button", {
-      name: `Add missing volume 1 of ${title}, LN (TH), PHOENIX Next`,
+      name: `Add missing volume 1 of ${title}, Light novel, PHOENIX Next`,
       exact: true,
     })
     .click();
   assert.equal(await page.locator("#volume").inputValue(), "1");
-  assert.equal(await page.locator("#type").inputValue(), "LN (TH)");
+  assert.equal(await page.locator("#type").inputValue(), "Light novel");
+  assert.equal(await page.locator("#edition").inputValue(), "Light novel (TH)");
   await page.locator("#cancelBook").click();
   await page.locator("#missingSearch").fill("no such missing series");
   assert.equal(

@@ -15,7 +15,7 @@ import { createScanner } from "./scanner.ts";
 import { canonicalIsbn as canonical } from "../domain/isbn.ts";
 import { kinokuniyaSearchUrl } from "../domain/urls.ts";
 import { bookSourceApplies, isbnSearchLinks } from "../domain/book-sources.ts";
-import { normalizeBookType } from "../domain/book-type.ts";
+import { bookEditionKey, normalizeBookType } from "../domain/book-type.ts";
 import {
   releaseSeriesKey,
   matchingBookType,
@@ -85,6 +85,7 @@ export function mountCollection({
         series,
         volume,
         type: edition.type || "Others",
+        edition: bookEditionKey(edition.books[0]),
         publisher: edition.publisher,
       });
     },
