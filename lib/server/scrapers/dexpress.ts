@@ -12,6 +12,7 @@ const base = "https://www.dexpress-shop.com";
 
 export const dexpress: ScraperDefinition = {
   id: "dexpress",
+  titleLanguages: ["th", "en"],
   hosts: ["www.dexpress-shop.com"],
   priceSource: {
     name: "DEXpress",

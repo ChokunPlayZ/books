@@ -8,6 +8,7 @@ import type { ScraperContext, ScraperDefinition } from "./types.ts";
 
 export const phoenix: ScraperDefinition = {
   id: "phoenix",
+  titleLanguages: ["th", "en"],
   hosts: ["www.phoenixnext.com"],
   priceSource: {
     name: "Phoenix Next",

@@ -23,6 +23,7 @@ import type {
 
 export const naiin: ScraperDefinition = {
   id: "naiin",
+  titleLanguages: ["th", "en"],
   hosts: ["www.naiin.com"],
   priceSource: {
     name: "Naiin",
@@ -199,6 +200,35 @@ export const naiin: ScraperDefinition = {
     }
 
     return {
+      searchTitles: async (query) => {
+        const html = await fetchText_(
+          "https://www.naiin.com/search-result?title=" +
+            encodeURIComponent(query),
+          false,
+          SCRAPE_TTL.catalog,
+        );
+        const component = /<product-list\b[^>]*>/i.exec(html);
+        if (!component) throw new Error("Naiin search unavailable.");
+        const candidates = JSON.parse(attr(component[0], ":items"));
+        if (!Array.isArray(candidates))
+          throw new Error("Naiin search changed.");
+        const books = candidates.filter(
+          (item) =>
+            Number(item.ProductTypeId) === 1 &&
+            /^\d+$/.test(String(item.ProductID)) &&
+            typeof item.ProductName === "string",
+        );
+        return {
+          // Listing cards are useful title matches, not verified ISBN lookups.
+          items: books.slice(0, 24).map((item) => ({
+            title: textHtml(item.ProductName),
+            ...splitBookTitle(textHtml(item.ProductName)),
+            publisher: textHtml(item.PublisherName || ""),
+            url: "https://www.naiin.com/product/detail/" + item.ProductID,
+          })),
+          complete: false,
+        };
+      },
       lookupIsbn: lookupNaiin_,
       coverOptions: async (book, refresh) => {
         const isbn = canonicalIsbn(book.isbn);

@@ -188,6 +188,10 @@ export function createScraperRegistry(
   }
   return {
     get: (id: string) => sources.get(id),
+    titleProviders: [...sources.values()].filter(
+      (source) =>
+        source.titleLanguages && (source.searchTitles || source.catalog),
+    ),
     require(id: string) {
       const source = sources.get(id);
       if (!source) throw new Error("Choose a supported publisher.");

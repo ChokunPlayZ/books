@@ -4,6 +4,7 @@ import type { ScraperContext, ScraperDefinition } from "./types.ts";
 
 export const luckpim: ScraperDefinition = {
   id: "luckpim",
+  titleLanguages: ["th", "en"],
   hosts: ["www.luckpim.com"],
   create({ scrapeCache, requestRemote }: ScraperContext) {
     async function fetchLuckpimSeries_(url, refresh = false) {
@@ -15,11 +16,13 @@ export const luckpim: ScraperDefinition = {
       );
     }
 
-    async function loadLuckpimSeries_(url) {
+    async function loadLuckpimSeries_(url, limit = -1) {
       const keyword = decodeURIComponent(url.split("?k=")[1]),
         session = await luckpimSession_("https://www.luckpim.com/");
       const result = await requestRemote(
-        "https://www.luckpim.com/get/search_pin/key?page=1&limit=-1&keyword=" +
+        "https://www.luckpim.com/get/search_pin/key?page=1&limit=" +
+          limit +
+          "&keyword=" +
           encodeURIComponent(keyword),
         { headers: session },
       );
@@ -104,6 +107,12 @@ export const luckpim: ScraperDefinition = {
     }
 
     return {
+      searchTitles: (query) =>
+        loadLuckpimSeries_(
+          "https://www.luckpim.com/search_result?k=" +
+            encodeURIComponent(query),
+          48,
+        ),
       releases: fetchLuckpim_,
       catalog: fetchLuckpimSeries_,
       searchSeriesUrl: (series) =>

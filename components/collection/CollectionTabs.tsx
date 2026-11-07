@@ -35,6 +35,15 @@ export default async function CollectionTabs({
         </span>
       </a>
       <a
+        id="searchTab"
+        className={"tab" + (view === "search" ? " active" : "")}
+        href={collectionPaths.search}
+        aria-current={view === "search" ? "page" : undefined}
+      >
+        <Icon name="search" />
+        <span className="tab-label">{t("Search")}</span>
+      </a>
+      <a
         id="missingTab"
         className={"tab" + (view === "missing" ? " active" : "")}
         href={collectionPaths.missing}

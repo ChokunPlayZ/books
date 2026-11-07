@@ -35,6 +35,12 @@ Choose **English / ไทย** in the library header, or open **Data & backups �
 
 Run `npm run build && npm run test:preferences` for the isolated account-preferences browser checks.
 
+## Universal search
+
+Open **Search** to find a title, publisher, bookshop or ISBN. Your own library, saved titles and previously cached catalog matches appear first, without contacting external sources. Applicable publishers and bookshops are then checked in the background; results are deduplicated and better matches move up as each source responds. Thai queries check Thai publishers and Naiin; English titles also check English catalogs, and Google Books supports multilingual title searches. ISBN searches use the existing language-specific lookup providers.
+
+Searches reuse durable metadata caches, show source failures without hiding other matches, and never add books or change your collection. Private shelves and linked series aliases remain account-specific. External title searches check bounded listing pages, not every volume in a catalog; source details indicate partial coverage.
+
 ## Everyday commands
 
 | Command                                       | Purpose                                                   |

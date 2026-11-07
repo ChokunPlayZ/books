@@ -15,6 +15,7 @@ import type { ScraperContext, ScraperDefinition } from "./types.ts";
 
 export const yaakz: ScraperDefinition = {
   id: "yaakz",
+  titleLanguages: ["th", "en"],
   hosts: ["www.yaakz.com"],
   redirectIdentity: (url) => publisherRedirectIdentity("yaakz", url),
   isbnPriority: 20,
@@ -119,6 +120,11 @@ export const yaakz: ScraperDefinition = {
     }
 
     return {
+      searchTitles: (query) =>
+        fetchYaakzCatalog_(
+          "https://www.yaakz.com/search?q=" + encodeURIComponent(query),
+          1,
+        ),
       catalog: async (url, refresh) =>
         await fetchYaakzCatalog_(url, 20, refresh),
       releases: async (refresh) =>

@@ -13,6 +13,7 @@ import type { CatalogResult, ScraperDefinition } from "./types.ts";
 
 export const lilyhouse: ScraperDefinition = {
   id: "lilyhouse",
+  titleLanguages: ["th", "en"],
   hosts: ["lily-house.com"],
   // WooCommerce adds a trailing slash; a redirect cannot change the resource,
   // search, sorting or pagination parameters.
@@ -22,6 +23,7 @@ export const lilyhouse: ScraperDefinition = {
     async function catalog(
       raw: string,
       refresh = false,
+      maxPages = 20,
     ): Promise<CatalogResult> {
       const url = safeSeriesCatalogUrl(raw, "lilyhouse");
       if (!url) throw new Error("Invalid Lily House catalog URL.");
@@ -31,7 +33,7 @@ export const lilyhouse: ScraperDefinition = {
         total: number | null = null,
         complete = false,
         title = "Lily House titles";
-      for (let page = 1; page <= 20; page++) {
+      for (let page = 1; page <= maxPages; page++) {
         try {
           const html = await context.fetchText(
             lilyHousePageUrl(url, page),
@@ -81,6 +83,15 @@ export const lilyhouse: ScraperDefinition = {
     }
 
     return {
+      searchTitles: (query) =>
+        catalog(
+          LILY_HOUSE +
+            "/?s=" +
+            encodeURIComponent(query) +
+            "&post_type=product",
+          false,
+          1,
+        ),
       catalog,
       releases: async (refresh = false) => {
         const url = LILY_HOUSE + "/shop-2/?orderby=date";

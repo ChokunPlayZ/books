@@ -1,6 +1,42 @@
 // Interface text only. Book titles, notes, publishers and stored option values
 // stay in their original language; translations never modify collection data.
 export const thai: Record<string, string> = {
+  Search: "ค้นหา",
+  "Search results": "ผลการค้นหา",
+  "Search everywhere": "ค้นหาทุกแหล่ง",
+  "Your library first. Then publishers and bookshops, without waiting.":
+    "ค้นหาในคลังของคุณก่อน แล้วค้นหาต่อจากสำนักพิมพ์และร้านหนังสือโดยไม่ต้องรอ",
+  "Title, publisher or ISBN": "ชื่อเรื่อง สำนักพิมพ์ หรือ ISBN",
+  "Search Thai, English or Japanese titles…":
+    "ค้นหาชื่อเรื่องภาษาไทย อังกฤษ หรือญี่ปุ่น…",
+  "Known matches appear first. Better matches move up as sources respond.":
+    "แสดงผลที่เคยพบก่อน แล้วจัดผลที่ตรงกว่าขึ้นด้านบนเมื่อแต่ละแหล่งตอบกลับ",
+  "Enter a title, publisher or ISBN (2–200 characters).":
+    "กรอกชื่อเรื่อง สำนักพิมพ์ หรือ ISBN (2–200 ตัวอักษร)",
+  "Search could not finish. Try again.": "ค้นหาไม่สำเร็จ กรุณาลองอีกครั้ง",
+  "Looking up known titles…": "กำลังค้นหาเรื่องที่รู้จัก…",
+  "{count} matches · Checking sources {done}/{total}…":
+    "พบ {count} รายการ · กำลังตรวจสอบแหล่งข้อมูล {done}/{total}…",
+  "{count} matches · Search complete": "พบ {count} รายการ · ค้นหาเสร็จแล้ว",
+  "Could not check {sources}. Other matches are still available.":
+    "ตรวจสอบ {sources} ไม่ได้ แต่ยังแสดงผลจากแหล่งอื่นได้",
+  "In your library": "อยู่ในคลังของคุณ",
+  Bookshop: "ร้านหนังสือ",
+  "Previously found": "เคยค้นพบแล้ว",
+  "Found online": "พบจากแหล่งออนไลน์",
+  "No known matches yet": "ยังไม่พบในข้อมูลที่มี",
+  "No matching titles found": "ไม่พบเรื่องที่ตรงกัน",
+  "Publishers and bookshops are still being checked.":
+    "กำลังค้นหาต่อจากสำนักพิมพ์และร้านหนังสือ",
+  "Try another title, part of a name or an ISBN.":
+    "ลองใช้ชื่อเรื่องอื่น บางส่วนของชื่อ หรือ ISBN",
+  "One search, across your book world.":
+    "ค้นหาครั้งเดียว ครอบคลุมโลกหนังสือของคุณ",
+  "Find books you own, previously discovered titles, and new listings from sources that match your search language.":
+    "ค้นหาหนังสือในคลัง เรื่องที่เคยค้นพบ และรายการใหม่จากแหล่งข้อมูลที่ตรงกับภาษาที่ค้นหา",
+  "Search sources ({count})": "แหล่งค้นหา ({count})",
+  "First results checked": "ตรวจสอบผลลัพธ์ชุดแรกแล้ว",
+  Unavailable: "ไม่พร้อมใช้งาน",
   "Account preferences": "การตั้งค่าบัญชี",
   "Your language and appearance are saved to your account and follow you across devices.":
     "ภาษาและรูปแบบการแสดงผลจะบันทึกไว้ในบัญชีของคุณ และใช้ได้กับทุกอุปกรณ์",

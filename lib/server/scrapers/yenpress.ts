@@ -22,6 +22,7 @@ import type {
 
 export const yenpress: ScraperDefinition = {
   id: "yenpress",
+  titleLanguages: ["en"],
   hosts: ["yenpress.com", "enterprise-search.yenpress.com"],
   isbnPriority: 60,
   isbnPrefixes: ISBN_GROUP_PREFIXES.english,
@@ -213,6 +214,24 @@ export const yenpress: ScraperDefinition = {
     }
 
     return {
+      searchTitles: async (query) => {
+        const page = yenPressSearchPage(
+          await searchYenPress_(await yenPressKey_(), {
+            query,
+            filters: { all: [{ type: "series" }], none: [{ imprint_id: "3" }] },
+            page: { size: 24, current: 1 },
+            result_fields: {
+              title: { raw: {} },
+              url: { raw: {} },
+              imprint_id: { raw: {} },
+            },
+          }),
+        );
+        return {
+          items: yenPressDirectoryTitles(page.records),
+          complete: page.pages <= 1,
+        };
+      },
       catalog: fetchYenPressSeries_,
       releases: fetchYenPressReleases_,
       lookupIsbn: lookupYenPress_,

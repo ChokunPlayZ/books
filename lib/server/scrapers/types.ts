@@ -1,5 +1,6 @@
 import type { Book, Release } from "../../types.ts";
 import type { createScrapeCache } from "../scrape-cache.ts";
+import type { SearchLanguage } from "../../domain/search.ts";
 
 export type ScraperCache = {
   get(key: string): Promise<string | null> | string | null;
@@ -96,6 +97,9 @@ export type CoverOption = {
 
 // Implement only the capabilities a source actually supports.
 export type Scraper = {
+  searchTitles?(
+    query: string,
+  ): Promise<{ items: BookDetails[]; complete: boolean }>;
   releases?(refresh?: boolean): Promise<Release[]>;
   catalog?(url: string, refresh?: boolean): Promise<CatalogResult>;
   directory?(
@@ -127,6 +131,7 @@ export type Scraper = {
 export type ScraperDefinition = {
   id: string;
   hosts: readonly string[];
+  titleLanguages?: readonly SearchLanguage[];
   priceSource?: {
     name: string;
     currency: string;

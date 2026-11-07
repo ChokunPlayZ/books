@@ -4,6 +4,7 @@ import { createAnimeService } from "./anime.ts";
 import { createSeasonalDiscoveryService } from "./seasonal-discovery.ts";
 import { createMetadataService } from "./metadata.ts";
 import { AppError } from "./store.ts";
+import { createSearchService } from "./search.ts";
 
 async function eachLimit(items, action, limit = 4) {
   let cursor = 0;
@@ -138,5 +139,10 @@ export function createApplicationApi(
       book.coverId = (await covers.ensure(book.coverUrl)).id;
     return await store.api.saveBook({ ...request, book });
   };
-  return { ...api, ...createMetadataService(store, catalogs) };
+  // Search must never wait for cover downloads or mutate a user's shelf.
+  return {
+    ...api,
+    ...createMetadataService(store, catalogs),
+    ...createSearchService(store, catalogs, fetchImpl),
+  };
 }

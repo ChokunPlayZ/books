@@ -20,6 +20,7 @@ import type { ScraperContext, ScraperDefinition } from "./types.ts";
 
 export const animag: ScraperDefinition = {
   id: "animag",
+  titleLanguages: ["th", "en"],
   hosts: ["www.animagshop.com"],
   priceSource: {
     name: "Animag",

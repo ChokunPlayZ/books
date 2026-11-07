@@ -434,7 +434,11 @@ export function mountCollection({
     $("activeCount").textContent = number(books.length);
     $("trashCount").textContent = number(trash.length);
     $("trashCount").hidden = !trash.length;
-    if (state.view === "stats" || state.view === "prices") {
+    if (
+      state.view === "stats" ||
+      state.view === "prices" ||
+      state.view === "search"
+    ) {
       onBooksChange?.(books);
       return;
     }

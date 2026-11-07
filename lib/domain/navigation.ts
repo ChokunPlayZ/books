@@ -4,6 +4,7 @@ export type CollectionView =
   | "releases"
   | "discover"
   | "prices"
+  | "search"
   | "stats"
   | "trash";
 
@@ -13,6 +14,7 @@ export const collectionPaths: Record<CollectionView, string> = {
   releases: "/releases",
   discover: "/discover",
   prices: "/prices",
+  search: "/search",
   stats: "/stats",
   trash: "/removed",
 };

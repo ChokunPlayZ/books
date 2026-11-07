@@ -13,6 +13,7 @@ import type { ScraperContext, ScraperDefinition } from "./types.ts";
 
 export const firstpage: ScraperDefinition = {
   id: "firstpage",
+  titleLanguages: ["th", "en"],
   hosts: ["www.firstpagepro.com"],
   priceSource: {
     name: "First Page Pro",

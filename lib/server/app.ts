@@ -14,9 +14,9 @@ const applicationGlobal = globalThis as typeof globalThis & {
   __bookCollectionApp?: BookApplication;
   __bookCollectionOpening?: Promise<BookApplication>;
 };
-const API_VERSION = 6;
+const API_VERSION = 7;
 // Reopen the store when its in-memory methods change during development.
-const STORE_VERSION = 9;
+const STORE_VERSION = 10;
 
 // Next development reloads modules; share one pool and one initialization promise.
 export async function getApp(): Promise<BookApplication> {

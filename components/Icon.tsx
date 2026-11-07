@@ -1,6 +1,7 @@
 import type { SVGProps } from "react";
 
 const paths = {
+  search: "M21 21l-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z",
   books: "M4 4h4v16H4zM10 6h4v14h-4zM16 4l3-1 4 16-3 1zM4 8h4M10 10h4",
   book: "M12 5C9 3 5 3 2 4v15c3-1 7-1 10 1 3-2 7-2 10-1V4c-3-1-7-1-10 1Zm0 0v15",
   grid: "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z",
