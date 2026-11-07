@@ -52,35 +52,39 @@ try {
     () =>
       document.querySelectorAll("#discoveryList .discovery-card").length === 2,
   );
-  await page.locator("#discoveryType").selectOption("LN");
+  await page.locator("#discoveryType").selectOption("Light novel");
   assert.equal(await page.locator("#discoveryList .discovery-card").count(), 1);
   const addNovel = page
     .locator("#discoveryList")
     .getByRole("button", { name: "Add to shelf", exact: true });
   await addNovel.scrollIntoViewIfNeeded();
   await addNovel.click();
-  assert.equal(await page.locator("#type").inputValue(), "LN (TH)");
+  assert.equal(await page.locator("#type").inputValue(), "Light novel");
   await page.locator("#saveButton").click();
   await page.waitForFunction(
     () =>
       !document.getElementById("bookDialog").open &&
       !window.bookCollection.state.busy &&
       window.bookCollection.state.data.books.some(
-        (book) => book.type === "LN (TH)",
+        (book) => book.type === "Light novel",
       ),
   );
-  assert.equal((await library.api.getCollection()).books[0].type, "LN (TH)");
+  assert.equal(
+    (await library.api.getCollection()).books[0].type,
+    "Light novel",
+  );
+  assert.equal((await library.api.getCollection()).books[0].edition, "LN (TH)");
   await page.locator("#discoveryType").selectOption("Manga");
   assert.equal(await page.locator("#discoveryList .discovery-card").count(), 1);
   await page
     .locator("#discoveryList")
     .getByRole("button", { name: "Add to shelf", exact: true })
     .click();
-  assert.equal(await page.locator("#type").inputValue(), "Manga (TH)");
+  assert.equal(await page.locator("#type").inputValue(), "Manga");
   await page.locator("#cancelBook").click();
 
   // Exercise the actual server parser through ISBN search, not hand-coded types.
-  await page.locator("#discoveryType").selectOption("LN");
+  await page.locator("#discoveryType").selectOption("Light novel");
   await page.locator("#discoverySearch").fill("9786166247275");
   await page.locator("#discoveryList .release-card").waitFor();
   assert.equal(await page.locator("#discoveryList .release-card").count(), 1);
@@ -92,7 +96,7 @@ try {
     .locator("#discoveryList")
     .getByRole("button", { name: "Add to shelf", exact: true })
     .click();
-  assert.equal(await page.locator("#type").inputValue(), "LN (TH)");
+  assert.equal(await page.locator("#type").inputValue(), "Light novel");
   await page.locator("#cancelBook").click();
   await page.locator("#discoveryType").selectOption("Manga");
   assert.equal(await page.locator("#discoveryList .release-card").count(), 1);
@@ -104,7 +108,7 @@ try {
     .locator("#discoveryList")
     .getByRole("button", { name: "Add to shelf", exact: true })
     .click();
-  assert.equal(await page.locator("#type").inputValue(), "Manga (TH)");
+  assert.equal(await page.locator("#type").inputValue(), "Manga");
   await page.locator("#cancelBook").click();
 
   await page.goto(testUrl + "/releases");
@@ -112,7 +116,7 @@ try {
   await page.waitForFunction(() => window.bookCollection.state.releasesLoaded);
   await page.locator("#releasePublisher").selectOption("firstpage");
   await page.locator("#releaseScope").selectOption("all");
-  await page.locator("#releaseType").selectOption("LN");
+  await page.locator("#releaseType").selectOption("Light novel");
   assert.equal(await page.locator("#releaseList .release-card").count(), 1);
   assert.match(
     await page.locator("#releaseList .release-card h2").textContent(),

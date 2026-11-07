@@ -4,6 +4,7 @@ import { mkdirSync } from "node:fs";
 import { chromium } from "playwright";
 import { seriesPath } from "../../lib/domain/navigation.ts";
 import { currentAnimeSeason } from "../../lib/domain/anime.ts";
+import { normalizeRecordTypes } from "../../lib/domain/book-type.ts";
 import {
   adaptationFeed,
   seasonalFeed,
@@ -37,13 +38,13 @@ try {
           json: { message: "AniList is temporarily unavailable." },
         });
       return route.fulfill({
-        json: {
+        json: normalizeRecordTypes({
           ...seasonalThaiFeed,
           season: request.arg.season,
           year: request.arg.year,
           stale,
           ...(stale ? { warning: "Showing the previous check." } : {}),
-        },
+        }),
       });
     }
     if (request.name === "getAnimeAdaptations") {
@@ -151,7 +152,8 @@ try {
   await page.getByRole("button", { name: "Add Thai edition" }).click();
   await page.locator("#bookDialog").waitFor();
   assert.equal(await page.locator("#series").inputValue(), thaiManga.series);
-  assert.equal(await page.locator("#type").inputValue(), "Manga (TH)");
+  assert.equal(await page.locator("#type").inputValue(), "Manga");
+  assert.equal(await page.locator("#edition").inputValue(), "Manga (TH)");
   assert.equal(
     await page.locator("#publisher").inputValue(),
     thaiManga.publisher,
@@ -171,7 +173,8 @@ try {
       (book) =>
         book.isbn === thaiManga.isbn &&
         book.publisherUrl === thaiManga.url &&
-        book.type === "Manga (TH)",
+        book.type === "Manga" &&
+        book.edition === "Manga (TH)",
     ),
   );
   await page.locator("#animeSeasonSearch").fill("ห้องสมุดใต้แสงจันทร์");
@@ -244,7 +247,7 @@ try {
     await page.locator("#series").inputValue(),
     "The Last Archivist",
   );
-  assert.equal(await page.locator("#type").inputValue(), "LN (TH)");
+  assert.equal(await page.locator("#type").inputValue(), "Light novel");
   assert.equal(await page.locator("#isbn").inputValue(), "");
   await page.locator("#volume").fill("1");
   await page.locator("#publisher").fill("Test press");

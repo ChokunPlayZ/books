@@ -40,6 +40,12 @@ try {
       saves.push(request.postDataJSON().arg);
   });
   await page.route("https://cdn.jsdelivr.net/**", (route) => route.abort());
+  await page.route("**/api/rpc", (route) => {
+    const { name, arg } = route.request().postDataJSON();
+    if (name === "getBookCover")
+      return route.fulfill({ json: { row: arg.row, coverId: "" } });
+    return route.continue();
+  });
   await page.goto(testUrl);
   await page.waitForFunction(
     () => !document.getElementById("addButton").disabled,
@@ -101,7 +107,7 @@ try {
     );
 
   await page.locator("#addButton").click();
-  await page.locator("#type").selectOption("Other");
+  await page.locator("#type").selectOption("Others");
   await page.locator("#publisher").fill("Manual press");
   await page.locator("#source").fill("Manual shop");
   await page.locator("#volume").fill("14.5");
@@ -121,7 +127,7 @@ try {
     "discount",
   ])
     assert.equal(await page.locator("#" + id).isVisible(), false);
-  assert.equal(await value("type"), "Manga (JP)");
+  assert.equal(await value("type"), "Manga");
   assert.equal(await value("publisher"), "Japanese press");
   assert.equal(await value("source"), "Manual shop");
   assert.equal(await value("isbn"), "");
@@ -139,13 +145,13 @@ try {
   );
 
   await page.locator("#series").fill(other);
-  assert.equal(await value("type"), "LN (TH)");
+  assert.equal(await value("type"), "Light novel");
   assert.equal(await value("publisher"), "Other press");
   assert.equal(await value("source"), "Manual shop");
   await page.locator("#series").fill(marker + " new title");
   assert.equal(await page.locator("#seriesDefaults").isVisible(), false);
   assert.equal(await page.locator("#isbn").isVisible(), true);
-  assert.equal(await value("type"), "Other");
+  assert.equal(await value("type"), "Others");
   assert.equal(await value("publisher"), "Manual press");
   assert.equal(await value("source"), "Manual shop");
   await page.locator("#series").fill(sparse);
@@ -169,7 +175,12 @@ try {
     (book) => book.series === title && book.volume === 14.5,
   );
   assert.ok(added);
-  assert.equal(added.type, "Manga (JP)");
+  assert.equal(added.type, "Manga");
+  assert.match(
+    added.edition,
+    /\(JP\)/,
+    "Recent-edition defaults must preserve the Japanese language",
+  );
   assert.equal(added.publisher, "Japanese press");
   assert.equal(added.source, "Manual shop");
   assert.equal(added.isbn, "");
@@ -294,7 +305,7 @@ try {
   await page.locator("#addButton").click();
   await page.route("**/rpc", async (route) => {
     if (route.request().postDataJSON()?.name !== "lookupIsbn")
-      return route.continue();
+      return route.fallback();
     return route.fulfill({
       json: {
         isbn: "9780140328721",
@@ -325,20 +336,23 @@ try {
 } finally {
   // Remove only the records created by this scenario, even when an assertion fails.
   const cleanup = await browser.newPage();
-  await cleanup.goto(testUrl);
-  await cleanup.waitForFunction(
-    () => typeof window.bookCollection?.rpc === "function",
-  );
-  await cleanup.evaluate(async (marker) => {
-    const data = await window.bookCollection?.rpc("getCollection");
-    for (const book of data.books.filter((book) =>
-      book.series.startsWith(marker),
-    ))
-      await window.bookCollection?.rpc("removeBook", {
-        requestId: crypto.randomUUID(),
-        row: book.row,
-        token: book.token,
-      });
-  }, marker);
+  const response = await cleanup.request.post(testUrl + "/api/rpc", {
+    data: { name: "getCollection" },
+  });
+  assert.equal(response.status(), 200, await response.text());
+  const data = await response.json();
+  for (const book of data.books.filter((book) =>
+    book.series.startsWith(marker),
+  ))
+    await cleanup.request.post(testUrl + "/api/rpc", {
+      data: {
+        name: "removeBook",
+        arg: {
+          requestId: crypto.randomUUID(),
+          row: book.row,
+          token: book.token,
+        },
+      },
+    });
   await browser.close();
 }

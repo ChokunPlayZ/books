@@ -110,6 +110,9 @@ try {
       "date",
       "note",
       "pageCount",
+      "msrp",
+      "msrpCurrency",
+      "edition",
     ].sort(),
   );
   for (const field of [base, discount, sale])

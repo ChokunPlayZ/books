@@ -121,23 +121,21 @@ try {
           card.textContent.includes("Volume 1"),
       ).length === 2,
   );
-  await page.locator("#discoveryType").selectOption("LN");
+  await page.locator("#discoveryType").selectOption("Light novel");
   assert.equal(await page.locator(".discovery-card").count(), 1);
   assert.match(
     await page.locator(".discovery-card").textContent(),
-    /LN \(EN\)/,
+    /Light novel/,
   );
   await page.locator("#discoveryType").selectOption("Manga");
   assert.equal(await page.locator(".discovery-card").count(), 1);
-  assert.match(
-    await page.locator(".discovery-card").textContent(),
-    /Manga \(EN\)/,
-  );
+  assert.match(await page.locator(".discovery-card").textContent(), /Manga/);
   await page
     .locator(".discovery-card")
     .getByRole("button", { name: "Add to shelf", exact: true })
     .click();
-  assert.equal(await page.locator("#type").inputValue(), "Manga (EN)");
+  assert.equal(await page.locator("#type").inputValue(), "Manga");
+  assert.equal(await page.locator("#edition").inputValue(), "Manga (EN)");
   assert.equal(await page.locator("#publisher").inputValue(), "Yen Press");
   await page.locator("#publisher").fill("Ize Press");
   await page.locator("#saveButton").click();
@@ -172,7 +170,7 @@ try {
   await page.locator("#releasePublisher").selectOption("yenpress");
   await page.locator("#releaseScope").selectOption("all");
   assert.equal(await page.locator(".release-card").count(), 3);
-  await page.locator("#releaseType").selectOption("LN");
+  await page.locator("#releaseType").selectOption("Light novel");
   assert.equal(await page.locator(".release-card").count(), 2);
   await page
     .locator(".release-card")

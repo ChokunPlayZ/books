@@ -2,6 +2,7 @@ import { testUrl } from "../helpers/browser.mjs";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { releaseItem } from "../../lib/domain/releases.ts";
+import { normalizeRecordTypes } from "../../lib/domain/book-type.ts";
 const browser = await chromium.launch({
   headless: true,
   ...(process.env.BOOKS_BROWSER_EXECUTABLE
@@ -15,18 +16,20 @@ try {
   page.on("pageerror", (error) => errors.push(error.message));
   const isbn = "9786166247404";
   const make = (publisherId, title) =>
-    releaseItem(
-      publisherId,
-      title,
-      publisherId === "phoenix"
-        ? "https://www.phoenixnext.com/ln0838-01.html"
-        : publisherId === "animag"
-          ? "https://www.animagshop.com/product/1169"
-          : publisherId === "dexpress"
-            ? "https://www.dexpress-shop.com/product/240"
-            : "https://www.firstpagepro.com/product/1152",
-      175,
-      publisherId === "firstpage" ? "" : isbn,
+    normalizeRecordTypes(
+      releaseItem(
+        publisherId,
+        title,
+        publisherId === "phoenix"
+          ? "https://www.phoenixnext.com/ln0838-01.html"
+          : publisherId === "animag"
+            ? "https://www.animagshop.com/product/1169"
+            : publisherId === "dexpress"
+              ? "https://www.dexpress-shop.com/product/240"
+              : "https://www.firstpagepro.com/product/1152",
+        175,
+        publisherId === "firstpage" ? "" : isbn,
+      ),
     );
   const phoenix = make("phoenix", "(LN) ISBN outside loaded category เล่ม 7");
   const firstpage = make("firstpage", "การ์ตูน First Page ISBN search เล่ม 2");
@@ -157,7 +160,7 @@ try {
     .click();
   assert.equal(await page.locator("#isbn").inputValue(), isbn);
   assert.equal(await page.locator("#publisher").inputValue(), "Animag");
-  assert.equal(await page.locator("#type").inputValue(), "LN (TH)");
+  assert.equal(await page.locator("#type").inputValue(), "Light novel");
   assert.equal(await page.locator("#volume").inputValue(), "6");
   assert.equal(await page.locator("#publisherUrl").inputValue(), animag.url);
   await page.locator("#cancelBook").click();
@@ -175,7 +178,7 @@ try {
     .click();
   assert.equal(await page.locator("#isbn").inputValue(), isbn);
   assert.equal(await page.locator("#publisher").inputValue(), "DEXpress");
-  assert.equal(await page.locator("#type").inputValue(), "LN (TH)");
+  assert.equal(await page.locator("#type").inputValue(), "Light novel");
   assert.equal(await page.locator("#volume").inputValue(), "1");
   assert.equal(await page.locator("#publisherUrl").inputValue(), dexpress.url);
   await page.locator("#cancelBook").click();

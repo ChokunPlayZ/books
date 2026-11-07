@@ -70,7 +70,7 @@ try {
   await page.goto(testUrl);
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#addButton").click();
-  await page.locator("#type").selectOption("Other");
+  await page.locator("#type").selectOption("Others");
   await page.locator("#isbn").fill("0385496494");
   await page.locator("#lookupButton").click();
   await page.waitForFunction(() =>
@@ -87,7 +87,7 @@ try {
     await page.locator("#publisher").inputValue(),
     "Bantam Doubleday Dell",
   );
-  assert.equal(await page.locator("#type").inputValue(), "Other");
+  assert.equal(await page.locator("#type").inputValue(), "Others");
   assert.equal(await page.locator("#source").inputValue(), "");
   assert.equal(await page.locator("#regularPrice").inputValue(), "355");
   assert.equal(await page.locator("#price").inputValue(), "");

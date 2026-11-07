@@ -3,6 +3,7 @@ import { testUrl } from "../helpers/browser.mjs";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import { createTestLibrary } from "../helpers/library.mjs";
+import { normalizeRecordTypes } from "../../lib/domain/book-type.ts";
 const { chromium } = await import(
   process.env.BOOKS_PLAYWRIGHT_MODULE || "playwright"
 );
@@ -26,17 +27,19 @@ const h = await createTestLibrary([
 let productId = 99000;
 const item = (publisher, title, type, isbn = "") => {
   const slug = String(++productId);
-  return h.api.releaseItem(
-    publisher,
-    title,
-    publisher === "phoenix"
-      ? "https://www.phoenixnext.com/filter-" + slug + ".html"
-      : publisher === "firstpage"
-        ? "https://www.firstpagepro.com/product/" + slug
-        : "https://www.luckpim.com/product/detail/" + slug,
-    175,
-    isbn,
-    type,
+  return normalizeRecordTypes(
+    h.api.releaseItem(
+      publisher,
+      title,
+      publisher === "phoenix"
+        ? "https://www.phoenixnext.com/filter-" + slug + ".html"
+        : publisher === "firstpage"
+          ? "https://www.firstpagepro.com/product/" + slug
+          : "https://www.luckpim.com/product/detail/" + slug,
+      175,
+      isbn,
+      type,
+    ),
   );
 };
 const novel = item(
@@ -160,7 +163,7 @@ try {
   await hideOwned.click();
   assert.equal(await card(novel.title).count(), 1);
   await page.locator("#releaseScope").selectOption("all");
-  await page.locator("#releaseType").selectOption("LN");
+  await page.locator("#releaseType").selectOption("Light novel");
   assert.deepEqual(await cards.locator("h2").allTextContents(), [
     novel.title,
     specialNovel.title,
@@ -220,7 +223,7 @@ try {
   assert.equal((await h.api.getCollection()).savedReleases.length, 1);
   await hideOwned.click();
   assert.equal(await cards.count(), 5);
-  await page.locator("#releaseType").selectOption("LN");
+  await page.locator("#releaseType").selectOption("Light novel");
   assert.deepEqual(await cards.locator("h2").allTextContents(), [
     englishNovel.title,
   ]);
@@ -260,7 +263,7 @@ try {
   assert.equal(await cards.count(), 1);
   await page.locator("#releaseType").selectOption("Manga");
   assert.equal(await cards.count(), 0);
-  await page.locator("#releaseType").selectOption("LN");
+  await page.locator("#releaseType").selectOption("Light novel");
   assert.equal(await cards.count(), 1);
   await hide.click();
   assert.equal(await cards.count(), 0);
@@ -270,7 +273,7 @@ try {
   await page.waitForFunction(
     () => !window.bookCollection?.state.releasesLoading,
   );
-  assert.equal(await page.locator("#releaseType").inputValue(), "LN");
+  assert.equal(await page.locator("#releaseType").inputValue(), "Light novel");
   assert.equal(await hide.getAttribute("aria-pressed"), "true");
   assert.equal(await cards.count(), 0);
   await hide.click();
@@ -284,7 +287,7 @@ try {
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#releasesTab").click();
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
-  assert.equal(await page.locator("#releaseType").inputValue(), "LN");
+  assert.equal(await page.locator("#releaseType").inputValue(), "Light novel");
   assert.equal(await hide.getAttribute("aria-pressed"), "true");
   assert.equal(await cards.count(), 0);
   console.log(

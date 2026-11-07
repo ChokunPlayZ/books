@@ -117,12 +117,13 @@ try {
     .locator(".discovery-card")
     .filter({ hasText: "BESIDE THE DRAGON" });
   await english.waitFor();
-  assert.match(await english.textContent(), /LN \(EN\)/);
+  assert.match(await english.textContent(), /Light novel/);
   await english
     .getByRole("button", { name: "Add to shelf", exact: true })
     .click();
   assert.equal(await page.locator("#publisher").inputValue(), "Lily House");
-  assert.equal(await page.locator("#type").inputValue(), "LN (EN)");
+  assert.equal(await page.locator("#type").inputValue(), "Light novel");
+  assert.equal(await page.locator("#edition").inputValue(), "LN (EN)");
   assert.equal(await page.locator("#volume").inputValue(), "");
   await page.locator("#cancelBook").click();
   await page.locator("#discoverySearch").fill(isbn);

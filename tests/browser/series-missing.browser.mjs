@@ -4,6 +4,10 @@ import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import { createTestLibrary } from "../helpers/library.mjs";
+import {
+  normalizeBookType,
+  normalizeRecordTypes,
+} from "../../lib/domain/book-type.ts";
 const { chromium } = await import(
   process.env.BOOKS_PLAYWRIGHT_MODULE || "playwright"
 );
@@ -71,13 +75,15 @@ const h = await createTestLibrary([
 ]);
 
 const completeItem = (volume) =>
-  h.api.releaseItem(
-    "phoenix",
-    completeTitle + " เล่ม " + volume,
-    "https://www.phoenixnext.com/complete-" + volume + ".html",
-    175,
-    volume === 1 ? "9780306406157" : "",
-    "Manga (TH)",
+  normalizeRecordTypes(
+    h.api.releaseItem(
+      "phoenix",
+      completeTitle + " เล่ม " + volume,
+      "https://www.phoenixnext.com/complete-" + volume + ".html",
+      175,
+      volume === 1 ? "9780306406157" : "",
+      "Manga (TH)",
+    ),
   );
 let completeFeed = [completeItem(1), completeItem(2)];
 h.setResponses([
@@ -102,21 +108,22 @@ h.setResponses([
     ),
   },
 ]);
-const item = (volume, type = "Manga (TH)", extra = {}) => ({
-  ...h.api.releaseItem(
-    "phoenix",
-    title + " เล่ม " + volume,
-    "https://www.phoenixnext.com/missing-" +
-      type.slice(0, 2) +
-      "-" +
-      volume +
-      ".html",
-    175,
-    "",
-    type,
-  ),
-  ...extra,
-});
+const item = (volume, type = "Manga (TH)", extra = {}) =>
+  normalizeRecordTypes({
+    ...h.api.releaseItem(
+      "phoenix",
+      title + " เล่ม " + volume,
+      "https://www.phoenixnext.com/missing-" +
+        type.slice(0, 2) +
+        "-" +
+        volume +
+        ".html",
+      175,
+      "",
+      type,
+    ),
+    ...extra,
+  });
 const next = item(5),
   preorder = item(6, "Manga (TH)", { availability: "Pre-order" }),
   decimal = item(5.5);
@@ -227,7 +234,7 @@ try {
   await page.goto(testUrl);
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#search").fill(title);
-  await page.locator("#typeFilter").selectOption("Manga (TH)");
+  await page.locator("#typeFilter").selectOption("Manga");
   await page.locator(".series-row").click();
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
   assert.equal(await page.locator("#seriesMissing").isVisible(), true);
@@ -245,7 +252,9 @@ try {
     page.locator(".missing-edition").filter({
       has: page.getByRole("heading", {
         name:
-          type + " · " + (type === "Manga (JP)" ? "Kodansha" : "PHOENIX Next"),
+          normalizeBookType(type) +
+          " · " +
+          (type === "Manga (JP)" ? "Kodansha" : "PHOENIX Next"),
         exact: true,
       }),
     });
@@ -300,6 +309,19 @@ try {
   );
   assert.equal(feedCalls.length, 6);
   assert.equal(recentCalls, 0);
+  assert.equal(
+    await page
+      .locator("#seriesReleaseList .release-card")
+      .filter({
+        has: page.getByRole("heading", {
+          name: wrongLanguage.title,
+          exact: true,
+        }),
+      })
+      .count(),
+    0,
+    "A Japanese listing must not count as a missing Thai catalog volume",
+  );
   assert.equal(
     await page.locator("#seriesReleaseList .release-card").count(),
     4,
@@ -395,7 +417,8 @@ try {
     .getByRole("button", { name: /Add missing volume 1/ })
     .click();
   assert.equal(await page.locator("#volume").inputValue(), "1");
-  assert.equal(await page.locator("#type").inputValue(), "Manga (TH)");
+  assert.equal(await page.locator("#type").inputValue(), "Manga");
+  assert.match(await page.locator("#edition").inputValue(), /\(TH\)/);
   assert.equal(await page.locator("#publisher").inputValue(), "PHOENIX Next");
   assert.equal(await page.locator("#source").inputValue(), "");
   assert.equal(await page.locator("#isbn").inputValue(), "");
@@ -414,7 +437,11 @@ try {
   );
   assert.equal(
     (await h.api.getCollection()).books.filter(
-      (b) => b.series === title && b.volume === 1 && b.type === "Manga (TH)",
+      (b) =>
+        b.series === title &&
+        b.volume === 1 &&
+        b.type === "Manga" &&
+        /\(TH\)/.test(b.edition),
     ).length,
     1,
   );
@@ -453,7 +480,7 @@ try {
     .getByRole("button", { name: "Add to shelf", exact: true })
     .click();
   assert.equal(await page.locator("#volume").inputValue(), "5");
-  assert.equal(await page.locator("#type").inputValue(), "Manga (TH)");
+  assert.equal(await page.locator("#type").inputValue(), "Manga");
   await page.locator("#saveButton").click();
   await page.waitForFunction(
     () =>

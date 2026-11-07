@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { createHash } from "node:crypto";
 import { releaseItem } from "../../lib/domain.ts";
+import { normalizeRecordTypes } from "../../lib/domain/book-type.ts";
 const url = process.env.BOOKS_TEST_URL;
 const coverId = (source) => createHash("sha256").update(source).digest("hex");
 const coverUrl = (source) => "/api/covers/" + coverId(source);
@@ -26,20 +27,21 @@ const browser = await chromium.launch({
     ? { executablePath: process.env.BOOKS_BROWSER_EXECUTABLE }
     : {}),
 });
-const make = (slug, title, type = "Manga (TH)") => ({
-  ...releaseItem(
-    "phoenix",
-    title,
-    `https://www.phoenixnext.com/${slug}.html`,
-    175,
-    "",
-    type,
-  ),
-  coverUrl: `https://www.phoenixnext.com/media/catalog/product/${slug}.jpg`,
-  coverId: coverId(
-    `https://www.phoenixnext.com/media/catalog/product/${slug}.jpg`,
-  ),
-});
+const make = (slug, title, type = "Manga (TH)") =>
+  normalizeRecordTypes({
+    ...releaseItem(
+      "phoenix",
+      title,
+      `https://www.phoenixnext.com/${slug}.html`,
+      175,
+      "",
+      type,
+    ),
+    coverUrl: `https://www.phoenixnext.com/media/catalog/product/${slug}.jpg`,
+    coverId: coverId(
+      `https://www.phoenixnext.com/media/catalog/product/${slug}.jpg`,
+    ),
+  });
 const items = [
   make("owned-1", "(มังงะ) Discovery owned เล่ม 1"),
   make("fresh-3", "(มังงะ) Discovery fresh เล่ม 3"),
@@ -63,7 +65,7 @@ const titles = [items[0], items[3], items[4], items[5], items[6]].map(
     ...item,
     id: item.id + ":title",
     title: item.series,
-    type: item.type.startsWith("LN") ? "" : item.type,
+    type: item.type.startsWith("Light novel") ? "" : item.type,
     directory: true,
     coverUrl: "",
     coverId: "",
@@ -72,7 +74,7 @@ const titles = [items[0], items[3], items[4], items[5], items[6]].map(
     categories: [
       {
         url: "https://www.phoenixnext.com/gl/" + item.url.split("/").pop(),
-        type: item.type.startsWith("LN") ? "" : item.type,
+        type: item.type.startsWith("Light novel") ? "" : item.type,
       },
     ],
   }),
@@ -105,10 +107,15 @@ const firstpageUpcoming = {
   publisher: "First Page Pro",
   series: "16 ปี แค่ได้คิดถึงเธอ มันก็ช่างใหญ่เกินใจ",
   title: "16 ปี แค่ได้คิดถึงเธอ มันก็ช่างใหญ่เกินใจ",
-  type: "Manga (TH)",
+  type: "Manga",
+  edition: "Manga (TH)",
   url: "https://www.firstpagepro.com/category/154",
   categories: [
-    { url: "https://www.firstpagepro.com/category/154", type: "Manga (TH)" },
+    {
+      url: "https://www.firstpagepro.com/category/154",
+      type: "Manga",
+      edition: "Manga (TH)",
+    },
   ],
 };
 let firstpageResult = { ...upcomingResult };
@@ -152,6 +159,13 @@ try {
       items.some((item) => item.coverId === request.arg.book.coverId)
     ) {
       request.arg.book.coverId = storedCoverId;
+      return route.continue({ postData: JSON.stringify(request) });
+    }
+    if (
+      request.name === "setSavedRelease" &&
+      items.some((item) => item.coverId === request.arg.release.coverId)
+    ) {
+      request.arg.release.coverId = storedCoverId;
       return route.continue({ postData: JSON.stringify(request) });
     }
     if (request.name === "getBookCover")
@@ -276,15 +290,13 @@ try {
   );
   await page
     .getByRole("link", {
-      name: "Open Discovery owned, 1 owned volume",
-      exact: true,
+      name: /^Open Discovery owned, 1 owned volumes?$/,
     })
     .locator("img")
     .waitFor();
   await page
     .getByRole("link", {
-      name: "Open Discovery owned, 1 owned volume",
-      exact: true,
+      name: /^Open Discovery owned, 1 owned volumes?$/,
     })
     .click();
   await page.locator(".book-row .shelf-cover img").waitFor();
@@ -551,12 +563,15 @@ try {
     .getByRole("heading", { name: "No titles match these filters" })
     .waitFor();
   assert.match(await page.locator("#discoveryCount").textContent(), /0 titles/);
-  await page.locator("#discoveryType").selectOption("LN");
+  await page.locator("#discoveryType").selectOption("Light novel");
   assert.deepEqual(
     await page.locator(".discovery-card .book-title").allTextContents(),
     ["Discovery novel"],
   );
-  assert.match(await page.locator("#discoveryCount").textContent(), /1 title /);
+  assert.match(
+    await page.locator("#discoveryCount").textContent(),
+    /1 titles? /,
+  );
   assert.equal(calls, directoryCalls);
   await page.locator("#discoverySearch").fill("");
   await page.locator("#discoveryType").selectOption("");
@@ -595,7 +610,7 @@ try {
   assert.ok(calls >= 3);
   assert.ok(titleCalls.every((category) => !category.includes("owned")));
   assert.equal(await upcomingCard.count(), 0);
-  await page.locator("#discoveryType").selectOption("LN");
+  await page.locator("#discoveryType").selectOption("Light novel");
   await page.locator("#collectionTab").click();
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator("#discoverTab").click();
@@ -603,7 +618,10 @@ try {
   await page.waitForFunction(
     () => !window.bookCollection?.state.discoveryLoading,
   );
-  assert.equal(await page.locator("#discoveryType").inputValue(), "LN");
+  assert.equal(
+    await page.locator("#discoveryType").inputValue(),
+    "Light novel",
+  );
   assert.deepEqual(
     await page.locator(".discovery-card .book-title").allTextContents(),
     ["Discovery novel"],
@@ -614,7 +632,10 @@ try {
       !window.bookCollection?.state.discoveryLoading &&
       window.bookCollection?.state.discoveryFeeds.size > 0,
   );
-  assert.equal(await page.locator("#discoveryType").inputValue(), "LN");
+  assert.equal(
+    await page.locator("#discoveryType").inputValue(),
+    "Light novel",
+  );
   assert.deepEqual(
     await page.locator(".discovery-card .book-title").allTextContents(),
     ["Discovery novel"],

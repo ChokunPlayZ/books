@@ -123,7 +123,8 @@ try {
   assert.equal(await page.locator("#isbn").inputValue(), isbn);
   assert.equal(await page.locator("#series").inputValue(), series);
   assert.equal(await page.locator("#volume").inputValue(), "3");
-  assert.equal(await page.locator("#type").inputValue(), "Manga (TH)");
+  assert.equal(await page.locator("#type").inputValue(), "Manga");
+  assert.equal(await page.locator("#edition").inputValue(), "Manga (TH)");
   assert.equal(await page.locator("#publisher").inputValue(), "First Page Pro");
   assert.equal(await page.locator("#source").inputValue(), "");
   assert.equal(await page.locator("#isbn").isVisible(), false);
@@ -193,7 +194,8 @@ try {
   );
   assert.equal(saved.series, series);
   assert.equal(saved.volume, 3);
-  assert.equal(saved.type, "Manga (TH)");
+  assert.equal(saved.type, "Manga");
+  assert.equal(saved.edition, "Manga (TH)");
   assert.equal(saved.publisher, "First Page Pro");
   assert.equal(saved.source, "");
   assert.equal(saved.price, "");
@@ -242,7 +244,7 @@ try {
     await page.locator("#series").inputValue(),
     "เส้นทางจาริกอาถรรพ์",
   );
-  assert.equal(await page.locator("#type").inputValue(), "LN (TH)");
+  assert.equal(await page.locator("#type").inputValue(), "Light novel");
   assert.equal(await page.locator("#publisher").inputValue(), "Phoenix Next");
   assert.equal(await page.locator("#volume").inputValue(), "");
   assert.equal(
@@ -274,7 +276,8 @@ try {
   );
   assert.equal(phoenix.series, "เส้นทางจาริกอาถรรพ์");
   assert.equal(phoenix.publisher, "Phoenix Next");
-  assert.equal(phoenix.type, "LN (TH)");
+  assert.equal(phoenix.type, "Light novel");
+  assert.equal(phoenix.edition, "LN (TH)");
   assert.equal(phoenix.volume, "");
   assert.deepEqual(errors, []);
   console.log(

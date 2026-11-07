@@ -6,6 +6,7 @@ import { chromium } from "playwright";
 import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { releaseItem } from "../../lib/domain.ts";
+import { normalizeRecordTypes } from "../../lib/domain/book-type.ts";
 
 const title = "ดอกรักผลิบานที่กลางใจ",
   colorTitle = "ชิโนะกับเร็น";
@@ -97,8 +98,8 @@ try {
           stale: false,
           error: "",
         };
-      } else result = store.api[name](arg);
-      return route.fulfill({ json: result });
+      } else result = await store.api[name](arg);
+      return route.fulfill({ json: normalizeRecordTypes(result) });
     } catch (error) {
       return route.fulfill({ status: 400, json: { message: error.message } });
     }
@@ -181,6 +182,11 @@ try {
     await page.locator("#seriesGaps").textContent(),
     /No gaps through volume 5/,
   );
+  assert.equal(
+    await missing.filter({ hasText: "Volume 8" }).count(),
+    0,
+    "A Japanese listing must not count as a missing Thai catalog volume",
+  );
   assert.match(
     await page.locator("#seriesMissingSummary").textContent(),
     /0 gaps.*2 catalog volumes/,
@@ -202,7 +208,8 @@ try {
     .getByRole("button", { name: "Add to shelf", exact: true })
     .click();
   assert.equal(await page.locator("#series").inputValue(), colorTitle);
-  assert.equal(await page.locator("#type").inputValue(), "Manga (TH)");
+  assert.equal(await page.locator("#type").inputValue(), "Manga");
+  assert.equal(await page.locator("#edition").inputValue(), "Manga (TH)");
   await page.locator("#saveButton").click();
   await page.waitForFunction(
     () =>
@@ -220,7 +227,9 @@ try {
   assert.equal(
     (await store.api.getCollection()).books.filter(
       (book) =>
-        book.series === colorTitle && book.type === "Manga (TH) (Color)",
+        book.series === colorTitle &&
+        book.type === "Manga" &&
+        book.edition === "Manga (TH) (Color)",
     ).length,
     4,
   );

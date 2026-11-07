@@ -61,32 +61,27 @@ try {
     page
       .locator("#publisherOptions option")
       .evaluateAll((options) => options.map((option) => option.value));
-  for (const type of ["Manga (JP)", "Manga (TH)", "LN (TH)"]) {
+  // Format is canonical. Until an ISBN identifies its language group, publishers
+  // must not be hidden merely because a user selected Manga or Light novel.
+  for (const type of ["Manga", "Light novel", "Others"]) {
     await page.locator("#type").selectOption(type);
-    assert.equal((await suggestions()).includes("Yen Press"), false);
-    assert.equal((await suggestions()).includes("Ize Press"), false);
-    assert.equal(
-      (await suggestions()).includes("Kodansha JP"),
-      type.includes("(JP)"),
-    );
+    assert.equal((await suggestions()).includes("Yen Press"), true);
+    assert.equal((await suggestions()).includes("Ize Press"), true);
+    assert.equal((await suggestions()).includes("Kodansha JP"), true);
     for (const publisher of thaiPublishers)
-      assert.equal(
-        (await suggestions()).includes(publisher),
-        type.includes("(TH)"),
-      );
+      assert.equal((await suggestions()).includes(publisher), true);
   }
-  await page.locator("#type").selectOption("Manga (EN)");
+  await page.locator("#type").selectOption("Manga");
+  await page.locator("#isbn").fill("0140328726");
   assert.equal((await suggestions()).includes("Yen Press"), true);
   assert.equal((await suggestions()).includes("Kodansha JP"), false);
   for (const publisher of thaiPublishers)
     assert.equal((await suggestions()).includes(publisher), false);
-  await page.locator("#type").selectOption("Manga (JP)");
+  await page.locator("#isbn").fill("4063951375");
   assert.equal((await suggestions()).includes("Kodansha JP"), true);
   assert.equal((await suggestions()).includes("Lily House"), false);
   await page.locator("#isbn").fill("0140328726");
-  assert.equal((await suggestions()).includes("Yen Press"), false);
   assert.equal((await suggestions()).includes("Kodansha JP"), false);
-  await page.locator("#type").selectOption("Manga (EN)");
   assert.equal((await suggestions()).includes("Yen Press"), true);
   assert.equal((await suggestions()).includes("Phoenix Next"), false);
   await page.locator("#lookupButton").click();
@@ -95,8 +90,6 @@ try {
     "Search this ISBN at Kinokuniya ↗",
   ]);
   await page.locator("#isbn").fill("4063951375");
-  assert.equal((await suggestions()).includes("Kodansha JP"), false);
-  await page.locator("#type").selectOption("Manga (JP)");
   assert.equal((await suggestions()).includes("Kodansha JP"), true);
   await page.locator("#lookupButton").click();
   await page.locator("#lookupResult").waitFor();
@@ -121,13 +114,14 @@ try {
   await page.locator("#isbn").fill("9786166247275");
   await page.locator("#lookupButton").click();
   await page.locator("#lookupResult").waitFor();
-  assert.equal(await page.locator("#lookupResult a").count(), 1);
-  await page.locator("#type").selectOption("Manga (TH)");
-  assert.equal(await page.locator("#lookupResult a").count(), 6);
-  await page.locator("#type").selectOption("Manga (EN)");
-  assert.equal(await page.locator("#lookupResult a").count(), 1);
-  await page.locator("#type").selectOption("Manga (JP)");
-  assert.equal(await page.locator("#lookupResult a").count(), 1);
+  for (const type of ["Manga", "Light novel", "Others"]) {
+    await page.locator("#type").selectOption(type);
+    assert.equal(await page.locator("#lookupResult a").count(), 6);
+    assert.equal((await suggestions()).includes("Yen Press"), false);
+    assert.equal((await suggestions()).includes("Kodansha JP"), false);
+    for (const publisher of thaiPublishers)
+      assert.equal((await suggestions()).includes(publisher), true);
+  }
   await page.locator("#isbn").fill("");
   assert.equal((await suggestions()).includes("Kodansha JP"), true);
   await page.locator("#cancelBook").click();

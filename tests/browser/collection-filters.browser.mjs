@@ -145,13 +145,13 @@ try {
   assert.deepEqual(await names(), ["Alpha", "Gamma"]);
   assert.match(
     await page.locator(".series-card").first().getAttribute("aria-label"),
-    /1 matching volume$/,
+    /1 matching volumes?$/,
   );
   await page.locator("#minPriceFilter").fill("300");
   await page.locator("#maxPriceFilter").fill("300");
   await page.locator("#dateFromFilter").fill("2026-03-01");
   await page.locator("#dateToFilter").fill("2026-03-01");
-  await page.locator("#typeFilter").selectOption("Manga (TH)");
+  await page.locator("#typeFilter").selectOption("Manga");
   await page.locator("#statusFilter").selectOption("Reading");
   assert.deepEqual(await names(), ["Alpha"]);
   await page.locator("#isbnFilter").selectOption("present");
@@ -187,7 +187,7 @@ try {
   assert.deepEqual(await names(), ["Beta"]);
   assert.match(
     await page.locator(".series-card").getAttribute("aria-label"),
-    /1 matching volume$/,
+    /1 matching volumes?$/,
   );
   await clear();
   for (const [sort, expected] of [
@@ -331,20 +331,23 @@ try {
   );
 } finally {
   const cleanup = await browser.newPage();
-  await cleanup.goto(process.env.BOOKS_TEST_URL);
-  await cleanup.waitForFunction(
-    () => typeof window.bookCollection?.rpc === "function",
-  );
-  await cleanup.evaluate(async (marker) => {
-    const data = await window.bookCollection?.rpc("getCollection");
-    for (const book of data.books.filter((book) =>
-      book.series.startsWith(marker),
-    ))
-      await window.bookCollection?.rpc("removeBook", {
-        requestId: crypto.randomUUID(),
-        row: book.row,
-        token: book.token,
-      });
-  }, marker);
+  const response = await cleanup.request.post(testUrl + "/api/rpc", {
+    data: { name: "getCollection" },
+  });
+  assert.equal(response.status(), 200, await response.text());
+  const data = await response.json();
+  for (const book of data.books.filter((book) =>
+    book.series.startsWith(marker),
+  ))
+    await cleanup.request.post(testUrl + "/api/rpc", {
+      data: {
+        name: "removeBook",
+        arg: {
+          requestId: crypto.randomUUID(),
+          row: book.row,
+          token: book.token,
+        },
+      },
+    });
   await browser.close();
 }

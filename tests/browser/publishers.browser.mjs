@@ -3,6 +3,7 @@ import { testUrl } from "../helpers/browser.mjs";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import { releaseItem } from "../../lib/domain.ts";
+import { normalizeRecordTypes } from "../../lib/domain/book-type.ts";
 const { chromium } = await import(
   process.env.BOOKS_PLAYWRIGHT_MODULE || "playwright"
 );
@@ -15,17 +16,19 @@ const browser = await chromium.launch({
 const url = testUrl,
   marker = "Release check " + Date.now();
 const item = (id, title, slug, isbn = "", type = "Manga (TH)") =>
-  releaseItem(
-    id,
-    title,
-    id === "phoenix"
-      ? "https://www.phoenixnext.com/" + slug + ".html"
-      : id === "firstpage"
-        ? "https://www.firstpagepro.com/product/" + slug
-        : "https://www.luckpim.com/product/detail/" + slug,
-    175,
-    isbn,
-    type,
+  normalizeRecordTypes(
+    releaseItem(
+      id,
+      title,
+      id === "phoenix"
+        ? "https://www.phoenixnext.com/" + slug + ".html"
+        : id === "firstpage"
+          ? "https://www.firstpagepro.com/product/" + slug
+          : "https://www.luckpim.com/product/detail/" + slug,
+      175,
+      isbn,
+      type,
+    ),
   );
 const exact = item(
     "phoenix",
@@ -78,7 +81,8 @@ try {
             title: "ดอกรักผลิบานที่กลางใจ เล่ม 22",
             series: "ดอกรักผลิบานที่กลางใจ",
             volume: 22,
-            type: "Manga (TH)",
+            type: "Manga",
+            edition: "Manga (TH)",
             publisher: "PHOENIX Next",
             source: "Naiin",
           },
@@ -249,7 +253,7 @@ try {
   await page.locator("#series").fill("My manual title");
   await page.locator("#publisher").fill("My manual publisher");
   await page.locator("#volume").fill("14.5");
-  await page.locator("#type").selectOption("LN (EN)");
+  await page.locator("#type").selectOption("Light novel");
   await page.locator("#isbn").fill("9786166247275");
   await page.locator("#lookupButton").click();
   await page.waitForFunction(() =>
@@ -263,7 +267,7 @@ try {
     "My manual publisher",
   );
   assert.equal(await page.locator("#volume").inputValue(), "14.5");
-  assert.equal(await page.locator("#type").inputValue(), "LN (EN)");
+  assert.equal(await page.locator("#type").inputValue(), "Light novel");
   await page.locator("#cancelBook").click();
   await page.locator("#releasesTab").click();
   await page.waitForFunction(() => !!window.bookCollection?.state.data);

@@ -107,9 +107,11 @@ try {
   assert.equal(await page.locator("#bookDialog").getAttribute("open"), "");
   let pendingLookup = null;
   await page.route("**/api/rpc", async (route) => {
-    if (route.request().postDataJSON()?.name !== "lookupIsbn")
-      return route.continue();
-    const isbn = route.request().postDataJSON().arg;
+    const { name, arg } = route.request().postDataJSON();
+    if (name === "getBookCover")
+      return route.fulfill({ json: { row: arg.row, coverId: "" } });
+    if (name !== "lookupIsbn") return route.continue();
+    const isbn = arg;
     if (isbn === "9781975319434")
       return route.fulfill({ json: { isbn, found: false, warnings: [] } });
     if (isbn === "9780385496490")
@@ -393,18 +395,21 @@ try {
   );
 } finally {
   const cleanup = await browser.newPage();
-  await cleanup.goto(testUrl);
-  await cleanup.waitForFunction(
-    () => typeof window.bookCollection?.rpc === "function",
-  );
-  await cleanup.evaluate(async (marker) => {
-    const data = await window.bookCollection.rpc("getCollection");
-    for (const book of data.books.filter((book) => book.series === marker))
-      await window.bookCollection.rpc("removeBook", {
-        requestId: crypto.randomUUID(),
-        row: book.row,
-        token: book.token,
-      });
-  }, marker);
+  const response = await cleanup.request.post(testUrl + "/api/rpc", {
+    data: { name: "getCollection" },
+  });
+  assert.equal(response.status(), 200, await response.text());
+  const data = await response.json();
+  for (const book of data.books.filter((book) => book.series === marker))
+    await cleanup.request.post(testUrl + "/api/rpc", {
+      data: {
+        name: "removeBook",
+        arg: {
+          requestId: crypto.randomUUID(),
+          row: book.row,
+          token: book.token,
+        },
+      },
+    });
   await browser.close();
 }

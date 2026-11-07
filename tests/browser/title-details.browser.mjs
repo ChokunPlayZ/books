@@ -19,8 +19,10 @@ try {
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("https://cdn.jsdelivr.net/**", (route) => route.abort());
   await page.route("**/api/rpc", async (route) => {
-    if (route.request().postDataJSON().name !== "getCollection")
-      return route.continue();
+    const { name, arg } = route.request().postDataJSON();
+    if (name === "getBookCover")
+      return route.fulfill({ json: { row: arg.row, coverId: "" } });
+    if (name !== "getCollection") return route.continue();
     const response = await route.fetch();
     const data = await response.json();
     data.options.publisher.push("Yen Press", "Phoenix Next", "Kodansha JP");
@@ -84,19 +86,19 @@ try {
       .locator("#publisherOptions option")
       .evaluateAll((options) => options.map((option) => option.value));
   await page.locator("#titleEditionPublisher0").focus();
-  assert.equal((await suggestions()).includes("Yen Press"), false);
+  assert.equal((await suggestions()).includes("Yen Press"), true);
   assert.equal((await suggestions()).includes("Phoenix Next"), true);
-  assert.equal((await suggestions()).includes("Kodansha JP"), false);
-  await page.locator("#titleEditionPublisher1").focus();
-  assert.equal((await suggestions()).includes("Yen Press"), false);
   assert.equal((await suggestions()).includes("Kodansha JP"), true);
-  assert.equal((await suggestions()).includes("Phoenix Next"), false);
-  await page.locator("#titleEditionType1").selectOption("Manga (EN)");
   await page.locator("#titleEditionPublisher1").focus();
   assert.equal((await suggestions()).includes("Yen Press"), true);
-  assert.equal((await suggestions()).includes("Phoenix Next"), false);
-  assert.equal((await suggestions()).includes("Kodansha JP"), false);
-  await page.locator("#titleEditionType1").selectOption("Manga (JP)");
+  assert.equal((await suggestions()).includes("Kodansha JP"), true);
+  assert.equal((await suggestions()).includes("Phoenix Next"), true);
+  await page.locator("#titleEditionType1").selectOption("Light novel");
+  await page.locator("#titleEditionPublisher1").focus();
+  assert.equal((await suggestions()).includes("Yen Press"), true);
+  assert.equal((await suggestions()).includes("Phoenix Next"), true);
+  assert.equal((await suggestions()).includes("Kodansha JP"), true);
+  await page.locator("#titleEditionType1").selectOption("Manga");
   await page.locator("#titleSeries").fill("Canceled name");
   await page.locator("#cancelTitle").click();
   assert.equal(await page.locator("#seriesTitle").textContent(), original);
@@ -104,7 +106,7 @@ try {
   await page.locator("#editTitleButton").click();
   assert.equal(await page.locator("#titleSeries").inputValue(), original);
   await page.locator("#titleSeries").fill(renamed);
-  await page.locator("#titleEditionType0").selectOption("LN (TH)");
+  await page.locator("#titleEditionType0").selectOption("Light novel");
   await page.locator("#titleEditionPublisher0").fill("Updated Thai press");
   assert.equal(
     await page
@@ -137,9 +139,9 @@ try {
   assert.deepEqual(
     books.map((book) => [book.type, book.publisher]),
     [
-      ["LN (TH)", "Updated Thai press"],
-      ["LN (TH)", "Updated Thai press"],
-      ["Manga (JP)", "Japanese press"],
+      ["Light novel", "Updated Thai press"],
+      ["Light novel", "Updated Thai press"],
+      ["Manga", "Japanese press"],
     ],
   );
   assert.deepEqual(
@@ -156,7 +158,7 @@ try {
   await page.locator("#source").fill("My new shop");
   await page
     .locator("#bookEdition")
-    .selectOption(JSON.stringify(["LN (TH)", "Updated Thai press"]));
+    .selectOption(JSON.stringify(["Light novel", "Updated Thai press"]));
   assert.equal(await page.locator("#source").inputValue(), "My new shop");
   await page.locator("#volume").fill("3");
   await page.locator("#toggleBookDetails").click();
@@ -183,7 +185,12 @@ try {
     renamed,
   );
   const added = books.find((book) => book.volume === 3);
-  assert.equal(added.type, "LN (TH)");
+  assert.equal(added.type, "Light novel");
+  assert.match(
+    added.edition,
+    /\(TH\)/,
+    "The chosen edition must retain its language",
+  );
   assert.equal(added.publisher, "Updated Thai press");
   assert.equal(added.source, "My new shop");
   await page
@@ -200,8 +207,12 @@ try {
   await page.locator("#addButton").click();
   await page.locator("#bookEdition").selectOption("new");
   assert.equal(await page.locator("#series").isVisible(), false);
-  await page.locator("#type").selectOption("LN (EN)");
+  await page.locator("#type").selectOption("Light novel");
   await page.locator("#publisher").fill("English press");
+  await page.locator("#toggleBookDetails").click();
+  if (!(await page.locator("#bookExtras").evaluate((details) => details.open)))
+    await page.locator("#bookExtras > summary").click();
+  await page.locator("#edition").fill("LN (EN)");
   await page.locator("#volume").fill("1");
   await page.locator("#saveButton").click();
   await page.waitForFunction(
@@ -222,7 +233,7 @@ try {
   assert.equal(await page.locator("#titleEditions fieldset").count(), 3);
   assert.equal(
     await page.locator("#titleEditionType2").inputValue(),
-    "LN (EN)",
+    "Light novel",
   );
   assert.equal(
     await page.locator("#titleEditionPublisher2").inputValue(),
@@ -248,20 +259,23 @@ try {
   );
 } finally {
   const cleanup = await browser.newPage();
-  await cleanup.goto(url);
-  await cleanup.waitForFunction(
-    () => typeof window.bookCollection?.rpc === "function",
-  );
-  await cleanup.evaluate(async (marker) => {
-    const data = await window.bookCollection?.rpc("getCollection");
-    for (const book of data.books.filter((book) =>
-      book.series.startsWith(marker),
-    ))
-      await window.bookCollection?.rpc("removeBook", {
-        requestId: crypto.randomUUID(),
-        row: book.row,
-        token: book.token,
-      });
-  }, marker);
+  const response = await cleanup.request.post(url + "/api/rpc", {
+    data: { name: "getCollection" },
+  });
+  assert.equal(response.status(), 200, await response.text());
+  const data = await response.json();
+  for (const book of data.books.filter((book) =>
+    book.series.startsWith(marker),
+  ))
+    await cleanup.request.post(url + "/api/rpc", {
+      data: {
+        name: "removeBook",
+        arg: {
+          requestId: crypto.randomUUID(),
+          row: book.row,
+          token: book.token,
+        },
+      },
+    });
   await browser.close();
 }

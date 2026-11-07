@@ -19,6 +19,22 @@ try {
   });
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  await page.route("**/api/rpc", (route) => {
+    const { name, arg } = route.request().postDataJSON();
+    if (name === "getBookCover")
+      return route.fulfill({ json: { row: arg.row, coverId: "" } });
+    if (name === "getAnimeAdaptations")
+      return route.fulfill({
+        json: {
+          items: [],
+          exactId: null,
+          checkedAt: "2026-11-07T00:00:00Z",
+          stale: false,
+          complete: true,
+        },
+      });
+    return route.continue();
+  });
   const post = async (name, arg) => {
     const response = await page.request.post(testUrl + "/api/rpc", {
       data: { name, arg },
@@ -55,6 +71,14 @@ try {
     );
   await page.goto(testUrl + seriesPath(series));
   await ready();
+  const exportResponse = await page.request.get(
+    testUrl + "/api/backup?series=" + encodeURIComponent(series),
+  );
+  assert.equal(exportResponse.status(), 200, await exportResponse.text());
+  assert.match(
+    exportResponse.headers()["content-disposition"],
+    /filename\*=UTF-8''/,
+  );
   const [download] = await Promise.all([
     page.waitForEvent("download"),
     page.getByRole("link", { name: "Export series", exact: true }).click(),
@@ -107,7 +131,7 @@ try {
   await input(0, "volume").fill("1.5");
   await input(0, "status").selectOption("Read");
   await input(0, "isbn").fill("0140328726");
-  await input(0, "type").selectOption("LN (EN)");
+  await input(0, "type").selectOption("Light novel");
   await input(0, "publisher").fill("Updated press");
   await input(0, "pageCount").fill("260");
   await input(0, "note").fill("Updated notes, including =literal text");
@@ -227,7 +251,7 @@ try {
   const attempts = [];
   await page.route("**/api/rpc", (route) => {
     const payload = route.request().postDataJSON();
-    if (payload.name !== "saveSeriesVolumes") return route.continue();
+    if (payload.name !== "saveSeriesVolumes") return route.fallback();
     attempts.push(payload.arg);
     if (attempts.length === 1)
       return route.fulfill({
@@ -264,7 +288,7 @@ try {
   assert.equal(saved[0].volume, 1.5);
   assert.equal(saved[0].status, "Read");
   assert.equal(saved[0].isbn, "0140328726");
-  assert.equal(saved[0].type, "LN (EN)");
+  assert.equal(saved[0].type, "Light novel");
   assert.equal(saved[0].publisher, "Updated press");
   assert.equal(saved[0].pageCount, 260);
   assert.equal(saved[0].note, "Updated notes, including =literal text");

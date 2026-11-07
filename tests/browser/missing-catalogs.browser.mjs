@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { testUrl } from "../helpers/browser.mjs";
+import { normalizeRecordTypes } from "../../lib/domain/book-type.ts";
 
 const browser = await chromium.launch({
   headless: true,
@@ -26,22 +27,23 @@ const base = {
   source: "Owned shop",
   status: "Read",
 };
-const item = (name, volume, extra = {}) => ({
-  id: name + ":" + volume,
-  series: series[name],
-  title: series[name] + " เล่ม " + volume,
-  volume,
-  type: base.type,
-  publisher: base.publisher,
-  publisherId: "phoenix",
-  isbn: "",
-  url: `https://www.phoenixnext.com/catalog-${name.toLowerCase()}-${volume}.html`,
-  price: 175,
-  special: false,
-  bundle: false,
-  availability: "",
-  ...extra,
-});
+const item = (name, volume, extra = {}) =>
+  normalizeRecordTypes({
+    id: name + ":" + volume,
+    series: series[name],
+    title: series[name] + " เล่ม " + volume,
+    volume,
+    type: base.type,
+    publisher: base.publisher,
+    publisherId: "phoenix",
+    isbn: "",
+    url: `https://www.phoenixnext.com/catalog-${name.toLowerCase()}-${volume}.html`,
+    price: 175,
+    special: false,
+    bundle: false,
+    availability: "",
+    ...extra,
+  });
 const feeds = {
   [series.Consecutive]: [
     item("Consecutive", 1),

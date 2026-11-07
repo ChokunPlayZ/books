@@ -19,6 +19,18 @@ try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  await page.route("**/api/rpc", (route) => {
+    const { name, arg } = route.request().postDataJSON();
+    if (name === "getBookCover")
+      return route.fulfill({ json: { row: arg.row, coverId: "" } });
+    if (name === "getPublisherReleases")
+      return route.fulfill({ json: { items: [], complete: true } });
+    if (name === "getPublisherDirectory")
+      return route.fulfill({
+        json: { url: arg.url, titles: [], items: [], complete: true },
+      });
+    return route.continue();
+  });
   for (const volume of [1, 2]) {
     const response = await page.request.post(testUrl + "/api/rpc", {
       data: {

@@ -145,6 +145,14 @@ try {
     errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("https://cdn.jsdelivr.net/**", (route) => route.abort());
+  // CRUD/import checks must not launch live publisher discovery for 150 fixtures.
+  // Cover lookup itself is exercised by the dedicated publisher scenarios.
+  await page.route("**/api/rpc", (route) => {
+    const { name, arg } = route.request().postDataJSON();
+    if (name === "getBookCover")
+      return route.fulfill({ json: { row: arg.row, coverId: "" } });
+    return route.continue();
+  });
   const post = (body) => page.request.post(url + "/api/rpc", { data: body });
   assert.equal((await post({ name: "getCollection" })).status(), 401);
   assert.equal((await page.request.get(url + "/api/backup")).status(), 401);
@@ -266,7 +274,13 @@ try {
   await page.locator("#price").fill("0");
   await page.locator("#saveButton").click();
   await page.waitForFunction(() => !document.getElementById("bookDialog").open);
-  const collection = await (await post({ name: "getCollection" })).json();
+  const collectionResponse = await post({ name: "getCollection" });
+  assert.equal(
+    collectionResponse.status(),
+    200,
+    await collectionResponse.text(),
+  );
+  const collection = await collectionResponse.json();
   const added = collection.books.find(
     (book) => book.series === "Next.js browser check",
   );
@@ -299,7 +313,7 @@ try {
           publisherUrl: publisherPage,
         },
       });
-    return route.continue();
+    return route.fallback();
   });
   await page.locator("#search").fill("Next.js browser check");
   await page.locator(".series-row").click();
