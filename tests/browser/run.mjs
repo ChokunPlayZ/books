@@ -134,6 +134,10 @@ async function runBrowserScenario(name, url) {
 let browser;
 try {
   const url = await start("protected");
+  await runBrowserScenario(
+    "loading-feedback.browser.mjs",
+    await start("loading-feedback"),
+  );
   await runBrowserScenario("legal.browser.mjs", url);
   await runBrowserScenario("outbound-links.browser.mjs", url);
   await runBrowserScenario("audit-browser-security.browser.mjs", url);
@@ -274,7 +278,7 @@ try {
   await page.getByRole("button", { name: "Review import" }).click();
   await page.getByRole("heading", { name: "Ready to import" }).waitFor();
   await page.getByRole("button", { name: "Import this collection" }).click();
-  await page.getByRole("status").waitFor();
+  await page.locator(".import-success").waitFor();
   await page.getByRole("link", { name: "Open your shelf" }).click();
   await page.waitForFunction(
     () => document.getElementById("addButton")?.disabled === false,

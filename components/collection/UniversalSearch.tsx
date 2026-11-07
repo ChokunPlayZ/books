@@ -9,6 +9,8 @@ import {
 import Icon from "../Icon";
 import ExternalLink from "../ExternalLink";
 import { useTranslations } from "../PreferencesProvider";
+import LoadingStatus from "../LoadingStatus";
+import { activity } from "../../lib/client/activity.ts";
 
 export default function UniversalSearch({
   initialQuery = "",
@@ -39,6 +41,7 @@ export default function UniversalSearch({
       url.searchParams.set("q", query);
       window.history.replaceState(null, "", url);
       setLoading(true);
+      const finish = activity.begin("Searching…", controller.signal);
       try {
         await runUniversalSearch({
           query,
@@ -76,6 +79,7 @@ export default function UniversalSearch({
             ),
           );
       } finally {
+        finish();
         if (!controller.signal.aborted) setLoading(false);
       }
     },
@@ -140,9 +144,14 @@ export default function UniversalSearch({
             }}
           />
         </label>
-        <button className="btn primary" type="submit">
-          <Icon name="search" />
-          {t("Search")}
+        <button
+          className="btn primary"
+          type="submit"
+          disabled={loading}
+          aria-busy={loading}
+        >
+          {!loading && <Icon name="search" />}
+          {t(loading ? "Searching…" : "Search")}
         </button>
       </form>
       <p id="universalSearchHint" className="hint">
@@ -155,21 +164,31 @@ export default function UniversalSearch({
           {error}
         </p>
       )}
-      <p className="universal-search-status" role="status" aria-live="polite">
-        {loading && !progress
-          ? t("Looking up known titles…")
-          : progress
-            ? loading
+      {loading ? (
+        <LoadingStatus
+          className="universal-search-loading"
+          label={t("Searching…")}
+          detail={
+            progress
               ? t("{count} matches · Checking sources {done}/{total}…", {
                   count: progress.results.length,
                   done: completed,
                   total: progress.sources.length,
                 })
-              : t("{count} matches · Search complete", {
-                  count: progress.results.length,
-                })
-            : ""}
-      </p>
+              : t("Looking up known titles…")
+          }
+          completed={completed}
+          total={progress?.sources.length}
+        />
+      ) : (
+        <p className="universal-search-status" role="status">
+          {progress &&
+            !error &&
+            t("{count} matches · Search complete", {
+              count: progress.results.length,
+            })}
+        </p>
+      )}
       {unavailable.length > 0 && (
         <p className="price-warning">
           {t("Could not check {sources}. Other matches are still available.", {

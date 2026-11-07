@@ -6,6 +6,8 @@ import ThemeToggle from "./ThemeToggle";
 import LanguageSelect from "./LanguageSelect";
 import AccountPreferences from "./AccountPreferences";
 import LegalLinks from "./LegalLinks";
+import LoadingStatus from "./LoadingStatus";
+import { activity } from "../lib/client/activity.ts";
 import type { ImportResult, ImportReview } from "../lib/types";
 import { useTranslations } from "./PreferencesProvider";
 
@@ -20,11 +22,16 @@ export default function DataManager({ counts, canSignOut }: DataManagerProps) {
     [review, setReview] = useState<ImportReview | null>(null),
     [result, setResult] = useState<ImportResult | null>(null),
     [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busyAction, setBusyAction] = useState<"preview" | "import" | null>(null);
+  const busy = busyAction !== null;
   async function upload(action: "preview" | "import") {
-    if (!file) return;
-    setBusy(true);
+    if (!file || busy) return;
+    setBusyAction(action);
+    setResult(null);
     setError("");
+    const finish = activity.begin(
+      action === "preview" ? "Reading file…" : "Importing your collection…",
+    );
     try {
       const form = new FormData();
       form.set("file", file);
@@ -46,7 +53,8 @@ export default function DataManager({ counts, canSignOut }: DataManagerProps) {
         t(err instanceof Error ? err.message : "Import failed. Try again."),
       );
     } finally {
-      setBusy(false);
+      setBusyAction(null);
+      finish();
     }
   }
   async function logout() {
@@ -161,11 +169,29 @@ export default function DataManager({ counts, canSignOut }: DataManagerProps) {
               <button
                 className="btn"
                 disabled={!file || busy}
+                aria-busy={busyAction === "preview"}
                 onClick={() => upload("preview")}
               >
-                {t(busy ? "Reading file…" : "Review import")}
+                {t(
+                  busyAction === "preview" ? "Reading file…" : "Review import",
+                )}
               </button>
             </div>
+            {busy && (
+              <LoadingStatus
+                className="import-loading"
+                label={t(
+                  busyAction === "preview"
+                    ? "Reading and checking your file…"
+                    : "Importing your collection…",
+                )}
+                detail={t(
+                  busyAction === "preview"
+                    ? "Preparing a preview. Your library has not changed yet."
+                    : "Saving your books. Keep this page open until the import finishes.",
+                )}
+              />
+            )}
             {error && (
               <p className="form-error" role="alert">
                 {error}
@@ -213,9 +239,14 @@ export default function DataManager({ counts, canSignOut }: DataManagerProps) {
                 <button
                   className="btn primary"
                   disabled={busy}
+                  aria-busy={busyAction === "import"}
                   onClick={() => upload("import")}
                 >
-                  {t("Import this collection")}
+                  {t(
+                    busyAction === "import"
+                      ? "Importing…"
+                      : "Import this collection",
+                  )}
                 </button>
               </div>
             )}

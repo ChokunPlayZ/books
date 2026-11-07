@@ -12,6 +12,7 @@ import { shelfCoverBook, coverTint } from "../domain/shelf.ts";
 import { seriesPath, type CollectionView } from "../domain/navigation.ts";
 import type { StoredBook } from "../types.ts";
 import { createScanner } from "./scanner.ts";
+import { activity, requestActivityLabel } from "./activity.ts";
 import { canonicalIsbn as canonical } from "../domain/isbn.ts";
 import { kinokuniyaSearchUrl } from "../domain/urls.ts";
 import {
@@ -164,37 +165,45 @@ export function mountCollection({
     toastTimer = setTimeout(() => ($("toast").hidden = true), 4200);
   }
   async function rpc(name: string, arg?: unknown) {
-    // Library controls reload available results, never invalidate shared sources.
-    // This applies to administrators using their personal library too.
-    if (arg && typeof arg === "object" && Object.hasOwn(arg, "refresh"))
-      arg = { ...arg, refresh: false };
-    const response = await fetch("/api/rpc", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, arg }),
-      signal: events.signal,
-    });
-    if (response.status === 401) {
-      window.location.assign(
-        "/login?returnTo=" + encodeURIComponent(window.location.pathname),
-      );
-      throw new Error("Sign in to open your library.");
-    }
-    const value = await response.json();
-    if (!response.ok)
-      throw new Error(value.message || "The request could not finish.");
-    if (value.bookCoverIds && state.data) {
-      for (const book of state.data.books) {
-        if (Object.hasOwn(value.bookCoverIds, book.row))
-          book.coverId = value.bookCoverIds[book.row];
+    const finish = activity.begin(requestActivityLabel(name), events.signal);
+    try {
+      // Library controls reload available results, never invalidate shared sources.
+      // This applies to administrators using their personal library too.
+      if (arg && typeof arg === "object" && Object.hasOwn(arg, "refresh"))
+        arg = { ...arg, refresh: false };
+      const response = await fetch("/api/rpc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, arg }),
+        signal: events.signal,
+      });
+      if (response.status === 401) {
+        window.location.assign(
+          "/login?returnTo=" + encodeURIComponent(window.location.pathname),
+        );
+        throw new Error("Sign in to open your library.");
       }
-      refreshVisibleCovers();
+      const value = await response.json();
+      if (!response.ok)
+        throw new Error(value.message || "The request could not finish.");
+      if (value.bookCoverIds && state.data) {
+        for (const book of state.data.books) {
+          if (Object.hasOwn(value.bookCoverIds, book.row))
+            book.coverId = value.bookCoverIds[book.row];
+        }
+        refreshVisibleCovers();
+      }
+      return value;
+    } finally {
+      finish();
     }
-    return value;
   }
 
   async function load(refreshMissingCatalogs = false) {
-    if ($("refreshButton")) $("refreshButton").disabled = true;
+    if ($("refreshButton")) {
+      $("refreshButton").disabled = true;
+      $("refreshButton").setAttribute("aria-busy", "true");
+    }
     $("pageError").hidden = true;
     try {
       state.data = await rpc("getCollection");
@@ -252,7 +261,10 @@ export function mountCollection({
         );
       throw error;
     } finally {
-      if ($("refreshButton")) $("refreshButton").disabled = false;
+      if ($("refreshButton")) {
+        $("refreshButton").disabled = false;
+        $("refreshButton").setAttribute("aria-busy", "false");
+      }
     }
   }
   function recordedPrice(book) {

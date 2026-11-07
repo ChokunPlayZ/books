@@ -5,6 +5,7 @@ import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";
 import { THEME_INIT_SCRIPT } from "../lib/theme";
 import PreferencesProvider from "../components/PreferencesProvider";
 import Dropdowns from "../components/Dropdowns";
+import SiteActivity from "../components/SiteActivity";
 import { accountPreferences } from "../lib/server/preferences.ts";
 
 export const metadata: Metadata = {
@@ -47,6 +48,7 @@ export default async function RootLayout({
       </head>
       <body>
         <PreferencesProvider userId={userId} initial={preferences}>
+          <SiteActivity />
           {children}
         </PreferencesProvider>
         <Dropdowns />

@@ -1,6 +1,21 @@
 // Interface text only. Book titles, notes, publishers and stored option values
 // stay in their original language; translations never modify collection data.
 export const thai: Record<string, string> = {
+  "Loading page…": "กำลังโหลดหน้า…",
+  "Loading your library…": "กำลังโหลดคลังหนังสือของคุณ…",
+  "Loading book covers…": "กำลังโหลดปกหนังสือ…",
+  "Checking publishers and bookshops…": "กำลังตรวจสอบสำนักพิมพ์และร้านหนังสือ…",
+  "Saving changes…": "กำลังบันทึกการเปลี่ยนแปลง…",
+  "Searching…": "กำลังค้นหา…",
+  "Importing…": "กำลังนำเข้า…",
+  "Importing your collection…": "กำลังนำเข้าคอลเลกชันของคุณ…",
+  "Reading and checking your file…": "กำลังอ่านและตรวจสอบไฟล์ของคุณ…",
+  "Preparing a preview. Your library has not changed yet.":
+    "กำลังเตรียมตัวอย่างข้อมูล คลังหนังสือของคุณยังไม่มีการเปลี่ยนแปลง",
+  "Saving your books. Keep this page open until the import finishes.":
+    "กำลังบันทึกหนังสือของคุณ โปรดเปิดหน้านี้ไว้จนกว่าการนำเข้าจะเสร็จสิ้น",
+  "Library controls could not load. Refresh the page to try again.":
+    "โหลดส่วนควบคุมคลังหนังสือไม่สำเร็จ รีเฟรชหน้าเพื่อลองอีกครั้ง",
   Search: "ค้นหา",
   "Search results": "ผลการค้นหา",
   "Search everywhere": "ค้นหาทุกแหล่ง",
