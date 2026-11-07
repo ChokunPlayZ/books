@@ -96,7 +96,9 @@ try {
     await page
       .getByRole("link", { name: "Search this ISBN at Kinokuniya ↗" })
       .getAttribute("href"),
-    "https://kinokuniya.co.th/search?type=product&q=" + isbn,
+    "https://kinokuniya.co.th/search?type=product&q=" +
+      isbn +
+      "&ref=meemai.ckl.moe",
   );
   await page.locator("#series").fill(marker);
   await page.locator("#saveButton").click();

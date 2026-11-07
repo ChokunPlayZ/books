@@ -1,4 +1,5 @@
 import { getTranslations } from "../../../lib/server/preferences.ts";
+import ExternalLink from "../../ExternalLink";
 
 export default async function BookDialog() {
   const t = await getTranslations();
@@ -355,14 +356,13 @@ export default async function BookDialog() {
                       maxLength={2000}
                       placeholder="https://…"
                     />
-                    <a
+                    <ExternalLink
                       id="metadataPublisherLink"
                       target="_blank"
-                      rel="noopener noreferrer"
                       hidden
                     >
                       {t("Open publisher site ↗")}
-                    </a>
+                    </ExternalLink>
                   </div>
                   <div className="cover-editor">
                     <div id="metadataCoverPreview" />

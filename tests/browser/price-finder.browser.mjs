@@ -111,6 +111,19 @@ try {
   );
   await page.getByText("All 6 shop checks", { exact: true }).click();
   assert.equal(await page.locator(".price-sources li").count(), 6);
+  for (const link of await page
+    .locator(".price-offers a, .price-sources a")
+    .all()) {
+    const href = new URL(await link.getAttribute("href"));
+    assert.equal(href.searchParams.get("ref"), "meemai.ckl.moe");
+    assert.equal(await link.getAttribute("rel"), "noopener");
+    assert.equal(
+      await link.getAttribute("referrerpolicy"),
+      "strict-origin-when-cross-origin",
+    );
+    if (href.pathname === "/search")
+      assert.equal(href.searchParams.get("q"), isbn);
+  }
 
   assert.equal(
     await page.evaluate(

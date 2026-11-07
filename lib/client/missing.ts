@@ -12,6 +12,10 @@ import {
 import { PUBLISHERS } from "../domain/constants.ts";
 import { seriesPath } from "../domain/navigation.ts";
 import { safeProductUrl } from "../domain/urls.ts";
+import {
+  outboundUrl,
+  OUTBOUND_LINK_ATTRIBUTES,
+} from "../domain/outbound-links.ts";
 import type { Release, StoredBook } from "../types.ts";
 
 export function createMissingBrowser({
@@ -260,9 +264,10 @@ export function createMissingBrowser({
               const url = safeProductUrl(item.url, item.publisherId);
               if (url) {
                 const publisher = node("a", "", t("Publisher ↗"));
-                publisher.href = url;
-                publisher.target = "_blank";
-                publisher.rel = "noopener noreferrer";
+                Object.assign(publisher, OUTBOUND_LINK_ATTRIBUTES, {
+                  href: outboundUrl(url),
+                  target: "_blank",
+                });
                 volume.append(publisher);
               }
               if (alternatives.length)

@@ -14,6 +14,10 @@ import type { StoredBook } from "../types.ts";
 import { createScanner } from "./scanner.ts";
 import { canonicalIsbn as canonical } from "../domain/isbn.ts";
 import { kinokuniyaSearchUrl } from "../domain/urls.ts";
+import {
+  outboundUrl,
+  OUTBOUND_LINK_ATTRIBUTES,
+} from "../domain/outbound-links.ts";
 import { bookSourceApplies, isbnSearchLinks } from "../domain/book-sources.ts";
 import { bookEditionKey, normalizeBookType } from "../domain/book-type.ts";
 import {
@@ -1844,9 +1848,10 @@ export function mountCollection({
   }
   function releaseLink(label, url) {
     const a = node("a", "", label);
-    a.href = url;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
+    Object.assign(a, OUTBOUND_LINK_ATTRIBUTES, {
+      href: outboundUrl(url),
+      target: "_blank",
+    });
     return a;
   }
 
@@ -1964,7 +1969,7 @@ export function mountCollection({
         !parsed.port;
     } catch {}
     link.hidden = !safe;
-    if (safe) link.href = url;
+    if (safe) link.href = outboundUrl(url);
     else link.removeAttribute("href");
     document
       .querySelectorAll<HTMLElement>(".cover-choice")
@@ -2711,7 +2716,7 @@ export function mountCollection({
       card._title = nextItem;
       if (!nextItem.resolved && !result) titleObserver.observe(card);
       else titleObserver.unobserve(card);
-      coverLink.href = publisherLink.href = nextItem.url;
+      coverLink.href = publisherLink.href = outboundUrl(nextItem.url);
       coverLink.setAttribute(
         "aria-label",
         "Open " + nextItem.series + " on the publisher website",

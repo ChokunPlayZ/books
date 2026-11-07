@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";
 import { THEME_INIT_SCRIPT } from "../lib/theme";
 import PreferencesProvider from "../components/PreferencesProvider";
+import Dropdowns from "../components/Dropdowns";
 import { accountPreferences } from "../lib/server/preferences.ts";
 
 export const metadata: Metadata = {
@@ -48,6 +49,7 @@ export default async function RootLayout({
         <PreferencesProvider userId={userId} initial={preferences}>
           {children}
         </PreferencesProvider>
+        <Dropdowns />
         <ServiceWorkerRegistration />
       </body>
     </html>

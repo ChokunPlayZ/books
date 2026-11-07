@@ -22,6 +22,7 @@
 @import "./styles/search.css" layer(components);
 @import "./styles/preferences.css" layer(components);
 @import "./styles/legal.css" layer(components);
+@import "./styles/controls.css" layer(components);
 @source "../components";
 @source "../lib/client";
 

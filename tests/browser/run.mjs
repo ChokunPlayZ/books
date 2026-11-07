@@ -135,6 +135,7 @@ let browser;
 try {
   const url = await start("protected");
   await runBrowserScenario("legal.browser.mjs", url);
+  await runBrowserScenario("outbound-links.browser.mjs", url);
   await runBrowserScenario("audit-browser-security.browser.mjs", url);
   await runBrowserScenario("audit-deployment.browser.mjs", url);
   await runBrowserScenario("pwa.browser.mjs", url);
@@ -350,7 +351,7 @@ try {
   assert.equal(await page.locator("#coverUrl").inputValue(), alternateCover);
   assert.equal(
     await page.locator("#metadataPublisherLink").getAttribute("href"),
-    publisherPage,
+    publisherPage + "?ref=meemai.ckl.moe",
   );
   assert.equal(
     await page
@@ -404,7 +405,7 @@ try {
     await page
       .getByRole("link", { name: "Open publisher site ↗", exact: true })
       .getAttribute("href"),
-    publisherPage,
+    publisherPage + "?ref=meemai.ckl.moe",
   );
   await page.keyboard.press("Escape");
   await page.locator("#backSeries").click();
@@ -492,6 +493,7 @@ try {
     await start("missing-catalogs"),
   );
   for (const name of [
+    "controls.browser.mjs",
     "theme.browser.mjs",
     "collection-filters.browser.mjs",
     "pricing.browser.mjs",

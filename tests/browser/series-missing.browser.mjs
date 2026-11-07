@@ -606,7 +606,7 @@ try {
   );
   assert.equal(
     await page.locator("#seriesReleaseSources a").getAttribute("href"),
-    "https://www.firstpagepro.com/category/56",
+    "https://www.firstpagepro.com/category/56?ref=meemai.ckl.moe",
   );
   await page.reload();
   await page.waitForFunction(() => !!window.bookCollection?.state.data);

@@ -209,7 +209,9 @@ try {
     await card(exact.title)
       .getByRole("link", { name: "Find at Kinokuniya ↗" })
       .getAttribute("href"),
-    "https://kinokuniya.co.th/search?type=product&q=" + exact.isbn,
+    "https://kinokuniya.co.th/search?type=product&q=" +
+      exact.isbn +
+      "&ref=meemai.ckl.moe",
   );
   await card(exact.title)
     .getByRole("button", { name: "View owned series" })
@@ -240,13 +242,13 @@ try {
     await page
       .getByRole("link", { name: "Search this ISBN at Naiin ↗" })
       .getAttribute("href"),
-    "https://www.naiin.com/search-result?title=9786166247275",
+    "https://www.naiin.com/search-result?title=9786166247275&ref=meemai.ckl.moe",
   );
   assert.equal(
     await page
       .getByRole("link", { name: "Search this ISBN at Kinokuniya ↗" })
       .getAttribute("href"),
-    "https://kinokuniya.co.th/search?type=product&q=9786166247275",
+    "https://kinokuniya.co.th/search?type=product&q=9786166247275&ref=meemai.ckl.moe",
   );
   await page.locator("#cancelBook").click();
   await page.locator("#addButton").click();

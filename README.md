@@ -45,6 +45,8 @@ Open **Search** to find a title, publisher, bookshop or ISBN. Your own library, 
 
 Searches reuse durable metadata caches, show source failures without hiding other matches, and never add books or change your collection. Private shelves and linked series aliases remain account-specific. External title searches check bounded listing pages, not every volume in a catalog; source details indicate partial coverage.
 
+Outgoing external links include `ref=meemai.ckl.moe` for traffic attribution, preserving destination query parameters and fragments. They allow origin-only browser referrers and keep new tabs isolated with `noopener`; private page paths and queries are not sent to external sites. Attribution is applied only to navigation links, not stored source URLs, backend requests, internal links or downloads.
+
 ## Everyday commands
 
 | Command                                       | Purpose                                                   |

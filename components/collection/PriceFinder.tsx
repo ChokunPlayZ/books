@@ -5,6 +5,7 @@ import { canonicalIsbn } from "../../lib/domain/isbn.ts";
 import { lowestPrices } from "../../lib/domain/prices.ts";
 import type { PriceAvailability, PriceComparison } from "../../lib/types.ts";
 import Icon from "../Icon";
+import ExternalLink from "../ExternalLink";
 import { usePreferences, useTranslations } from "../PreferencesProvider";
 import { intlLocale } from "../../lib/preferences.ts";
 
@@ -276,18 +277,17 @@ export default function PriceFinder({
                           </span>
                         )}
                       </div>
-                      <a
+                      <ExternalLink
                         className={"btn" + (best ? " primary" : "")}
                         href={offer.url}
                         target="_blank"
-                        rel="noopener noreferrer"
                         aria-label={t(
                           "View book at {shop} (opens in a new tab)",
                           { shop: offer.shop },
                         )}
                       >
                         {t("View at shop ↗")}
-                      </a>
+                      </ExternalLink>
                     </li>
                   );
                 })}
@@ -317,13 +317,9 @@ export default function PriceFinder({
                         )}
                       </p>
                     </div>
-                    <a
-                      href={source.searchUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
+                    <ExternalLink href={source.searchUrl} target="_blank">
                       {t("Search shop ↗")}
-                    </a>
+                    </ExternalLink>
                   </li>
                 ))}
               </ul>

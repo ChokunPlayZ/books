@@ -171,7 +171,7 @@ try {
     await page
       .getByRole("link", { name: "Search this ISBN at First Page Pro ↗" })
       .getAttribute("href"),
-    "https://www.firstpagepro.com/search?q=" + isbn,
+    "https://www.firstpagepro.com/search?q=" + isbn + "&ref=meemai.ckl.moe",
   );
   assert.equal(
     await page.locator("#price").inputValue(),
@@ -258,7 +258,9 @@ try {
     await page
       .getByRole("link", { name: "Search this ISBN at Phoenix Next ↗" })
       .getAttribute("href"),
-    "https://www.phoenixnext.com/catalogsearch/result/?q=" + phoenixIsbn,
+    "https://www.phoenixnext.com/catalogsearch/result/?q=" +
+      phoenixIsbn +
+      "&ref=meemai.ckl.moe",
   );
   await page.locator("#toggleLookupDetails").click();
   await page.locator("#saveButton").click();

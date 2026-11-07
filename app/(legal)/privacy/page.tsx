@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import ExternalLink from "../../../components/ExternalLink";
 
 export const metadata: Metadata = {
   title: "Privacy Policy · meemai",
@@ -100,15 +101,18 @@ export default function PrivacyPage() {
           <li>
             <strong>Google:</strong> handles OAuth authentication and related
             identity and connection data under its own{" "}
-            <a href="https://policies.google.com/privacy">Privacy Policy</a>.
+            <ExternalLink href="https://policies.google.com/privacy">
+              Privacy Policy
+            </ExternalLink>
+            .
           </li>
           <li>
             <strong>Cloudflare, Inc.:</strong> where used to deliver and protect
             the site, may process traffic passing through its network, including
             IP addresses and request information, under its{" "}
-            <a href="https://www.cloudflare.com/privacypolicy/">
+            <ExternalLink href="https://www.cloudflare.com/privacypolicy/">
               Privacy Policy
-            </a>
+            </ExternalLink>
             . Thailand-based application storage does not mean all network
             traffic remains in Thailand.
           </li>
@@ -117,8 +121,11 @@ export default function PrivacyPage() {
           Book lookups and searches may send the title, ISBN, or search terms
           needed for the lookup to external book-information sources. Following
           an external shop or publisher link takes you to a service with its own
-          privacy practices. CKLabs may also disclose information where required
-          by applicable law.
+          privacy practices. External links include ref=meemai.ckl.moe in the
+          destination URL to identify meemai as the traffic source. The browser
+          may also send the site’s origin as a referrer, but not your private
+          page path or query parameters. CKLabs may also disclose information
+          where required by applicable law.
         </p>
       </section>
 

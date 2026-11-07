@@ -7,6 +7,7 @@ import {
   type SearchProgress,
 } from "../../lib/client/universal-search.ts";
 import Icon from "../Icon";
+import ExternalLink from "../ExternalLink";
 import { useTranslations } from "../PreferencesProvider";
 
 export default function UniversalSearch({
@@ -188,13 +189,9 @@ export default function UniversalSearch({
                   {item.librarySeries ? (
                     <a href={seriesPath(item.librarySeries)}>{item.title}</a>
                   ) : item.url ? (
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
+                    <ExternalLink href={item.url} target="_blank">
                       {item.title} ↗
-                    </a>
+                    </ExternalLink>
                   ) : (
                     item.title
                   )}
@@ -231,14 +228,13 @@ export default function UniversalSearch({
                 {item.sources
                   .filter((source) => source.url && source.id !== "library")
                   .map((source) => (
-                    <a
+                    <ExternalLink
                       key={source.id + source.url}
                       href={source.url}
                       target="_blank"
-                      rel="noopener noreferrer"
                     >
                       {source.name} ↗
-                    </a>
+                    </ExternalLink>
                   ))}
                 {item.isbn && (
                   <a href={"/prices?isbn=" + item.isbn}>

@@ -315,7 +315,9 @@ try {
   );
   assert.equal(
     await page
-      .locator("#adaptationList a[href='https://myanimelist.net/anime/201']")
+      .locator(
+        "#adaptationList a[href='https://myanimelist.net/anime/201?ref=meemai.ckl.moe']",
+      )
       .count(),
     1,
   );

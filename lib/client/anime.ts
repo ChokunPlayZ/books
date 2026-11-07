@@ -14,6 +14,10 @@ import {
 } from "../domain/anime.ts";
 import { canonicalIsbn } from "../domain/isbn.ts";
 import { publisherKey } from "../domain/urls.ts";
+import {
+  outboundUrl,
+  OUTBOUND_LINK_ATTRIBUTES,
+} from "../domain/outbound-links.ts";
 import type { Release, StoredBook } from "../types.ts";
 
 function animeSeasonLabel(...args: Parameters<typeof englishSeasonLabel>) {
@@ -33,9 +37,10 @@ type Bindings = {
 
 function link(label: string, url: string) {
   const anchor = node("a", "anime-link", label);
-  anchor.href = url;
-  anchor.target = "_blank";
-  anchor.rel = "noopener noreferrer";
+  Object.assign(anchor, OUTBOUND_LINK_ATTRIBUTES, {
+    href: outboundUrl(url),
+    target: "_blank",
+  });
   return anchor;
 }
 

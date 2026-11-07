@@ -269,6 +269,8 @@ Keyboard focus is a (3px) solid focus outline offset by (3px); disclosure summar
 
 Inputs use the field role, padding (11px 13px), a (1px) line border, white surface and UI radius. Shared form fields are at least (48px) high; labels and hints remain separate from placeholder text. Search reserves (42px) left padding for its icon. Hover strengthens the border to line-hover; focus changes the border to cobalt and retains the visible focus outline. Native selection and validation remain available. Nonempty form errors use error-background/error-line, UI radius and padding (12px 14px); error banners use the error ink.
 
+Dropdowns share a theme-aware chevron and a bordered, UI-radius menu, including editable title, publisher and store suggestions. Menu options have a (44px) minimum height; the selected choice has a checkmark and the active choice has an independent focus outline. Menus stay within the available viewport and appear above scrolling dialogs. Preserve keyboard navigation, type-ahead, Escape dismissal and free-text entry in suggestion fields; native controls remain the no-JavaScript fallback.
+
 ### Navigation
 
 Destinations are compact icon/text rows with minimum height (44px). Resting text is muted; hover uses cobalt text and button-hover; the active destination uses tab-active, cobalt text and weight (650). Active state is exposed with `aria-current="page"`. Keep the active destination visible in the handheld scrolling strip. The rail becomes a strip through layout, not smaller touch targets.
