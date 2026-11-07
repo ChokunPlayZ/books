@@ -2,6 +2,21 @@ import { canonicalIsbn as canonical } from "../domain/isbn.ts";
 import { barcodeRegions, barcodeRetry } from "./scanner-image.ts";
 import { t } from "./i18n.ts";
 
+// Keep each version and integrity digest together when updating scanner libraries.
+// Digests match the corresponding files in the published npm package archives.
+const SCANNER_SCRIPTS = {
+  barcode: {
+    url: "https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.5/dist/iife/reader/index.js",
+    integrity:
+      "sha384-pmb1tQJNOuJHk8egrf/+ZRqlneecoac2BFNir9Iktg+pJRV7RV31WuzC/ljFVuom",
+  },
+  text: {
+    url: "https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/tesseract.min.js",
+    integrity:
+      "sha384-r1ru3tcf6FhnCFR4B7pIFG+BhFF9LlFtz/P1y4pblWn3AGs9y3lBx5SKLNf4+rED",
+  },
+} as const;
+
 type ScannerBindings = {
   state: ScannerState;
   $: <K extends keyof LibraryElements>(id: K) => LibraryElements[K];
@@ -68,12 +83,16 @@ export function createScanner({
 }: ScannerBindings) {
   // Match the server's ISBN rules before accepting a camera result.
   const scannerScripts = new Map();
-  function loadScannerScript(url) {
+  function loadScannerScript(name: keyof typeof SCANNER_SCRIPTS) {
+    const { url, integrity } = SCANNER_SCRIPTS[name];
     if (!scannerScripts.has(url))
       scannerScripts.set(
         url,
         new Promise<void>((resolve, reject) => {
           const script = document.createElement("script");
+          script.integrity = integrity;
+          script.crossOrigin = "anonymous";
+          script.referrerPolicy = "no-referrer";
           script.src = url;
           const timer = setTimeout(() => {
             script.remove();
@@ -225,10 +244,7 @@ export function createScanner({
     return canvas;
   }
   async function readBarcodes(canvas, generation, liveAttempt?: number) {
-    if (typeof ZXingWASM === "undefined")
-      await loadScannerScript(
-        "https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.5/dist/iife/reader/index.js",
-      );
+    if (typeof ZXingWASM === "undefined") await loadScannerScript("barcode");
     requireScan(generation);
     const decode = (image: ImageData) =>
       ZXingWASM.readBarcodes(image, {
@@ -280,12 +296,7 @@ export function createScanner({
       "Looking for the printed ISBN… The first text scan may take a moment.",
     );
     if (typeof Tesseract === "undefined")
-      await photoStep(
-        loadScannerScript(
-          "https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/tesseract.min.js",
-        ),
-        task,
-      );
+      await photoStep(loadScannerScript("text"), task);
     requireScan(generation);
     const worker = await photoStep(
       Tesseract.createWorker("eng", 1, {
