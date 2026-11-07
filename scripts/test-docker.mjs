@@ -76,6 +76,11 @@ try {
   address();
   assert.notEqual(compose(["exec", "-T", "books", "id", "-u"], true), "0");
   assert.deepEqual(await json("/api/health"), { status: "ok" });
+  assert.equal(
+    (await request("/_next/image?url=%2Ficons%2Ficon-512.png&w=640&q=75"))
+      .status,
+    404,
+  );
   assert.equal((await request("/api/backup")).status, 401);
   const protectedDataPage = await request("/data", { redirect: "manual" });
   assert.equal(protectedDataPage.status, 307);

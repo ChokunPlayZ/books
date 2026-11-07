@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  // Covers use the authenticated API and plain <img> elements. Do not expose
+  // an unused public optimizer with attacker-controlled processing/cache keys.
+  images: { unoptimized: true },
   serverExternalPackages: ["pg", "xlsx"],
   async headers() {
     return [

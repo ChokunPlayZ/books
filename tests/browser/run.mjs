@@ -135,6 +135,7 @@ let browser;
 try {
   const url = await start("protected");
   await runBrowserScenario("audit-browser-security.browser.mjs", url);
+  await runBrowserScenario("audit-deployment.browser.mjs", url);
   await runBrowserScenario("pwa.browser.mjs", url);
   browser = await chromium.launch({
     headless: true,
