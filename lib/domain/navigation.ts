@@ -9,6 +9,8 @@ export type CollectionView =
   | "stats"
   | "trash";
 
+export type LibraryView = CollectionView | "settings" | "data";
+
 export const collectionPaths: Record<CollectionView, string> = {
   collection: "/",
   missing: "/missing",

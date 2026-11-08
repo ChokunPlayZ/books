@@ -275,7 +275,7 @@ try {
   await page.goto(url + "/data");
   for (const path of ["/terms", "/privacy"])
     assert.equal(
-      await page.locator(`.data-footer .legal-links a[href="${path}"]`).count(),
+      await page.locator(`.footer .legal-links a[href="${path}"]`).count(),
       1,
     );
   await page

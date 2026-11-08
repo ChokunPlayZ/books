@@ -236,6 +236,7 @@ Page headings use the headline roles. Collection headings tighten tracking to th
 
 The final stylesheet is loaded last. Preserve its responsive shell rather than inheriting superseded ornamental layouts from earlier stylesheets.
 
+- Signed-in collection, settings, backup and legal pages use `LibraryShell` for the same header, navigation, content alignment and footer. Book-entry actions appear only on collection views; anonymous login and legal pages retain their public layouts.
 - Desktop above (1000px): header maximum width (1600px), minimum height (72px), padding (12px 32px). The fixed navigation rail is (198px) wide at top (104px), with a minimum left inset (20px). Content starts after a (238px) reserved rail, has maximum width (1328px) and padding (32px 36px).
 - Compact desktop (761–1000px): rail width (170px), left inset (16px), content left margin (194px), padding (28px 24px). Data & backups is the final navigation destination and retains its label at every size.
 - Handheld at (760px) and below: header minimum height (64px), padding (10px 16px); navigation becomes a sticky, horizontally scrollable strip at top (64px). NavigationPosition scrolls the current destination into view. Main padding is (24px 16px), with bottom clearance `calc(100px + env(safe-area-inset-bottom))` and no rail margin.
@@ -274,6 +275,8 @@ Dropdowns share a theme-aware chevron and a bordered, UI-radius menu, including 
 ### Navigation
 
 Destinations are compact icon/text rows with minimum height (44px). Resting text is muted; hover uses cobalt text and button-hover; the active destination uses tab-active, cobalt text and weight (650). Active state is exposed with `aria-current="page"`. Keep the active destination visible in the handheld scrolling strip. The rail becomes a strip through layout, not smaller touch targets.
+
+The header's account control shows the Google profile picture and opens settings. Settings repeats the picture next to the account email without displaying an account-role badge. Missing or failed pictures use the shared account icon in the same (44px) frame.
 
 ### Status / Shelf / Summaries
 

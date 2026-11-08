@@ -2,7 +2,7 @@ import Icon from "../Icon";
 import NavigationPosition from "./NavigationPosition";
 import {
   collectionPaths,
-  type CollectionView,
+  type LibraryView,
 } from "../../lib/domain/navigation.ts";
 import type { Store } from "../../lib/server/store.ts";
 import { getTranslations } from "../../lib/server/preferences.ts";
@@ -11,7 +11,7 @@ export default async function CollectionTabs({
   view,
   data,
 }: {
-  view: CollectionView;
+  view: LibraryView | null;
   data: Awaited<ReturnType<Store["api"]["getCollection"]>>;
 }) {
   const t = await getTranslations();
@@ -21,7 +21,7 @@ export default async function CollectionTabs({
       className="tabs"
       aria-label={t("Collection views")}
     >
-      <NavigationPosition view={view} />
+      <NavigationPosition view={view ?? "legal"} />
       <a
         id="collectionTab"
         className={"tab" + (view === "collection" ? " active" : "")}
@@ -95,11 +95,21 @@ export default async function CollectionTabs({
           {data.trash.length}
         </span>
       </a>
-      <a id="settingsLink" className="tab" href="/settings">
+      <a
+        id="settingsLink"
+        className={"tab" + (view === "settings" ? " active" : "")}
+        href="/settings"
+        aria-current={view === "settings" ? "page" : undefined}
+      >
         <Icon name="user" />
         <span className="tab-label">{t("User settings")}</span>
       </a>
-      <a id="dataLink" className="tab" href="/data">
+      <a
+        id="dataLink"
+        className={"tab" + (view === "data" ? " active" : "")}
+        href="/data"
+        aria-current={view === "data" ? "page" : undefined}
+      >
         <Icon name="archive" />
         <span className="tab-label">{t("Data & backups")}</span>
       </a>

@@ -1,12 +1,7 @@
 "use client";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import Icon from "./Icon";
-import LibraryBrand from "./LibraryBrand";
-import ThemeToggle from "./ThemeToggle";
-import LanguageSelect from "./LanguageSelect";
 import AccountPreferences from "./AccountPreferences";
-import SignOutButton from "./SignOutButton";
-import LegalLinks from "./LegalLinks";
 import LoadingStatus from "./LoadingStatus";
 import { activity } from "../lib/client/activity.ts";
 import type { ImportResult, ImportReview } from "../lib/types";
@@ -14,15 +9,9 @@ import { useTranslations } from "./PreferencesProvider";
 
 type DataManagerProps = {
   counts: { books: number; trash: number; savedReleases: number };
-  canSignOut: boolean;
-  adminLink?: ReactNode;
 };
 
-export default function DataManager({
-  counts,
-  canSignOut,
-  adminLink,
-}: DataManagerProps) {
+export default function DataManager({ counts }: DataManagerProps) {
   const t = useTranslations();
   const [file, setFile] = useState<File | null>(null),
     [review, setReview] = useState<ImportReview | null>(null),
@@ -65,214 +54,183 @@ export default function DataManager({
   }
   return (
     <>
-      <header className="top data-header">
-        <div className="top-inner flex items-center justify-between">
-          <LibraryBrand />
-          <div className="header-links">
-            {adminLink}
-            <LanguageSelect />
-            <ThemeToggle />
-            <a className="btn return-link" href="/">
-              <Icon name="arrow" />
-              {t("Your collection")}
-            </a>
-          </div>
-        </div>
-      </header>
-      <main className="data-page">
-        <div className="data-heading">
-          <p className="eyebrow">{t("Keep your library yours")}</p>
-          <h1>
-            {t("Data & backups")}
-            <span className="heading-dot">.</span>
-          </h1>
-          <p className="intro">
+      <div className="data-heading">
+        <h1>{t("Data & backups")}</h1>
+        <p className="intro">
+          {t(
+            "Manage your preferences, export your books, or bring over a collection.",
+          )}
+        </p>
+      </div>
+      <div className="data-overview" aria-label={t("Library records")}>
+        <span>
+          <strong>{counts.books}</strong> {t("owned books")}
+        </span>
+        <span>
+          <strong>{counts.trash}</strong> {t("recently removed")}
+        </span>
+        <span>
+          <strong>{counts.savedReleases}</strong> {t("saved releases")}
+        </span>
+      </div>
+      <nav className="data-sections" aria-label={t("Data management")}>
+        <a href="#account-preferences">{t("Account preferences")}</a>
+        <a href="#library-backups">{t("Export & import")}</a>
+      </nav>
+      <AccountPreferences />
+      <div id="library-backups" className="data-grid">
+        <section className="data-card backup-card">
+          <span className="data-icon">
+            <Icon name="download" />
+          </span>
+          <p className="eyebrow">{t("Take a copy with you")}</p>
+          <h2>{t("Export your books")}</h2>
+          <p>
             {t(
-              "Manage your preferences, export your books, or bring over a collection.",
+              "Download your owned books with ISBNs, titles, book types, volumes, edition labels, reading status, purchase details and notes. Duplicate copies stay separate.",
             )}
           </p>
-        </div>
-        <div className="data-overview" aria-label={t("Library records")}>
-          <span>
-            <strong>{counts.books}</strong> {t("owned books")}
+          <a className="btn primary" href="/api/backup" download>
+            <Icon name="download" />
+            {t("Export library")}
+          </a>
+          <p className="backup-note">
+            <Icon name="archive" />
+            {t(
+              "Books and personal details only. Covers, publisher metadata, saved releases and removed books are not included.",
+            )}
+          </p>
+        </section>
+        <section className="data-card">
+          <span className="data-icon">
+            <Icon name="upload" />
           </span>
-          <span>
-            <strong>{counts.trash}</strong> {t("recently removed")}
-          </span>
-          <span>
-            <strong>{counts.savedReleases}</strong> {t("saved releases")}
-          </span>
-        </div>
-        <nav className="data-sections" aria-label={t("Data management")}>
-          <a href="/settings">{t("User settings")}</a>
-          <a href="#account-preferences">{t("Account preferences")}</a>
-          <a href="#library-backups">{t("Export & import")}</a>
-        </nav>
-        <AccountPreferences />
-        <div id="library-backups" className="data-grid">
-          <section className="data-card backup-card">
-            <span className="data-icon">
-              <Icon name="download" />
-            </span>
-            <p className="eyebrow">{t("Take a copy with you")}</p>
-            <h2>{t("Export your books")}</h2>
-            <p>
-              {t(
-                "Download your owned books with ISBNs, titles, book types, volumes, edition labels, reading status, purchase details and notes. Duplicate copies stay separate.",
-              )}
+          <p className="eyebrow">{t("Give your books a new home")}</p>
+          <h2>{t("Bring over your collection")}</h2>
+          <p>
+            {t(
+              "In Google Sheets, choose File → Download → Microsoft Excel (.xlsx). CSV files, library JSON exports and older JSON backups work too. You can import into an empty library.",
+            )}
+          </p>
+          <p>
+            {t(
+              "Imports require an empty library and keep duplicate copies, gifts with a price of zero, blank prices and decimal volumes. Review the contents before saving.",
+            )}
+          </p>
+          <div className="import-picker">
+            <label htmlFor="importFile">
+              {t("Choose your collection file")}
+            </label>
+            <p id="importFormats" className="hint">
+              {t("Excel workbook, CSV, JSON export or backup")}
             </p>
-            <a className="btn primary" href="/api/backup" download>
-              <Icon name="download" />
-              {t("Export library")}
-            </a>
-            <p className="backup-note">
-              <Icon name="archive" />
-              {t(
-                "Books and personal details only. Covers, publisher metadata, saved releases and removed books are not included.",
+            <input
+              id="importFile"
+              type="file"
+              accept=".xlsx,.csv,.json"
+              aria-describedby="importFormats"
+              disabled={busy}
+              onChange={(e) => {
+                setFile(e.target.files?.[0] || null);
+                setReview(null);
+                setResult(null);
+                setError("");
+              }}
+            />
+          </div>
+          <div className="data-actions flex flex-wrap">
+            <button
+              className="btn"
+              disabled={!file || busy}
+              aria-busy={busyAction === "preview"}
+              onClick={() => upload("preview")}
+            >
+              {t(busyAction === "preview" ? "Reading file…" : "Review import")}
+            </button>
+          </div>
+          {busy && (
+            <LoadingStatus
+              className="import-loading"
+              label={t(
+                busyAction === "preview"
+                  ? "Reading and checking your file…"
+                  : "Importing your collection…",
               )}
-            </p>
-          </section>
-          <section className="data-card">
-            <span className="data-icon">
-              <Icon name="upload" />
-            </span>
-            <p className="eyebrow">{t("Give your books a new home")}</p>
-            <h2>{t("Bring over your collection")}</h2>
-            <p>
-              {t(
-                "In Google Sheets, choose File → Download → Microsoft Excel (.xlsx). CSV files, library JSON exports and older JSON backups work too. You can import into an empty library.",
+              detail={t(
+                busyAction === "preview"
+                  ? "Preparing a preview. Your library has not changed yet."
+                  : "Saving your books. Keep this page open until the import finishes.",
               )}
+            />
+          )}
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
             </p>
-            <p>
-              {t(
-                "Imports require an empty library and keep duplicate copies, gifts with a price of zero, blank prices and decimal volumes. Review the contents before saving.",
-              )}
-            </p>
-            <div className="import-picker">
-              <label htmlFor="importFile">
-                {t("Choose your collection file")}
-              </label>
-              <p id="importFormats" className="hint">
-                {t("Excel workbook, CSV, JSON export or backup")}
+          )}
+          {review && (
+            <div className="import-review" aria-live="polite">
+              <h3>{t("Ready to import")}</h3>
+              <p>
+                {t(
+                  "{books} owned books · {trash} removed books · {releases} saved releases · {catalogs} catalog links",
+                  {
+                    books: review.books,
+                    trash: review.trash,
+                    releases: review.savedReleases,
+                    catalogs: review.seriesCatalogs,
+                  },
+                )}
               </p>
-              <input
-                id="importFile"
-                type="file"
-                accept=".xlsx,.csv,.json"
-                aria-describedby="importFormats"
-                disabled={busy}
-                onChange={(e) => {
-                  setFile(e.target.files?.[0] || null);
-                  setReview(null);
-                  setResult(null);
-                  setError("");
-                }}
-              />
-            </div>
-            <div className="data-actions flex flex-wrap">
+              <ul>
+                {review.sample.map((book, index) => (
+                  <li key={index}>
+                    {book.series} ·{" "}
+                    {book.volume === ""
+                      ? t("Unnumbered")
+                      : t("Volume {volume}", { volume: book.volume })}{" "}
+                    · {book.type}
+                  </li>
+                ))}
+              </ul>
+              {review.warnings.length > 0 && (
+                <details>
+                  <summary>
+                    {t("{count} things to check", {
+                      count: review.warnings.length,
+                    })}
+                  </summary>
+                  <ul>
+                    {review.warnings.map((warning, index) => (
+                      <li key={index}>{t(warning)}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
               <button
-                className="btn"
-                disabled={!file || busy}
-                aria-busy={busyAction === "preview"}
-                onClick={() => upload("preview")}
+                className="btn primary"
+                disabled={busy}
+                aria-busy={busyAction === "import"}
+                onClick={() => upload("import")}
               >
                 {t(
-                  busyAction === "preview" ? "Reading file…" : "Review import",
+                  busyAction === "import"
+                    ? "Importing…"
+                    : "Import this collection",
                 )}
               </button>
             </div>
-            {busy && (
-              <LoadingStatus
-                className="import-loading"
-                label={t(
-                  busyAction === "preview"
-                    ? "Reading and checking your file…"
-                    : "Importing your collection…",
-                )}
-                detail={t(
-                  busyAction === "preview"
-                    ? "Preparing a preview. Your library has not changed yet."
-                    : "Saving your books. Keep this page open until the import finishes.",
-                )}
-              />
-            )}
-            {error && (
-              <p className="form-error" role="alert">
-                {error}
-              </p>
-            )}
-            {review && (
-              <div className="import-review" aria-live="polite">
-                <h3>{t("Ready to import")}</h3>
-                <p>
-                  {t(
-                    "{books} owned books · {trash} removed books · {releases} saved releases · {catalogs} catalog links",
-                    {
-                      books: review.books,
-                      trash: review.trash,
-                      releases: review.savedReleases,
-                      catalogs: review.seriesCatalogs,
-                    },
-                  )}
-                </p>
-                <ul>
-                  {review.sample.map((book, index) => (
-                    <li key={index}>
-                      {book.series} ·{" "}
-                      {book.volume === ""
-                        ? t("Unnumbered")
-                        : t("Volume {volume}", { volume: book.volume })}{" "}
-                      · {book.type}
-                    </li>
-                  ))}
-                </ul>
-                {review.warnings.length > 0 && (
-                  <details>
-                    <summary>
-                      {t("{count} things to check", {
-                        count: review.warnings.length,
-                      })}
-                    </summary>
-                    <ul>
-                      {review.warnings.map((warning, index) => (
-                        <li key={index}>{t(warning)}</li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
-                <button
-                  className="btn primary"
-                  disabled={busy}
-                  aria-busy={busyAction === "import"}
-                  onClick={() => upload("import")}
-                >
-                  {t(
-                    busyAction === "import"
-                      ? "Importing…"
-                      : "Import this collection",
-                  )}
-                </button>
-              </div>
-            )}
-            {result && (
-              <p className="import-success" role="status">
-                {result.alreadyImported
-                  ? t("This file was already imported.")
-                  : t("Imported {count} books.", { count: result.books })}{" "}
-                <a href="/">{t("Open your shelf →")}</a>
-              </p>
-            )}
-          </section>
-        </div>
-        <footer className="data-footer">
-          <span>
-            <Icon name="lock" />
-            {t("Stored in your library. Always yours.")}
-          </span>
-          <LegalLinks />
-          {canSignOut && <SignOutButton className="text-btn" />}
-        </footer>
-      </main>
+          )}
+          {result && (
+            <p className="import-success" role="status">
+              {result.alreadyImported
+                ? t("This file was already imported.")
+                : t("Imported {count} books.", { count: result.books })}{" "}
+              <a href="/">{t("Open your shelf →")}</a>
+            </p>
+          )}
+        </section>
+      </div>
     </>
   );
 }

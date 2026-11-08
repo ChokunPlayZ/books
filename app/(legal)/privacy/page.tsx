@@ -12,7 +12,7 @@ export default function PrivacyPage() {
     <article>
       <h1>Privacy Policy</h1>
       <p className="legal-updated">
-        Last updated: <time dateTime="2026-11-07">7 November 2026</time>
+        Last updated: <time dateTime="2026-11-08">8 November 2026</time>
       </p>
       <p className="legal-intro">
         CKLabs operates meemai, a free book collection service, and is
@@ -26,10 +26,11 @@ export default function PrivacyPage() {
         <ul>
           <li>
             <strong>Account information:</strong> your verified Google email
-            address, Google account identifier, and account and sign-in records.
-            Google sign-in requests only OpenID and email access, not access to
-            Gmail, Drive, or Contacts. meemai does not receive your Google
-            password.
+            address, Google account identifier, profile picture, and account and
+            sign-in records. Google sign-in requests only OpenID, email, and
+            basic profile access, not access to Gmail, Drive, or Contacts.
+            meemai does not receive your Google password. Your profile picture
+            is loaded from Google to identify your signed-in account.
           </li>
           <li>
             <strong>Book and purchase information:</strong> the books you enter

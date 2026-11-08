@@ -19,6 +19,9 @@ const identity = (name) => ({
   sub: `preferences-${name}`,
   email: `${name}@gmail.com`,
   email_verified: true,
+  ...(name === "alice"
+    ? { picture: "https://lh3.googleusercontent.com/a/preferences-alice=s96-c" }
+    : {}),
 });
 const alice = await signInWithGoogle(store, identity("alice"));
 const aliceDevice = await signInWithGoogle(store, identity("alice"));
@@ -120,6 +123,15 @@ try {
   const cookie = (token) => ({ name: SESSION_COOKIE, value: token, url });
   await context.addCookies([cookie(alice.token)]);
   const page = await context.newPage();
+  await context.route("https://lh3.googleusercontent.com/**", (route) =>
+    route.fulfill({
+      contentType: "image/png",
+      body: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWP4//8/AAX+Av5Y8msOAAAAAElFTkSuQmCC",
+        "base64",
+      ),
+    }),
+  );
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   const preferences = async () =>
@@ -167,7 +179,26 @@ try {
     await page.locator("#accountUsername").textContent(),
     "alice@gmail.com",
   );
-  assert.equal(await page.locator("#accountRole").textContent(), "User");
+  assert.equal(await page.locator("#accountRole").count(), 0);
+  assert.equal(
+    await page.getByText("Account role", { exact: true }).count(),
+    0,
+  );
+  assert.equal(
+    await page
+      .locator(".account-summary .account-avatar img")
+      .getAttribute("src"),
+    identity("alice").picture,
+  );
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll(".account-avatar img")].every(
+      (image) => image.complete && image.naturalWidth > 0,
+    ),
+  );
+  assert.equal(
+    await page.locator(".profile-link .account-avatar img").count(),
+    1,
+  );
   await page.getByText("Google account", { exact: true }).waitFor();
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
@@ -180,6 +211,84 @@ try {
     );
   }
   await page.setViewportSize({ width: 390, height: 844 });
+
+  // Settings, backups, and signed-in policies retain the same navigation and chrome.
+  for (const [path, active] of [
+    ["/settings", "settingsLink"],
+    ["/data", "dataLink"],
+    ["/terms", null],
+    ["/privacy", null],
+  ]) {
+    await page.goto(url + path);
+    assert.equal(await page.locator("header.top").count(), 1);
+    assert.equal(await page.locator("main").count(), 1);
+    assert.equal(await page.locator("#libraryNavigation").count(), 1);
+    assert.equal(await page.locator(".footer .legal-links").count(), 1);
+    assert.equal(
+      await page.locator(".capture-actions").count(),
+      0,
+      "No dead book-entry buttons outside collection pages",
+    );
+    const selected = page.locator('#libraryNavigation [aria-current="page"]');
+    assert.equal(await selected.count(), active ? 1 : 0);
+    if (active) {
+      assert.equal(await selected.getAttribute("id"), active);
+      await page.waitForFunction(() => {
+        const nav = document.getElementById("libraryNavigation");
+        const current = nav
+          .querySelector('[aria-current="page"]')
+          .getBoundingClientRect();
+        return current.left >= 0 && current.right <= innerWidth;
+      });
+    }
+    for (const width of [320, 390, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      assert.equal(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+        true,
+        `${path}: overflow at ${width}`,
+      );
+      const nav = await page.locator("#libraryNavigation").boundingBox();
+      const main = await page.locator("main").boundingBox();
+      if (width > 760)
+        assert.ok(
+          main.x >= nav.x + nav.width,
+          `${path}: content clears desktop navigation`,
+        );
+      else
+        assert.ok(
+          main.y >= nav.y + nav.height,
+          `${path}: content clears handheld navigation`,
+        );
+      if (["/settings", "/data"].includes(path) && [390, 1440].includes(width))
+        await page.screenshot({
+          path: join(directory, `${path.slice(1)}-${width}.png`),
+          fullPage: true,
+        });
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+  }
+
+  // A failed profile photo falls back to the account icon, never a broken image.
+  const brokenPhotoContext = await browser.newContext({
+    storageState: await context.storageState(),
+  });
+  await brokenPhotoContext.route(
+    "https://lh3.googleusercontent.com/**",
+    (route) => route.abort(),
+  );
+  const brokenPhoto = await brokenPhotoContext.newPage();
+  await brokenPhoto.goto(url + "/settings");
+  await brokenPhoto.waitForFunction(
+    () => !document.querySelector(".account-summary .account-avatar img"),
+  );
+  assert.equal(
+    await brokenPhoto.locator(".account-summary .account-avatar svg").count(),
+    1,
+  );
+  await brokenPhotoContext.close();
   await page.goto(url);
   await page.getByRole("button", { name: "Dark theme", exact: true }).click();
   await page.waitForFunction(
@@ -267,6 +376,7 @@ try {
     assert.equal(await page.locator("html").getAttribute("lang"), "th");
   }
   await page.goto(url);
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
 
   const other = await context.newPage();
   await other.goto(url + "/data");
@@ -275,7 +385,8 @@ try {
     .getByRole("link", { name: "การตั้งค่าผู้ใช้", exact: true })
     .click();
   await other.locator("#accountTitle").waitFor();
-  assert.equal(await other.locator("#accountRole").textContent(), "ผู้ใช้");
+  await other.waitForLoadState("networkidle");
+  assert.equal(await other.locator("#accountRole").count(), 0);
   await other
     .getByRole("combobox", { name: "รูปแบบการแสดงผล", exact: true })
     .selectOption("light");
@@ -380,10 +491,25 @@ try {
   await adminContext.addCookies([cookie(owner.token)]);
   const adminPage = await adminContext.newPage();
   await adminPage.goto(url + "/settings");
+  assert.equal(await adminPage.locator("#accountRole").count(), 0);
   assert.equal(
-    await adminPage.locator("#accountRole").textContent(),
-    "Administrator",
+    await adminPage.getByText("Account role", { exact: true }).count(),
+    0,
   );
+  for (const width of [320, 390, 768, 1440]) {
+    await adminPage.setViewportSize({ width, height: 900 });
+    assert.equal(
+      await adminPage.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      true,
+      `admin settings overflow at ${width}`,
+    );
+    assert.equal(
+      Math.round((await adminPage.locator("header.top").boundingBox()).height),
+      width <= 760 ? 65 : 73,
+    );
+  }
   assert.equal(
     await adminPage.locator("#accountEmail").textContent(),
     "owner@gmail.com",

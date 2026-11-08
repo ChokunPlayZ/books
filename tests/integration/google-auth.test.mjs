@@ -34,6 +34,7 @@ const owner = {
   sub: "google-owner",
   email: "owner@gmail.com",
   email_verified: true,
+  picture: "https://lh3.googleusercontent.com/a/oauth-owner=s96-c",
 };
 const alice = {
   sub: "google-alice",
@@ -67,7 +68,7 @@ test("OAuth code flow validates PKCE and signed identity, claims the configured 
   const { store, client } = await setup(t);
   const attempt = await beginGoogleSignIn(store, "/stats?period=year");
   assert.equal(attempt.url.origin, "https://accounts.google.com");
-  assert.equal(attempt.url.searchParams.get("scope"), "openid email");
+  assert.equal(attempt.url.searchParams.get("scope"), "openid email profile");
   assert.equal(attempt.url.searchParams.get("code_challenge_method"), "S256");
   const callback = authorizationCallback(attempt.url, owner);
   const login = await finishGoogleSignIn(
@@ -80,6 +81,13 @@ test("OAuth code flow validates PKCE and signed identity, claims the configured 
   assert.equal(login.user.role, "admin");
   assert.equal(login.returnTo, "/stats?period=year");
   assert.equal((await sessionUser(store, login.token)).id, 1);
+  assert.equal(
+    await store.forUser(
+      login.user,
+      async () => (await store.account.get()).picture,
+    ),
+    owner.picture,
+  );
   assert.equal(
     (await store.db.prepare("SELECT COUNT(*) AS n FROM oauth_attempts").get())
       .n,

@@ -82,6 +82,7 @@ const migrations = [
     version INTEGER NOT NULL, body BYTEA, blurhash TEXT NOT NULL DEFAULT ''
   );
   `,
+  `ALTER TABLE users ADD COLUMN picture TEXT;`,
 ];
 
 export async function migrateDatabase(pool: Pool) {

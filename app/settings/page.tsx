@@ -1,19 +1,22 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getApp } from "../../lib/server/app.ts";
-import { sessionUser, SESSION_COOKIE } from "../../lib/server/auth.ts";
+import { pageAccount } from "../../lib/server/account-page.ts";
+import { pageCollection } from "../../lib/server/collection-page.ts";
+import LibraryShell from "../../components/LibraryShell";
 import UserSettings from "../../components/UserSettings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const { store } = await getApp();
-  const user = await sessionUser(
-    store,
-    (await cookies()).get(SESSION_COOKIE)?.value,
+  const [data, account] = await Promise.all([pageCollection(), pageAccount()]);
+  if (!data || !account) redirect("/login");
+  return (
+    <LibraryShell
+      view="settings"
+      data={data}
+      className="data-page settings-page"
+    >
+      <UserSettings account={account} />
+    </LibraryShell>
   );
-  if (!user) redirect("/login");
-  const account = await store.forUser(user, () => store.account.get());
-  return <UserSettings account={account} />;
 }

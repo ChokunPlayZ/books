@@ -92,7 +92,7 @@ export async function beginGoogleSignIn(store: Store, returnTo: unknown) {
   });
   const url = oidc.buildAuthorizationUrl(getClient(settings), {
     redirect_uri: settings.redirectUri,
-    scope: "openid email",
+    scope: "openid email profile",
     response_type: "code",
     state,
     nonce,
@@ -163,6 +163,7 @@ export async function finishGoogleSignIn(
     email: typeof claims.email === "string" ? claims.email : "",
     email_verified: claims.email_verified === true,
     hd: typeof claims.hd === "string" ? claims.hd : undefined,
+    picture: typeof claims.picture === "string" ? claims.picture : undefined,
   };
   // Access, refresh and ID tokens are neither persisted nor sent to the browser.
   return {

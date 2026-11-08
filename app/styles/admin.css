@@ -16,6 +16,27 @@
     max-width: 100%;
     flex-wrap: wrap;
   }
+  .library-header .top-inner,
+  .library-header:has(.admin-link) .top-inner,
+  .library-header:has(.admin-link) .top-actions,
+  .library-header:has(.admin-link) .header-links {
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+  .library-header .admin-link {
+    width: 44px;
+    height: 44px;
+    padding: 10px;
+    flex-shrink: 0;
+  }
+  .library-header .admin-link span {
+    display: none;
+  }
+}
+@media (max-width: 380px) {
+  .library-header:has(.admin-link) .brand-name {
+    display: none;
+  }
 }
 .admin-page h2 {
   font-size: 24px;

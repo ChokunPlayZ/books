@@ -3,15 +3,19 @@ import ThemeToggle from "../ThemeToggle";
 import LanguageSelect from "../LanguageSelect";
 import { getTranslations } from "../../lib/server/preferences.ts";
 import AdminLink from "../AdminLink";
+import type { ReactNode } from "react";
+import AccountAvatar from "../AccountAvatar";
+import { pageAccount } from "../../lib/server/account-page.ts";
 
 export default async function CollectionHeader({
-  series,
+  children,
 }: {
-  series: string | null;
+  children?: ReactNode;
 }) {
   const t = await getTranslations();
+  const account = await pageAccount();
   return (
-    <header className={"top"}>
+    <header className="top library-header">
       <div className="top-inner flex items-center justify-between">
         <LibraryBrand />
         <div className={"top-actions"}>
@@ -19,22 +23,18 @@ export default async function CollectionHeader({
             <AdminLink />
             <LanguageSelect />
             <ThemeToggle />
+            {account && (
+              <a
+                className="profile-link"
+                href="/settings"
+                aria-label={t("Signed-in account")}
+              >
+                <AccountAvatar picture={account.picture} />
+              </a>
+            )}
           </div>
         </div>
-        <div className="capture-actions" aria-label={t("Book entry")}>
-          <button id={"checkBookButton"} className={"btn"} disabled>
-            <svg aria-hidden={"true"}>
-              <use href={"#i-scan"} />
-            </svg>
-            {t("Check a book")}
-          </button>
-          <button id={"addButton"} className={"btn primary"} disabled>
-            <svg aria-hidden={"true"}>
-              <use href={"#i-plus"} />
-            </svg>
-            {t(series === null ? "Add book" : "Add volume")}
-          </button>
-        </div>
+        {children}
       </div>
     </header>
   );

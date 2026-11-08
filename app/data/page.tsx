@@ -1,29 +1,28 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getApp } from "../../lib/server/app.ts";
-import { sessionUser, SESSION_COOKIE } from "../../lib/server/auth.ts";
+import { pageCollection } from "../../lib/server/collection-page.ts";
 import DataManager from "../../components/DataManager";
-import AdminLink from "../../components/AdminLink";
+import LibraryShell from "../../components/LibraryShell";
+import SignOutButton from "../../components/SignOutButton";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export default async function DataPage() {
-  const { store } = await getApp();
-  const user = await sessionUser(
-    store,
-    (await cookies()).get(SESSION_COOKIE)?.value,
-  );
-  if (!user) redirect("/login");
-  const data = await store.forUser(user, () => store.api.getCollection());
+  const data = await pageCollection();
+  if (!data) redirect("/login");
   return (
-    <DataManager
-      counts={{
-        books: data.books.length,
-        trash: data.trash.length,
-        savedReleases: data.savedReleases.length,
-      }}
-      canSignOut={true}
-      adminLink={<AdminLink />}
-    />
+    <LibraryShell
+      view="data"
+      data={data}
+      className="data-page"
+      footerActions={<SignOutButton className="text-btn" />}
+    >
+      <DataManager
+        counts={{
+          books: data.books.length,
+          trash: data.trash.length,
+          savedReleases: data.savedReleases.length,
+        }}
+      />
+    </LibraryShell>
   );
 }

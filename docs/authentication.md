@@ -4,7 +4,7 @@ Google is the only authentication method. Anyone with a verified Google email ca
 
 ## Configure Google Cloud
 
-1. Create a Google Cloud project and configure **Google Auth Platform → Branding, Audience and Data Access**. Choose an external audience for public use. Request only `openid` and `email`; the app does not request access to Gmail, Drive or Contacts. Supply accurate application and support information required by Google. Use the public `/privacy` and `/terms` pages on your production origin for the privacy policy and terms links; neither requires sign-in. CKLabs’ public contact for account and privacy requests is [chokunplayz@ckl.moe](mailto:chokunplayz@ckl.moe). Before publication, have CKLabs review the policies.
+1. Create a Google Cloud project and configure **Google Auth Platform → Branding, Audience and Data Access**. Choose an external audience for public use. Request only `openid`, `email` and `profile`; basic profile access supplies the signed-in account picture, not access to Gmail, Drive or Contacts. Supply accurate application and support information required by Google. Use the public `/privacy` and `/terms` pages on your production origin for the privacy policy and terms links; neither requires sign-in. CKLabs’ public contact for account and privacy requests is [chokunplayz@ckl.moe](mailto:chokunplayz@ckl.moe). Before publication, have CKLabs review the policies.
 2. Create an OAuth client of type **Web application**. Add the exact authorized redirect URI:
    - Development: `http://localhost:3000/api/auth/google/callback`
    - Production: `https://books.example.com/api/auth/google/callback`

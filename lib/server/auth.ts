@@ -3,6 +3,7 @@ import { AppError } from "./store.ts";
 import type { Store } from "./store.ts";
 import type { User } from "./user-context.ts";
 import { appOrigin, normalizeEmail } from "./auth-config.ts";
+import { googleProfilePicture } from "../domain/profile-picture.ts";
 
 // __Host- cookies cannot be planted for this host by sibling subdomains.
 export const SESSION_COOKIE = process.env.BOOKS_APP_URL?.trim()
@@ -97,6 +98,7 @@ export type GoogleIdentity = {
   email: string;
   email_verified: boolean;
   hd?: string;
+  picture?: string;
 };
 
 // Only call with claims validated by the OIDC client (issuer, audience,
@@ -178,6 +180,9 @@ export async function signInWithGoogle(
         .prepare("UPDATE users SET email=? WHERE id=?")
         .run(email, user.id);
     }
+    await store.db
+      .prepare("UPDATE users SET picture=? WHERE id=?")
+      .run(googleProfilePicture(identity.picture), user.id);
     const now = Date.now();
     await store.db.prepare("DELETE FROM sessions WHERE expires_at<=?").run(now);
     // Bound the number of active sessions per account.

@@ -111,6 +111,10 @@ h3 {
 .header-links {
   gap: 4px;
 }
+.header-links .language-select {
+  flex-shrink: 1;
+  min-width: 0;
+}
 .theme-toggle {
   width: 44px;
   height: 44px;
@@ -576,8 +580,17 @@ h3 {
 .analytics-card h2 {
   font-size: 18px;
 }
-.data-page {
+.data-heading h1 {
+  font-size: 32px;
+}
+.library-main.data-page > :not(.footer) {
+  width: 100%;
   max-width: 1040px;
+}
+.library-main.legal-library-page > .legal-document {
+  width: 100%;
+  max-width: 760px;
+  padding: 0;
 }
 .data-card {
   padding: 24px;
@@ -601,6 +614,7 @@ h3 {
 }
 .data-grid {
   gap: 32px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .data-overview {
   font-size: 13px;
@@ -970,20 +984,9 @@ dialog::backdrop {
     width: 100%;
     max-width: none;
   }
-  .data-header .top-inner {
-    flex-wrap: wrap;
-  }
-  .data-header .header-links {
-    display: flex;
-  }
-  .data-header .return-link {
-    font-size: 12px;
-  }
-  .data-page {
-    padding: 24px 16px;
-  }
   .data-grid {
     gap: 24px;
+    grid-template-columns: minmax(0, 1fr);
   }
   .data-card {
     padding: 20px 0;
