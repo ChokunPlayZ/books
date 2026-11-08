@@ -14,6 +14,15 @@ export type MetadataQuery = {
   search?: string;
   expiredOnly?: boolean;
   page?: number;
+  includePrivate?: boolean;
+  confirmed?: boolean;
+};
+export type CachePreview = {
+  content: string;
+  truncated: boolean;
+  offset: number;
+  totalCharacters: number;
+  nextOffset: number | null;
 };
 export type CacheEntry = {
   key: string;

@@ -44,6 +44,18 @@ await store.forUser(readerSession.user, () =>
 );
 const isbn = "9780316769488";
 await store.cache.put(
+  "scrape:v1:admin-inspect-fixture",
+  JSON.stringify({
+    source: "text:https://yenpress.com/cache-browser-fixture",
+    checkedAt: Date.now(),
+    value:
+      "x".repeat(20000) +
+      "<h1>Deep cached browser fixture</h1><script>window.adminCacheXss=true</script>" +
+      "y".repeat(20000),
+  }),
+  Infinity,
+);
+await store.cache.put(
   `isbn:v15:${isbn}`,
   JSON.stringify({
     isbn,
@@ -232,6 +244,35 @@ try {
     .waitFor();
   await page
     .getByRole("button", { name: "Metadata & caches", exact: true })
+    .click();
+  await page
+    .getByLabel("Search cache", { exact: true })
+    .fill("Deep cached browser fixture");
+  await page.getByLabel("Search cache", { exact: true }).press("Enter");
+  const cachedRow = page
+    .getByRole("row")
+    .filter({ hasText: "scrape:v1:admin-inspect-fixture" });
+  await cachedRow.getByRole("button", { name: "Inspect", exact: true }).click();
+  const cachePreview = page.locator(".admin-card").filter({
+    has: page.getByRole("heading", { name: "Cache preview", exact: true }),
+  });
+  assert.match(
+    await cachePreview.locator("pre").innerText(),
+    /<h1>Deep cached browser fixture<\/h1>/,
+  );
+  assert.equal(await page.evaluate(() => window.adminCacheXss), undefined);
+  await cachePreview
+    .getByRole("button", { name: "Next text", exact: true })
+    .click();
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll(".admin-card pre")].some(
+      (pre) =>
+        pre.textContent.length < 16000 &&
+        pre.textContent.endsWith("y".repeat(100)),
+    ),
+  );
+  await cachePreview
+    .getByRole("button", { name: "Close", exact: true })
     .click();
   await page.getByLabel("ISBN", { exact: true }).fill(isbn);
   await page

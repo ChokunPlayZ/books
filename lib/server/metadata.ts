@@ -14,6 +14,7 @@ import type {
   CrawlTarget,
   MetadataOverview,
   MetadataQuery,
+  CachePreview,
 } from "../metadata.ts";
 import type { openStore } from "./store.ts";
 import { AppError } from "./store.ts";
@@ -44,15 +45,41 @@ function groupFor(key: string): CacheGroup {
   if (key.startsWith("anilist:")) return "anime";
   return "other";
 }
+const normalizedKey = "regexp_replace(key,'^user:[0-9]+:','')";
+const groupSql = `CASE
+  WHEN key LIKE '%:retry' OR key LIKE '%:cooldown' OR ${normalizedKey} LIKE 'cover:retry:%' THEN 'cooldowns'
+  WHEN ${normalizedKey} LIKE 'isbn:%' THEN 'isbn'
+  WHEN ${normalizedKey} ~ '^(publisher-|series:|series-categories:|releases:)' THEN 'catalogs'
+  WHEN ${normalizedKey} LIKE 'scrape:%' THEN 'responses'
+  WHEN ${normalizedKey} LIKE 'cover:%' THEN 'covers'
+  WHEN ${normalizedKey} LIKE 'anilist:%' THEN 'anime'
+  ELSE 'other' END`;
+function validateQuery(request: MetadataQuery) {
+  if (!request || typeof request !== "object" || Array.isArray(request))
+    throw new AppError("Choose cache filters.");
+  if (
+    request.group &&
+    request.group !== "all" &&
+    !Object.hasOwn(CACHE_GROUPS, request.group)
+  )
+    throw new AppError("Choose a cache category.");
+  if (
+    request.includePrivate !== undefined &&
+    typeof request.includePrivate !== "boolean"
+  )
+    throw new AppError("Choose whether to include private caches.");
+  if (request.includePrivate && request.confirmed !== true)
+    throw new AppError("Confirm before loading account-scoped caches.", 403);
+}
 
 // Maintenance touches only disposable cache rows. Covers, library records,
 // saved releases and catalog links live in separate tables.
 export function createMetadataService(store: Store, catalogs: Catalogs) {
   const pending = new Map<string, Promise<CrawlResult>>();
-  const cacheRows = async () =>
+  const cacheRows = async (targetsOnly = false) =>
     (await store.db
       .prepare(
-        "SELECT key, value, expires_at, octet_length(value) AS bytes FROM cache ORDER BY key",
+        `SELECT key, value, expires_at, octet_length(value) AS bytes FROM cache ${targetsOnly ? "WHERE regexp_replace(key,'^user:[0-9]+:','') ~ '^(isbn:|releases:v1:|publisher-catalog:v1:|publisher-directory:|series:v1:)'" : ""} ORDER BY key`,
       )
       .all()) as unknown as {
       key: string;
@@ -87,29 +114,10 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
       };
     });
   }
-  async function queryEntries(request: MetadataQuery = {}, all?: CacheEntry[]) {
-    all ??= await entries();
-    if (!request || typeof request !== "object" || Array.isArray(request))
-      throw new AppError("Choose cache filters.");
-    const group = request.group || "all";
-    if (group !== "all" && !Object.hasOwn(CACHE_GROUPS, group))
-      throw new AppError("Choose a cache category.");
-    const search = String(request.search || "")
-      .trim()
-      .toLowerCase()
-      .slice(0, 500);
-    return all.filter(
-      (entry) =>
-        (group === "all" || entry.group === group) &&
-        (!request.expiredOnly || entry.expired) &&
-        (!search ||
-          (entry.label + " " + entry.key).toLowerCase().includes(search)),
-    );
-  }
   async function targets(
     rows?: Awaited<ReturnType<typeof cacheRows>>,
   ): Promise<Target[]> {
-    rows ??= await cacheRows();
+    rows ??= await cacheRows(true);
     const result = new Map<string, Target>();
     function add(
       kind: Target["kind"],
@@ -199,32 +207,61 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
     request: MetadataQuery = {},
   ): Promise<MetadataOverview> {
     store.requireAdmin();
-    const rows = await cacheRows(),
-      all = await entries(rows),
-      filtered = await queryEntries(request, all);
-    const pages = Math.max(1, Math.ceil(filtered.length / 20));
+    validateQuery(request);
+    const search = String(request.search || "")
+      .trim()
+      .toLowerCase()
+      .slice(0, 500);
+    const group = request.group || "all";
+    const scope = request.includePrivate ? "true" : "key NOT LIKE 'user:%'";
+    const records = `(SELECT key,value,expires_at,octet_length(value) AS bytes,${groupSql} AS cache_group FROM cache WHERE ${scope}) record`;
+    const where =
+      "(?='all' OR cache_group=?) AND (?=false OR (expires_at<>0 AND expires_at<=?)) AND (?='' OR strpos(lower(key || ' ' || value),?)>0)";
+    const args = [
+      group,
+      group,
+      request.expiredOnly === true,
+      Date.now(),
+      search,
+      search,
+    ];
+    const { count } = await store.db
+      .prepare(`SELECT COUNT(*) AS count FROM ${records} WHERE ${where}`)
+      .get(...args);
+    const totals = await store.db
+      .prepare(
+        `SELECT cache_group,COUNT(*) AS count,COALESCE(SUM(bytes),0)::bigint AS bytes,
+      COUNT(*) FILTER (WHERE expires_at<>0 AND expires_at<=?) AS expired FROM ${records} GROUP BY cache_group`,
+      )
+      .all(Date.now());
+    const pages = Math.max(1, Math.ceil(count / 20));
     const page = Math.max(
       1,
       Math.min(pages, Number.isSafeInteger(request.page) ? request.page : 1),
     );
+    const rows = await store.db
+      .prepare(
+        `SELECT key,value,expires_at,bytes FROM ${records} WHERE ${where} ORDER BY key LIMIT 20 OFFSET ?`,
+      )
+      .all(...args, (page - 1) * 20);
     const books = (await store.api.getCollection()).books;
     return {
       summary: {
-        count: all.length,
-        bytes: all.reduce((sum, entry) => sum + entry.bytes, 0),
-        expired: all.filter(
-          (entry) => entry.expired && entry.group !== "cooldowns",
-        ).length,
-        cooldowns: all.filter(
-          (entry) => entry.group === "cooldowns" && !entry.expired,
-        ).length,
+        count: totals.reduce((sum, row) => sum + row.count, 0),
+        bytes: totals.reduce((sum, row) => sum + row.bytes, 0),
+        expired: totals
+          .filter((row) => row.cache_group !== "cooldowns")
+          .reduce((sum, row) => sum + row.expired, 0),
+        cooldowns: totals
+          .filter((row) => row.cache_group === "cooldowns")
+          .reduce((sum, row) => sum + row.count - row.expired, 0),
       },
       groups: (Object.keys(CACHE_GROUPS) as CacheGroup[]).map((id) => ({
         id,
-        count: all.filter((entry) => entry.group === id).length,
+        count: totals.find((row) => row.cache_group === id)?.count || 0,
       })),
-      entries: filtered.slice((page - 1) * 20, page * 20),
-      total: filtered.length,
+      entries: await entries(rows),
+      total: count,
       page,
       pages,
       targets: (await targets(rows)).map(({ arg: _arg, ...target }) => target),
@@ -242,6 +279,7 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
     request: MetadataQuery & { key?: string } = {},
   ) {
     store.requireAdmin();
+    validateQuery(request);
     if (pending.size)
       throw new AppError(
         "Wait for the current re-crawl to finish before purging.",
@@ -253,11 +291,29 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
       (typeof request.key !== "string" || !request.key)
     )
       throw new AppError("Choose a cached record to purge.");
-    const selected = (await queryEntries(request)).filter(
-      (entry) =>
-        entry.group !== "cooldowns" &&
-        (!request.key || entry.key === request.key),
-    );
+    const search = String(request.search || "")
+      .trim()
+      .toLowerCase()
+      .slice(0, 500);
+    const group = request.group || "all";
+    const selected = await store.db
+      .prepare(
+        `SELECT key FROM (SELECT key,value,expires_at,${groupSql} AS cache_group FROM cache) record
+      WHERE cache_group<>'cooldowns' AND (?=true OR key NOT LIKE 'user:%') AND (?='all' OR cache_group=?)
+      AND (?=false OR (expires_at<>0 AND expires_at<=?)) AND (?='' OR strpos(lower(key || ' ' || value),?)>0)
+      AND (?='' OR key=?)`,
+      )
+      .all(
+        request.includePrivate === true,
+        group,
+        group,
+        request.expiredOnly === true,
+        Date.now(),
+        search,
+        search,
+        request.key || "",
+        request.key || "",
+      );
     return store.transaction(async () => {
       // Serialize the check/delete with worker claims, not just this process.
       await store.db.query("SELECT pg_advisory_xact_lock(726005::bigint)");
@@ -274,10 +330,22 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
       return { purged: selected.length };
     });
   }
-  async function getMetadataCacheEntry(request: { key: string }) {
+  async function getMetadataCacheEntry(request: {
+    key: string;
+    offset?: number;
+    search?: string;
+    confirmed?: boolean;
+  }): Promise<CachePreview> {
     store.requireAdmin();
     if (typeof request?.key !== "string")
       throw new AppError("Choose a cached record.");
+    if (request.key.startsWith("user:") && request.confirmed !== true)
+      throw new AppError("Confirm before loading account-scoped caches.", 403);
+    if (
+      request.offset !== undefined &&
+      (!Number.isSafeInteger(request.offset) || request.offset < 0)
+    )
+      throw new AppError("Choose a valid preview position.");
     const row = await store.db
       .prepare("SELECT value FROM cache WHERE key=?")
       .get(request.key);
@@ -289,13 +357,29 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
     const value = String(row.value);
     let formatted = value;
     try {
-      formatted = JSON.stringify(JSON.parse(value), null, 2);
+      const record = JSON.parse(value);
+      if (record && typeof record.value === "string" && record.source) {
+        const { value: body, ...metadata } = record;
+        formatted = JSON.stringify(metadata, null, 2) + "\n\n" + body;
+      } else formatted = JSON.stringify(record, null, 2);
     } catch {
       /* Plain cached URLs remain readable. */
     }
+    const search = String(request.search || "")
+      .trim()
+      .toLowerCase()
+      .slice(0, 500);
+    const match = search ? formatted.toLowerCase().indexOf(search) : -1;
+    const offset = Math.min(
+      Math.max(0, formatted.length - 1),
+      request.offset ?? (match < 0 ? 0 : Math.max(0, match - 200)),
+    );
     return {
-      content: formatted.slice(0, 16000),
-      truncated: formatted.length > 16000,
+      content: formatted.slice(offset, offset + 16000),
+      truncated: offset > 0 || formatted.length > 16000,
+      offset,
+      totalCharacters: formatted.length,
+      nextOffset: offset + 16000 < formatted.length ? offset + 16000 : null,
     };
   }
   async function crawl(

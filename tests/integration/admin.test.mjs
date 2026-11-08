@@ -50,14 +50,15 @@ test("admin inspection spans all libraries but never returns account credentials
     ensure: () => assert.fail("Admin inspection must not fetch covers"),
   });
   assert.ok(
-    (await api.getMetadataOverview()).entries.some(
-      (row) => row.key === `user:${user.id}:series:v1:reader`,
-    ),
+    (
+      await api.getMetadataOverview({ includePrivate: true, confirmed: true })
+    ).entries.some((row) => row.key === `user:${user.id}:series:v1:reader`),
   );
   assert.match(
     (
       await api.getMetadataCacheEntry({
         key: `user:${user.id}:series:v1:reader`,
+        confirmed: true,
       })
     ).content,
     /Private reader alias/,

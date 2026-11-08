@@ -56,3 +56,18 @@ the same internal account ID and all its data/preferences, revokes all previous
 sessions, and cannot merge with another existing library. Issuing or opening a
 link does not revoke the original user's access; only successful redemption does.
 Use **Revoke invitations** to invalidate an unredeemed link.
+
+## Searching scraped data
+
+**Metadata & caches** searches inside cached JSON and source responses as well as
+keys: use a title, ISBN, URL or a fragment of response text. Category and expiry
+filters work alongside the search. Filtering and pagination happen in PostgreSQL,
+so browsing does not load every raw response into server memory.
+
+**Inspect** shows parsed data or readable raw source text, positioned near the
+search match. Large responses have previous/next text controls instead of an
+inaccessible truncated tail. HTML is shown only as escaped text, never executed.
+Inspection and search do not fetch publisher pages, images or modify libraries.
+Account-scoped caches are excluded by default; including them requires explicit
+confirmation. Credentials, OAuth handshakes and session secrets are not part of
+the inspectable cache table.

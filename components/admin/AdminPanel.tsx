@@ -11,6 +11,7 @@ import {
   CACHE_GROUPS,
   type MetadataOverview,
   type MetadataQuery,
+  type CachePreview,
 } from "../../lib/metadata.ts";
 import {
   SYSTEM_RESOURCES,
@@ -117,11 +118,9 @@ export default function AdminPanel({
   });
   const [selected, setSelected] = useState<JobDetail | null>(null);
   const selectedId = useRef<string | null>(null);
-  const [preview, setPreview] = useState<{
-    key: string;
-    content: string;
-    truncated: boolean;
-  } | null>(null);
+  const [preview, setPreview] = useState<
+    (CachePreview & { key: string }) | null
+  >(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -224,6 +223,17 @@ export default function AdminPanel({
           ? "Task cancelled."
           : "Task queued again.",
     );
+  }
+  function inspectCache(key: string, offset?: number) {
+    return action(async () => {
+      const data = await rpc<CachePreview>("getMetadataCacheEntry", {
+        key,
+        offset,
+        search: offset === undefined ? metadataQuery.search : undefined,
+        confirmed: metadataQuery.confirmed === true,
+      });
+      setPreview({ key, ...data });
+    }, "");
   }
 
   return (
@@ -665,6 +675,11 @@ export default function AdminPanel({
                 {t("Queue re-scrape")}
               </button>
             </form>
+            <p>
+              {t(
+                "Known sources include this cache page and your own library. Use cache search to find another source.",
+              )}
+            </p>
           </section>
           <form
             className="admin-filters"
@@ -676,6 +691,7 @@ export default function AdminPanel({
                 search: String(form.get("search") || ""),
                 page: 1,
               });
+              setPreview(null);
             }}
           >
             <label>
@@ -701,7 +717,36 @@ export default function AdminPanel({
             </label>
             <label>
               {t("Search cache")}
-              <input type="search" name="search" />
+              <input
+                type="search"
+                name="search"
+                placeholder={t("Title, ISBN, URL or response text")}
+              />
+            </label>
+            <label className="admin-check">
+              <input
+                type="checkbox"
+                checked={metadataQuery.includePrivate || false}
+                onChange={(e) => {
+                  if (
+                    e.target.checked &&
+                    !window.confirm(
+                      t(
+                        "Include account-scoped caches? These may contain private series names. Confirm before loading.",
+                      ),
+                    )
+                  )
+                    return;
+                  setPreview(null);
+                  setMetadataQuery({
+                    ...metadataQuery,
+                    includePrivate: e.target.checked,
+                    confirmed: e.target.checked,
+                    page: 1,
+                  });
+                }}
+              />
+              {t("Include private caches")}
             </label>
             <label className="admin-check">
               <input
@@ -765,15 +810,7 @@ export default function AdminPanel({
                         <button
                           className="btn"
                           disabled={busy}
-                          onClick={() =>
-                            action(async () => {
-                              const data = await rpc<{
-                                content: string;
-                                truncated: boolean;
-                              }>("getMetadataCacheEntry", { key: entry.key });
-                              setPreview({ key: entry.key, ...data });
-                            }, "")
-                          }
+                          onClick={() => inspectCache(entry.key)}
                         >
                           {t("Inspect")}
                         </button>
@@ -793,6 +830,9 @@ export default function AdminPanel({
                                   () =>
                                     rpc("purgeMetadataCache", {
                                       key: entry.key,
+                                      includePrivate:
+                                        metadataQuery.includePrivate,
+                                      confirmed: metadataQuery.confirmed,
                                     }),
                                   "Cache entry purged.",
                                 );
@@ -832,7 +872,34 @@ export default function AdminPanel({
               <p>{preview.key}</p>
               <pre>{preview.content}</pre>
               {preview.truncated && (
-                <p>{t("Preview limited to 16,000 characters.")}</p>
+                <div className="admin-pager">
+                  <button
+                    className="btn"
+                    disabled={busy || preview.offset === 0}
+                    onClick={() =>
+                      inspectCache(
+                        preview.key,
+                        Math.max(0, preview.offset - 16000),
+                      )
+                    }
+                  >
+                    {t("Previous text")}
+                  </button>
+                  <span>
+                    {preview.offset + 1}–
+                    {Math.min(preview.offset + 16000, preview.totalCharacters)}{" "}
+                    / {preview.totalCharacters}
+                  </span>
+                  <button
+                    className="btn"
+                    disabled={busy || preview.nextOffset === null}
+                    onClick={() =>
+                      inspectCache(preview.key, preview.nextOffset!)
+                    }
+                  >
+                    {t("Next text")}
+                  </button>
+                </div>
               )}
             </section>
           )}

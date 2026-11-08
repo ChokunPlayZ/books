@@ -1170,4 +1170,12 @@ export const thai: Record<string, string> = {
     "สร้างคำเชิญเชื่อมใหม่แล้ว โปรดคัดลอกตอนนี้ เพราะจะแสดงเพียงครั้งเดียว",
   "Saved releases": "หนังสือออกใหม่ที่บันทึกไว้",
   "Administrator audit log": "ประวัติการทำงานของผู้ดูแลระบบ",
+  "Title, ISBN, URL or response text": "ชื่อเรื่อง ISBN URL หรือข้อความจากเว็บ",
+  "Include account-scoped caches? These may contain private series names. Confirm before loading.":
+    "รวมแคชส่วนตัวของแต่ละบัญชีหรือไม่? อาจมีชื่อซีรีส์ส่วนตัว โปรดยืนยันก่อนโหลด",
+  "Include private caches": "รวมแคชส่วนตัว",
+  "Previous text": "ข้อความก่อนหน้า",
+  "Next text": "ข้อความถัดไป",
+  "Known sources include this cache page and your own library. Use cache search to find another source.":
+    "แหล่งข้อมูลที่รู้จักมาจากหน้าแคชนี้และคลังของคุณ ใช้การค้นหาแคชเพื่อหาแหล่งข้อมูลอื่น",
 };
