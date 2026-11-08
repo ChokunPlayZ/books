@@ -6,6 +6,7 @@ import { AppError } from "./store.ts";
 import { SCRAPE_TTL } from "./scrape-cache.ts";
 import { outboundFetch } from "./outbound.ts";
 import { readBody } from "./http.ts";
+import { createCoverPreview } from "./cover-images.ts";
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const coverDigest = (value) =>
@@ -38,6 +39,25 @@ function imageSource(raw) {
   return url;
 }
 
+export async function attachCoverPlaceholders<T>(store, result: T): Promise<T> {
+  const records: { coverId: string; coverBlurhash?: string }[] = [];
+  function visit(value) {
+    if (!value || typeof value !== "object") return;
+    if (typeof value.coverId === "string" && value.coverId) records.push(value);
+    for (const child of Object.values(value)) visit(child);
+  }
+  visit(result);
+  const hashes = await store.covers.blurhashes([
+    ...new Set(records.map((r) => r.coverId)),
+  ]);
+  for (const record of records) {
+    // Never trust placeholder metadata supplied by an imported/catalog record.
+    delete record.coverBlurhash;
+    if (hashes[record.coverId]) record.coverBlurhash = hashes[record.coverId];
+  }
+  return result;
+}
+
 // Images are permanent database records. The file reader only migrates the old cache.
 export function createCoverService(
   store,
@@ -50,6 +70,33 @@ export function createCoverService(
 ) {
   const fetchRemote = outboundFetch(fetchImpl);
   const pending = new Map();
+  const previews = new Map();
+  async function prepare(image) {
+    if (!previews.has(image.id)) {
+      previews.set(
+        image.id,
+        (async () => {
+          const existing = await store.covers.preview(image.id);
+          if (existing) return existing;
+          let preview;
+          try {
+            preview = await createCoverPreview(image.body);
+          } catch {
+            // Preserve older/undecodable originals. Remember failures so a bad
+            // image cannot repeatedly trigger expensive decoding on each view.
+            preview = { body: null, blurhash: "" };
+          }
+          return await store.covers.putPreview(image.id, preview);
+        })().finally(() => previews.delete(image.id)),
+      );
+    }
+    return await previews.get(image.id);
+  }
+  async function storeImage(image, url) {
+    const stored = await store.covers.put(image, url);
+    await prepare(stored);
+    return stored;
+  }
   async function download(url) {
     const signal = AbortSignal.timeout(15000);
     for (let hop = 0; hop <= 3; hop++) {
@@ -91,8 +138,7 @@ export function createCoverService(
       if ((await file.stat()).size <= MAX_IMAGE_BYTES) {
         const body = await file.readFile();
         const contentType = imageType(body);
-        if (contentType)
-          return await store.covers.put({ body, contentType }, url);
+        if (contentType) return await storeImage({ body, contentType }, url);
       }
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
@@ -100,7 +146,7 @@ export function createCoverService(
       await file?.close();
     }
     try {
-      return await store.covers.put(await download(url), url);
+      return await storeImage(await download(url), url);
     } catch {
       throw new AppError("Cover image is unavailable.", 502);
     }
@@ -109,7 +155,10 @@ export function createCoverService(
     async ensure(rawUrl) {
       const url = imageSource(rawUrl);
       const existing = await store.covers.bySource(url);
-      if (existing) return existing;
+      if (existing) {
+        await prepare(existing);
+        return existing;
+      }
       if (!pending.has(url)) {
         pending.set(
           url,
@@ -133,11 +182,23 @@ export function createCoverService(
       await store.covers.allow(image.id);
       return image;
     },
-    async get(id) {
+    async get(id, optimized = false) {
       if (!/^[a-f0-9]{64}$/.test(String(id || "")))
         throw new AppError("Choose a stored cover.", 400);
-      const image = await store.covers.get(id);
-      if (!image) throw new AppError("Cover not found.", 404);
+      let preview = optimized ? await store.covers.preview(id) : null;
+      let image;
+      if (!preview?.body) {
+        image = await store.covers.get(id);
+        if (!image) throw new AppError("Cover not found.", 404);
+        if (optimized && !preview) preview = await prepare(image);
+      }
+      if (preview?.body)
+        return {
+          id,
+          body: preview.body,
+          contentType: "image/webp",
+          etag: '"' + coverDigest(preview.body) + '"',
+        };
       return { ...image, etag: '"' + id + '"' };
     },
   };

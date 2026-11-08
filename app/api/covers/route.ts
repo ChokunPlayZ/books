@@ -21,7 +21,7 @@ export async function GET(
     const image = await store.forUser(user, async () => {
       if (!(await store.covers.canAccess(id)))
         throw new AppError("Cover not found.", 404);
-      return await covers.get(id);
+      return await covers.get(id, true);
     });
     const headers = {
       "Content-Type": image.contentType,

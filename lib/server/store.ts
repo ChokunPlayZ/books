@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createUserContext, type User } from "./user-context.ts";
 import type { Preferences } from "../preferences.ts";
 import { exportLibraryBook } from "../domain/library-export.ts";
+import { COVER_PREVIEW_VERSION } from "./cover-images.ts";
 import {
   normalizeBookType,
   normalizeRecordTypes,
@@ -1033,6 +1034,48 @@ export async function openStore(
             body: Buffer.from(row.body),
           }
         : null;
+    },
+    async preview(id: string) {
+      const row = await get<{ body: Uint8Array | null; blurhash: string }>(
+        "SELECT body,blurhash FROM cover_previews WHERE cover_id=? AND version=?",
+        id,
+        COVER_PREVIEW_VERSION,
+      );
+      return row
+        ? {
+            body: row.body ? Buffer.from(row.body) : null,
+            blurhash: row.blurhash,
+          }
+        : null;
+    },
+    async putPreview(
+      id: string,
+      preview: { body: Uint8Array | null; blurhash: string },
+    ) {
+      await run(
+        "INSERT INTO cover_previews (cover_id,version,body,blurhash) VALUES (?,?,?,?) ON CONFLICT(cover_id) DO UPDATE SET version=excluded.version,body=excluded.body,blurhash=excluded.blurhash",
+        id,
+        COVER_PREVIEW_VERSION,
+        preview.body,
+        preview.blurhash,
+      );
+      return preview;
+    },
+    async blurhashes(ids: string[]): Promise<Record<string, string>> {
+      if (!ids.length) return {};
+      const rows = await all<{ cover_id: string; blurhash: string }>(
+        `SELECT cover_id,blurhash FROM cover_previews p WHERE version=? AND blurhash<>''
+        AND cover_id IN (${ids.map(() => "?").join(",")}) AND (
+          EXISTS (SELECT 1 FROM cover_access a WHERE a.user_id=app_user_id() AND a.cover_id=p.cover_id)
+          OR EXISTS (SELECT 1 FROM books b WHERE b.user_id=app_user_id() AND b.cover_id=p.cover_id)
+          OR EXISTS (SELECT 1 FROM saved_releases s WHERE s.user_id=app_user_id() AND s.data::jsonb->>'coverId'=p.cover_id)
+        )`,
+        COVER_PREVIEW_VERSION,
+        ...ids,
+      );
+      return Object.fromEntries(
+        rows.map((row) => [row.cover_id, row.blurhash]),
+      );
     },
     async bySource(url) {
       const row = await get(

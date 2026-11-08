@@ -4,6 +4,7 @@ import type { StoredBook } from "../../lib/types.ts";
 import { shelfCoverBook, coverTint } from "../../lib/domain/shelf.ts";
 import { LIST_BATCH_SIZE } from "../../lib/domain/lists.ts";
 import { getTranslations } from "../../lib/server/preferences.ts";
+import CoverImage from "./CoverImage";
 
 async function Cover({
   book,
@@ -19,29 +20,26 @@ async function Cover({
       ? series + ", volume " + book.volume
       : series;
   return (
-    <span
+    <CoverImage
+      id={book.coverId}
+      blurhash={book.coverBlurhash}
       className={
         "cover-frame shelf-cover" + (gallery ? ` ${gallery}-cover` : "")
       }
-      aria-hidden="true"
     >
-      {book.coverId ? (
-        <img src={"/api/covers/" + book.coverId} alt="" loading="lazy" />
-      ) : (
-        <span
-          className="cover-placeholder"
-          data-tint={gallery ? coverTint(title) : undefined}
-        >
-          <Icon name="books" />
-          {gallery && (
-            <>
-              <span className="placeholder-title">{title}</span>
-              <span className="placeholder-label">{t("No cover")}</span>
-            </>
-          )}
-        </span>
-      )}
-    </span>
+      <span
+        className="cover-placeholder"
+        data-tint={gallery ? coverTint(title) : undefined}
+      >
+        <Icon name="books" />
+        {gallery && (
+          <>
+            <span className="placeholder-title">{title}</span>
+            <span className="placeholder-label">{t("No cover")}</span>
+          </>
+        )}
+      </span>
+    </CoverImage>
   );
 }
 

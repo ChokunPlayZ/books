@@ -8,6 +8,9 @@ import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createApplicationApi } from "../../lib/server/api.ts";
 import { parseImport } from "../../lib/server/importer.ts";
 import { releaseItem, volumeCoverKey } from "../../lib/domain.ts";
+import sharp from "sharp";
+import { attachCoverPlaceholders } from "../../lib/server/covers.ts";
+import { createAccount } from "../../lib/server/auth.ts";
 
 const source = "https://www.phoenixnext.com/media/catalog/product/cover.jpg";
 const png = Buffer.from(
@@ -33,6 +36,120 @@ const book = {
   status: "Read",
   volume: 1,
 };
+
+test("WebP previews and BlurHashes persist independently of original IDs, bytes and backups", async (t) => {
+  const path = join(await directory(t), "previews");
+  let store = await openStore(path);
+  t.after(() => store.close());
+  const original = await sharp({
+    create: { width: 800, height: 1200, channels: 3, background: "#639057" },
+  })
+    .png()
+    .toBuffer();
+  let calls = 0;
+  let covers = createCoverService(store, {
+    fetchImpl: async () => {
+      calls++;
+      return new Response(original);
+    },
+  });
+  const image = await covers.ensure(source);
+  assert.equal(image.id, coverDigest(original));
+  assert.deepEqual(image.body, original);
+  await store.api.saveBook({
+    requestId: "webp_preview_save_1",
+    book: { ...book, coverId: image.id },
+  });
+  const before = (await store.api.getCollection()).books[0];
+  const optimized = await covers.get(image.id, true);
+  assert.equal(optimized.contentType, "image/webp");
+  assert.equal(optimized.etag, '"' + coverDigest(optimized.body) + '"');
+  assert.notEqual(optimized.etag, '"' + image.id + '"');
+  assert.equal((await sharp(optimized.body).metadata()).height, 740);
+  const api = createApplicationApi(store, covers);
+  const after = (await api.getCollection()).books[0];
+  assert.equal(after.token, before.token);
+  assert.equal(after.coverBlurhash.length, 36);
+  assert.equal(calls, 1);
+  const backup = await store.exportData();
+  assert.deepEqual(Buffer.from(backup.covers[0].data, "base64"), original);
+
+  await store.close();
+  store = await openStore(path);
+  covers = createCoverService(store, {
+    fetchImpl: () => assert.fail("Previews must work offline"),
+  });
+  assert.deepEqual((await covers.get(image.id, true)).body, optimized.body);
+  assert.equal((await covers.ensure(source)).id, image.id);
+  assert.deepEqual((await covers.get(image.id)).body, original);
+
+  const restored = await database(t);
+  const plan = parseImport(Buffer.from(JSON.stringify(backup)), "backup.json");
+  await restored.importData(plan, plan.fingerprint);
+  const offline = createCoverService(restored, {
+    fetchImpl: () =>
+      assert.fail("Restored originals regenerate previews offline"),
+  });
+  assert.deepEqual((await offline.get(image.id, true)).body, optimized.body);
+});
+
+test("legacy images optimize lazily, versioned previews rebuild, and placeholder metadata stays private", async (t) => {
+  const store = await database(t);
+  const original = await sharp({
+    create: { width: 80, height: 120, channels: 3, background: "#cc8855" },
+  })
+    .png()
+    .toBuffer();
+  const image = await store.covers.put({
+    body: original,
+    contentType: "image/png",
+  });
+  assert.equal(await store.covers.preview(image.id), null);
+  const covers = createCoverService(store, {
+    fetchImpl: () => assert.fail("No network needed for legacy originals"),
+  });
+  const results = await Promise.all(
+    Array.from({ length: 8 }, () => covers.get(image.id, true)),
+  );
+  assert.ok(results.every((result) => result.contentType === "image/webp"));
+  const record = await attachCoverPlaceholders(store, {
+    coverId: image.id,
+    coverBlurhash: "untrusted",
+  });
+  assert.equal(record.coverBlurhash.length, 36);
+  await store.db
+    .prepare(
+      "UPDATE cover_previews SET version=0,body=NULL,blurhash='' WHERE cover_id=?",
+    )
+    .run(image.id);
+  assert.deepEqual((await covers.get(image.id, true)).body, results[0].body);
+  assert.equal(
+    (await store.covers.preview(image.id)).blurhash,
+    record.coverBlurhash,
+  );
+  const other = await createAccount(store, "other", "other@gmail.com");
+  await store.forUser(other, async () => {
+    assert.equal(await store.covers.canAccess(image.id), false);
+    const hidden = await attachCoverPlaceholders(store, {
+      coverId: image.id,
+      coverBlurhash: "untrusted",
+    });
+    assert.equal(hidden.coverBlurhash, undefined);
+  });
+});
+
+test("undecodable legacy images retain their original response and cache conversion failures", async (t) => {
+  const store = await database(t);
+  const image = await store.covers.put({ body: png, contentType: "image/png" });
+  const covers = createCoverService(store);
+  assert.deepEqual((await covers.get(image.id, true)).body, png);
+  assert.deepEqual(await store.covers.preview(image.id), {
+    body: null,
+    blurhash: "",
+  });
+  assert.equal((await covers.get(image.id, true)).contentType, "image/png");
+  assert.equal((await covers.get(image.id, true)).etag, '"' + image.id + '"');
+});
 
 test("image bytes live in PostgreSQL, concurrent downloads deduplicate, and IDs survive restarts and source outages", async (t) => {
   const path = join(await directory(t), "library.sqlite");

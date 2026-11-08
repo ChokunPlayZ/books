@@ -9,6 +9,7 @@ import { createSeriesEditor } from "./series-editor.ts";
 import { createMissingBrowser } from "./missing.ts";
 import { createAnimeBrowser } from "./anime.ts";
 import { shelfCoverBook, coverTint } from "../domain/shelf.ts";
+import { coverPlaceholderUrl } from "../domain/cover-placeholder.ts";
 import { seriesPath, type CollectionView } from "../domain/navigation.ts";
 import type { StoredBook } from "../types.ts";
 import { createScanner } from "./scanner.ts";
@@ -73,6 +74,7 @@ export function mountCollection({
     "dateToFilter",
   ] as const;
   const state = createCollectionState();
+  const coverBlurhashes = new Map<string, string>();
   state.view = view;
   state.selectedSeries = series;
   const savePagePreferences = restorePagePreferences(view);
@@ -186,6 +188,7 @@ export function mountCollection({
       const value = await response.json();
       if (!response.ok)
         throw new Error(value.message || "The request could not finish.");
+      rememberCoverPlaceholders(value);
       if (value.bookCoverIds && state.data) {
         for (const book of state.data.books) {
           if (Object.hasOwn(value.bookCoverIds, book.row))
@@ -1863,18 +1866,28 @@ export function mountCollection({
     return a;
   }
 
+  function rememberCoverPlaceholders(value) {
+    if (!value || typeof value !== "object") return;
+    if (value.coverId && typeof value.coverBlurhash === "string")
+      coverBlurhashes.set(value.coverId, value.coverBlurhash);
+    for (const child of Object.values(value)) rememberCoverPlaceholders(child);
+  }
   function coverImage(id, title, className) {
     const frame = node("span", "cover-frame " + className);
     setCoverImage(frame, id, title);
     return frame;
   }
   function setCoverImage(
-    frame: Element & { _coverId?: string },
+    frame: HTMLElement & { _coverId?: string; _coverHash?: string },
     id: string,
     title: string,
   ) {
-    if (frame._coverId === (id || "")) return;
+    const hash = coverBlurhashes.get(id) || "";
+    if (frame._coverId === (id || "") && frame._coverHash === hash) return;
     frame._coverId = id || "";
+    frame._coverHash = hash;
+    frame.style.backgroundImage = "";
+    delete frame.dataset.coverLoading;
     frame.replaceChildren();
     const placeholder = node("span", "cover-placeholder");
     const galleryTitle = frame.matches(".series-cover, .volume-cover")
@@ -1891,6 +1904,12 @@ export function mountCollection({
       );
     frame.append(placeholder);
     if (!/^[a-f0-9]{64}$/.test(id || "")) return;
+    const blur = coverPlaceholderUrl(hash);
+    if (blur) {
+      frame.style.backgroundImage = `url("${blur}")`;
+      frame.dataset.coverLoading = "true";
+      placeholder.hidden = true;
+    }
     const img = node("img");
     img.alt = title + " cover";
     img.width = 264;
@@ -1902,7 +1921,11 @@ export function mountCollection({
     img.addEventListener(
       "load",
       () => {
-        if (!failed) placeholder.hidden = true;
+        if (!failed) {
+          placeholder.hidden = true;
+          frame.style.backgroundImage = "";
+          delete frame.dataset.coverLoading;
+        }
       },
       { signal: events.signal },
     );
@@ -1911,6 +1934,8 @@ export function mountCollection({
       () => {
         failed = true;
         img.remove();
+        frame.style.backgroundImage = "";
+        delete frame.dataset.coverLoading;
         placeholder.hidden = false;
       },
       { signal: events.signal },
@@ -2118,7 +2143,7 @@ export function mountCollection({
     return preview;
   }
   function refreshVisibleCovers() {
-    document.querySelectorAll(".shelf-cover").forEach((frame) => {
+    document.querySelectorAll<HTMLElement>(".shelf-cover").forEach((frame) => {
       const book = frame._book;
       if (book)
         setCoverImage(

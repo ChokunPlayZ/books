@@ -39,6 +39,8 @@ Run `npm run build && npm run test:preferences` for the isolated account-prefere
 
 **Data & backups → Export library** downloads only owned books: ISBN, title, type, volume, edition, reading status, purchase source/price/date and notes. It excludes publisher metadata, covers, removed books, saved releases and internal records. Duplicate copies and blank versus zero prices are preserved. Import the JSON into an empty library; use `npm run backup` on the server for a complete backup with covers and saved/removed records.
 
+Cover images are served as cached WebP previews (up to 528 × 740 pixels), with inline BlurHash placeholders while loading. Original images and content IDs remain unchanged for backups. Existing covers are optimized on first access without downloading them again; their placeholders appear on subsequent library loads. Both previews and placeholder metadata retain account-level access checks.
+
 ## Universal search
 
 Open **Search** to find a title, publisher, bookshop or ISBN. Your own library, saved titles and previously cached catalog matches appear first, without contacting external sources. Applicable publishers and bookshops are then checked in the background; results are deduplicated and better matches move up as each source responds. Thai queries check Thai publishers and Naiin; English titles also check English catalogs, and Google Books supports multilingual title searches. ISBN searches use the existing language-specific lookup providers.

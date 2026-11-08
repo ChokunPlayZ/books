@@ -133,7 +133,7 @@ test("schema initialization preserves accounts, books and active sessions", asyn
           .prepare("SELECT MAX(version) AS version FROM schema_migrations")
           .get()
       ).version,
-      2,
+      3,
     );
     assert.ok(await sessionUser(store, token));
     assert.deepEqual((await store.api.getCollection()).books, before);

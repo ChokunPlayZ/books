@@ -26,7 +26,7 @@ let aliceBook;
 const image = await store.covers.put({
   contentType: "image/png",
   body: Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWP4//8/AAX+Av5Y8msOAAAAAElFTkSuQmCC",
     "base64",
   ),
 });
@@ -181,9 +181,16 @@ try {
     (await bobPage.request.get(url + "/api/covers/" + image.id)).status(),
     404,
   );
+  const cover = await alicePage.request.get(url + "/api/covers/" + image.id);
+  assert.equal(cover.status(), 200);
+  assert.equal(cover.headers()["content-type"], "image/webp");
   assert.equal(
-    (await alicePage.request.get(url + "/api/covers/" + image.id)).status(),
-    200,
+    (
+      await bobPage.request.get(url + "/api/covers/" + image.id, {
+        headers: { "If-None-Match": cover.headers().etag },
+      })
+    ).status(),
+    404,
   );
   const bobBackup = await (
     await bobPage.request.get(url + "/api/backup")

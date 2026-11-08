@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import CollectionShell from "./CollectionShell";
 import CollectionController from "./CollectionController";
 import { getApp } from "../lib/server/app.ts";
+import { attachCoverPlaceholders } from "../lib/server/covers.ts";
 import { sessionUser, SESSION_COOKIE } from "../lib/server/auth.ts";
 import {
   collectionPaths,
@@ -37,7 +38,8 @@ export default async function CollectionPage({
   }
   const data = await store.forUser(
     user,
-    async () => await store.api.getCollection(),
+    async () =>
+      await attachCoverPlaceholders(store, await store.api.getCollection()),
   );
   return (
     <>

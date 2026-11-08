@@ -28,6 +28,7 @@ export type Book = {
   msrpCurrency?: string;
   edition?: string;
   coverId?: string;
+  coverBlurhash?: string;
 };
 
 export type StoredBook = Book & {

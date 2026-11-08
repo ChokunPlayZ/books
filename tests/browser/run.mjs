@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { createCoverService, coverDigest } from "../../lib/server/covers.ts";
+import { createCoverPreview } from "../../lib/server/cover-images.ts";
 import {
   openTestStore as openStore,
   testDatabaseUrl,
@@ -41,14 +42,15 @@ const coverPath =
   "/api/covers/" +
   coverDigest(
     Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWP4//8/AAX+Av5Y8msOAAAAAElFTkSuQmCC",
       "base64",
     ),
   );
 const coverBytes = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWP4//8/AAX+Av5Y8msOAAAAAElFTkSuQmCC",
   "base64",
 );
+const coverPreview = await createCoverPreview(coverBytes);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function port() {
   const socket = createServer();
@@ -235,8 +237,8 @@ try {
   assert.equal((await post({ name: "getCollection" })).status(), 200);
   const cover = await page.request.get(url + coverPath);
   assert.equal(cover.status(), 200);
-  assert.deepEqual(await cover.body(), coverBytes);
-  assert.equal(cover.headers()["content-type"], "image/png");
+  assert.deepEqual(await cover.body(), coverPreview.body);
+  assert.equal(cover.headers()["content-type"], "image/webp");
   assert.match(cover.headers()["cache-control"], /^private, no-store$/);
   assert.equal(
     (
@@ -388,7 +390,17 @@ try {
   });
   await page.locator("#saveButton").click();
   await page.waitForFunction(() => !document.getElementById("bookDialog").open);
-  await page.reload();
+  await page.unroute("**/api/covers/" + coverDigest(coverBytes));
+  let releaseCover;
+  const pendingCover = new Promise((resolve) => {
+    releaseCover = resolve;
+  });
+  const holdCover = async (route) => {
+    await pendingCover;
+    await route.continue();
+  };
+  await page.route("**" + coverPath, holdCover);
+  await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
   const metadataResponse = await post({ name: "getCollection" });
   assert.equal(metadataResponse.status(), 200, await metadataResponse.text());
@@ -399,10 +411,47 @@ try {
   assert.equal(metadataBook.publisherUrl, publisherPage);
   assert.equal(metadataBook.note, "Selected publisher cover");
   assert.equal(metadataBook.pageCount, 208);
+  assert.equal(metadataBook.coverBlurhash, coverPreview.blurhash);
+  const loadingCover = page.locator(
+    '.book-row .cover-frame[data-cover-loading="true"]',
+  );
+  await loadingCover.waitFor();
+  assert.match(
+    await loadingCover.evaluate((frame) => frame.style.backgroundImage),
+    /data:image\/bmp;base64,/,
+  );
+  const renderedShelf = await page.request.get(page.url());
+  assert.match(await renderedShelf.text(), /data:image\/bmp;base64,/);
+  releaseCover();
+  await page.waitForFunction(() => {
+    const frame = document.querySelector(".book-row .cover-frame");
+    return (
+      frame?.querySelector("img")?.naturalWidth > 0 &&
+      !frame.style.backgroundImage
+    );
+  });
+  await page.unroute("**" + coverPath, holdCover);
   await page.locator(".book-row img").waitFor();
   assert.equal(
     await page.locator(".book-row img").getAttribute("src"),
     coverPath,
+  );
+  const failCover = (route) => route.abort();
+  await page.route("**" + coverPath, failCover);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.locator(".book-row .cover-placeholder").waitFor();
+  assert.equal(await page.locator(".book-row img").count(), 0);
+  assert.equal(
+    await page
+      .locator(".book-row .cover-frame")
+      .evaluate((frame) => frame.style.backgroundImage),
+    "",
+  );
+  await page.unroute("**" + coverPath, failCover);
+  await page.reload();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
+  console.log(
+    "PASS WebP delivery, server/client BlurHash placeholders, loading cleanup and failed-image fallback",
   );
   await volumeCover.click();
   assert.equal(
@@ -465,7 +514,7 @@ try {
         })
       ).arrayBuffer(),
     ),
-    coverBytes,
+    coverPreview.body,
   );
   console.log(
     "PASS protected cover endpoint, private caching, ETags and image persistence across server processes",

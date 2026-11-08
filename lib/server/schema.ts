@@ -76,6 +76,12 @@ const migrations = [
   );
   CREATE INDEX scrape_job_events_job ON scrape_job_events(job_id,id);
   `,
+  `
+  CREATE TABLE cover_previews (
+    cover_id TEXT PRIMARY KEY REFERENCES covers(id) ON DELETE CASCADE,
+    version INTEGER NOT NULL, body BYTEA, blurhash TEXT NOT NULL DEFAULT ''
+  );
+  `,
 ];
 
 export async function migrateDatabase(pool: Pool) {

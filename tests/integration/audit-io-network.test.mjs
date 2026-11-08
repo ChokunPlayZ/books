@@ -33,9 +33,15 @@ function cache() {
 
 function coverStore() {
   const sources = new Map();
+  const previews = new Map();
   return {
     cache: cache(),
     covers: {
+      preview: async (id) => previews.get(id),
+      putPreview: async (id, preview) => {
+        previews.set(id, preview);
+        return preview;
+      },
       bySource: async (url) => sources.get(url),
       put: async (image, url) => {
         const record = { ...image, id: coverDigest(image.body) };

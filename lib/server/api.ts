@@ -11,6 +11,7 @@ import { AppError } from "./store.ts";
 import { createSearchService } from "./search.ts";
 import { createScrapeQueue } from "./scrape-queue.ts";
 import { createAdminService } from "./admin.ts";
+import { attachCoverPlaceholders } from "./covers.ts";
 import type { Store } from "./store.ts";
 
 const queues = new WeakMap<Store, ReturnType<typeof createScrapeQueue>>();
@@ -109,7 +110,7 @@ export function createApplicationApi(
           );
       }
     }
-    return result;
+    return await attachCoverPlaceholders(store, result);
   }
   const queued = {
     ...Object.fromEntries(
