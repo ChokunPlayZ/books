@@ -271,7 +271,7 @@
 }
 
 .cover-frame {
-  background: var(--soft);
+  background-color: var(--soft);
   border-radius: 3px 6px 6px 3px;
 }
 

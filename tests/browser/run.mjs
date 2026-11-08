@@ -416,10 +416,17 @@ try {
     '.book-row .cover-frame[data-cover-loading="true"]',
   );
   await loadingCover.waitFor();
-  assert.match(
-    await loadingCover.evaluate((frame) => frame.style.backgroundImage),
-    /data:image\/bmp;base64,/,
-  );
+  const placeholderStyle = await loadingCover.evaluate((frame) => {
+    const style = getComputedStyle(frame);
+    return {
+      image: style.backgroundImage,
+      size: style.backgroundSize,
+      repeat: style.backgroundRepeat,
+    };
+  });
+  assert.match(placeholderStyle.image, /data:image\/bmp;base64,/);
+  assert.equal(placeholderStyle.size, "100% 100%");
+  assert.equal(placeholderStyle.repeat, "no-repeat");
   const renderedShelf = await page.request.get(page.url());
   assert.match(await renderedShelf.text(), /data:image\/bmp;base64,/);
   releaseCover();
