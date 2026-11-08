@@ -5,6 +5,7 @@ import LibraryBrand from "./LibraryBrand";
 import ThemeToggle from "./ThemeToggle";
 import LanguageSelect from "./LanguageSelect";
 import AccountPreferences from "./AccountPreferences";
+import SignOutButton from "./SignOutButton";
 import LegalLinks from "./LegalLinks";
 import LoadingStatus from "./LoadingStatus";
 import { activity } from "../lib/client/activity.ts";
@@ -62,10 +63,6 @@ export default function DataManager({
       finish();
     }
   }
-  async function logout() {
-    await fetch("/api/logout", { method: "POST" });
-    window.location.assign("/login");
-  }
   return (
     <>
       <header className="top data-header">
@@ -107,6 +104,7 @@ export default function DataManager({
           </span>
         </div>
         <nav className="data-sections" aria-label={t("Data management")}>
+          <a href="/settings">{t("User settings")}</a>
           <a href="#account-preferences">{t("Account preferences")}</a>
           <a href="#library-backups">{t("Export & import")}</a>
         </nav>
@@ -272,12 +270,7 @@ export default function DataManager({
             {t("Stored in your library. Always yours.")}
           </span>
           <LegalLinks />
-          {canSignOut && (
-            <button className="text-btn" onClick={logout}>
-              <Icon name="logout" />
-              {t("Sign out")}
-            </button>
-          )}
+          {canSignOut && <SignOutButton className="text-btn" />}
         </footer>
       </main>
     </>

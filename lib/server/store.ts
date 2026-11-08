@@ -106,6 +106,15 @@ export async function openStore(
     (await db.prepare(sql).all(...args)) as T[];
   const get = async <T = DatabaseRow>(sql: string, ...args: DatabaseValue[]) =>
     (await db.prepare(sql).get(...args)) as T | undefined;
+  const account = {
+    async get(): Promise<User & { email: string | null }> {
+      const row = await get<User & { email: string | null }>(
+        "SELECT id,username,email,role FROM users WHERE id=app_user_id()",
+      );
+      if (!row) throw new AppError("Sign in to open your library.", 401);
+      return row;
+    },
+  };
   const preferences = {
     async get(): Promise<Preferences> {
       const row = await get(
@@ -1154,6 +1163,7 @@ export async function openStore(
       return users.run(account, action);
     },
     api,
+    account,
     preferences,
     transaction,
     cache,

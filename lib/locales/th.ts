@@ -151,6 +151,22 @@ export const thai: Record<string, string> = {
   "Search sources ({count})": "แหล่งค้นหา ({count})",
   "First results checked": "ตรวจสอบผลลัพธ์ชุดแรกแล้ว",
   Unavailable: "ไม่พร้อมใช้งาน",
+  "User settings": "การตั้งค่าผู้ใช้",
+  "Skip to settings": "ข้ามไปยังการตั้งค่า",
+  "View your signed-in account and manage your preferences.":
+    "ดูข้อมูลบัญชีที่เข้าสู่ระบบและจัดการการตั้งค่าของคุณ",
+  "Settings sections": "ส่วนการตั้งค่า",
+  "Signed-in account": "บัญชีที่เข้าสู่ระบบ",
+  "Google account": "บัญชี Google",
+  Username: "ชื่อผู้ใช้",
+  "Account role": "บทบาทบัญชี",
+  Administrator: "ผู้ดูแลระบบ",
+  User: "ผู้ใช้",
+  "To use a different Google account, sign out first.":
+    "หากต้องการใช้บัญชี Google อื่น ให้ออกจากระบบก่อน",
+  "Signing out…": "กำลังออกจากระบบ…",
+  "Could not sign out. Please try again.":
+    "ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง",
   "Account preferences": "การตั้งค่าบัญชี",
   "Your language and appearance are saved to your account and follow you across devices.":
     "ภาษาและรูปแบบการแสดงผลจะบันทึกไว้ในบัญชีของคุณ และใช้ได้กับทุกอุปกรณ์",

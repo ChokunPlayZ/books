@@ -22,7 +22,16 @@ const identity = (name) => ({
 });
 const alice = await signInWithGoogle(store, identity("alice"));
 const aliceDevice = await signInWithGoogle(store, identity("alice"));
+await signInWithGoogle(store, {
+  ...identity("alice"),
+  email: "alice.updated@gmail.com",
+});
 const bob = await signInWithGoogle(store, identity("bob"));
+const owner = await signInWithGoogle(
+  store,
+  identity("owner"),
+  "owner@gmail.com",
+);
 const themeTest = await signInWithGoogle(store, identity("theme-test"));
 await store.forUser(
   alice.user,
@@ -86,6 +95,11 @@ try {
       : {}),
   });
   const anonymous = await browser.newContext();
+  const protectedSettings = await anonymous.request.get(url + "/settings", {
+    maxRedirects: 0,
+  });
+  assert.equal(protectedSettings.status(), 307);
+  assert.equal(protectedSettings.headers().location, "/login");
   assert.equal(
     (await anonymous.request.get(url + "/api/preferences")).status(),
     401,
@@ -141,6 +155,32 @@ try {
   );
   assert.equal(await page.locator(".brand-name").textContent(), "meemai");
   await page.getByRole("link", { name: "meemai home", exact: true }).waitFor();
+  await page.getByRole("link", { name: "User settings", exact: true }).click();
+  await page
+    .getByRole("heading", { name: "User settings", exact: true })
+    .waitFor();
+  assert.equal(
+    await page.locator("#accountEmail").textContent(),
+    "alice.updated@gmail.com",
+  );
+  assert.equal(
+    await page.locator("#accountUsername").textContent(),
+    "alice@gmail.com",
+  );
+  assert.equal(await page.locator("#accountRole").textContent(), "User");
+  await page.getByText("Google account", { exact: true }).waitFor();
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      true,
+      `settings overflow at ${width}`,
+    );
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(url);
   await page.getByRole("button", { name: "Dark theme", exact: true }).click();
   await page.waitForFunction(
     () => document.documentElement.dataset.theme === "dark",
@@ -220,6 +260,7 @@ try {
   for (const [path, heading] of [
     ["/stats", "สถิติ"],
     ["/removed", "ที่นำออกล่าสุด"],
+    ["/settings", "การตั้งค่าผู้ใช้"],
   ]) {
     await page.goto(url + path);
     await page.getByRole("heading", { name: heading, exact: true }).waitFor();
@@ -230,6 +271,11 @@ try {
   const other = await context.newPage();
   await other.goto(url + "/data");
   await other.locator("#preferencesTitle").waitFor();
+  await other
+    .getByRole("link", { name: "การตั้งค่าผู้ใช้", exact: true })
+    .click();
+  await other.locator("#accountTitle").waitFor();
+  assert.equal(await other.locator("#accountRole").textContent(), "ผู้ใช้");
   await other
     .getByRole("combobox", { name: "รูปแบบการแสดงผล", exact: true })
     .selectOption("light");
@@ -288,8 +334,61 @@ try {
     () => document.documentElement.dataset.theme === "light",
   );
   assert.deepEqual(await preferences(), { locale: "en", theme: "system" });
+  await page.goto(url + "/settings");
+  assert.equal(
+    await page.locator("#accountEmail").textContent(),
+    "bob@gmail.com",
+  );
+  assert.equal(
+    await page.locator("#accountUsername").textContent(),
+    "bob@gmail.com",
+  );
+  assert.equal(
+    await page
+      .locator("main")
+      .textContent()
+      .then((text) => text.includes("alice")),
+    false,
+  );
+
+  // A failed sign-out stays on settings and can be retried safely.
+  await page.route("**/api/logout", (route) =>
+    route.fulfill({ status: 500, contentType: "application/json", body: "{}" }),
+  );
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await page
+    .getByRole("alert")
+    .filter({ hasText: "Could not sign out" })
+    .waitFor();
+  assert.equal(page.url(), url + "/settings");
+  assert.equal(
+    (await context.request.get(url + "/api/preferences")).status(),
+    200,
+  );
+  await page.unroute("**/api/logout");
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await page.waitForURL(url + "/login");
+  assert.equal(
+    (await context.request.get(url + "/api/preferences")).status(),
+    401,
+  );
+  await page.goto(url + "/settings");
+  await page.waitForURL(url + "/login");
   assert.deepEqual(errors, []);
   await context.close();
+  const adminContext = await browser.newContext();
+  await adminContext.addCookies([cookie(owner.token)]);
+  const adminPage = await adminContext.newPage();
+  await adminPage.goto(url + "/settings");
+  assert.equal(
+    await adminPage.locator("#accountRole").textContent(),
+    "Administrator",
+  );
+  assert.equal(
+    await adminPage.locator("#accountEmail").textContent(),
+    "owner@gmail.com",
+  );
+  await adminContext.close();
   const themeScenario = spawn(
     process.execPath,
     ["tests/browser/theme.browser.mjs"],
@@ -308,7 +407,7 @@ try {
   });
   assert.equal(themeCode, 0, "Theme browser regression failed");
   console.log(
-    "PASS account language/theme, authenticated validation, Thai hydration, unchanged book data, fresh device/pre-paint, cross-tab sync, save failure and account switching",
+    "PASS user settings, account details/isolation, sign-out/retry, account language/theme, authenticated validation, Thai hydration, unchanged book data, fresh device/pre-paint, cross-tab sync, save failure and account switching",
   );
 } finally {
   await browser?.close();

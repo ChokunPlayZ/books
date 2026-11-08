@@ -33,7 +33,7 @@ Upgrading from SQLite? Stop the old app, back up its database, set `DATABASE_URL
 
 ## Account preferences
 
-Choose **English / ไทย** in the library header, or open **Data & backups → Account preferences**. Language and appearance (light, dark, or device setting) are saved automatically to your account in PostgreSQL and apply on other devices after signing in. Your saved theme is applied before the page paints; another account's browser settings never override it. Book titles, notes and other collection data are not translated or rewritten.
+Open **User settings** to see your signed-in Google account, username and account role, manage your preferences, or sign out. Choose **English / ไทย** in the library header, or change language and appearance under **Account preferences** in User settings or Data & backups. Language and appearance (light, dark, or device setting) are saved automatically to your account in PostgreSQL and apply on other devices after signing in. Your saved theme is applied before the page paints; another account's browser settings never override it. Book titles, notes and other collection data are not translated or rewritten.
 
 Run `npm run build && npm run test:preferences` for the isolated account-preferences browser checks.
 

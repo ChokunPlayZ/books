@@ -95,6 +95,10 @@ export default async function CollectionTabs({
           {data.trash.length}
         </span>
       </a>
+      <a id="settingsLink" className="tab" href="/settings">
+        <Icon name="user" />
+        <span className="tab-label">{t("User settings")}</span>
+      </a>
       <a id="dataLink" className="tab" href="/data">
         <Icon name="archive" />
         <span className="tab-label">{t("Data & backups")}</span>
