@@ -12,6 +12,8 @@ const browser = await chromium.launch({
 });
 const series = "Navigation " + Date.now() + " เรื่อง / 100% ? #";
 const path = seriesPath(series);
+const legacyPath = "/series/" + Buffer.from(series).toString("base64url");
+assert.match(path, /^\/series\/navigation-\d+-rueang-100--[a-z0-9]{7}$/);
 const ready = (page) =>
   page.waitForFunction(() => !!window.bookCollection?.state.data);
 let records = [];
@@ -84,6 +86,14 @@ try {
       .count(),
     0,
   );
+  await serverPage.goto(testUrl + legacyPath + "?source=bookmark&tag=1&tag=2");
+  await serverPage.waitForURL(testUrl + path + "?source=bookmark&tag=1&tag=2");
+  assert.equal(await serverPage.locator("#seriesTitle").textContent(), series);
+  assert.equal(await serverPage.title(), series + " · meemai");
+  const outdatedPath = path.replace(/\/[^/]+--/, "/old-spelling--");
+  await serverPage.goto(testUrl + outdatedPath);
+  await serverPage.waitForURL(testUrl + path);
+  assert.equal(await serverPage.locator(".book-row").count(), 2);
   await plain.close();
 
   await page.goto(testUrl);
@@ -195,7 +205,7 @@ try {
   }
   assert.deepEqual(errors, []);
   console.log(
-    "PASS server-rendered title pages, cover-only volume grids, keyboard editing, encoded names, document navigation, direct reload, Back/Forward and phone/desktop layouts",
+    "PASS server-rendered title pages, karaoke slugs, legacy bookmark redirects, cover-only volume grids, keyboard editing, document navigation, direct reload, Back/Forward and phone/desktop layouts",
   );
 } finally {
   const cleanup = await browser.newPage();

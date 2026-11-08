@@ -104,7 +104,7 @@ test("browser audit: arbitrary series titles cannot change navigation origin or 
       new URL(path, "https://books.test").origin,
       "https://books.test",
     );
-    assert.equal(seriesFromPath(path.slice("/series/".length)), title);
+    assert.equal(seriesFromPath(path.slice("/series/".length), [title]), title);
   }
 });
 

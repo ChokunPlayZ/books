@@ -135,7 +135,11 @@ async function runBrowserScenario(name, url) {
 
 let browser;
 try {
-  const url = await start("protected");
+  const url = await start("protected", async (store) => {
+    await store.db
+      .prepare("INSERT INTO options VALUES (?,?,?) ON CONFLICT DO NOTHING")
+      .run("series", "Bookmarked title", 1);
+  });
   await runBrowserScenario(
     "loading-feedback.browser.mjs",
     await start("loading-feedback"),

@@ -222,6 +222,14 @@ try {
     "Others",
   ]);
   await bobPage.locator("#cancelBook").click();
+  for (const path of [
+    seriesPath(aliceBook.series),
+    "/series/" + Buffer.from(aliceBook.series).toString("base64url"),
+  ]) {
+    await bobPage.goto(url + path);
+    assert.equal(await bobPage.locator("#seriesTitle").count(), 0);
+    assert.ok(!(await bobPage.title()).includes(aliceBook.series));
+  }
   await alicePage.goto(url + seriesPath(aliceBook.series));
   await alicePage.waitForFunction(() => !!window.bookCollection?.state.data);
   await alicePage

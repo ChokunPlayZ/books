@@ -1,10 +1,7 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import CollectionShell from "./CollectionShell";
 import CollectionController from "./CollectionController";
-import { getApp } from "../lib/server/app.ts";
-import { attachCoverPlaceholders } from "../lib/server/covers.ts";
-import { sessionUser, SESSION_COOKIE } from "../lib/server/auth.ts";
+import { pageCollection } from "../lib/server/collection-page.ts";
 import {
   collectionPaths,
   seriesPath,
@@ -20,12 +17,8 @@ export default async function CollectionPage({
   series?: string | null;
   searchQuery?: string;
 }) {
-  const { store } = await getApp();
-  const user = await sessionUser(
-    store,
-    (await cookies()).get(SESSION_COOKIE)?.value,
-  );
-  if (!user) {
+  const data = await pageCollection();
+  if (!data) {
     let destination =
       series === null ? collectionPaths[view] : seriesPath(series);
     if (view === "search" && searchQuery)
@@ -36,11 +29,6 @@ export default async function CollectionPage({
         : "/login?returnTo=" + encodeURIComponent(destination),
     );
   }
-  const data = await store.forUser(
-    user,
-    async () =>
-      await attachCoverPlaceholders(store, await store.api.getCollection()),
-  );
   return (
     <>
       <CollectionShell

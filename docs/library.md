@@ -1,6 +1,7 @@
 # Library workflows
 
 - Browse by series, search, filter, and see all owned volumes in an edition.
+- Series links use readable Thai karaoke (Latin) slugs with a short suffix to distinguish similarly spelled titles. Existing encoded bookmarks redirect to the new URLs. Titles and internal book IDs are unchanged; links still require signing in to your own library.
 - Add books or use the short **Add volume** form with recent series defaults.
 - Edit series name, type and publisher from **Edit title details** on the title page. Changes apply to every owned volume in the matching edition; separate editions keep their own type and publisher. Volume forms inherit these details and let you select an existing edition or add another one.
 - Edit reading status and purchase details; calculate percent/amount discounts.

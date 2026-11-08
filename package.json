@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@next/env": "16.4.5",
+    "@pcampus/thai-romanization": "1.0.0",
     "blurhash": "^2.0.5",
     "next": "16.4.5",
     "openid-client": "6.8.9",
