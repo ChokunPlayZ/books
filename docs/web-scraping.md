@@ -48,11 +48,13 @@ The optional `fillMissing` argument defaults to off. When enabled, exact ISBN ma
 
 ## Publisher ISBN search
 
-`searchPublisherIsbn({ publisherId, isbn, refresh })` supports DEXpress, Animag, Phoenix Next and First Page Pro independently of loaded discovery categories and recent releases. ISBN-10, ISBN-13, prefixes and hyphens share a canonical ISBN-13 cache entry for 24 hours. Requests use the same source allowlists, retry cooldown and stored-cover service as other catalog features.
+`searchPublisherIsbn({ publisherId, isbn, refresh })` supports Yaakz, DEXpress, Animag, Phoenix Next and First Page Pro independently of loaded discovery categories and recent releases. ISBN-10, ISBN-13, prefixes and hyphens share a canonical ISBN-13 cache entry for 24 hours. Requests use the same source allowlists, retry cooldown and stored-cover service as other catalog features.
 
 Phoenix requests `/catalogsearch/result/?q=<isbn>`, then checks at most four product candidates. `lib/domain/phoenix.ts` requires the main product’s labeled Barcode/ISBN attribute or `book:isbn` metadata to match; preview and recommendation links cannot confirm the ISBN. First Page Pro requests `/search?q=<isbn>` and returns up to 24 search candidates with blank ISBN fields and a review note, because product details omit ISBNs. The browser carries the user’s search ISBN into the add form explicitly as unconfirmed input. A First Page Pro search result never becomes an automatic exact-ISBN ownership match. Confirmed empty searches are cached; unavailable sources and unrecognized result markup remain errors.
 
 Animag also supports full-catalog ISBN search through `/search?q=<isbn>`, independently of release feeds and loaded discovery categories. It checks up to four regular product candidates against the main product’s JSON-LD ISBN/GTIN/SKU, matched by canonical product URL. A search hit or recommendation cannot confirm another product’s ISBN. Animag participates in automatic barcode lookup before generic metadata providers; confirmed empty searches and verified matches share the existing durable cache and retry policy.
+
+Yaakz supports `/search?q=<isbn>` through its public `/api/products?filter[q]=<isbn>` listing API. Listings can omit barcodes even for standalone books, so ISBN search and automatic lookup check up to four candidate product pages. The Nuxt product record must match the candidate UUID, and only that record’s barcode or an individual child volume’s barcode can confirm an ISBN. Parent ranges, recommendations and special sets cannot confirm an exact match. Verified metadata includes the individual book’s cover, price and stock. Empty searches use the shared ISBN cache; unreadable listings, unavailable details and missing barcodes remain errors rather than confirmed misses. Discover, Releases and Thai-ISBN shop search links include Yaakz.
 
 ## Lily House
 

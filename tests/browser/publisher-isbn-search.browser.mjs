@@ -22,16 +22,19 @@ try {
         title,
         publisherId === "phoenix"
           ? "https://www.phoenixnext.com/ln0838-01.html"
-          : publisherId === "animag"
-            ? "https://www.animagshop.com/product/1169"
-            : publisherId === "dexpress"
-              ? "https://www.dexpress-shop.com/product/240"
-              : "https://www.firstpagepro.com/product/1152",
+          : publisherId === "yaakz"
+            ? "https://www.yaakz.com/product/11000408800037516"
+            : publisherId === "animag"
+              ? "https://www.animagshop.com/product/1169"
+              : publisherId === "dexpress"
+                ? "https://www.dexpress-shop.com/product/240"
+                : "https://www.firstpagepro.com/product/1152",
         175,
         publisherId === "firstpage" ? "" : isbn,
       ),
     );
   const phoenix = make("phoenix", "(LN) ISBN outside loaded category เล่ม 7");
+  const yaakz = make("yaakz", "Yaakz Full catalog ISBN search เล่ม 1");
   const firstpage = make("firstpage", "การ์ตูน First Page ISBN search เล่ม 2");
   const animag = make("animag", "Animag Full catalog ISBN search NOVEL เล่ม 6");
   const dexpress = make(
@@ -70,19 +73,23 @@ try {
           url:
             request.arg.publisherId === "phoenix"
               ? "https://www.phoenixnext.com/catalogsearch/result/?q=" + isbn
-              : request.arg.publisherId === "animag"
-                ? "https://www.animagshop.com/search?q=" + isbn
-                : request.arg.publisherId === "dexpress"
-                  ? "https://www.dexpress-shop.com/search?q=" + isbn
-                  : "https://www.firstpagepro.com/search?q=" + isbn,
+              : request.arg.publisherId === "yaakz"
+                ? "https://www.yaakz.com/search?q=" + isbn
+                : request.arg.publisherId === "animag"
+                  ? "https://www.animagshop.com/search?q=" + isbn
+                  : request.arg.publisherId === "dexpress"
+                    ? "https://www.dexpress-shop.com/search?q=" + isbn
+                    : "https://www.firstpagepro.com/search?q=" + isbn,
           items: [
             request.arg.publisherId === "phoenix"
               ? phoenix
-              : request.arg.publisherId === "animag"
-                ? animag
-                : request.arg.publisherId === "dexpress"
-                  ? dexpress
-                  : firstpage,
+              : request.arg.publisherId === "yaakz"
+                ? yaakz
+                : request.arg.publisherId === "animag"
+                  ? animag
+                  : request.arg.publisherId === "dexpress"
+                    ? dexpress
+                    : firstpage,
           ],
           warnings:
             request.arg.publisherId === "firstpage"
@@ -114,6 +121,24 @@ try {
   assert.equal(await page.locator("#isbn").inputValue(), isbn);
   assert.equal(await page.locator("#volume").inputValue(), "7");
   await page.locator("#cancelBook").click();
+  await page.locator("#discoveryPreset").selectOption("https://www.yaakz.com/");
+  await page.locator("#discoverySearch").fill(isbn);
+  await page
+    .locator("#discoveryList .release-card")
+    .filter({ hasText: "Yaakz Full catalog ISBN search" })
+    .waitFor();
+  assert.equal(calls.at(-1).publisherId, "yaakz");
+  await page
+    .locator("#discoveryList .release-card")
+    .getByRole("button", { name: "Add to shelf", exact: true })
+    .click();
+  assert.equal(await page.locator("#isbn").inputValue(), isbn);
+  assert.equal(await page.locator("#volume").inputValue(), "1");
+  assert.equal(await page.locator("#publisherUrl").inputValue(), yaakz.url);
+  await page.locator("#cancelBook").click();
+  await page
+    .locator("#discoveryPreset")
+    .selectOption("https://www.phoenixnext.com/gl.html");
   await page.locator("#discoverySearch").fill("9786166247275");
   await page.waitForFunction(() =>
     document.getElementById("discoveryCount").textContent.includes("Searching"),
@@ -249,6 +274,12 @@ try {
     .filter({ hasText: "DEXpress ISBN search" })
     .waitFor();
   assert.equal(calls.at(-1).publisherId, "dexpress");
+  await page.locator("#releasePublisher").selectOption("yaakz");
+  await page
+    .locator("#releaseList .release-card")
+    .filter({ hasText: "Yaakz Full catalog ISBN search" })
+    .waitFor();
+  assert.equal(calls.at(-1).publisherId, "yaakz");
   for (const [width, height] of [
     [390, 844],
     [1280, 900],
@@ -267,7 +298,7 @@ try {
   }
   assert.deepEqual(errors, []);
   console.log(
-    "PASS DEXpress/Animag/Phoenix/First Page Pro full-catalog ISBN search, canonical input, review form, source errors and responsive release search",
+    "PASS Yaakz/DEXpress/Animag/Phoenix/First Page Pro full-catalog ISBN search, canonical input, review form, source errors and responsive release search",
   );
 } finally {
   await browser.close();

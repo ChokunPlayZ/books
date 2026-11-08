@@ -39,6 +39,7 @@ export function createPublisherIsbnSearch({
         !bookSourceApplies(publisherId, { isbn }) ||
         ![
           "phoenix",
+          "yaakz",
           "firstpage",
           "animag",
           "dexpress",

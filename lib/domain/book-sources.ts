@@ -55,6 +55,11 @@ export function isbnSearchLinks(raw: string, type = "") {
       url: "https://www.naiin.com/search-result?title=" + isbn,
     },
     {
+      id: "yaakz",
+      name: "Yaakz",
+      url: "https://www.yaakz.com/search?q=" + isbn,
+    },
+    {
       id: "phoenix",
       name: "Phoenix Next",
       url: "https://www.phoenixnext.com/catalogsearch/result/?q=" + isbn,

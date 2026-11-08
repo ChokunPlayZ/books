@@ -116,7 +116,13 @@ try {
   await page.locator("#lookupResult").waitFor();
   for (const type of ["Manga", "Light novel", "Others"]) {
     await page.locator("#type").selectOption(type);
-    assert.equal(await page.locator("#lookupResult a").count(), 6);
+    assert.equal(await page.locator("#lookupResult a").count(), 7);
+    assert.equal(
+      await page
+        .getByRole("link", { name: "Search this ISBN at Yaakz ↗", exact: true })
+        .getAttribute("href"),
+      "https://www.yaakz.com/search?q=9786166247275&ref=meemai.ckl.moe",
+    );
     assert.equal((await suggestions()).includes("Yen Press"), false);
     assert.equal((await suggestions()).includes("Kodansha JP"), false);
     for (const publisher of thaiPublishers)

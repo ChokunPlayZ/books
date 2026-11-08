@@ -106,7 +106,21 @@ test("unrestricted sources remain available for every title language", () => {
 test("ISBN search links omit unrelated Thai shops and canonicalize ISBN-10", () => {
   assert.deepEqual(
     isbnSearchLinks("9786166247275").map((source) => source.id),
-    ["naiin", "phoenix", "firstpage", "animag", "dexpress", "kinokuniya"],
+    [
+      "naiin",
+      "yaakz",
+      "phoenix",
+      "firstpage",
+      "animag",
+      "dexpress",
+      "kinokuniya",
+    ],
+  );
+  assert.equal(
+    isbnSearchLinks("ISBN: 978-616-589-884-3").find(
+      (source) => source.id === "yaakz",
+    ).url,
+    "https://www.yaakz.com/search?q=9786165898843",
   );
   for (const isbn of ["4063951375", "0140328726", "9798400903526"])
     assert.deepEqual(
