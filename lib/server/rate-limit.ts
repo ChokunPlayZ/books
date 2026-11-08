@@ -1,5 +1,12 @@
 import { AppError, type Store } from "./store.ts";
 
+// Page loads fan out to multiple publisher feeds and can overlap across tabs or
+// refreshes. Give RPCs headroom without relaxing import/backup transfer limits.
+export const RPC_LIMITS = Object.freeze({
+  requestsPerMinute: 1_200,
+  concurrentRequests: 32,
+});
+
 // Stable, server-generated keys only: do not let callers choose an unbounded
 // namespace or spoof IP addresses through forwarded headers.
 export async function enforceRateLimit(

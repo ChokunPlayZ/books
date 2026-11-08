@@ -3,6 +3,7 @@ import { getApp } from "../../../lib/server/app.ts";
 import { authorize } from "../../../lib/server/auth.ts";
 import { AppError } from "../../../lib/server/store.ts";
 import {
+  RPC_LIMITS,
   enforceRateLimit,
   limitConcurrentRequests,
 } from "../../../lib/server/rate-limit.ts";
@@ -19,7 +20,12 @@ export async function POST(request: NextRequest) {
     const { store, api } = await getApp();
     const user = await authorize(store, request);
     sameOrigin(request);
-    await enforceRateLimit(store, `rpc:${user.id}`, 240, 60_000);
+    await enforceRateLimit(
+      store,
+      `rpc:${user.id}`,
+      RPC_LIMITS.requestsPerMinute,
+      60_000,
+    );
     // Bulk volume edits can include many volumes in a single transaction.
     const { name, arg } = await readJson(request, 1_000_000);
     if (!Object.hasOwn(api, name))
@@ -28,6 +34,7 @@ export async function POST(request: NextRequest) {
       await limitConcurrentRequests(
         user.id,
         async () => await store.forUser(user, () => api[name](arg)),
+        RPC_LIMITS.concurrentRequests,
       ),
     );
   } catch (error) {
