@@ -1,5 +1,5 @@
 import { digest } from "../domain.ts";
-import { ScrapeInterrupted } from "./scrape-runtime.ts";
+import { ScrapeInterrupted, isBackgroundScrape } from "./scrape-runtime.ts";
 
 // Seconds. Keep these independent of Next's fetch cache so CLI runs and restarts
 // share the same PostgreSQL entries as the web application.
@@ -68,8 +68,11 @@ export function createScrapeCache(cache: Cache) {
       load: () => Promise<T>,
     ): Promise<T> {
       const key = "scrape:v1:" + digest(source);
+      // A foreground request must never depend on a background loader that is
+      // paused precisely because that foreground request is now running.
+      const pendingKey = (isBackgroundScrape() ? "background:" : "") + key;
       // Share work even when a forced refresh overlaps an ordinary request.
-      if (!pending.has(key)) {
+      if (!pending.has(pendingKey)) {
         const request = (async () => {
           if (!refresh) {
             try {
@@ -107,11 +110,11 @@ export function createScrapeCache(cache: Cache) {
               await cache.put(key + ":retry", "1", SCRAPE_TTL.retry);
               throw error;
             });
-        })().finally(() => pending.delete(key));
-        pending.set(key, request);
+        })().finally(() => pending.delete(pendingKey));
+        pending.set(pendingKey, request);
       }
       // Callers annotate catalog records for their own shelf aliases and types.
-      return structuredClone((await pending.get(key)) as T);
+      return structuredClone((await pending.get(pendingKey)) as T);
     },
   };
 }
