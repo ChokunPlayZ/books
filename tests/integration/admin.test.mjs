@@ -35,6 +35,7 @@ test("admin inspection spans all libraries but never returns account credentials
   const records = await admin.getSystemRecords({
     resource: "books",
     search: "private reader",
+    confirmed: true,
   });
   assert.equal(records.total, 1);
   assert.equal(records.rows[0].user_id, user.id);

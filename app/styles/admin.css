@@ -3,6 +3,16 @@
   margin: 0 auto;
   padding: 36px 28px 80px;
 }
+.admin-link-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 0.75rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
 .data-header .header-links {
   flex-wrap: wrap;
   max-width: 100%;

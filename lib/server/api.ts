@@ -12,6 +12,7 @@ import { createSearchService } from "./search.ts";
 import { createScrapeQueue } from "./scrape-queue.ts";
 import { createAdminService } from "./admin.ts";
 import { createPublisherCrawls } from "./publisher-crawls.ts";
+import { createAdminUsers } from "./admin-users.ts";
 import { attachCoverPlaceholders } from "./covers.ts";
 import {
   createImportDiscovery,
@@ -220,6 +221,7 @@ export function createApplicationApi(
     ...maintenanceApi,
     ...search,
     ...createAdminService(store),
+    ...createAdminUsers(store),
     getPublisherCrawls: publisherCrawls.getPublisherCrawls,
     managePublisherCrawl: publisherCrawls.managePublisherCrawl,
     startPublisherCrawl: (arg) =>

@@ -8,6 +8,7 @@ import {
 } from "./auth.ts";
 import { googleSettings, safeReturnTo } from "./auth-config.ts";
 import { AppError, type Store } from "./store.ts";
+import { validateRelinkToken } from "./account-relink.ts";
 
 export const OAUTH_COOKIE = process.env.BOOKS_APP_URL?.trim()
   .toLowerCase()
@@ -54,8 +55,16 @@ export function oauthCookieOptions() {
   return { ...cookieOptions(), maxAge: ATTEMPT_SECONDS };
 }
 
-export async function beginGoogleSignIn(store: Store, returnTo: unknown) {
+export async function beginGoogleSignIn(
+  store: Store,
+  returnTo: unknown,
+  relinkToken?: unknown,
+) {
   const settings = googleSettings();
+  const relinkHash =
+    relinkToken === undefined
+      ? null
+      : await validateRelinkToken(store, relinkToken);
   const now = Date.now();
   // A hard bound keeps unauthenticated requests from growing the database forever.
   const state = oidc.randomState();
@@ -79,7 +88,7 @@ export async function beginGoogleSignIn(store: Store, returnTo: unknown) {
       throw new AppError("Sign-in is busy. Try again shortly.", 429);
     await store.db
       .prepare(
-        "INSERT INTO oauth_attempts (state_hash,browser_hash,code_verifier,nonce,return_to,expires_at) VALUES (?,?,?,?,?,?)",
+        "INSERT INTO oauth_attempts (state_hash,browser_hash,code_verifier,nonce,return_to,expires_at,relink_hash) VALUES (?,?,?,?,?,?,?)",
       )
       .run(
         authHash(state),
@@ -88,6 +97,7 @@ export async function beginGoogleSignIn(store: Store, returnTo: unknown) {
         nonce,
         safeReturnTo(returnTo),
         now + ATTEMPT_SECONDS * 1000,
+        relinkHash,
       );
   });
   const url = oidc.buildAuthorizationUrl(getClient(settings), {
@@ -127,6 +137,7 @@ export async function consumeGoogleAttempt(
     verifier: String(attempt.code_verifier),
     nonce: String(attempt.nonce),
     returnTo: String(attempt.return_to),
+    relinkHash: attempt.relink_hash ? String(attempt.relink_hash) : undefined,
   };
 }
 
@@ -167,7 +178,12 @@ export async function finishGoogleSignIn(
   };
   // Access, refresh and ID tokens are neither persisted nor sent to the browser.
   return {
-    ...(await signInWithGoogle(store, identity, settings.adminEmail)),
+    ...(await signInWithGoogle(
+      store,
+      identity,
+      settings.adminEmail,
+      attempt.relinkHash,
+    )),
     returnTo: attempt.returnTo,
   };
 }

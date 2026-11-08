@@ -1,5 +1,6 @@
 import {
   SYSTEM_RESOURCES,
+  PRIVATE_SYSTEM_RESOURCES,
   type SystemResource,
   type SystemRecords,
   type SystemOverview,
@@ -29,6 +30,8 @@ const projections: Record<SystemResource, string> = {
     "SELECT s.*,u.username FROM imports s JOIN users u ON u.id=s.user_id",
   receipts:
     "SELECT s.*,u.username FROM receipts s JOIN users u ON u.id=s.user_id",
+  admin_events:
+    "SELECT e.id,e.action,e.created_at,u.username,a.username AS administrator FROM admin_events e JOIN users u ON u.id=e.user_id JOIN users a ON a.id=e.actor_id",
 };
 
 export function createAdminService(store: Store) {
@@ -52,6 +55,7 @@ export function createAdminService(store: Store) {
     resource: SystemResource;
     search?: string;
     page?: number;
+    confirmed?: boolean;
   }): Promise<SystemRecords> {
     store.requireAdmin();
     if (
@@ -61,6 +65,14 @@ export function createAdminService(store: Store) {
     )
       throw new AppError("Choose a system record category.");
     const resource = request.resource;
+    if (
+      PRIVATE_SYSTEM_RESOURCES.includes(resource) &&
+      request.confirmed !== true
+    )
+      throw new AppError(
+        "Confirm before loading private library records.",
+        403,
+      );
     const search = String(request.search || "")
       .trim()
       .toLowerCase()

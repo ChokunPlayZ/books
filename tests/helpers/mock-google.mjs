@@ -107,28 +107,31 @@ export async function mockGooglePage(page, identity) {
   // Playwright only routes the first request in a server-redirect chain. Keep
   // the real start response/cookie, then navigate explicitly to the fake Google
   // document so no test ever contacts Google's actual sign-in service.
-  await page.route("**/api/auth/google?**", async (route) => {
-    const response = await route.fetch({ maxRedirects: 0 });
-    const location = response.headers().location;
-    if (
-      response.status() !== 303 ||
-      !location?.startsWith("https://accounts.google.com/")
-    )
-      throw new Error(
-        "Google start did not return its expected redirect: " +
-          (await response.text()),
-      );
-    await route.fulfill({
-      response,
-      status: 200,
-      headers: {
-        ...response.headers(),
-        location: "",
-        "content-type": "text/html",
-      },
-      body: `<script>location.replace(${JSON.stringify(location)})</script>`,
-    });
-  });
+  await page.route(
+    /\/api\/auth\/google(?:\?|\/relink(?:\?|$))/,
+    async (route) => {
+      const response = await route.fetch({ maxRedirects: 0 });
+      const location = response.headers().location;
+      if (
+        response.status() !== 303 ||
+        !location?.startsWith("https://accounts.google.com/")
+      )
+        throw new Error(
+          "Google start did not return its expected redirect: " +
+            (await response.text()),
+        );
+      await route.fulfill({
+        response,
+        status: 200,
+        headers: {
+          ...response.headers(),
+          location: "",
+          "content-type": "text/html",
+        },
+        body: `<script>location.replace(${JSON.stringify(location)})</script>`,
+      });
+    },
+  );
   await page.route(
     "https://accounts.google.com/o/oauth2/v2/auth?**",
     async (route) => {

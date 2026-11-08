@@ -10,8 +10,19 @@ export const SYSTEM_RESOURCES = {
   options: "Library dropdown options",
   imports: "Import receipts",
   receipts: "Mutation receipts",
+  admin_events: "Administrator audit log",
 } as const;
 export type SystemResource = keyof typeof SYSTEM_RESOURCES;
+export const PRIVATE_SYSTEM_RESOURCES: readonly SystemResource[] = [
+  "books",
+  "saved_releases",
+  "series_catalogs",
+  "user_cover_sources",
+  "cover_access",
+  "options",
+  "imports",
+  "receipts",
+];
 export type SystemOverview = {
   counts: Record<SystemResource | "cache" | "sessions", number>;
 };

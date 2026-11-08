@@ -103,6 +103,22 @@ const migrations = [
     host TEXT PRIMARY KEY, available_at BIGINT NOT NULL, owner TEXT NOT NULL
   );
   `,
+  `
+  ALTER TABLE users ADD COLUMN disabled BOOLEAN NOT NULL DEFAULT false;
+  CREATE TABLE account_relinks (
+    token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id),
+    destination_email TEXT NOT NULL, credential_hash TEXT NOT NULL,
+    created_by INTEGER NOT NULL REFERENCES users(id), created_at BIGINT NOT NULL,
+    expires_at BIGINT NOT NULL, used_at BIGINT
+  );
+  CREATE INDEX account_relinks_user ON account_relinks(user_id);
+  ALTER TABLE oauth_attempts ADD COLUMN relink_hash TEXT;
+  CREATE TABLE admin_events (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    actor_id INTEGER NOT NULL REFERENCES users(id), user_id INTEGER NOT NULL REFERENCES users(id),
+    action TEXT NOT NULL, created_at BIGINT NOT NULL
+  );
+  `,
 ];
 
 export async function migrateDatabase(pool: Pool) {

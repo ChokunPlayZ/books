@@ -1106,4 +1106,68 @@ export const thai: Record<string, string> = {
     "งานเบื้องหลัง · ให้การค้นหาของผู้ใช้ก่อน",
   "Use Publisher crawls to pause or cancel.":
     "ใช้หน้ารวบรวมข้อมูลสำนักพิมพ์เพื่อพักหรือยกเลิก",
+  Users: "ผู้ใช้",
+  "Manage users": "จัดการผู้ใช้",
+  "Account details do not load private libraries. Opening a library requires confirmation and is recorded in the audit log.":
+    "ข้อมูลบัญชีจะไม่โหลดคลังส่วนตัว การเปิดคลังต้องยืนยันและจะถูกบันทึกไว้ในประวัติการตรวจสอบ",
+  "Search users": "ค้นหาผู้ใช้",
+  "Name, email or account ID": "ชื่อ อีเมล หรือรหัสบัญชี",
+  "Add user": "เพิ่มผู้ใช้",
+  "Account name": "ชื่อบัญชี",
+  "Google email": "อีเมล Google",
+  "Create account": "สร้างบัญชี",
+  "users matching filters": "ผู้ใช้ที่ตรงกับตัวกรอง",
+  Disabled: "ปิดใช้งาน",
+  Active: "ใช้งานอยู่",
+  "Google linked": "เชื่อม Google แล้ว",
+  "Not linked yet": "ยังไม่ได้เชื่อม",
+  "Manage account": "จัดการบัญชี",
+  "Account details": "ข้อมูลบัญชี",
+  "Active sessions": "เซสชันที่ใช้งานอยู่",
+  "Rename account": "เปลี่ยนชื่อบัญชี",
+  "Make user": "เปลี่ยนเป็นผู้ใช้",
+  "Make administrator": "เปลี่ยนเป็นผู้ดูแลระบบ",
+  "Enable account": "เปิดใช้งานบัญชี",
+  "Disable account": "ปิดใช้งานบัญชี",
+  "Sign out all sessions": "ออกจากระบบทุกเซสชัน",
+  "Apply this account change? Access changes will sign this user out.":
+    "ยืนยันการแก้ไขบัญชีหรือไม่? การเปลี่ยนสิทธิ์จะให้ผู้ใช้ออกจากระบบ",
+  "Re-link Google account": "เชื่อมบัญชี Google ใหม่",
+  "Creates a single-use invitation valid for 24 hours for the destination email. The library stays intact; old sessions are revoked only after successful re-linking. Existing libraries are never merged.":
+    "สร้างคำเชิญใช้ครั้งเดียวภายใน 24 ชั่วโมงสำหรับอีเมลปลายทาง คลังหนังสือยังคงเดิม เซสชันเก่าจะสิ้นสุดเมื่อเชื่อมสำเร็จเท่านั้น และจะไม่รวมคลังเข้าด้วยกัน",
+  "Generate a re-link invitation for this account and destination email? Any previous invitation will stop working.":
+    "สร้างคำเชิญเชื่อมใหม่สำหรับบัญชีและอีเมลปลายทางนี้หรือไม่? คำเชิญเดิมจะใช้ไม่ได้",
+  "Destination Google email": "อีเมล Google ปลายทาง",
+  "Generate re-link URL": "สร้างลิงก์เชื่อมบัญชีใหม่",
+  "Revoke outstanding re-link invitations?":
+    "ยกเลิกคำเชิญเชื่อมบัญชีใหม่ที่ยังไม่ได้ใช้หรือไม่?",
+  "Revoke invitations": "ยกเลิกคำเชิญ",
+  "Re-link URL": "ลิงก์เชื่อมบัญชีใหม่",
+  "Copy link": "คัดลอกลิงก์",
+  "Private library": "คลังส่วนตัว",
+  "Load this user's private library, including notes and purchase details? This access will be recorded.":
+    "โหลดคลังส่วนตัวของผู้ใช้นี้ รวมถึงหมายเหตุและรายละเอียดการซื้อหรือไม่? การเข้าถึงนี้จะถูกบันทึก",
+  "View library (confirmation required)": "ดูคลังหนังสือ (ต้องยืนยัน)",
+  "Hide library": "ซ่อนคลังหนังสือ",
+  "Library category": "ประเภทข้อมูลในคลัง",
+  "Search library": "ค้นหาในคลัง",
+  "Load private library records? This action is restricted to administrators.":
+    "โหลดข้อมูลคลังส่วนตัวหรือไม่? เฉพาะผู้ดูแลระบบเท่านั้นที่ใช้การทำงานนี้ได้",
+  "Re-link your library": "เชื่อมคลังหนังสือใหม่",
+  "Continue with the destination Google account specified by your administrator. Your existing books, notes, saved releases and preferences will stay together. This replaces the old account's access and signs out its sessions. No libraries will be merged.":
+    "ดำเนินการด้วยบัญชี Google ปลายทางที่ผู้ดูแลระบบระบุ หนังสือ หมายเหตุ หนังสือที่บันทึกไว้ และการตั้งค่าจะยังคงอยู่ โดยแทนที่สิทธิ์บัญชีเก่าและออกจากระบบทุกเซสชัน จะไม่มีการรวมคลัง",
+  "Open the complete invitation link from your administrator. Expired or used invitations require a new link.":
+    "เปิดลิงก์คำเชิญฉบับเต็มจากผู้ดูแลระบบ หากหมดอายุหรือใช้แล้ว ต้องขอลิงก์ใหม่",
+  "I understand this replaces the Google account linked to my library.":
+    "ฉันเข้าใจว่าการทำงานนี้จะแทนที่บัญชี Google ที่เชื่อมกับคลังหนังสือ",
+  "Choose destination Google account": "เลือกบัญชี Google ปลายทาง",
+  Created: "สร้างเมื่อ",
+  Expires: "หมดอายุ",
+  "Library loaded read-only.": "โหลดคลังแบบอ่านอย่างเดียวแล้ว",
+  "Link copied.": "คัดลอกลิงก์แล้ว",
+  "Select and copy the link manually.": "เลือกและคัดลอกลิงก์ด้วยตนเอง",
+  "Re-link invitation created. Copy it now; it is only shown once.":
+    "สร้างคำเชิญเชื่อมใหม่แล้ว โปรดคัดลอกตอนนี้ เพราะจะแสดงเพียงครั้งเดียว",
+  "Saved releases": "หนังสือออกใหม่ที่บันทึกไว้",
+  "Administrator audit log": "ประวัติการทำงานของผู้ดูแลระบบ",
 };

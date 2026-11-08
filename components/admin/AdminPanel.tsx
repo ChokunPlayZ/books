@@ -14,6 +14,7 @@ import {
 } from "../../lib/metadata.ts";
 import {
   SYSTEM_RESOURCES,
+  PRIVATE_SYSTEM_RESOURCES,
   type SystemOverview,
   type SystemRecords,
   type SystemResource,
@@ -21,6 +22,7 @@ import {
 import { canonicalIsbn } from "../../lib/domain/isbn.ts";
 import { useTranslations } from "../PreferencesProvider";
 import PublisherCrawlsPanel from "./PublisherCrawlsPanel";
+import AdminUsersPanel from "./AdminUsersPanel";
 
 async function rpc<T>(name: string, arg?: unknown): Promise<T> {
   const response = await fetch("/api/rpc", {
@@ -90,9 +92,9 @@ export default function AdminPanel({
   initialRecords: SystemRecords;
 }) {
   const t = useTranslations();
-  const [tab, setTab] = useState<"queue" | "crawls" | "metadata" | "records">(
-    "queue",
-  );
+  const [tab, setTab] = useState<
+    "queue" | "crawls" | "users" | "metadata" | "records"
+  >("queue");
   const [queue, setQueue] = useState(initialQueue);
   const [queueQuery, setQueueQuery] = useState<QueueQuery>({
     status: "all",
@@ -111,6 +113,7 @@ export default function AdminPanel({
     resource: "users" as SystemResource,
     search: "",
     page: 1,
+    confirmed: false,
   });
   const [selected, setSelected] = useState<JobDetail | null>(null);
   const selectedId = useRef<string | null>(null);
@@ -243,6 +246,7 @@ export default function AdminPanel({
             [
               ["queue", "Scraping queue"],
               ["crawls", "Publisher crawls"],
+              ["users", "Users"],
               ["metadata", "Metadata & caches"],
               ["records", "System records"],
             ] as const
@@ -557,6 +561,7 @@ export default function AdminPanel({
       )}
 
       {tab === "crawls" && <PublisherCrawlsPanel />}
+      {tab === "users" && <AdminUsersPanel />}
       {tab === "metadata" && (
         <section aria-labelledby="metadataHeading">
           <h2 id="metadataHeading">{t("Metadata & caches")}</h2>
@@ -875,13 +880,33 @@ export default function AdminPanel({
               <select
                 aria-label={t("Record category")}
                 value={recordQuery.resource}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const resource = e.target.value as SystemResource;
+                  const privateRecords =
+                    PRIVATE_SYSTEM_RESOURCES.includes(resource);
+                  if (
+                    privateRecords &&
+                    !window.confirm(
+                      t(
+                        "Load private library records? This action is restricted to administrators.",
+                      ),
+                    )
+                  )
+                    return;
+                  setRecords({
+                    resource,
+                    rows: [],
+                    total: 0,
+                    page: 1,
+                    pages: 1,
+                  });
                   setRecordQuery({
-                    resource: e.target.value as SystemResource,
+                    resource,
                     search: "",
                     page: 1,
-                  })
-                }
+                    confirmed: privateRecords,
+                  });
+                }}
               >
                 {Object.entries(SYSTEM_RESOURCES).map(([id, name]) => (
                   <option key={id} value={id}>

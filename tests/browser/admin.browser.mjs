@@ -9,7 +9,10 @@ import {
   createApplicationApi,
   applicationQueue,
 } from "../../lib/server/api.ts";
-import { googleTestEnvironment } from "../helpers/mock-google.mjs";
+import {
+  googleTestEnvironment,
+  mockGooglePage,
+} from "../helpers/mock-google.mjs";
 
 const key = "admin-browser-" + crypto.randomUUID();
 const store = await openTestStore(key);
@@ -65,18 +68,22 @@ await new Promise((resolve) => socket.listen(0, "127.0.0.1", resolve));
 const port = socket.address().port;
 await new Promise((resolve) => socket.close(resolve));
 const url = `http://127.0.0.1:${port}`;
-const server = spawn(process.execPath, [".next/standalone/server.js"], {
-  env: {
-    ...process.env,
-    NODE_ENV: "production",
-    HOSTNAME: "127.0.0.1",
-    PORT: String(port),
-    DATABASE_URL: await testDatabaseUrl(key),
-    BOOKS_APP_URL: url,
-    ...googleTestEnvironment(),
+const server = spawn(
+  process.execPath,
+  ["--import", "./tests/helpers/mock-google.mjs", ".next/standalone/server.js"],
+  {
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+      HOSTNAME: "127.0.0.1",
+      PORT: String(port),
+      DATABASE_URL: await testDatabaseUrl(key),
+      BOOKS_APP_URL: url,
+      ...googleTestEnvironment(),
+    },
+    stdio: ["ignore", "pipe", "pipe"],
   },
-  stdio: ["ignore", "pipe", "pipe"],
-});
+);
 let logs = "";
 server.stdout.on("data", (chunk) => {
   logs = (logs + chunk).slice(-6000);
@@ -169,6 +176,13 @@ try {
     ["manageScrapeJob", { id: initialJob, action: "fasttrack" }],
     ["enqueueScrapeTask", { kind: "lookupIsbn", arg: { isbn } }],
     ["enqueueMetadataRecrawl", { id: "any" }],
+    ["getAdminUsers"],
+    ["getAdminUserLibrary", { userId: 1, confirmed: true }],
+    ["manageAdminUser", { userId: 1, action: "disable" }],
+    ["createAccountRelink", { userId: 1, email: "attacker@gmail.com" }],
+    ["revokeAccountRelinks", { userId: 1 }],
+    ["getPublisherCrawls"],
+    ["startPublisherCrawl", { publisherId: "yenpress", mode: "all" }],
   ])
     assert.equal(
       (await rpc(readerContext, name, arg)).status(),
@@ -236,6 +250,7 @@ try {
   await page
     .getByRole("button", { name: "System records", exact: true })
     .click();
+  page.once("dialog", (dialog) => dialog.accept());
   await page
     .getByLabel("Record category", { exact: true })
     .selectOption("books");
@@ -255,6 +270,88 @@ try {
     JSON.stringify(accounts),
     /password_hash|google_subject|credential_hash|token_hash/,
   );
+  await page.getByRole("button", { name: "Users", exact: true }).click();
+  let libraryRequests = 0;
+  page.on("request", (request) => {
+    if (
+      request.url().endsWith("/api/rpc") &&
+      request.postDataJSON()?.name === "getAdminUserLibrary"
+    )
+      libraryRequests++;
+  });
+  await page
+    .getByRole("row")
+    .filter({ hasText: "reader@gmail.com" })
+    .getByRole("button", { name: "Manage account", exact: true })
+    .click();
+  assert.equal(libraryRequests, 0);
+  assert.equal(await page.getByText("Keep this note").count(), 0);
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page
+    .getByRole("button", {
+      name: "View library (confirmation required)",
+      exact: true,
+    })
+    .click();
+  assert.equal(
+    libraryRequests,
+    0,
+    "declining confirmation never loads library data",
+  );
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .getByRole("button", {
+      name: "View library (confirmation required)",
+      exact: true,
+    })
+    .click();
+  await page.getByText("Reader private inspection", { exact: true }).waitFor();
+  assert.equal(libraryRequests, 1);
+  await page
+    .getByLabel("Destination Google email", { exact: true })
+    .fill("destination@gmail.com");
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .getByRole("button", { name: "Generate re-link URL", exact: true })
+    .click();
+  const linkField = page.getByLabel("Re-link URL", { exact: true });
+  await linkField.waitFor();
+  const link = await linkField.inputValue();
+  assert.match(link, /\/relink#token=[a-f0-9]{64}$/);
+  const recipientContext = await browser.newContext();
+  const recipient = await recipientContext.newPage();
+  await mockGooglePage(recipient, {
+    sub: "relinked-admin-browser",
+    email: "destination@gmail.com",
+    email_verified: true,
+  });
+  await recipient.goto(link);
+  await recipient
+    .getByRole("button", {
+      name: "Choose destination Google account",
+      exact: true,
+    })
+    .waitFor();
+  assert.equal(
+    recipient.url(),
+    url + "/relink",
+    "the invitation fragment is removed after loading",
+  );
+  await recipient.getByRole("checkbox").check();
+  await recipient
+    .getByRole("button", {
+      name: "Choose destination Google account",
+      exact: true,
+    })
+    .click();
+  await recipient.waitForURL(url + "/").catch((error) => {
+    throw new Error(
+      `${error.message}\nCurrent page: ${recipient.url()}\nServer: ${logs}`,
+    );
+  });
+  const relinked = await (await rpc(recipientContext, "getCollection")).json();
+  assert.equal(relinked.books[0].series, "Reader private inspection");
+  assert.equal((await rpc(readerContext, "getCollection")).status(), 401);
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(
     await page.evaluate(

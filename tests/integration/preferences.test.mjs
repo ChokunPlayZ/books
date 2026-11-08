@@ -124,9 +124,19 @@ test("schema initialization preserves accounts, books and active sessions", asyn
     },
   });
   const before = (await store.api.getCollection()).books;
+  const latest = (
+    await store.db
+      .prepare("SELECT MAX(version) AS version FROM schema_migrations")
+      .get()
+  ).version;
   // Recreate the previous schema so reopening exercises the photo migration.
   await store.db.exec("ALTER TABLE users DROP COLUMN picture");
-  await store.db.exec("DELETE FROM schema_migrations WHERE version=4");
+  await store.db.exec("ALTER TABLE users DROP COLUMN disabled");
+  await store.db.exec("ALTER TABLE oauth_attempts DROP COLUMN relink_hash");
+  await store.db.exec(
+    "DROP TABLE admin_events,account_relinks,publisher_request_slots,publisher_crawl_seen,publisher_crawls",
+  );
+  await store.db.exec("DELETE FROM schema_migrations WHERE version>=4");
   await store.close();
   store = await openStore(path);
   try {
@@ -136,7 +146,7 @@ test("schema initialization preserves accounts, books and active sessions", asyn
           .prepare("SELECT MAX(version) AS version FROM schema_migrations")
           .get()
       ).version,
-      4,
+      latest,
     );
     assert.equal((await store.account.get()).picture, null);
     assert.ok(await sessionUser(store, token));

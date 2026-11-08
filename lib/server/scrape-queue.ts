@@ -189,9 +189,9 @@ export function createScrapeQueue(
         if (!crawl || ["cancelled", "failed"].includes(crawl.status))
           throw new AppError("Publisher crawl stopped.", 409);
         const user = await store.db
-          .prepare("SELECT role FROM users WHERE id=?")
+          .prepare("SELECT role,disabled FROM users WHERE id=?")
           .get(row.user_id);
-        if (user?.role !== "admin")
+        if (user?.role !== "admin" || user.disabled)
           throw new AppError("Administrator access revoked.", 403);
         const settings = await store.db
           .prepare("SELECT paused FROM scrape_queue_settings WHERE id=1")

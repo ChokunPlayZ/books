@@ -25,7 +25,7 @@ export async function sessionUser(
       `
     SELECT users.id,users.username,users.role,users.google_subject,sessions.credential_hash
     FROM sessions JOIN users ON users.id=sessions.user_id
-    WHERE token_hash=? AND expires_at>?
+    WHERE token_hash=? AND expires_at>? AND users.disabled=false
   `,
     )
     .get(authHash(token), Date.now());
@@ -107,6 +107,7 @@ export async function signInWithGoogle(
   store: Store,
   identity: GoogleIdentity,
   adminEmail = process.env.BOOKS_ADMIN_EMAIL,
+  relinkHash?: string,
 ) {
   const email = normalizeEmail(identity.email);
   if (
@@ -120,9 +121,73 @@ export async function signInWithGoogle(
       403,
     );
   return store.transaction(async () => {
+    if (relinkHash) {
+      const link = await store.db
+        .prepare("SELECT * FROM account_relinks WHERE token_hash=? FOR UPDATE")
+        .get(relinkHash);
+      if (!link || link.used_at !== null || link.expires_at <= Date.now())
+        throw new AppError(
+          "This re-link invitation expired or was already used. Ask the administrator for a new link.",
+          403,
+        );
+      const target = await store.db
+        .prepare("SELECT * FROM users WHERE id=? FOR UPDATE")
+        .get(link.user_id);
+      if (
+        !target ||
+        target.disabled ||
+        link.credential_hash !==
+          authHash("google:" + (target.google_subject || ""))
+      )
+        throw new AppError("This re-link invitation is no longer valid.", 403);
+      if (email !== link.destination_email)
+        throw new AppError(
+          "Choose the Google account specified in your re-link invitation.",
+          403,
+        );
+      if (
+        !email.endsWith("@gmail.com") &&
+        identity.hd?.toLowerCase() !== email.split("@")[1]
+      )
+        throw new AppError(
+          "Use a Gmail or Google Workspace account to link an existing library.",
+          403,
+        );
+      const conflict = await store.db
+        .prepare(
+          "SELECT id FROM users WHERE id<>? AND (google_subject=? OR lower(email)=?)",
+        )
+        .get(target.id, identity.sub, email);
+      if (conflict)
+        throw new AppError(
+          "This Google account already has a library. Libraries are never merged by a re-link invitation.",
+          409,
+        );
+      await store.db
+        .prepare("UPDATE users SET google_subject=?,email=? WHERE id=?")
+        .run(identity.sub, email, target.id);
+      await store.db
+        .prepare("DELETE FROM sessions WHERE user_id=?")
+        .run(target.id);
+      await store.db
+        .prepare(
+          "UPDATE account_relinks SET used_at=? WHERE user_id=? AND used_at IS NULL",
+        )
+        .run(Date.now(), target.id);
+      await store.db
+        .prepare(
+          "INSERT INTO admin_events(actor_id,user_id,action,created_at) VALUES (?,?,'account-relinked',?)",
+        )
+        .run(link.created_by, target.id, Date.now());
+    }
     let user = await store.db
       .prepare("SELECT * FROM users WHERE google_subject=?")
       .get(identity.sub);
+    if (user?.disabled)
+      throw new AppError(
+        "This account is disabled. Contact the administrator.",
+        403,
+      );
     const reserved = await store.db
       .prepare("SELECT * FROM users WHERE lower(email)=lower(?)")
       .get(email);
@@ -141,6 +206,11 @@ export async function signInWithGoogle(
           ? admin
           : null);
       if (target) {
+        if (target.disabled)
+          throw new AppError(
+            "This account is disabled. Contact the administrator.",
+            403,
+          );
         if (target.google_subject)
           throw new AppError(
             "This library is already linked to a different Google account.",

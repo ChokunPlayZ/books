@@ -1206,7 +1206,10 @@ export async function openStore(
         id: number;
         username: string;
         role: User["role"];
-      }>("SELECT id,username,role FROM users WHERE id=?", user.id);
+      }>(
+        "SELECT id,username,role FROM users WHERE id=? AND disabled=false",
+        user.id,
+      );
       if (!account) throw new AppError("Sign in to open your library.", 401);
       return users.run(account, action);
     },

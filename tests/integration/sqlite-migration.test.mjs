@@ -22,7 +22,12 @@ async function sqliteFixture(store, path, version) {
     );
     for (const { table_name: table } of tables) {
       // The durable queue was introduced after SQLite support ended.
-      if (table.startsWith("scrape_")) continue;
+      if (
+        table.startsWith("scrape_") ||
+        table.startsWith("publisher_") ||
+        ["account_relinks", "admin_events"].includes(table)
+      )
+        continue;
       if (version < 6 && ["oauth_attempts", "request_limits"].includes(table))
         continue;
       const { rows: columns } = await store.db.query(
@@ -31,6 +36,7 @@ async function sqliteFixture(store, path, version) {
       );
       const included = columns.filter(
         ({ column_name }) =>
+          !["disabled", "relink_hash"].includes(column_name) &&
           !(version < 7 && ["locale", "theme"].includes(column_name)) &&
           !(version < 6 && ["google_subject", "email"].includes(column_name)),
       );
