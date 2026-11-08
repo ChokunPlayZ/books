@@ -31,6 +31,15 @@ const readerSession = await signInWithGoogle(store, {
   email: "reader@gmail.com",
   email_verified: true,
 });
+const cover = await store.forUser(readerSession.user, () =>
+  store.covers.put({
+    body: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWP4//8/AAX+Av5Y8msOAAAAAElFTkSuQmCC",
+      "base64",
+    ),
+    contentType: "image/png",
+  }),
+);
 await store.forUser(readerSession.user, () =>
   store.api.saveBook({
     requestId: crypto.randomUUID(),
@@ -38,7 +47,10 @@ await store.forUser(readerSession.user, () =>
       series: "Reader private inspection",
       type: "Other",
       status: "Read",
-      note: "Admin can inspect this record",
+      note: 'Admin can inspect this record\n{"mood":"happy"}\n<em>Keep this literal note</em>',
+      coverId: cover.id,
+      volume: 2,
+      publisher: "Reader publisher",
     },
   }),
 );
@@ -60,7 +72,11 @@ await store.cache.put(
   JSON.stringify({
     isbn,
     found: true,
-    details: { title: "Queue browser fixture" },
+    details: {
+      title: "Queue browser fixture",
+      coverId: cover.id,
+      description: "First paragraph\nSecond paragraph",
+    },
     warnings: [],
   }),
   Infinity,
@@ -138,6 +154,37 @@ try {
   page.on("pageerror", (error) => errors.push(error.message));
   const rpc = (context, name, arg) =>
     context.request.post(url + "/api/rpc", { data: { name, arg } });
+  assert.equal(
+    (await adminContext.request.get(`${url}/api/covers/${cover.id}`)).status(),
+    404,
+  );
+  assert.equal(
+    (
+      await adminContext.request.get(
+        `${url}/api/covers/${cover.id}?inspection=1`,
+      )
+    ).status(),
+    200,
+  );
+  assert.equal(
+    (await adminContext.request.get(`${url}/api/covers/${cover.id}`)).status(),
+    404,
+    "inspection does not grant cover access",
+  );
+  assert.equal(
+    (
+      await readerContext.request.get(
+        `${url}/api/covers/${cover.id}?inspection=1`,
+      )
+    ).status(),
+    403,
+  );
+  assert.equal(
+    (
+      await anonymous.request.get(`${url}/api/covers/${cover.id}?inspection=1`)
+    ).status(),
+    401,
+  );
   const unauthenticated = await anonymous.request.get(url + "/admin", {
     maxRedirects: 0,
   });
@@ -238,6 +285,20 @@ try {
     await page.locator(".admin-events").innerText(),
     /Fast-tracked by administrator/,
   );
+  await page.getByText("Queue browser fixture", { exact: true }).waitFor();
+  assert.equal(await page.locator("#adminMain pre").count(), 0);
+  assert.match(
+    await page.locator(".admin-task-content").last().innerText(),
+    /First paragraph\nSecond paragraph/,
+  );
+  await page
+    .locator(".admin-task-content img")
+    .evaluate((image) => image.scrollIntoView());
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll(".admin-task-content img")].some(
+      (image) => image.complete && image.naturalWidth > 0,
+    ),
+  );
   await page.getByRole("button", { name: "Pause queue", exact: true }).click();
   await page
     .getByRole("button", { name: "Resume queue", exact: true })
@@ -256,19 +317,21 @@ try {
   const cachePreview = page.locator(".admin-card").filter({
     has: page.getByRole("heading", { name: "Cache preview", exact: true }),
   });
-  assert.match(
-    await cachePreview.locator("pre").innerText(),
-    /<h1>Deep cached browser fixture<\/h1>/,
+  assert.match(await cachePreview.innerText(), /Deep cached browser fixture/);
+  assert.doesNotMatch(
+    await cachePreview.innerText(),
+    /<h1>|<script>|window.adminCacheXss/,
   );
+  assert.equal(await cachePreview.locator("pre, script, iframe").count(), 0);
   assert.equal(await page.evaluate(() => window.adminCacheXss), undefined);
   await cachePreview
     .getByRole("button", { name: "Next text", exact: true })
     .click();
   await page.waitForFunction(() =>
-    [...document.querySelectorAll(".admin-card pre")].some(
-      (pre) =>
-        pre.textContent.length < 16000 &&
-        pre.textContent.endsWith("y".repeat(100)),
+    [...document.querySelectorAll(".admin-card .admin-readable-text")].some(
+      (text) =>
+        text.textContent.length < 16000 &&
+        text.textContent.endsWith("y".repeat(100)),
     ),
   );
   await cachePreview
@@ -296,13 +359,53 @@ try {
     .getByLabel("Record category", { exact: true })
     .selectOption("books");
   await page
-    .locator(".admin-records summary")
-    .filter({ hasText: "reader" })
+    .getByRole("heading", {
+      name: "Reader private inspection · Volume 2",
+      exact: true,
+    })
     .waitFor();
-  await page.locator(".admin-records summary").first().click();
   assert.match(
     await page.locator(".admin-records").innerText(),
     /Reader private inspection/,
+  );
+  const bookRecord = page
+    .locator(".admin-records .admin-record")
+    .filter({ hasText: "Reader private inspection" });
+  assert.match(await bookRecord.innerText(), /Reader publisher/);
+  assert.match(await bookRecord.innerText(), /Admin can inspect this record/);
+  assert.match(await bookRecord.innerText(), /\{"mood":"happy"\}/);
+  assert.match(
+    await bookRecord.innerText(),
+    /<em>Keep this literal note<\/em>/,
+  );
+  assert.equal(await bookRecord.locator(".admin-record-notes em").count(), 0);
+  await bookRecord
+    .getByRole("img", { name: "Reader private inspection", exact: true })
+    .scrollIntoViewIfNeeded();
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll(".admin-records img")].some(
+      (image) => image.complete && image.naturalWidth > 0,
+    ),
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+    true,
+  );
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page
+    .getByLabel("Record category", { exact: true })
+    .selectOption("covers");
+  await page
+    .getByRole("heading", { name: "Stored cover", exact: true })
+    .waitFor();
+  await page.locator(".admin-records img").scrollIntoViewIfNeeded();
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll(".admin-records img")].some(
+      (image) => image.complete && image.naturalWidth > 0,
+    ),
   );
   const accounts = await (
     await rpc(adminContext, "getSystemRecords", { resource: "users" })
@@ -346,7 +449,12 @@ try {
       exact: true,
     })
     .click();
-  await page.getByText("Reader private inspection", { exact: true }).waitFor();
+  await page
+    .getByRole("heading", {
+      name: "Reader private inspection · Volume 2",
+      exact: true,
+    })
+    .waitFor();
   assert.equal(libraryRequests, 1);
   await page
     .getByLabel("Destination Google email", { exact: true })

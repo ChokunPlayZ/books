@@ -19,6 +19,7 @@ import type {
 import type { openStore } from "./store.ts";
 import { AppError } from "./store.ts";
 import type { createCatalogService } from "./catalogs.ts";
+import { cachePreviewData } from "./cache-preview.ts";
 
 type Store = Awaited<ReturnType<typeof openStore>>;
 type Catalogs = ReturnType<typeof createCatalogService>;
@@ -356,11 +357,19 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
       );
     const value = String(row.value);
     let formatted = value;
+    let record: unknown = value;
+    let sourceBody: {
+      metadata: Record<string, unknown>;
+      body: string;
+      start: number;
+    } | null = null;
     try {
-      const record = JSON.parse(value);
-      if (record && typeof record.value === "string" && record.source) {
-        const { value: body, ...metadata } = record;
+      record = JSON.parse(value);
+      const object = record as Record<string, unknown>;
+      if (object && typeof object.value === "string" && object.source) {
+        const { value: body, ...metadata } = object;
         formatted = JSON.stringify(metadata, null, 2) + "\n\n" + body;
+        sourceBody = { metadata, body, start: formatted.length - body.length };
       } else formatted = JSON.stringify(record, null, 2);
     } catch {
       /* Plain cached URLs remain readable. */
@@ -376,6 +385,20 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
     );
     return {
       content: formatted.slice(offset, offset + 16000),
+      data: sourceBody
+        ? {
+            ...(cachePreviewData(sourceBody.metadata, 0) as Record<
+              string,
+              unknown
+            >),
+            value: sourceBody.body.slice(
+              Math.max(0, offset - sourceBody.start),
+              Math.max(0, offset + 16000 - sourceBody.start),
+            ),
+          }
+        : typeof record === "string" && record === value
+          ? value.slice(offset, offset + 16000)
+          : cachePreviewData(record, offset),
       truncated: offset > 0 || formatted.length > 16000,
       offset,
       totalCharacters: formatted.length,

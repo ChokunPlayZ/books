@@ -8,6 +8,7 @@ import type {
 } from "../../lib/admin-users.ts";
 import { useTranslations } from "../PreferencesProvider";
 import { adminRpc } from "./rpc.ts";
+import { RecordCard } from "./RecordContent";
 
 export default function AdminUsersPanel() {
   const t = useTranslations();
@@ -470,19 +471,15 @@ export default function AdminUsersPanel() {
               </p>
               <div className="admin-records">
                 {library.rows.map((row, index) => (
-                  <details
-                    className="admin-card"
+                  <RecordCard
                     key={`${library.page}-${index}`}
-                  >
-                    <summary>
-                      {String(
-                        row.series || row.id || row.series_key || t("Record"),
-                      )}
-                      {row.removed_at ? ` · ${t("Removed")}` : ""}
-                    </summary>
-                    <pre>{JSON.stringify(row, null, 2)}</pre>
-                  </details>
+                    row={row}
+                    resource={libraryQuery.resource}
+                  />
                 ))}
+                {!library.rows.length && (
+                  <p>{t("No system records match these filters.")}</p>
+                )}
               </div>
               <div className="admin-pager">
                 <button

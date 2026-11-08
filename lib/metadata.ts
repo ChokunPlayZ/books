@@ -19,6 +19,7 @@ export type MetadataQuery = {
 };
 export type CachePreview = {
   content: string;
+  data: unknown;
   truncated: boolean;
   offset: number;
   totalCharacters: number;

@@ -19,7 +19,10 @@ export async function GET(
     if (!/^[a-f0-9]{64}$/.test(id || ""))
       throw new AppError("Choose a stored cover.", 400);
     const image = await store.forUser(user, async () => {
-      if (!(await store.covers.canAccess(id)))
+      // Read-only administrator previews never grant library cover permissions.
+      if (request.nextUrl.searchParams.get("inspection") === "1")
+        store.requireAdmin();
+      else if (!(await store.covers.canAccess(id)))
         throw new AppError("Cover not found.", 404);
       return await covers.get(id, true);
     });

@@ -56,12 +56,21 @@ test("administrators search nested scraped content and raw response tails withou
   assert.match(preview.content, /<h1>Hidden Response Title<\/h1>/);
   assert.ok(preview.nextOffset > preview.offset);
   assert.equal(preview.content.length, 16000);
+  assert.match(preview.data.value, /<h1>Hidden Response Title<\/h1>/);
+  assert.equal(preview.data.source, "text:https://yenpress.com/catalog");
+  assert.ok(preview.data.value.length <= 16000);
   const final = await api.getMetadataCacheEntry({
     key: "scrape:v1:raw",
     offset: preview.nextOffset,
   });
   assert.equal(final.nextOffset, null);
   assert.ok(final.content.endsWith("z".repeat(100)));
+  assert.ok(final.data.value.endsWith("z".repeat(100)));
+  assert.deepEqual(
+    (await api.getMetadataCacheEntry({ key: "publisher-catalog:v1:nested" }))
+      .data,
+    { items: [{ title: "Nested searchable title", isbn: "9780316769488" }] },
+  );
   await assert.rejects(
     api.getMetadataCacheEntry({ key: "scrape:v1:raw", offset: -1 }),
     { status: 400 },

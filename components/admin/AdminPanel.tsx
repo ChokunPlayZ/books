@@ -24,6 +24,7 @@ import { canonicalIsbn } from "../../lib/domain/isbn.ts";
 import { useTranslations } from "../PreferencesProvider";
 import PublisherCrawlsPanel from "./PublisherCrawlsPanel";
 import AdminUsersPanel from "./AdminUsersPanel";
+import { RecordCard, RecordContent } from "./RecordContent";
 
 async function rpc<T>(name: string, arg?: unknown): Promise<T> {
   const response = await fetch("/api/rpc", {
@@ -44,7 +45,6 @@ const formatTime = (value: number | string | null) =>
         .replace("T", " ")
         .replace(/\.\d{3}Z$/, " UTC")
     : "—";
-const json = (value: unknown) => JSON.stringify(value, null, 2);
 
 function Pager({
   page,
@@ -557,14 +557,18 @@ export default function AdminPanel({
                   </li>
                 ))}
               </ol>
-              <details>
-                <summary>{t("Task input")}</summary>
-                <pre>{json(selected.payload)}</pre>
-              </details>
-              <details>
-                <summary>{t("Task result")}</summary>
-                <pre>{json(selected.result)}</pre>
-              </details>
+              <section className="admin-task-content">
+                <h4>{t("Task input")}</h4>
+                <RecordContent value={selected.payload} />
+              </section>
+              <section className="admin-task-content">
+                <h4>{t("Task result")}</h4>
+                {selected.result === null ? (
+                  <p className="admin-empty-value">{t("No result yet.")}</p>
+                ) : (
+                  <RecordContent value={selected.result} />
+                )}
+              </section>
             </section>
           )}
         </section>
@@ -869,8 +873,20 @@ export default function AdminPanel({
                   {t("Close")}
                 </button>
               </div>
-              <p>{preview.key}</p>
-              <pre>{preview.content}</pre>
+              <p className="admin-record-key">{preview.key}</p>
+              <RecordContent
+                value={preview.data}
+                markup={
+                  metadata.entries.find((entry) => entry.key === preview.key)
+                    ?.group === "responses"
+                }
+                field={
+                  metadata.entries.find((entry) => entry.key === preview.key)
+                    ?.group === "covers"
+                    ? "coverUrl"
+                    : ""
+                }
+              />
               {preview.truncated && (
                 <div className="admin-pager">
                   <button
@@ -1000,25 +1016,11 @@ export default function AdminPanel({
           </p>
           <div className="admin-records">
             {records.rows.map((row, index) => (
-              <details
-                className="admin-card"
+              <RecordCard
                 key={`${records.resource}-${records.page}-${index}`}
-              >
-                <summary>
-                  {String(
-                    row.username ||
-                      row.series ||
-                      row.url ||
-                      row.id ||
-                      row.field ||
-                      row.fingerprint ||
-                      t("Record"),
-                  )}
-                  {row.user_id ? ` · account #${row.user_id}` : ""}
-                  {row.removed_at ? ` · ${t("Removed")}` : ""}
-                </summary>
-                <pre>{json(row)}</pre>
-              </details>
+                row={row}
+                resource={records.resource}
+              />
             ))}
             {!records.rows.length && (
               <p>{t("No system records match these filters.")}</p>
