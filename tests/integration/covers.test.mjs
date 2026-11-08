@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { createCoverService, coverDigest } from "../../lib/server/covers.ts";
 import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createApplicationApi } from "../../lib/server/api.ts";
+import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { parseImport } from "../../lib/server/importer.ts";
 import { releaseItem, volumeCoverKey } from "../../lib/domain.ts";
 import sharp from "sharp";
@@ -450,6 +451,147 @@ test("automatic IDs persist without becoming manual URLs, do not invalidate edit
     await store.covers.assign(changed.row, volume.coverId, original.token),
     "",
   );
+});
+
+test("cover choices retain an automatic stored cover and its original source when rediscovery finds nothing", async (t) => {
+  const store = await database(t);
+  const image = await store.covers.put(
+    { body: png, contentType: "image/png" },
+    source,
+  );
+  await store.api.saveBook({
+    requestId: "stored_cover_options_1",
+    book: { ...book, publisher: "", coverId: image.id },
+  });
+  const volume = (await store.api.getCollection()).books[0];
+  assert.equal(volume.coverUrl, "", "Automatic covers have no manual URL");
+  const catalogs = createCatalogService(
+    store,
+    () => assert.fail("Stored cover choices need no network"),
+    [],
+  );
+  const result = await catalogs.getBookCoverOptions({ row: volume.row });
+  assert.deepEqual(result.warnings, []);
+  assert.deepEqual(result.covers, [
+    {
+      coverUrl: source,
+      coverId: image.id,
+      publisherUrl: "",
+      title: book.series,
+      source: "www.phoenixnext.com",
+      sourceUrl: source,
+    },
+  ]);
+  const api = createApplicationApi(
+    store,
+    createCoverService(store, {
+      fetchImpl: () => assert.fail("Stored choices must not redownload images"),
+    }),
+    async () => new Response("Unavailable", { status: 503 }),
+  );
+  const attached = await api.getBookCoverOptions({ row: volume.row });
+  assert.equal(attached.covers[0].coverId, image.id);
+  assert.equal(attached.covers[0].sourceUrl, source);
+});
+
+test("stored cover choices remain usable without source records and do not invent an origin", async (t) => {
+  const store = await database(t);
+  const image = await store.covers.put({ body: png, contentType: "image/png" });
+  await store.api.saveBook({
+    requestId: "stored_cover_no_source",
+    book: { ...book, publisher: "", coverId: image.id },
+  });
+  await store.cache.put(
+    volumeCoverKey({ ...book, publisher: "" }),
+    source,
+    86400,
+  );
+  const catalogs = createCatalogService(
+    store,
+    () => assert.fail("No source requests expected"),
+    [],
+  );
+  const result = await catalogs.getBookCoverOptions({ row: 1 });
+  assert.equal(result.covers.length, 1);
+  assert.equal(result.covers[0].coverId, image.id);
+  assert.equal(result.covers[0].coverUrl, "");
+  assert.equal(result.covers[0].sourceUrl, "");
+  assert.equal(result.covers[0].source, "Stored cover");
+});
+
+test("a rediscovered image and the current stored image remain one cover choice", async (t) => {
+  const store = await database(t);
+  const image = await store.covers.put(
+    { body: png, contentType: "image/png" },
+    source,
+  );
+  await store.api.saveBook({
+    requestId: "stored_cover_deduplicate",
+    book: { ...book, publisher: "", coverId: image.id },
+  });
+  const catalogs = createCatalogService(
+    store,
+    () => assert.fail("No network expected"),
+    [
+      {
+        id: "stored-source",
+        hosts: [],
+        coverPriority: 1,
+        create: () => ({
+          coverOptions: async () => [
+            {
+              coverUrl: source,
+              url: "",
+              title: book.series,
+              source: "Verified source",
+              sourceUrl: "https://www.phoenixnext.com/book.html",
+            },
+          ],
+        }),
+      },
+    ],
+  );
+  const result = await catalogs.getBookCoverOptions({ row: 1 });
+  assert.equal(result.covers.length, 1);
+  assert.equal(result.covers[0].coverId, image.id);
+  assert.equal(result.covers[0].source, "Verified source");
+  assert.equal(
+    result.covers[0].sourceUrl,
+    "https://www.phoenixnext.com/book.html",
+  );
+});
+
+test("cached automatic cover URLs provide a fallback before an image has been stored", async (t) => {
+  const store = await database(t);
+  const volume = { ...book, publisher: "" };
+  await store.api.saveBook({ requestId: "cached_cover_options", book: volume });
+  await store.cache.put(volumeCoverKey(volume), source, 86400);
+  const catalogs = createCatalogService(
+    store,
+    () => assert.fail("The known cover URL needs no rediscovery"),
+    [],
+  );
+  const result = await catalogs.getBookCoverOptions({ row: 1 });
+  assert.equal(result.covers.length, 1);
+  assert.equal(result.covers[0].coverUrl, source);
+  assert.equal(result.covers[0].sourceUrl, source);
+});
+
+test("cover origin lookup never exposes another account's private source", async (t) => {
+  const store = await database(t);
+  const image = await store.covers.put({ body: png, contentType: "image/png" });
+  const privateSource = "https://du.lnwfile.com/private-origin.png";
+  await store.covers.linkPrivateSource(privateSource, image.id);
+  assert.equal(await store.covers.source(image.id), privateSource);
+  const other = await createAccount(store, "reader", "reader@gmail.com");
+  await store.forUser(other, async () => {
+    assert.equal(await store.covers.source(image.id), "");
+    await store.covers.allow(image.id);
+    assert.equal(await store.covers.source(image.id), "");
+    await store.covers.linkPrivateSource(source, image.id);
+    assert.equal(await store.covers.source(image.id), source);
+  });
+  assert.equal(await store.covers.source(image.id), privateSource);
 });
 
 test("backups restore image payloads larger than a megabyte", async (t) => {

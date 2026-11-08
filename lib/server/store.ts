@@ -1096,6 +1096,16 @@ export async function openStore(
       if (row) await covers.allow(row.cover_id);
       return row ? await covers.get(row.cover_id) : null;
     },
+    async source(id: string) {
+      if (!(await covers.canAccess(id))) return "";
+      const row = await get<{ url: string }>(
+        `SELECT url FROM user_cover_sources WHERE ${owned} AND cover_id=?
+        UNION ALL SELECT url FROM cover_sources WHERE cover_id=? LIMIT 1`,
+        id,
+        id,
+      );
+      return row?.url || "";
+    },
     async linkSource(url, id) {
       await run(
         "INSERT INTO cover_sources VALUES (?,?) ON CONFLICT(url) DO UPDATE SET cover_id=excluded.cover_id",

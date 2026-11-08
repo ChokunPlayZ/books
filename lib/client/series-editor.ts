@@ -157,6 +157,18 @@ export function createSeriesEditor({
     inputs: EditRow["inputs"],
     compact = false,
   ) {
+    if (
+      state.data?.user.role !== "admin" &&
+      ["pageCount", "coverUrl", "publisherUrl"].includes(field)
+    ) {
+      const input = node("input");
+      input.type = "hidden";
+      input.id = `volume-${book.row}-${field}`;
+      input.name = field;
+      input.value = String(book[field] ?? "");
+      inputs[field] = input;
+      return input;
+    }
     const wrapper = node("div", "field");
     const label = node("label", "", t(labels[field]));
     const id = `volume-${book.row}-${field}`;
@@ -318,7 +330,9 @@ export function createSeriesEditor({
             "p",
             "hint",
             t(
-              "Edition changes apply to this copy only. Use supported publisher or book metadata links for covers; clear the cover URL to use automatic artwork.",
+              state.data?.user.role === "admin"
+                ? "Edition changes apply to this copy only. Use supported publisher or book metadata links for covers; clear the cover URL to use automatic artwork."
+                : "Edition changes apply to this copy only.",
             ),
           ),
         );

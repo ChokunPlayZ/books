@@ -12,6 +12,7 @@ import {
   testDatabaseUrl,
 } from "../helpers/database.mjs";
 import { createAccount } from "../../lib/server/auth.ts";
+import { seriesPath } from "../../lib/domain/navigation.ts";
 import {
   googleTestEnvironment,
   mockGooglePage,
@@ -47,6 +48,9 @@ await store.forUser(alice, async () => {
       date: "2026-11-01",
       note: "Alice secret note",
       coverId: image.id,
+      coverUrl: "https://www.phoenixnext.com/media/catalog/product/reader.png",
+      publisherUrl: "https://www.phoenixnext.com/reader-volume.html",
+      pageCount: 208,
       msrp: 175,
       msrpCurrency: "THB",
     },
@@ -198,12 +202,64 @@ try {
   assert.ok(!bobBackup.includes("Alice secret"));
   assert.ok(!bobBackup.includes(image.id));
   await bobPage.locator("#addButton").click();
+  assert.equal(await bobPage.locator("#metadataManager").count(), 0);
+  assert.equal(await bobPage.locator("#pullPublisherCovers").count(), 0);
+  for (const id of [
+    "msrp",
+    "msrpCurrency",
+    "edition",
+    "pageCount",
+    "publisherUrl",
+    "coverUrl",
+  ])
+    assert.equal(
+      await bobPage.locator("#" + id).getAttribute("type"),
+      "hidden",
+    );
   assert.deepEqual(await bobPage.locator("#type option").allTextContents(), [
     "Light novel",
     "Manga",
     "Others",
   ]);
   await bobPage.locator("#cancelBook").click();
+  await alicePage.goto(url + seriesPath(aliceBook.series));
+  await alicePage.waitForFunction(() => !!window.bookCollection?.state.data);
+  await alicePage
+    .getByRole("button", {
+      name: "Edit Alice private shelf, volume 1",
+      exact: true,
+    })
+    .click();
+  assert.equal(await alicePage.locator("#metadataManager").count(), 0);
+  assert.equal(await alicePage.locator("#pullPublisherCovers").count(), 0);
+  await alicePage.locator("#note").fill("Reader edited only their notes");
+  await alicePage.locator("#saveButton").click();
+  await alicePage.waitForFunction(
+    () => !document.getElementById("bookDialog").open,
+  );
+  const updated = (await (await rpc(alicePage, "getCollection")).json())
+    .books[0];
+  assert.equal(updated.note, "Reader edited only their notes");
+  for (const field of [
+    "msrp",
+    "msrpCurrency",
+    "edition",
+    "pageCount",
+    "publisherUrl",
+    "coverUrl",
+    "coverId",
+  ])
+    assert.equal(updated[field], aliceBook[field], field + " is preserved");
+  await alicePage.locator("#editVolumesButton").click();
+  await alicePage.locator(".series-edit-volume button").click();
+  for (const field of ["pageCount", "coverUrl", "publisherUrl"])
+    assert.equal(
+      await alicePage
+        .locator(`#seriesEditor [name="${field}"]`)
+        .getAttribute("type"),
+      "hidden",
+    );
+  await alicePage.locator("#cancelSeriesEdit").click();
   await bobPage.goto(url + "/data");
   assert.equal(await bobPage.locator("#metadata-maintenance").count(), 0);
   const publicContext = await browser.newContext();

@@ -1970,6 +1970,7 @@ export function mountCollection({
   }
 
   function renderMetadataCover() {
+    if (!$("metadataCoverPreview")) return;
     $("metadataCoverPreview").replaceChildren(
       coverImage(state.selectedCoverId, $("series").value, "metadata-cover"),
     );
@@ -2015,7 +2016,7 @@ export function mountCollection({
   }
 
   async function pullPublisherCovers() {
-    if (!state.editing || state.busy) return;
+    if (!$("pullPublisherCovers") || !state.editing || state.busy) return;
     const generation = ++state.coverPickerGeneration;
     const book = state.editing;
     const draft = JSON.stringify([
@@ -3605,13 +3606,14 @@ export function mountCollection({
     state.selectedCoverId = book?.coverId || "";
     $("coverUrl").value = book?.coverUrl || "";
     $("publisherUrl").value = book?.publisherUrl || "";
-    $("publisherCoverChoices").replaceChildren();
-    $("publisherCoversStatus").textContent = t(
-      book
-        ? "Pull all available covers for this volume and choose one."
-        : "Save this book to look for publisher and bookstore covers.",
-    );
-    $("pullPublisherCovers").disabled = !book;
+    $("publisherCoverChoices")?.replaceChildren();
+    if ($("publisherCoversStatus"))
+      $("publisherCoversStatus").textContent = t(
+        book
+          ? "Pull all available covers for this volume and choose one."
+          : "Save this book to look for publisher and bookstore covers.",
+      );
+    if ($("pullPublisherCovers")) $("pullPublisherCovers").disabled = !book;
     renderMetadataCover();
     if (!book) {
       $("date").value = defaults?.date ?? state.data.today;
@@ -4134,7 +4136,7 @@ export function mountCollection({
       }
       state.typeTouched = true;
       state.coverPickerGeneration++;
-      $("publisherCoverChoices").replaceChildren();
+      $("publisherCoverChoices")?.replaceChildren();
       renderBookDetails();
       renderMetadataCover();
     },
@@ -4326,6 +4328,7 @@ export function mountCollection({
       $(id)?.addEventListener(
         id === "type" ? "change" : "input",
         () => {
+          if (!$("pullPublisherCovers")) return;
           state.coverPickerGeneration++;
           $("publisherCoverChoices").replaceChildren();
           $("pullPublisherCovers").disabled = !state.editing || state.busy;

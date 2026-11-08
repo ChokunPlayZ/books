@@ -1,7 +1,11 @@
 import { getTranslations } from "../../../lib/server/preferences.ts";
 import ExternalLink from "../../ExternalLink";
 
-export default async function BookDialog() {
+export default async function BookDialog({
+  canEditMetadata = false,
+}: {
+  canEditMetadata?: boolean;
+}) {
   const t = await getTranslations();
   return (
     <dialog id={"bookDialog"} aria-labelledby={"bookDialogTitle"}>
@@ -283,120 +287,144 @@ export default async function BookDialog() {
               data-lookup-detail
               open
             >
-              <summary>{t("Pages, cover, notes & duplicate copy")}</summary>
+              <summary>
+                {t(
+                  canEditMetadata
+                    ? "Pages, cover, notes & duplicate copy"
+                    : "Notes & duplicate copy",
+                )}
+              </summary>
               <div className="form-grid">
-                <fieldset
-                  id="metadataManager"
-                  className="metadata-manager span-2"
-                  data-series-detail
-                >
-                  <legend>{t("Book metadata")}</legend>
-                  <div className="field">
-                    <label htmlFor="msrp">{t("MSRP / list price")}</label>
-                    <input
-                      id="msrp"
-                      name="msrp"
-                      type="number"
-                      min="0"
-                      step="any"
-                      inputMode="decimal"
-                      placeholder={t("Not available")}
-                    />
-                    <p className="hint">
-                      {t(
-                        "Separate from the shop price and your private price paid.",
-                      )}
-                    </p>
-                  </div>
-                  <div className="field">
-                    <label htmlFor="msrpCurrency">{t("MSRP currency")}</label>
-                    <input
-                      id="msrpCurrency"
-                      name="msrpCurrency"
-                      maxLength={3}
-                      placeholder="THB, USD, JPY"
-                    />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="edition">{t("Edition details")}</label>
-                    <input
-                      id="edition"
-                      name="edition"
-                      maxLength={500}
-                      placeholder={t("Language, colour or edition")}
-                    />
-                    <p className="hint">
-                      {t("Your edition label is private to your library.")}
-                    </p>
-                  </div>
-                  <div className="field">
-                    <label htmlFor="pageCount">{t("Pages")}</label>
-                    <input
-                      id="pageCount"
-                      name="pageCount"
-                      type="number"
-                      inputMode="numeric"
-                      min="1"
-                      step="1"
-                      placeholder={t("Not recorded")}
-                    />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="publisherUrl">{t("Publisher page")}</label>
-                    <input
-                      id="publisherUrl"
-                      type="url"
-                      maxLength={2000}
-                      placeholder="https://…"
-                    />
-                    <ExternalLink
-                      id="metadataPublisherLink"
-                      target="_blank"
-                      hidden
-                    >
-                      {t("Open publisher site ↗")}
-                    </ExternalLink>
-                  </div>
-                  <div className="cover-editor">
-                    <div id="metadataCoverPreview" />
+                {canEditMetadata ? (
+                  <fieldset
+                    id="metadataManager"
+                    className="metadata-manager span-2"
+                    data-series-detail
+                  >
+                    <legend>{t("Book metadata")}</legend>
                     <div className="field">
-                      <label htmlFor="coverUrl">{t("Cover image URL")}</label>
+                      <label htmlFor="msrp">{t("MSRP / list price")}</label>
                       <input
-                        id="coverUrl"
-                        type="url"
-                        maxLength={2000}
-                        placeholder={t(
-                          "Use automatic cover, or enter an image URL",
-                        )}
+                        id="msrp"
+                        name="msrp"
+                        type="number"
+                        min="0"
+                        step="any"
+                        inputMode="decimal"
+                        placeholder={t("Not available")}
                       />
                       <p className="hint">
                         {t(
-                          "Leave blank to use the automatic cover. New image URLs are downloaded when you save.",
+                          "Separate from the shop price and your private price paid.",
                         )}
                       </p>
-                      <button
-                        id="pullPublisherCovers"
-                        className="btn"
-                        type="button"
-                      >
-                        {t("Pull covers")}
-                      </button>
-                      <p
-                        id="publisherCoversStatus"
-                        className="hint"
-                        role="status"
+                    </div>
+                    <div className="field">
+                      <label htmlFor="msrpCurrency">{t("MSRP currency")}</label>
+                      <input
+                        id="msrpCurrency"
+                        name="msrpCurrency"
+                        maxLength={3}
+                        placeholder="THB, USD, JPY"
                       />
                     </div>
-                  </div>
-                  <div
-                    id="publisherCoverChoices"
-                    className="cover-choices"
-                    aria-label={t("Publisher and bookstore cover choices")}
-                  />
-                  <p className="hint">
-                    {t("Choose a cover, then save your changes.")}
-                  </p>
-                </fieldset>
+                    <div className="field">
+                      <label htmlFor="edition">{t("Edition details")}</label>
+                      <input
+                        id="edition"
+                        name="edition"
+                        maxLength={500}
+                        placeholder={t("Language, colour or edition")}
+                      />
+                      <p className="hint">
+                        {t("Your edition label is private to your library.")}
+                      </p>
+                    </div>
+                    <div className="field">
+                      <label htmlFor="pageCount">{t("Pages")}</label>
+                      <input
+                        id="pageCount"
+                        name="pageCount"
+                        type="number"
+                        inputMode="numeric"
+                        min="1"
+                        step="1"
+                        placeholder={t("Not recorded")}
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="publisherUrl">
+                        {t("Publisher page")}
+                      </label>
+                      <input
+                        id="publisherUrl"
+                        type="url"
+                        maxLength={2000}
+                        placeholder="https://…"
+                      />
+                      <ExternalLink
+                        id="metadataPublisherLink"
+                        target="_blank"
+                        hidden
+                      >
+                        {t("Open publisher site ↗")}
+                      </ExternalLink>
+                    </div>
+                    <div className="cover-editor">
+                      <div id="metadataCoverPreview" />
+                      <div className="field">
+                        <label htmlFor="coverUrl">{t("Cover image URL")}</label>
+                        <input
+                          id="coverUrl"
+                          type="url"
+                          maxLength={2000}
+                          placeholder={t(
+                            "Use automatic cover, or enter an image URL",
+                          )}
+                        />
+                        <p className="hint">
+                          {t(
+                            "Leave blank to use the automatic cover. New image URLs are downloaded when you save.",
+                          )}
+                        </p>
+                        <button
+                          id="pullPublisherCovers"
+                          className="btn"
+                          type="button"
+                        >
+                          {t("Pull covers")}
+                        </button>
+                        <p
+                          id="publisherCoversStatus"
+                          className="hint"
+                          role="status"
+                        />
+                      </div>
+                    </div>
+                    <div
+                      id="publisherCoverChoices"
+                      className="cover-choices"
+                      aria-label={t("Publisher and bookstore cover choices")}
+                    />
+                    <p className="hint">
+                      {t("Choose a cover, then save your changes.")}
+                    </p>
+                  </fieldset>
+                ) : (
+                  <>
+                    {/* Carry automatic metadata without exposing editing controls. */}
+                    <input id="msrp" name="msrp" type="hidden" />
+                    <input
+                      id="msrpCurrency"
+                      name="msrpCurrency"
+                      type="hidden"
+                    />
+                    <input id="edition" name="edition" type="hidden" />
+                    <input id="pageCount" name="pageCount" type="hidden" />
+                    <input id="publisherUrl" type="hidden" />
+                    <input id="coverUrl" type="hidden" />
+                  </>
+                )}
                 <div className={"field span-2"} data-series-detail>
                   <label htmlFor={"note"}>{t("Notes")}</label>
                   <textarea

@@ -89,7 +89,7 @@ export default async function CollectionShell({
         </footer>
       </main>
       <TitleDialog />
-      <BookDialog />
+      <BookDialog canEditMetadata={data.user.role === "admin"} />
       <ScanDialog />
       <RemoveDialog />
       <CheckDialog />

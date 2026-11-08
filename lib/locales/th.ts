@@ -411,6 +411,7 @@ export const thai: Record<string, string> = {
   "Regular price and discount are used only for this calculation.":
     "ราคาปกติและส่วนลดใช้สำหรับการคำนวณนี้เท่านั้น",
   "Pages, cover, notes & duplicate copy": "จำนวนหน้า ปก บันทึก และหนังสือซ้ำ",
+  "Notes & duplicate copy": "บันทึกและหนังสือซ้ำ",
   "Book metadata": "ข้อมูลหนังสือ",
   "MSRP / list price": "ราคาแนะนำ / ราคาปก",
   "Not available": "ไม่มีข้อมูล",
@@ -848,6 +849,8 @@ export const thai: Record<string, string> = {
   "Publisher product URL": "URL หนังสือจากสำนักพิมพ์",
   "Choose a type": "เลือกประเภท",
   "Choose a status": "เลือกสถานะ",
+  "Edition changes apply to this copy only.":
+    "การเปลี่ยนฉบับใช้กับหนังสือเล่มนี้เท่านั้น",
   "Edition changes apply to this copy only. Use supported publisher or book metadata links for covers; clear the cover URL to use automatic artwork.":
     "การเปลี่ยนฉบับใช้กับสำเนานี้เท่านั้น ใช้ลิงก์สำนักพิมพ์หรือข้อมูลหนังสือที่รองรับสำหรับปก ล้าง URL ปกเพื่อใช้ปกอัตโนมัติ",
   "Details saved for {count} volumes.": "บันทึกรายละเอียดแล้ว {count} เล่ม",

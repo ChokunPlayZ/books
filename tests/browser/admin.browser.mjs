@@ -141,6 +141,23 @@ try {
   const reader = await readerContext.newPage();
   await reader.goto(url);
   assert.equal(await reader.locator('a[href="/admin"]').count(), 0);
+  assert.equal(await reader.locator("#metadataManager").count(), 0);
+  assert.equal(await reader.locator("#pullPublisherCovers").count(), 0);
+  for (const field of [
+    "msrp",
+    "msrpCurrency",
+    "edition",
+    "pageCount",
+    "publisherUrl",
+    "coverUrl",
+  ])
+    assert.equal(
+      await reader.locator("#" + field).getAttribute("type"),
+      "hidden",
+    );
+  const adminLibraryHtml = await (await adminContext.request.get(url)).text();
+  assert.match(adminLibraryHtml, /id="metadataManager"/);
+  assert.match(adminLibraryHtml, /id="pullPublisherCovers"/);
   await reader.goto(url + "/data");
   assert.equal(await reader.locator('a[href="/admin"]').count(), 0);
   for (const [name, arg] of [

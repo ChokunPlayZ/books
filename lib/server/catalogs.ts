@@ -424,6 +424,34 @@ export function createCatalogService(
         );
       }
     }
+    // Automatic covers keep their URL in cover_sources, not books.cover_url.
+    // A failed/empty rediscovery must not hide a cover we already have offline.
+    const currentUrl = safeCoverUrl(
+      book.coverUrl ||
+        (book.coverId
+          ? await store.covers.source(book.coverId)
+          : await knownBookCoverUrl(store, book)),
+    );
+    if (book.coverId) {
+      const key = currentUrl || book.coverId;
+      covers.set(key, {
+        ...(covers.get(key) || {
+          coverUrl: currentUrl,
+          publisherUrl: book.publisherUrl || "",
+          title: book.series,
+          source: currentUrl ? new URL(currentUrl).hostname : "Stored cover",
+          sourceUrl: currentUrl,
+        }),
+        coverId: book.coverId,
+      });
+    } else if (currentUrl && !covers.size) {
+      add(currentUrl, {
+        url: book.publisherUrl || "",
+        title: book.series,
+        source: new URL(currentUrl).hostname,
+        sourceUrl: currentUrl,
+      });
+    }
     return {
       row: book.row,
       covers: [...covers.values()],
