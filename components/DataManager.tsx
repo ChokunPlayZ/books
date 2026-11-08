@@ -226,6 +226,8 @@ export default function DataManager({ counts }: DataManagerProps) {
               {result.alreadyImported
                 ? t("This file was already imported.")
                 : t("Imported {count} books.", { count: result.books })}{" "}
+              {result.discoveryJobId &&
+                t("Book details are being discovered in the background.")}{" "}
               <a href="/">{t("Open your shelf →")}</a>
             </p>
           )}

@@ -21,7 +21,28 @@ const sharedPending = new WeakMap<Cache, Map<string, Promise<unknown>>>();
 export function createScrapeCache(cache: Cache) {
   if (!sharedPending.has(cache)) sharedPending.set(cache, new Map());
   const pending = sharedPending.get(cache)!;
+  async function remember<T>(
+    source: string,
+    value: T,
+    maxAge: number,
+    permanent = false,
+  ) {
+    await cache.put(
+      "scrape:v1:" + digest(source),
+      JSON.stringify({
+        value,
+        checkedAt: Date.now(),
+        source,
+        maxAge,
+        permanent,
+      }),
+      permanent ? Infinity : SCRAPE_TTL.retention,
+    );
+  }
   return {
+    // Store independently verified data without replaying a failed/missing search.
+    // This is a local write, not a bypass of a remote request's retry cooldown.
+    remember,
     async pin(source: string) {
       const key = "scrape:v1:" + digest(source);
       const record = JSON.parse((await cache.get(key)) || "null");
@@ -76,17 +97,7 @@ export function createScrapeCache(cache: Cache) {
                 typeof permanent === "function"
                   ? await permanent(value)
                   : permanent === true;
-              await cache.put(
-                key,
-                JSON.stringify({
-                  value,
-                  checkedAt: Date.now(),
-                  source,
-                  maxAge,
-                  permanent: keep,
-                }),
-                keep ? Infinity : SCRAPE_TTL.retention,
-              );
+              await remember(source, value, maxAge, keep);
               return value;
             })
             .catch(async (error) => {

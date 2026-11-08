@@ -48,6 +48,16 @@ The optional `fillMissing` argument defaults to off. When enabled, exact ISBN ma
 
 ## Publisher ISBN search
 
+### Name-and-volume discovery
+
+`lookupBook({ series, volume, publisher?, publisherId?, type?, edition?, isbn?, refresh? })` works without an ISBN or publisher. It checks applicable publishers' series directories before broad title searches, requires an exact normalized series/category match, and caches the series selection separately from its volumes. Matched catalog reads are shared across accounts before private alias annotation. Book-discovery aliases and selections remain account-scoped. Source additions/removals and language/ISBN applicability are part of discovery cache identity.
+
+Sibling lookups reuse that category and visit only their known product pages for additional details; they do not repeat store-wide ISBN searches. Missing volumes use a targeted alternate-store title lookup, not an assumption that the category contains every published book. Conflicting formats/editions, sets and selectable parents require review. Phoenix Next and Naiin can read and verify the main product ISBN directly from a known product URL. Verified product details reuse the permanent source policy; unverified listing ISBNs never fill imported ownership identifiers.
+
+Collection imports atomically enqueue `discoverImportedBooks` with their owned-row bounds. The normal durable worker fills missing fields in 25-book, low-priority continuation batches, retaining account scope and checking revision tokens after network waits. No import preview scrapes, removed books are excluded, and replaying an imported file does not create another discovery chain. See [imports](imports.md).
+
+Live name-only checks on November 8, 2026 found **ดอกรักผลิบานที่กลางใจ** volumes 9 and 10 in Phoenix Next's [series category](https://www.phoenixnext.com/book-series/kaoru-hana-wa-rin-to-saku.html), with verified ISBNs `9786165999656` and `9786165999816`. Volume 8 was absent from the category; a targeted [Naiin product](https://www.naiin.com/product/detail/632961) lookup verified `9786165998840` and 192 pages. Each listed MSRP was THB 175. Category completeness describes current listings, not full publication history.
+
 `searchPublisherIsbn({ publisherId, isbn, refresh })` supports Yaakz, DEXpress, Animag, Phoenix Next and First Page Pro independently of loaded discovery categories and recent releases. ISBN-10, ISBN-13, prefixes and hyphens share a canonical ISBN-13 cache entry for 24 hours. Requests use the same source allowlists, retry cooldown and stored-cover service as other catalog features.
 
 Phoenix requests `/catalogsearch/result/?q=<isbn>`, then checks at most four product candidates. `lib/domain/phoenix.ts` requires the main product’s labeled Barcode/ISBN attribute or `book:isbn` metadata to match; preview and recommendation links cannot confirm the ISBN. First Page Pro requests `/search?q=<isbn>` and returns up to 24 search candidates with blank ISBN fields and a review note, because product details omit ISBNs. The browser carries the user’s search ISBN into the add form explicitly as unconfirmed input. A First Page Pro search result never becomes an automatic exact-ISBN ownership match. Confirmed empty searches are cached; unavailable sources and unrecognized result markup remain errors.

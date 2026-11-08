@@ -7,20 +7,24 @@ import { productMsrp } from "./msrp.ts";
 
 // Read the main product's labeled barcode, never a recommendation's ISBN.
 export function phoenixBook(html: string, isbn: string, productUrl: string) {
-  const canonical = canonicalIsbn(isbn);
   const url = safeProductUrl(productUrl, "phoenix");
-  if (!canonical || !url) return null;
+  if (!url || (isbn && !canonicalIsbn(isbn))) return null;
   const barcodes = [
     ...html.matchAll(
       /<div\b(?=[^>]*\bdata-th=["'](?:Barcode|ISBN)["'])[^>]*>([\s\S]*?)<\/div>/gi,
     ),
   ].map((match) => canonicalIsbn(textHtml(match[1])));
   const metadataIsbn = canonicalIsbn(meta(html, "book:isbn"));
+  const codes = [...new Set([...barcodes, metadataIsbn].filter(Boolean))];
+  // A title-only lookup may learn the ISBN, but conflicting edition barcodes
+  // must never be resolved by simply picking the first one.
+  const canonical = canonicalIsbn(isbn) || (codes.length === 1 ? codes[0] : "");
   if (!barcodes.some(Boolean) && !metadataIsbn)
     throw new Error(
       "Phoenix product ISBN details are unavailable. Try again later.",
     );
   if (!barcodes.includes(canonical) && metadataIsbn !== canonical) return null;
+  if (!canonical) return null;
   const title = textHtml(
     /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(html)?.[1] || meta(html, "og:title"),
   );

@@ -5,6 +5,10 @@
 3. Select the `.xlsx` file and click **Review import**. Check the counts, sample records and any warnings.
 4. Click **Import this collection**. Imports are transactional and a retry of the same file does not add it twice.
 
+After importing, a durable background task discovers metadata for owned books, including records with only a series name and volume number. The import does not wait for remote stores. Work resumes after server restarts, respects queue pause and source cooldowns, and runs in low-priority batches of 25 books. CLI imports queue the same work; it runs when the app server starts.
+
+Discovery reuses a matched publisher series category for sibling volumes, falling back to a targeted store lookup only for missing volumes. It fills blank ISBNs only from verified product details, and can fill missing publisher, format, cover, product link, page count and MSRP. Existing values, personal prices, purchases, reading state, notes and duplicate copies are preserved. Ambiguous formats, bundles and special editions are not automatically matched. Books edited or removed while a lookup is running are left untouched. An unavailable source never rolls back the imported collection.
+
 A workbook imports `Sheet1`, `_BookAppTrash`, `_BookAppReleases`, and `_BookAppSeriesCatalogs` when present. This carries over owned books, Recently removed, saved releases, and selected publisher category links. It copies cell values; spending summaries are calculated in the app. Choices are rebuilt from your records plus the existing standard type/status choices. Unused spreadsheet dropdown choices are not included in Excel exports read by this importer.
 
 Your existing columns remain the import contract:

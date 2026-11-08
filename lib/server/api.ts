@@ -12,6 +12,10 @@ import { createSearchService } from "./search.ts";
 import { createScrapeQueue } from "./scrape-queue.ts";
 import { createAdminService } from "./admin.ts";
 import { attachCoverPlaceholders } from "./covers.ts";
+import {
+  createImportDiscovery,
+  type ImportDiscoveryBatch,
+} from "./import-discovery.ts";
 import type { Store } from "./store.ts";
 
 const queues = new WeakMap<Store, ReturnType<typeof createScrapeQueue>>();
@@ -38,6 +42,7 @@ export function createApplicationApi(
   const maintenance = createMetadataService(store, catalogs);
   const { validateCrawlTarget, ...maintenanceApi } = maintenance;
   const search = createSearchService(store, catalogs, fetchImpl);
+  const discoverImportedBooks = createImportDiscovery(store, catalogs, covers);
   function authorizeRefresh(arg: unknown) {
     if (!arg || typeof arg !== "object") return;
     const refresh = (arg as { refresh?: unknown }).refresh;
@@ -126,6 +131,17 @@ export function createApplicationApi(
     ),
     searchExternalTitles: search.searchExternalTitles,
     recrawlMetadata: maintenance.recrawlMetadata,
+    discoverImportedBooks: async (arg: ImportDiscoveryBatch) => {
+      const result = await discoverImportedBooks(arg);
+      if (result.next)
+        await queue.enqueue(
+          "discoverImportedBooks",
+          result.next,
+          "Discover imported books · continued",
+          -10,
+        );
+      return result;
+    },
   };
   const queue = queues.get(store) ?? createScrapeQueue(store, queued);
   queue.updateHandlers(queued);

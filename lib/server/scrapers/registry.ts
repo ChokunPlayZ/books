@@ -79,6 +79,38 @@ export function createScraperRegistry(
       await context.cache.put("known-product:v1:" + url, isbn, Infinity);
       await context.scrapeCache.pin("text:" + url);
     }
+    if (scraper.bookDetails) {
+      const load = scraper.bookDetails;
+      scraper.bookDetails = async (url, refresh = false) =>
+        context.scrapeCache.get(
+          `source-product:v1:${metadata.id}:${url}`,
+          {
+            maxAge: SCRAPE_TTL.product,
+            refresh,
+            permanent: (book) =>
+              !!book?.isbnVerified && verified(book, canonicalIsbn(book?.isbn)),
+          },
+          async () => {
+            const book = await load(url, refresh);
+            const isbn = canonicalIsbn(book?.isbn);
+            if (book?.isbnVerified && isbn && verified(book, isbn)) {
+              await remember(book, isbn);
+              // Title discovery becomes a reusable exact-ISBN source match,
+              // without replaying this store's search endpoint later.
+              await context.scrapeCache.remember(
+                `source-book:v1:${metadata.id}:${isbn}`,
+                normalizeRecordTypes({
+                  ...book,
+                  checkedAt: new Date().toISOString(),
+                }),
+                SCRAPE_TTL.isbn,
+                true,
+              );
+            }
+            return book ? normalizeRecordTypes(book) : null;
+          },
+        );
+    }
     if (scraper.lookupIsbn) {
       const load = scraper.lookupIsbn;
       scraper.lookupIsbn = async (isbn, refresh = false) =>

@@ -37,6 +37,56 @@ export const naiin: ScraperDefinition = {
   coverPriority: 10,
   coverWarning: "Could not check Naiin for this ISBN.",
   create({ fetchText: fetchText_ }: ScraperContext) {
+    const reviewEdition = (title: string) =>
+      /limited|special\s*(?:set|edition)|ฉบับพิเศษ|ปกพิเศษ|เซต|เซ็[ตท]|ชุด/i.test(
+        title,
+      );
+    async function bookDetails(url: string, refresh = false) {
+      if (!/^https:\/\/www\.naiin\.com\/product\/detail\/\d+$/.test(url))
+        return null;
+      const page = await fetchText_(url, refresh, SCRAPE_TTL.product);
+      const product = structuredBooks(page).find(
+        (book) =>
+          typeof book.url === "string" && book.url.replace(/\/$/, "") === url,
+      );
+      if (!product?.name) return null;
+      const codes = [
+        ...new Set(
+          [product.isbn, product.gtin13, product.sku, meta(page, "book:isbn")]
+            .map(canonicalIsbn)
+            .filter(Boolean),
+        ),
+      ];
+      if (codes.length !== 1) return null;
+      const title = textHtml(product.name);
+      if (specialSet(title) || releaseBundle(title) || reviewEdition(title))
+        return null;
+      const offer = Array.isArray(product.offers)
+        ? product.offers[0]
+        : product.offers;
+      return {
+        isbn: codes[0],
+        isbnVerified: true,
+        title,
+        ...splitBookTitle(title),
+        publisher: names(product.publisher),
+        authors: names(product.author),
+        source: "Naiin",
+        url,
+        coverUrl: safeCoverUrl(product.image || meta(page, "og:image")),
+        pageCount:
+          parsePageCount(product.numberOfPages) ||
+          parsePageCount(
+            textHtml(
+              /<label\b[^>]*>\s*จำนวนหน้า\s*<\/label>\s*<p\b[^>]*>([\s\S]*?)<\/p>/i.exec(
+                page,
+              )?.[1] || "",
+            ),
+          ),
+        currency: offer?.priceCurrency || "THB",
+        releaseDate: meta(page, "book:release_date"),
+      };
+    }
     async function lookupNaiin_(
       canonical,
       refresh = false,
@@ -200,6 +250,7 @@ export const naiin: ScraperDefinition = {
     }
 
     return {
+      bookDetails,
       searchTitles: async (query) => {
         const html = await fetchText_(
           "https://www.naiin.com/search-result?title=" +
@@ -223,7 +274,18 @@ export const naiin: ScraperDefinition = {
           items: books.slice(0, 24).map((item) => ({
             title: textHtml(item.ProductName),
             ...splitBookTitle(textHtml(item.ProductName)),
+            special: reviewEdition(textHtml(item.ProductName)),
+            bundle: releaseBundle(textHtml(item.ProductName)),
             publisher: textHtml(item.PublisherName || ""),
+            coverUrl: safeCoverUrl(item.ThumbnailFile),
+            msrp:
+              item.PriceFull === "" ||
+              item.PriceFull == null ||
+              !Number.isFinite(Number(item.PriceFull)) ||
+              Number(item.PriceFull) < 0
+                ? ""
+                : Number(item.PriceFull),
+            msrpCurrency: "THB",
             url: "https://www.naiin.com/product/detail/" + item.ProductID,
           })),
           complete: false,

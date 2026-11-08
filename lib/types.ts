@@ -49,6 +49,7 @@ export type ImportReview = {
 export type ImportResult = {
   books: number;
   alreadyImported?: boolean;
+  discoveryJobId?: string;
 };
 
 export type Release = {

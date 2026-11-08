@@ -381,6 +381,17 @@ export const thai: Record<string, string> = {
   "Import this collection": "นำเข้าคลังหนังสือนี้",
   "This file was already imported.": "ไฟล์นี้ถูกนำเข้าแล้ว",
   "Imported {count} books.": "นำเข้าหนังสือแล้ว {count} เล่ม",
+  "Looking up book details…": "กำลังค้นหาข้อมูลหนังสือ…",
+  "Scan a barcode, enter an ISBN, or enter a series and volume with ISBN blank, then choose Look up.":
+    "สแกนบาร์โค้ด กรอก ISBN หรือกรอกชื่อเรื่องและเลขเล่มโดยเว้น ISBN ว่าง แล้วเลือกค้นหา",
+  "Checking publishers and bookshops for book details.":
+    "กำลังค้นหาข้อมูลหนังสือจากสำนักพิมพ์และร้านหนังสือ",
+  "Several editions matched. Choose a publisher and type, then try again.":
+    "พบหลายฉบับ กรุณาเลือกสำนักพิมพ์และประเภทแล้วลองอีกครั้ง",
+  "No matching volume found. You can still fill in the details yourself.":
+    "ไม่พบเล่มที่ตรงกัน คุณยังสามารถกรอกข้อมูลเองได้",
+  "Book details are being discovered in the background.":
+    "กำลังค้นหาข้อมูลหนังสือเบื้องหลัง",
   "Open your shelf →": "เปิดคลังหนังสือ →",
   "Stored in your library. Always yours.":
     "เก็บไว้ในคลังหนังสือของคุณ เป็นของคุณเสมอ",

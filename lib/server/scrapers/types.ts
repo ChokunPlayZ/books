@@ -67,6 +67,9 @@ export type IsbnSearchResult = {
 
 export type BookDetails = {
   isbn?: string;
+  isbnVerified?: boolean;
+  special?: boolean;
+  bundle?: boolean;
   title: string;
   publisher?: string;
   authors?: string;
@@ -97,6 +100,8 @@ export type CoverOption = {
 
 // Implement only the capabilities a source actually supports.
 export type Scraper = {
+  // Read a known product directly, without doing another ISBN/title search.
+  bookDetails?(url: string, refresh?: boolean): Promise<BookDetails | null>;
   searchTitles?(
     query: string,
   ): Promise<{ items: BookDetails[]; complete: boolean }>;

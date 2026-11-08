@@ -22,6 +22,9 @@ import {
 } from "../domain.ts";
 import { publisherCovers } from "./publisher-covers.ts";
 import { bookSourceApplies } from "../domain/book-sources.ts";
+import { searchLanguage } from "../domain/search.ts";
+import { bookEditionKey } from "../domain/book-type.ts";
+import { AppError } from "./store.ts";
 import { SCRAPE_TTL } from "./scrape-cache.ts";
 import { createScraperContext } from "./scrapers/http.ts";
 import {
@@ -47,6 +50,17 @@ type CatalogRequest = {
   type?: string;
   categories?: { title: string; url: string; type?: string }[];
   series?: string;
+};
+
+export type BookLookupRequest = {
+  series: string;
+  volume: number | string;
+  publisher?: string;
+  publisherId?: string;
+  type?: string;
+  edition?: string;
+  isbn?: string;
+  refresh?: boolean;
 };
 
 export async function knownBookCoverUrl(store, book) {
@@ -221,6 +235,284 @@ export function createCatalogService(
           : SCRAPE_TTL.isbn,
     );
     return result;
+  }
+
+  async function lookupBook(request: BookLookupRequest) {
+    const series =
+      typeof request?.series === "string" ? request.series.trim() : "";
+    if (
+      !series ||
+      series.length > 500 ||
+      [
+        request.publisher,
+        request.publisherId,
+        request.type,
+        request.edition,
+        request.isbn,
+      ].some(
+        (value) =>
+          value != null && (typeof value !== "string" || value.length > 500),
+      ) ||
+      !/^\d+(?:\.\d+)?$/.test(String(request.volume)) ||
+      !Number.isFinite(Number(request.volume))
+    )
+      throw new AppError(
+        "Enter a series name and a non-negative volume number.",
+      );
+    const publisherId = request.publisherId || publisherKey(request.publisher);
+    if (request.publisherId && !scrapers.get(request.publisherId))
+      throw new AppError("Choose a supported publisher.");
+    if (
+      /special|limited|collector|deluxe|ultimate|box\s*set|ฉบับพิเศษ|ปกพิเศษ|เซต|เซ็ต|ชุด/i.test(
+        request.edition || "",
+      )
+    )
+      return {
+        found: false,
+        details: null,
+        isbn: "",
+        needsSelection: true,
+        warnings: [],
+        checkedAt: "",
+        categoryUrl: "",
+      };
+    const type = request.type ? normalizeBookType(request.type) : "";
+    const spec = { ...request, series, type, publisherId };
+    const language = /\((TH|EN|JP)\)/i
+      .exec(request.edition || request.type || "")?.[1]
+      ?.toUpperCase();
+    const eligible = scrapers.titleProviders.filter(
+      (source) =>
+        bookSourceApplies(source.id, spec) &&
+        source.titleLanguages.includes(searchLanguage(series)),
+    );
+    // Cache the entire series, not the volume query. Siblings (including imports)
+    // reuse one matched category/listing and never repeat a full-store search.
+    // These keys are account-scoped because explicit shelf aliases are private.
+    const key =
+      "book-discovery:v1:" +
+      digest(
+        JSON.stringify([
+          catalogSeriesKey(series),
+          publisherId,
+          type,
+          request.edition || "",
+          eligible.map((source) => source.id),
+        ]),
+      );
+    let catalog = await cachedJson_(cache, key);
+    if (!Array.isArray(catalog?.items) || !Array.isArray(catalog?.warnings))
+      catalog = null;
+    if (
+      !catalog ||
+      request.refresh ||
+      Date.now() - Date.parse(catalog.checkedAt) >=
+        (catalog.warnings.length ? SCRAPE_TTL.retry : SCRAPE_TTL.catalog) * 1000
+    ) {
+      const warnings: string[] = [];
+      const candidates = eligible
+        .filter((source) => !publisherId || source.id === publisherId)
+        .sort(
+          (a, b) =>
+            Number(
+              !a.seriesDirectory ||
+                a.seriesDirectory.manual ||
+                !!a.searchSeriesUrl,
+            ) -
+              Number(
+                !b.seriesDirectory ||
+                  b.seriesDirectory.manual ||
+                  !!b.searchSeriesUrl,
+              ) || (a.isbnPriority ?? Infinity) - (b.isbnPriority ?? Infinity),
+        );
+      let selected = null;
+      for (const source of candidates) {
+        try {
+          let result;
+          if (
+            source.catalog &&
+            (source.seriesDirectory || source.searchSeriesUrl)
+          ) {
+            result = await getSeriesCatalog({
+              series,
+              type,
+              publisherId: source.id,
+              refresh: request.refresh,
+            });
+            if (result.stale) throw new Error("Catalog unavailable");
+            if (
+              !type &&
+              result.needsSelection &&
+              result.categories?.filter(
+                (category) =>
+                  catalogSeriesKey(seriesCategoryTitle(category.title)) ===
+                  catalogSeriesKey(series),
+              ).length > 1
+            ) {
+              selected = { ...result, publisherId: source.id, ambiguous: true };
+              break;
+            }
+          } else if (source.searchTitles) {
+            result = await context.scrapeCache.get(
+              "discovery-titles:v1:" +
+                source.id +
+                ":" +
+                catalogSeriesKey(series),
+              { maxAge: SCRAPE_TTL.catalog, refresh: request.refresh },
+              () => source.searchTitles(series),
+            );
+          } else continue;
+          const items = result.items.filter(
+            (item) =>
+              !item.catalogVariant &&
+              (catalogSeriesKey(item.series) === catalogSeriesKey(series) ||
+                (item.catalogSeries === series && result.url)) &&
+              (!type || !item.type || normalizeBookType(item.type) === type) &&
+              bookSourceApplies(source.id, {
+                ...item,
+                edition: request.edition || item.edition,
+              }),
+          );
+          if (!items.length) continue;
+          selected = { ...result, items, publisherId: source.id };
+          break;
+        } catch {
+          warnings.push(
+            (PUBLISHERS.find((p) => p.id === source.id)?.name || source.id) +
+              " is unavailable right now.",
+          );
+        }
+      }
+      const fallback =
+        !selected && catalog?.items?.length && warnings.length > 0;
+      catalog = {
+        items: [],
+        ...(!selected && catalog?.items?.length ? catalog : {}),
+        ...selected,
+        warnings,
+        stale: !!fallback,
+        checkedAt: fallback ? catalog.checkedAt : new Date().toISOString(),
+      };
+      await cacheJson_(cache, key, catalog);
+    }
+    const matchesVolume = (item) =>
+      !item.special &&
+      !item.bundle &&
+      !item.variantGroup &&
+      item.volume !== "" &&
+      item.volume != null &&
+      Number(item.volume) === Number(request.volume) &&
+      (!type || !item.type || normalizeBookType(item.type) === type) &&
+      (!language ||
+        !/\((TH|EN|JP)\)/i.test(item.edition || item.type || "") ||
+        /\((TH|EN|JP)\)/i
+          .exec(item.edition || item.type)?.[1]
+          ?.toUpperCase() === language) &&
+      (!canonicalIsbn(request.isbn) ||
+        !canonicalIsbn(item.isbn) ||
+        canonicalIsbn(item.isbn) === canonicalIsbn(request.isbn));
+    let matches = catalog.items.filter(matchesVolume);
+    let selectedSource = scrapers.get(catalog.publisherId);
+    const warnings = [...catalog.warnings];
+    // A complete category describes current listings, not every published book.
+    // Search only the missing volume at another store; siblings still use the
+    // category and an empty category never becomes a claim of nonexistence.
+    if (!matches.length && !catalog.ambiguous) {
+      for (const source of eligible
+        .filter(
+          (source) => source.searchTitles && source.id !== catalog.publisherId,
+        )
+        .sort(
+          (a, b) => (a.isbnPriority ?? Infinity) - (b.isbnPriority ?? Infinity),
+        )) {
+        try {
+          const query = series + " " + request.volume;
+          const result = await context.scrapeCache.get(
+            "discovery-volume:v1:" + source.id + ":" + query,
+            { maxAge: SCRAPE_TTL.catalog, refresh: request.refresh },
+            () => source.searchTitles(query),
+          );
+          const items = result.items.filter(
+            (item) =>
+              matchesVolume(item) &&
+              catalogSeriesKey(item.series) === catalogSeriesKey(series) &&
+              (!(publisherId || catalog.publisherId) ||
+                !item.publisher ||
+                publisherKey(item.publisher) ===
+                  (publisherId || catalog.publisherId)),
+          );
+          if (items.length) {
+            matches = items;
+            selectedSource = source;
+            break;
+          }
+        } catch {
+          warnings.push(source.id + " is unavailable right now.");
+        }
+      }
+    }
+    const identities = new Set(
+      matches.map((item) =>
+        JSON.stringify([
+          canonicalIsbn(item.isbn) || item.url,
+          bookEditionKey(item),
+        ]),
+      ),
+    );
+    let details = identities.size === 1 ? matches[0] : null;
+    if (details) {
+      const source = selectedSource;
+      if (source?.bookDetails) {
+        try {
+          const product = await source.bookDetails(
+            details.url,
+            request.refresh,
+          );
+          if (product) {
+            if (
+              !matchesVolume(product) ||
+              catalogSeriesKey(product.series) !==
+                catalogSeriesKey(details.series) ||
+              (product.publisher &&
+                details.publisher &&
+                publisherKey(product.publisher) !==
+                  publisherKey(details.publisher))
+            )
+              details = null;
+            else
+              details = {
+                ...details,
+                ...product,
+                type: product.type || details.type,
+                isbnVerified:
+                  product.isbnVerified === true &&
+                  !!canonicalIsbn(product.isbn),
+              };
+          }
+        } catch {
+          warnings.push("Could not verify this volume’s product details.");
+        }
+      }
+      if (details && source)
+        details = {
+          ...details,
+          source:
+            source.priceSource?.name || details.source || details.publisher,
+        };
+      if (details) await rememberCovers([details]);
+    }
+    return {
+      found: !!details,
+      details,
+      needsSelection: !!catalog.ambiguous || identities.size > 1,
+      isbn: details?.isbnVerified
+        ? canonicalIsbn(details.isbn)
+        : canonicalIsbn(request.isbn),
+      warnings,
+      checkedAt: catalog.checkedAt,
+      categoryUrl: catalog.url || "",
+      stale: !!catalog.stale,
+    };
   }
 
   async function getBookCover(request) {
@@ -812,7 +1104,11 @@ export function createCatalogService(
           title: spec.series,
           url: scraper.searchSeriesUrl(spec.series),
         };
-      const catalog = await scraper.catalog(category.url, spec.refresh);
+      const catalog = await context.scrapeCache.get(
+        "series-catalog:v1:" + spec.publisherId + ":" + category.url,
+        { maxAge: SCRAPE_TTL.catalog, refresh: spec.refresh },
+        () => scraper.catalog(category.url, spec.refresh),
+      );
       if (
         scraper.preserveCompleteSeries &&
         previous?.complete &&
@@ -935,6 +1231,7 @@ export function createCatalogService(
   }
 
   const methods = {
+    lookupBook,
     lookupIsbn,
     searchPublisherIsbn,
     getBookCover,

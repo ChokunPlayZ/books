@@ -3782,9 +3782,15 @@ export function mountCollection({
     if (state.busy) return;
     const generation = ++state.lookupGeneration,
       raw = $("isbn").value.trim(),
-      initialSeries = $("series").value;
+      initialSeries = $("series").value,
+      initialVolume = $("volume").value,
+      initialPublisher = $("publisher").value,
+      initialType = $("type").value,
+      byTitle = !raw;
     $("isbnLookupMessage").textContent =
-      "ISBN " + raw + " · Checking publishers and bookshops for book details.";
+      (byTitle ? initialSeries + " · " + initialVolume : "ISBN " + raw) +
+      " · " +
+      t("Checking publishers and bookshops for book details.");
     setLookupLoading(true);
     $("lookupResult").hidden = true;
     $("lookupResult").replaceChildren();
@@ -3792,17 +3798,34 @@ export function mountCollection({
     clearListedPrice();
     renderBookDetails();
     try {
-      const result = await rpc("lookupIsbn", raw);
+      const result = byTitle
+        ? await rpc("lookupBook", {
+            series: initialSeries,
+            volume: initialVolume,
+            publisher: initialPublisher,
+            type:
+              state.typeTouched || state.formSeries || state.editing
+                ? initialType
+                : "",
+            edition: $("edition").value,
+          })
+        : await rpc("lookupIsbn", raw);
       if (
         generation !== state.lookupGeneration ||
         !$("bookDialog").open ||
-        $("isbn").value.trim() !== raw
+        $("isbn").value.trim() !== raw ||
+        (byTitle &&
+          ($("series").value !== initialSeries ||
+            $("volume").value !== initialVolume ||
+            $("publisher").value !== initialPublisher ||
+            $("type").value !== initialType))
       )
         return;
-      $("isbn").value = result.isbn;
+      $("isbn").value = result.isbn || raw;
       const duplicates = state.data.books.filter(
         (b) =>
           b.row !== state.editing?.row &&
+          !!canonical(result.isbn) &&
           canonical(b.isbn) === canonical(result.isbn),
       );
       let message = "";
@@ -3829,8 +3852,13 @@ export function mountCollection({
         state.lookupMatched = !!$("series").value.trim();
         state.lookupDetailsExpanded = false;
       } else
-        message =
-          "No book details found. The ISBN is ready. Fill in the series, volume and publisher yourself.";
+        message = byTitle
+          ? t(
+              result.needsSelection
+                ? "Several editions matched. Choose a publisher and type, then try again."
+                : "No matching volume found. You can still fill in the details yourself.",
+            )
+          : "No book details found. The ISBN is ready. Fill in the series, volume and publisher yourself.";
       if (result.warnings?.length) message += "\n" + result.warnings.join(" ");
       if (duplicates.length)
         message +=

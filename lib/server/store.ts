@@ -928,6 +928,11 @@ export async function openStore(
         data.edition ? spec.type + "\n" + data.edition : spec.type,
         JSON.stringify(data),
       );
+      // An explicit category choice supersedes automatic discovery immediately.
+      await run(
+        "DELETE FROM cache WHERE key LIKE ?",
+        `user:${users.current().id}:book-discovery:v1:%`,
+      );
       return data;
     },
   };
@@ -957,7 +962,12 @@ export async function openStore(
         for (const url of image.sources || [])
           await covers.linkPrivateSource(url, stored.id);
       }
-      for (const data of plan.books) await insertBook(data);
+      let firstRow = 0,
+        lastRow = 0;
+      for (const data of plan.books) {
+        lastRow = await insertBook(data);
+        firstRow ||= lastRow;
+      }
       for (const entry of plan.trash)
         await insertBook(entry.book, entry.removedAt, entry.id || randomUUID());
       for (const item of plan.savedReleases)
@@ -976,7 +986,30 @@ export async function openStore(
         savedReleases: plan.savedReleases.length,
         seriesCatalogs: plan.seriesCatalogs.length,
         warnings: plan.warnings,
+        discoveryJobId: "",
       };
+      if (firstRow) {
+        // Commit the outbox job with the import itself: no lost background work
+        // if the request/process ends immediately after importing. One bounded
+        // continuation chain handles even 20,000 rows without flooding the queue.
+        const id = randomUUID(),
+          now = Date.now();
+        await run(
+          `INSERT INTO scrape_jobs(id,dedupe_key,kind,payload,label,user_id,status,priority,available_at,created_at)
+           VALUES (?,?,'discoverImportedBooks',?::jsonb,'Discover imported books',app_user_id(),'queued',-10,?,?)`,
+          id,
+          digest(JSON.stringify([users.current().id, fingerprint])),
+          JSON.stringify({ firstRow, lastRow, afterRow: 0 }),
+          now,
+          now,
+        );
+        await run(
+          "INSERT INTO scrape_job_events(job_id,created_at,message,actor_id) VALUES (?,?,'Queued after collection import',app_user_id())",
+          id,
+          now,
+        );
+        result.discoveryJobId = id;
+      }
       await run(
         "INSERT INTO imports VALUES (?,?,?,app_user_id())",
         fingerprint,
@@ -994,14 +1027,15 @@ export async function openStore(
         `SELECT key,value FROM cache WHERE (expires_at=0 OR expires_at>?) AND (
           key LIKE 'isbn:v15:%' OR key LIKE 'publisher-catalog:v1:%' OR
           key LIKE 'publisher-directory:v1:%' OR key LIKE 'releases:v1:%' OR
-          key LIKE 'search-titles:v1:%' OR key LIKE ?
+          key LIKE 'search-titles:v1:%' OR key LIKE ? OR key LIKE ?
         ) ORDER BY key`,
         Date.now(),
         `user:${users.current().id}:series:v1:%`,
+        `user:${users.current().id}:book-discovery:v1:%`,
       );
     },
     async get(key) {
-      if (key.startsWith("series:v1:"))
+      if (key.startsWith("series:v1:") || key.startsWith("book-discovery:v1:"))
         key = `user:${users.current().id}:` + key;
       const row = await get(
         "SELECT value FROM cache WHERE key=? AND (expires_at=0 OR expires_at>?)",
@@ -1011,7 +1045,7 @@ export async function openStore(
       return row?.value || null;
     },
     async put(key, value, seconds) {
-      if (key.startsWith("series:v1:"))
+      if (key.startsWith("series:v1:") || key.startsWith("book-discovery:v1:"))
         key = `user:${users.current().id}:` + key;
       await run(
         "INSERT INTO cache VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,expires_at=excluded.expires_at",
@@ -1183,6 +1217,63 @@ export async function openStore(
     cache,
     covers,
     importData,
+    async importDiscoveryBatch(request: {
+      firstRow: number;
+      lastRow: number;
+      afterRow: number;
+    }) {
+      return (
+        await all(
+          `SELECT * FROM books WHERE ${owned} AND removed_at IS NULL AND id>=? AND id<=? AND id>? ORDER BY id LIMIT 26`,
+          request.firstRow,
+          request.lastRow,
+          request.afterRow,
+        )
+      ).map(book);
+    },
+    async fillDiscoveredBook(snapshot: StoredBook, details, coverId = "") {
+      return transaction(async () => {
+        const row = await get(
+          `SELECT * FROM books WHERE ${owned} AND id=? AND removed_at IS NULL`,
+          snapshot.row,
+        );
+        if (!row || book(row).token !== snapshot.token) return false;
+        const before = book(row),
+          next = { ...before };
+        // Only independently verified ISBNs may become ownership identifiers.
+        if (!next.isbn && details.isbnVerified)
+          next.isbn = canonicalIsbn(details.isbn);
+        if (!next.publisher)
+          next.publisher = String(details.publisher || "").slice(0, 500);
+        if (next.type === "Others" && !next.edition && details.type) {
+          next.type = normalizeBookType(details.type);
+          next.edition = details.edition || details.type;
+        }
+        if (!next.publisherUrl)
+          next.publisherUrl = safePublisherUrl(details.url, next.publisher);
+        if (!next.coverId && !next.coverUrl) {
+          next.coverUrl = details.coverUrl || "";
+          if (coverId) next.coverId = coverId;
+        }
+        if (!next.pageCount) next.pageCount = details.pageCount || "";
+        if (next.msrp === "" || next.msrp == null) {
+          next.msrp = details.msrp ?? "";
+          next.msrpCurrency = details.msrpCurrency || details.currency || "";
+        }
+        if (stableJson(next) === stableJson(before)) return false;
+        await writeMetadata(row.id, next);
+        await run(
+          `UPDATE books SET isbn=?,canonical_isbn=?,publisher=?,type=?,revision=revision+1 WHERE ${owned} AND id=?`,
+          next.isbn,
+          canonicalIsbn(next.isbn),
+          next.publisher,
+          next.type,
+          row.id,
+        );
+        await rememberOptions(next);
+        return true;
+      });
+    },
     onClose: (handler: () => Promise<void>) => closeHandlers.add(handler),
     close: async () => {
       for (const handler of closeHandlers) await handler();

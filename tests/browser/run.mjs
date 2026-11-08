@@ -140,6 +140,7 @@ try {
       .prepare("INSERT INTO options VALUES (?,?,?) ON CONFLICT DO NOTHING")
       .run("series", "Bookmarked title", 1);
   });
+  await runBrowserScenario("book-discovery.browser.mjs", url);
   await runBrowserScenario(
     "loading-feedback.browser.mjs",
     await start("loading-feedback"),

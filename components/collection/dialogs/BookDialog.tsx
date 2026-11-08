@@ -38,7 +38,7 @@ export default async function BookDialog({
       >
         <span className="isbn-lookup-spinner" aria-hidden="true" />
         <div>
-          <strong>{t("Looking up ISBN…")}</strong>
+          <strong>{t("Looking up book details…")}</strong>
           <p id="isbnLookupMessage" />
         </div>
       </div>
@@ -82,7 +82,9 @@ export default async function BookDialog({
                 </button>
               </div>
               <p className={"hint"}>
-                {t("Scan a barcode or enter its ISBN to fill in book details.")}
+                {t(
+                  "Scan a barcode, enter an ISBN, or enter a series and volume with ISBN blank, then choose Look up.",
+                )}
               </p>
             </div>
             <div

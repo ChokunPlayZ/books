@@ -50,6 +50,12 @@ export const phoenix: ScraperDefinition = {
       },
     });
     return {
+      bookDetails: async (url, refresh) =>
+        phoenixBook(
+          await context.fetchText(url, refresh, SCRAPE_TTL.product),
+          "",
+          url,
+        ),
       ...createHtmlCatalog(context, {
         id: "phoenix",
         pagination: "p",
