@@ -76,6 +76,7 @@ export async function knownBookCoverUrl(store, book) {
 
 // Catalog caches are durable; failed refreshes keep the previous successful result.
 export const CATALOG_REUSE = Symbol("catalog-cache-reuse");
+export const CATALOG_CRAWLER = Symbol("catalog-crawler");
 export function createCatalogService(
   store,
   fetchImpl = globalThis.fetch,
@@ -1304,9 +1305,64 @@ export function createCatalogService(
       return false;
     }
   }
+  Object.defineProperty(api, CATALOG_CRAWLER, {
+    value: {
+      sources: PUBLISHERS.filter((p) => scrapers.get(p.id)?.releases).map(
+        (p) => ({
+          id: p.id,
+          name: p.name,
+          full:
+            !!(
+              scrapers.get(p.id)?.seriesDirectory &&
+              !scrapers.get(p.id).seriesDirectory.manual
+            ) || p.id === "lilyhouse",
+        }),
+      ),
+      async warm(publisherId: string, item: { url: string; isbn: string }) {
+        const source = scrapers.require(publisherId);
+        const url = safeProductUrl(item.url, publisherId);
+        if (!url) return;
+        const isbn = canonicalIsbn(item.isbn);
+        const details = source.bookDetails
+          ? await source.bookDetails(url)
+          : isbn && source.lookupIsbn
+            ? await source.lookupIsbn(isbn)
+            : null;
+        if (
+          details &&
+          isbn &&
+          canonicalIsbn(details.isbn) === isbn &&
+          safeProductUrl(details.url, publisherId)
+        ) {
+          // Exact publisher metadata is enough to answer the next scan locally.
+          // Never overwrite a richer existing aggregate or include private aliases.
+          if (!(await cache.get("isbn:v15:" + isbn)))
+            await cache.put(
+              "isbn:v15:" + isbn,
+              JSON.stringify({
+                isbn,
+                found: true,
+                details,
+                warnings: [],
+                stale: false,
+                checkedAt: new Date().toISOString(),
+              }),
+              Infinity,
+            );
+        }
+      },
+    },
+  });
   return Object.defineProperty(api, CATALOG_REUSE, {
     value: canReuse,
   }) as typeof api & {
     [CATALOG_REUSE]: typeof canReuse;
+    [CATALOG_CRAWLER]: {
+      sources: { id: string; name: string; full: boolean }[];
+      warm(
+        publisherId: string,
+        item: { url: string; isbn: string },
+      ): Promise<void>;
+    };
   };
 }

@@ -83,6 +83,26 @@ const migrations = [
   );
   `,
   `ALTER TABLE users ADD COLUMN picture TEXT;`,
+  `
+  CREATE TABLE publisher_crawls (
+    id TEXT PRIMARY KEY, publisher_id TEXT NOT NULL, mode TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('running','paused','cancelled','completed','failed')),
+    user_id INTEGER NOT NULL REFERENCES users(id), job_id TEXT,
+    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+    frontier JSONB NOT NULL DEFAULT 'null', processed INTEGER NOT NULL DEFAULT 0,
+    discovered INTEGER NOT NULL DEFAULT 0, warnings JSONB NOT NULL DEFAULT '[]',
+    current_label TEXT NOT NULL DEFAULT '', error TEXT NOT NULL DEFAULT ''
+  );
+  CREATE UNIQUE INDEX publisher_crawls_active ON publisher_crawls(publisher_id)
+    WHERE status IN ('running','paused');
+  CREATE TABLE publisher_crawl_seen (
+    publisher_id TEXT NOT NULL, url TEXT NOT NULL, kind TEXT NOT NULL,
+    PRIMARY KEY(publisher_id,url,kind)
+  );
+  CREATE TABLE publisher_request_slots (
+    host TEXT PRIMARY KEY, available_at BIGINT NOT NULL, owner TEXT NOT NULL
+  );
+  `,
 ];
 
 export async function migrateDatabase(pool: Pool) {

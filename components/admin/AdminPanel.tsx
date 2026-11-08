@@ -20,6 +20,7 @@ import {
 } from "../../lib/admin.ts";
 import { canonicalIsbn } from "../../lib/domain/isbn.ts";
 import { useTranslations } from "../PreferencesProvider";
+import PublisherCrawlsPanel from "./PublisherCrawlsPanel";
 
 async function rpc<T>(name: string, arg?: unknown): Promise<T> {
   const response = await fetch("/api/rpc", {
@@ -89,7 +90,9 @@ export default function AdminPanel({
   initialRecords: SystemRecords;
 }) {
   const t = useTranslations();
-  const [tab, setTab] = useState<"queue" | "metadata" | "records">("queue");
+  const [tab, setTab] = useState<"queue" | "crawls" | "metadata" | "records">(
+    "queue",
+  );
   const [queue, setQueue] = useState(initialQueue);
   const [queueQuery, setQueueQuery] = useState<QueueQuery>({
     status: "all",
@@ -239,6 +242,7 @@ export default function AdminPanel({
           {(
             [
               ["queue", "Scraping queue"],
+              ["crawls", "Publisher crawls"],
               ["metadata", "Metadata & caches"],
               ["records", "System records"],
             ] as const
@@ -413,7 +417,14 @@ export default function AdminPanel({
                       <span className={`admin-status is-${job.status}`}>
                         {t(job.status)}
                       </span>
-                      {job.priority > 0 && <small>{t("Fast-tracked")}</small>}
+                      {job.priority >= 100 && (
+                        <small>{t("Fast-tracked")}</small>
+                      )}
+                      {job.kind === "crawlPublisher" && (
+                        <small>
+                          {t("Background · yields to user lookups")}
+                        </small>
+                      )}
                     </td>
                     <td>
                       {job.attempts} / {job.maxAttempts}
@@ -441,38 +452,48 @@ export default function AdminPanel({
                     </td>
                     <td>
                       <div className="admin-row-actions">
-                        {job.status === "queued" && (
-                          <>
-                            <button
-                              className="btn"
-                              disabled={busy || job.priority > 0}
-                              onClick={() => jobAction(job.id, "fasttrack")}
-                            >
-                              {t("Fast-track")}
-                            </button>
+                        {job.status === "queued" &&
+                          job.kind !== "crawlPublisher" && (
+                            <>
+                              <button
+                                className="btn"
+                                disabled={
+                                  busy ||
+                                  job.priority >= 100 ||
+                                  job.kind === "crawlPublisher"
+                                }
+                                onClick={() => jobAction(job.id, "fasttrack")}
+                              >
+                                {t("Fast-track")}
+                              </button>
+                              <button
+                                className="btn"
+                                disabled={busy}
+                                onClick={() => jobAction(job.id, "cancel")}
+                              >
+                                {t("Cancel")}
+                              </button>
+                            </>
+                          )}
+                        {job.kind !== "crawlPublisher" &&
+                          ["failed", "cancelled", "succeeded"].includes(
+                            job.status,
+                          ) && (
                             <button
                               className="btn"
                               disabled={busy}
-                              onClick={() => jobAction(job.id, "cancel")}
+                              onClick={() => jobAction(job.id, "retry")}
                             >
-                              {t("Cancel")}
+                              {t("Requeue")}
                             </button>
-                          </>
-                        )}
-                        {["failed", "cancelled", "succeeded"].includes(
-                          job.status,
-                        ) && (
-                          <button
-                            className="btn"
-                            disabled={busy}
-                            onClick={() => jobAction(job.id, "retry")}
-                          >
-                            {t("Requeue")}
-                          </button>
-                        )}
+                          )}
                         {job.status === "running" && (
                           <small>
-                            {t("Finishes safely; cannot be preempted.")}
+                            {t(
+                              job.kind === "crawlPublisher"
+                                ? "Use Publisher crawls to pause or cancel."
+                                : "Finishes safely; cannot be preempted.",
+                            )}
                           </small>
                         )}
                       </div>
@@ -535,6 +556,7 @@ export default function AdminPanel({
         </section>
       )}
 
+      {tab === "crawls" && <PublisherCrawlsPanel />}
       {tab === "metadata" && (
         <section aria-labelledby="metadataHeading">
           <h2 id="metadataHeading">{t("Metadata & caches")}</h2>

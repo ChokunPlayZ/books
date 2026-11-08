@@ -11,6 +11,7 @@ import { AppError } from "./store.ts";
 import { createSearchService } from "./search.ts";
 import { createScrapeQueue } from "./scrape-queue.ts";
 import { createAdminService } from "./admin.ts";
+import { createPublisherCrawls } from "./publisher-crawls.ts";
 import { attachCoverPlaceholders } from "./covers.ts";
 import {
   createImportDiscovery,
@@ -40,6 +41,7 @@ export function createApplicationApi(
   const anime = createAnimeService(store, fetchImpl);
   const seasonal = createSeasonalDiscoveryService(anime, catalogs);
   const maintenance = createMetadataService(store, catalogs);
+  const publisherCrawls = createPublisherCrawls(store, catalogs);
   const { validateCrawlTarget, ...maintenanceApi } = maintenance;
   const search = createSearchService(store, catalogs, fetchImpl);
   const discoverImportedBooks = createImportDiscovery(store, catalogs, covers);
@@ -131,6 +133,7 @@ export function createApplicationApi(
     ),
     searchExternalTitles: search.searchExternalTitles,
     recrawlMetadata: maintenance.recrawlMetadata,
+    crawlPublisher: publisherCrawls.crawlPublisher,
     discoverImportedBooks: async (arg: ImportDiscoveryBatch) => {
       const result = await discoverImportedBooks(arg);
       if (result.next)
@@ -217,6 +220,12 @@ export function createApplicationApi(
     ...maintenanceApi,
     ...search,
     ...createAdminService(store),
+    getPublisherCrawls: publisherCrawls.getPublisherCrawls,
+    managePublisherCrawl: publisherCrawls.managePublisherCrawl,
+    startPublisherCrawl: (arg) =>
+      publisherCrawls.startPublisherCrawl(arg, (id, label) =>
+        queue.enqueue("crawlPublisher", { id }, label, -100),
+      ),
     getScrapeQueue: queue.getScrapeQueue,
     getScrapeJob: queue.getScrapeJob,
     manageScrapeQueue: queue.manageScrapeQueue,

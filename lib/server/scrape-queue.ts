@@ -1,6 +1,7 @@
 import { randomUUID, createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { AppError, type Store } from "./store.ts";
+import { ScrapeInterrupted, withScrapeRuntime } from "./scrape-runtime.ts";
 import {
   JOB_STATUSES,
   type QueueQuery,
@@ -163,13 +164,98 @@ export function createScrapeQueue(
         UPDATE scrape_jobs SET status='running',attempts=attempts+1,started_at=?,finished_at=NULL,
           lease_token=?,lease_until=?
         WHERE id=(SELECT id FROM scrape_jobs WHERE status='queued' AND available_at<=?
+          AND (kind<>'crawlPublisher' OR (
+            NOT EXISTS(SELECT 1 FROM scrape_jobs WHERE kind='crawlPublisher' AND status='running')
+            AND NOT EXISTS(SELECT 1 FROM scrape_jobs WHERE kind<>'crawlPublisher' AND status IN ('queued','running') AND available_at<=?)
+          ))
           ORDER BY priority DESC,sequence LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING *
       `,
         )
-        .get(now, randomUUID(), now + LEASE_MS, now);
+        .get(now, randomUUID(), now + LEASE_MS, now, now);
     });
   }
   async function perform(row) {
+    async function checkpoint() {
+      for (;;) {
+        if (stopped) throw new ScrapeInterrupted("Worker stopping.");
+        const job = await store.db
+          .prepare("SELECT status,lease_token FROM scrape_jobs WHERE id=?")
+          .get(row.id);
+        if (job?.status !== "running" || job.lease_token !== row.lease_token)
+          throw new ScrapeInterrupted("Worker lease changed.");
+        const crawl = await store.db
+          .prepare("SELECT status FROM publisher_crawls WHERE id=?")
+          .get(row.payload.id);
+        if (!crawl || ["cancelled", "failed"].includes(crawl.status))
+          throw new AppError("Publisher crawl stopped.", 409);
+        const user = await store.db
+          .prepare("SELECT role FROM users WHERE id=?")
+          .get(row.user_id);
+        if (user?.role !== "admin")
+          throw new AppError("Administrator access revoked.", 403);
+        const settings = await store.db
+          .prepare("SELECT paused FROM scrape_queue_settings WHERE id=1")
+          .get();
+        const foreground = await store.db
+          .prepare(
+            "SELECT 1 FROM scrape_jobs WHERE kind<>'crawlPublisher' AND status IN ('queued','running') AND available_at<=? LIMIT 1",
+          )
+          .get(Date.now());
+        if (!settings.paused && crawl.status !== "paused" && !foreground)
+          return;
+        await delay(250);
+      }
+    }
+    // Serializes parallel adapter requests as well as pacing across app instances.
+    let tail: Promise<unknown> = Promise.resolve();
+    let minimumDelay = 10_000;
+    function request<T>(url: string, load: () => Promise<T>): Promise<T> {
+      const work = tail.then(async () => {
+        const host = new URL(url).hostname;
+        const owner = randomUUID();
+        for (;;) {
+          await checkpoint();
+          const now = Date.now();
+          const slot = await store.db
+            .prepare(
+              `INSERT INTO publisher_request_slots(host,available_at,owner) VALUES (?,?,?)
+            ON CONFLICT(host) DO UPDATE SET available_at=EXCLUDED.available_at,owner=EXCLUDED.owner
+            WHERE publisher_request_slots.available_at<=? RETURNING host`,
+            )
+            .get(host, now + 120_000, owner, now);
+          if (slot) break;
+          await delay(250);
+        }
+        let cooldown = minimumDelay;
+        try {
+          await checkpoint();
+          const result = await load();
+          const response = result as any;
+          if (response?.status === 429 || response?.status >= 500) {
+            const retry = response.headers?.["retry-after"];
+            const seconds = /^\d+$/.test(retry || "")
+              ? Number(retry) * 1000
+              : Date.parse(retry) - Date.now();
+            cooldown = Math.max(
+              15 * 60_000,
+              Number.isFinite(seconds) ? seconds : 0,
+            );
+          }
+          return result;
+        } catch (error) {
+          if (!(error instanceof ScrapeInterrupted)) cooldown = 15 * 60_000;
+          throw error;
+        } finally {
+          await store.db
+            .prepare(
+              "UPDATE publisher_request_slots SET available_at=? WHERE host=? AND owner=?",
+            )
+            .run(Date.now() + cooldown, host, owner);
+        }
+      });
+      tail = work.catch(() => {});
+      return work;
+    }
     const heartbeat = setInterval(() => {
       void store.db
         .prepare(
@@ -188,7 +274,18 @@ export function createScrapeQueue(
         async () => {
           if (!Object.hasOwn(handlers, row.kind))
             throw new AppError("This task is no longer supported.");
-          return handlers[row.kind](row.payload);
+          return row.kind === "crawlPublisher"
+            ? withScrapeRuntime(
+                {
+                  checkpoint,
+                  request,
+                  minimumDelay: (ms) => {
+                    minimumDelay = Math.max(minimumDelay, ms);
+                  },
+                },
+                () => handlers[row.kind](row.payload),
+              )
+            : handlers[row.kind](row.payload);
         },
       );
       const value = result as any;
@@ -227,6 +324,15 @@ export function createScrapeQueue(
           );
       });
     } catch (error) {
+      if (error instanceof ScrapeInterrupted) {
+        await store.db
+          .prepare(
+            `UPDATE scrape_jobs SET status='queued',attempts=GREATEST(0,attempts-1),
+          lease_token=NULL,lease_until=NULL,available_at=? WHERE id=? AND status='running' AND lease_token=?`,
+          )
+          .run(Date.now(), row.id, row.lease_token);
+        return;
+      }
       const retry =
         !(error instanceof AppError && error.status < 500) &&
         row.attempts < row.max_attempts;
@@ -333,7 +439,7 @@ export function createScrapeQueue(
     );
   }
   async function run(kind: string, payload: unknown, label: string) {
-    return wait(await enqueue(kind, payload, label));
+    return wait(await enqueue(kind, payload, label, 10));
   }
   async function getScrapeQueue(
     request: QueueQuery = {},
@@ -441,6 +547,11 @@ export function createScrapeQueue(
         .prepare("SELECT * FROM scrape_jobs WHERE id=? FOR UPDATE")
         .get(request.id);
       if (!row) throw new AppError("Scraping task not found.", 404);
+      if (row.kind === "crawlPublisher")
+        throw new AppError(
+          "Use Publisher crawls to manage this background task.",
+          409,
+        );
       if (request.action === "retry") {
         if (!["failed", "cancelled", "succeeded"].includes(row.status))
           throw new AppError("Only a finished task can be queued again.", 409);

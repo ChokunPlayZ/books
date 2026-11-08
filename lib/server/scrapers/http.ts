@@ -2,6 +2,12 @@ import { safeProductUrl, safePublisherTitleUrl } from "../../domain/urls.ts";
 import { createScrapeCache, SCRAPE_TTL } from "../scrape-cache.ts";
 import { outboundFetch } from "../outbound.ts";
 import { readBody } from "../http.ts";
+import {
+  backgroundRequest,
+  isBackgroundScrape,
+  minimumScrapeDelay,
+} from "../scrape-runtime.ts";
+import { crawlRobots } from "../crawl-robots.ts";
 import type {
   ScraperCache,
   ScraperContext,
@@ -27,7 +33,39 @@ export function createScraperContext(
   const fetchRemote = outboundFetch(fetchImpl);
   const scrapeCache = createScrapeCache(cache);
   const allowed = new Set(definitions.flatMap((source) => source.hosts));
+  const robotsPending = new Map<string, Promise<string>>();
   async function requestRemote(url: string, options: RequestInit = {}) {
+    if (isBackgroundScrape()) {
+      const parsed = new URL(url),
+        origin = parsed.origin;
+      if (!robotsPending.has(origin))
+        robotsPending.set(
+          origin,
+          (async () => {
+            const key = "crawler:robots:v1:" + origin;
+            const cached = await cache.get(key);
+            if (cached !== null) return cached;
+            const robots = await requestUncached(origin + "/robots.txt");
+            if (![200, 404, 410].includes(robots.status))
+              throw new Error(
+                "Could not check publisher robots.txt; crawl stopped safely.",
+              );
+            const text = robots.status === 200 ? robots.body : "";
+            await cache.put(key, text || "# No rules", 86400);
+            return text;
+          })().catch((error) => {
+            robotsPending.delete(origin);
+            throw error;
+          }),
+        );
+      const policy = crawlRobots(await robotsPending.get(origin), parsed);
+      minimumScrapeDelay(policy.delay);
+      if (!policy.allowed)
+        throw new Error("Publisher robots.txt disallows this crawl URL.");
+    }
+    return requestUncached(url, options);
+  }
+  async function requestUncached(url: string, options: RequestInit = {}) {
     const parsed = new URL(url);
     if (
       parsed.protocol !== "https:" ||
@@ -39,18 +77,35 @@ export function createScraperContext(
       throw new Error("Unsupported catalog source.");
     const fetchOptions: RequestInit = {
       ...options,
-      headers: { "User-Agent": "Mozilla/5.0", ...options.headers },
+      headers: {
+        "User-Agent": isBackgroundScrape()
+          ? "meemai/1.0 (manual publisher cache warm-up)"
+          : "Mozilla/5.0",
+        ...options.headers,
+      },
       redirect: "manual",
-      signal: AbortSignal.timeout(15000),
       cache: "no-store",
     };
-    let current = parsed,
-      response;
+    let current = parsed;
     for (let hop = 0; hop <= 3; hop++) {
-      response = await fetchRemote(current.href, fetchOptions);
-      if (![301, 302, 303, 307, 308].includes(response.status)) break;
-      await response.body?.cancel();
-      let location = response.headers.get("location");
+      const response = await backgroundRequest(current.href, async () => {
+        const remote = await fetchRemote(current.href, {
+          ...fetchOptions,
+          signal: AbortSignal.timeout(15000),
+        });
+        const redirect = [301, 302, 303, 307, 308].includes(remote.status);
+        const body = redirect
+          ? ""
+          : (await readBody(remote, 8 * 1024 * 1024, 15_000)).toString("utf8");
+        if (redirect) await remote.body?.cancel();
+        const headers: Record<string, string | string[]> = Object.fromEntries(
+          remote.headers,
+        );
+        headers["set-cookie"] = remote.headers.getSetCookie?.() || [];
+        return { status: remote.status, body, headers, redirect };
+      });
+      if (!response.redirect) return response;
+      let location = String(response.headers.location || "");
       if (
         !definitions.some(
           (source) =>
@@ -89,14 +144,7 @@ export function createScraperContext(
         throw new Error("Unsupported catalog redirect.");
       current = next;
     }
-    const body = (await readBody(response, 8 * 1024 * 1024, 15_000)).toString(
-      "utf8",
-    );
-    const headers: Record<string, string | string[]> = Object.fromEntries(
-      response.headers,
-    );
-    headers["set-cookie"] = response.headers.getSetCookie?.() || [];
-    return { status: response.status, body, headers };
+    throw new Error("Unsupported catalog redirect.");
   }
 
   async function fetchText_(

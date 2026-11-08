@@ -1078,4 +1078,32 @@ export const thai: Record<string, string> = {
   "{count} owned volume · ฿{total} recorded spending":
     "มีแล้ว {count} เล่ม · ใช้จ่ายที่บันทึก ฿{total}",
   "Open {name}, {count} owned volume": "เปิด {name} มีแล้ว {count} เล่ม",
+  "Publisher crawls": "รวบรวมข้อมูลสำนักพิมพ์",
+  "Publisher cache warm-up": "เตรียมแคชข้อมูลสำนักพิมพ์",
+  "Manual only. One background crawl at a time, with at least 10 seconds between requests. User lookups pause crawling before its next request; in-flight responses finish safely. No images are downloaded or libraries changed.":
+    "เริ่มด้วยตนเองเท่านั้น ทำงานเบื้องหลังครั้งละหนึ่งงาน เว้นคำขออย่างน้อย 10 วินาที และพักก่อนคำขอถัดไปเมื่อมีผู้ใช้ค้นหา โดยไม่ดาวน์โหลดรูปหรือแก้ไขคลังหนังสือ",
+  "All means every series exposed by the supported directory. Publisher pagination limits or inaccessible pages are reported, never treated as complete coverage.":
+    "ทั้งหมดหมายถึงทุกซีรีส์ในสารบัญที่รองรับ หากติดข้อจำกัดจำนวนหน้าหรือเข้าไม่ได้ ระบบจะแจ้งว่าข้อมูลยังไม่ครบ",
+  "Start this manual publisher crawl? It may take hours and will yield to user lookups.":
+    "เริ่มรวบรวมข้อมูลสำนักพิมพ์หรือไม่? อาจใช้เวลาหลายชั่วโมงและจะพักให้การค้นหาของผู้ใช้ก่อน",
+  "Choose a publisher": "เลือกสำนักพิมพ์",
+  "Latest releases only": "เฉพาะหนังสือออกใหม่ล่าสุด",
+  "All discoverable series": "ทุกซีรีส์ที่ค้นพบได้",
+  "New books in all series": "เล่มใหม่ในทุกซีรีส์",
+  "New series only": "เฉพาะซีรีส์ใหม่",
+  "Crawl mode": "รูปแบบการรวบรวม",
+  "Start crawl": "เริ่มรวบรวมข้อมูล",
+  processed: "รายการที่ประมวลผลแล้ว",
+  remaining: "รายการที่เหลือ",
+  "Resume crawl": "รวบรวมข้อมูลต่อ",
+  "Pause crawl": "พักการรวบรวมข้อมูล",
+  "Cancel crawl": "ยกเลิกการรวบรวมข้อมูล",
+  "Cancel this crawl? Already cached data will be kept.":
+    "ยกเลิกการรวบรวมข้อมูลหรือไม่? ข้อมูลที่แคชแล้วจะยังคงอยู่",
+  "No publisher crawls have been started.":
+    "ยังไม่ได้เริ่มรวบรวมข้อมูลสำนักพิมพ์",
+  "Background · yields to user lookups":
+    "งานเบื้องหลัง · ให้การค้นหาของผู้ใช้ก่อน",
+  "Use Publisher crawls to pause or cancel.":
+    "ใช้หน้ารวบรวมข้อมูลสำนักพิมพ์เพื่อพักหรือยกเลิก",
 };

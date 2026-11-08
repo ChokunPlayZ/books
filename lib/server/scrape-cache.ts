@@ -1,4 +1,5 @@
 import { digest } from "../domain.ts";
+import { ScrapeInterrupted } from "./scrape-runtime.ts";
 
 // Seconds. Keep these independent of Next's fetch cache so CLI runs and restarts
 // share the same PostgreSQL entries as the web application.
@@ -101,6 +102,7 @@ export function createScrapeCache(cache: Cache) {
               return value;
             })
             .catch(async (error) => {
+              if (error instanceof ScrapeInterrupted) throw error;
               // Keep the previous successful entry and its original timestamp.
               await cache.put(key + ":retry", "1", SCRAPE_TTL.retry);
               throw error;
