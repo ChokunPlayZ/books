@@ -93,6 +93,15 @@ export default async function BookDialog({
               role={"status"}
               hidden
             ></div>
+            <ExternalLink
+              id="metadataPublisherLink"
+              className="text-btn span-2"
+              target="_blank"
+              hidden
+            >
+              {t("View on publisher site")}
+              <span aria-hidden="true">↗</span>
+            </ExternalLink>
             <button
               id="toggleLookupDetails"
               className="text-btn span-2"
@@ -364,13 +373,6 @@ export default async function BookDialog({
                         maxLength={2000}
                         placeholder="https://…"
                       />
-                      <ExternalLink
-                        id="metadataPublisherLink"
-                        target="_blank"
-                        hidden
-                      >
-                        {t("Open publisher site ↗")}
-                      </ExternalLink>
                     </div>
                     <div className="cover-editor">
                       <div id="metadataCoverPreview" />

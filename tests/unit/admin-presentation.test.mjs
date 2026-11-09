@@ -11,6 +11,19 @@ import {
   unpackRecord,
 } from "../../lib/admin-presentation.ts";
 import { cachePreviewData } from "../../lib/server/cache-preview.ts";
+import { translator } from "../../lib/i18n.ts";
+
+test("book purchase sources are distinct from metadata sources in both languages", () => {
+  assert.equal(fieldLabel("source", "books"), "Bought from");
+  assert.equal(translator("th")(fieldLabel("source", "books")), "ซื้อจาก");
+  for (const resource of ["", "cover_sources", "saved_releases"]) {
+    assert.equal(fieldLabel("source", resource), "Source");
+    assert.equal(
+      translator("th")(fieldLabel("source", resource)),
+      "แหล่งข้อมูล",
+    );
+  }
+});
 
 test("record presentation unpacks saved records, labels fields and preserves text", () => {
   const row = {

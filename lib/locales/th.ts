@@ -462,7 +462,7 @@ export const thai: Record<string, string> = {
   Pages: "จำนวนหน้า",
   "Not recorded": "ยังไม่บันทึก",
   "Publisher page": "หน้าสำนักพิมพ์",
-  "Open publisher site ↗": "เปิดเว็บไซต์สำนักพิมพ์ ↗",
+  "View on publisher site": "ดูบนเว็บไซต์สำนักพิมพ์",
   "Cover image URL": "URL รูปปก",
   "Use automatic cover, or enter an image URL":
     "ใช้ปกอัตโนมัติ หรือกรอก URL รูปภาพ",

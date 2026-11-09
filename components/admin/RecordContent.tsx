@@ -50,10 +50,12 @@ function NestedRecord({
   value,
   field,
   markup,
+  resource,
 }: {
   value: unknown;
   field: string;
   markup: boolean;
+  resource: string;
 }) {
   const t = useTranslations();
   const [open, setOpen] = useState(false);
@@ -63,7 +65,14 @@ function NestedRecord({
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <summary>{t("More nested details")}</summary>
-      {open && <RecordContent value={value} field={field} markup={markup} />}
+      {open && (
+        <RecordContent
+          value={value}
+          field={field}
+          markup={markup}
+          resource={resource}
+        />
+      )}
     </details>
   );
 }
@@ -73,11 +82,13 @@ export function RecordContent({
   field = "",
   depth = 0,
   markup = false,
+  resource = "",
 }: {
   value: unknown;
   field?: string;
   depth?: number;
   markup?: boolean;
+  resource?: string;
 }) {
   const t = useTranslations();
   const { preferences } = usePreferences();
@@ -119,7 +130,7 @@ export function RecordContent({
         <RecordImage
           key={image}
           src={image}
-          alt={t(fieldLabel(field || "Image"))}
+          alt={t(fieldLabel(field || "Image", resource))}
         />
       );
     const link = safeRecordLink(parsed);
@@ -141,7 +152,14 @@ export function RecordContent({
     );
   }
   if (depth > 12)
-    return <NestedRecord value={parsed} field={field} markup={markup} />;
+    return (
+      <NestedRecord
+        value={parsed}
+        field={field}
+        markup={markup}
+        resource={resource}
+      />
+    );
   if (Array.isArray(parsed)) {
     if (!parsed.length)
       return <span className="admin-empty-value">{t("None")}</span>;
@@ -154,6 +172,7 @@ export function RecordContent({
               field={field}
               depth={depth + 1}
               markup={markup}
+              resource={resource}
             />
           </li>
         ))}
@@ -169,12 +188,13 @@ export function RecordContent({
     <dl className="admin-detail-list">
       {entries.map(([key, child]) => (
         <div key={key} className="admin-detail-field">
-          <dt>{t(fieldLabel(key))}</dt>
+          <dt>{t(fieldLabel(key, resource))}</dt>
           <dd>
             <RecordContent
               value={child}
               field={key}
               depth={depth + 1}
+              resource={resource}
               markup={
                 /^(?:html|description|body|content)$/.test(key) ||
                 (key === "value" &&
@@ -278,18 +298,25 @@ export function RecordCard({
           <p>{String(fields.series)}</p>
         )}
         {!!visible.length && (
-          <RecordContent value={Object.fromEntries(visible)} />
+          <RecordContent
+            value={Object.fromEntries(visible)}
+            resource={resource}
+          />
         )}
         {!!fields.note && (
           <section className="admin-record-notes">
             <h4>{t("Notes")}</h4>
-            <RecordContent value={fields.note} field="note" />
+            <RecordContent
+              value={fields.note}
+              field="note"
+              resource={resource}
+            />
           </section>
         )}
         {!!Object.keys(details).length && (
           <details className="admin-record-details">
             <summary>{t("Details")}</summary>
-            <RecordContent value={details} />
+            <RecordContent value={details} resource={resource} />
           </details>
         )}
       </div>

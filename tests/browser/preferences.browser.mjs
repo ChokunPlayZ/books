@@ -49,8 +49,9 @@ await store.forUser(
         isbn: "",
         price: "",
         date: "",
-        source: "",
-        publisher: "",
+        source: "Book fair",
+        publisher: "Example publisher",
+        publisherUrl: "https://publisher.example/books/collection-1",
         note: "Your collection",
       },
     }),
@@ -167,6 +168,33 @@ try {
   );
   assert.equal(await page.locator(".brand-name").textContent(), "meemai");
   await page.getByRole("link", { name: "meemai home", exact: true }).waitFor();
+  await page.locator(".series-row").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
+  await page.locator(".book-row").click();
+  assert.equal(await page.locator("#metadataManager").count(), 0);
+  await page
+    .getByRole("link", { name: "View on publisher site", exact: true })
+    .waitFor();
+  assert.equal(
+    await page.locator("#metadataPublisherLink").getAttribute("href"),
+    "https://publisher.example/books/collection-1?ref=meemai.ckl.moe",
+  );
+  assert.equal(
+    await page.locator("#metadataPublisherLink").getAttribute("target"),
+    "_blank",
+  );
+  assert.equal(
+    await page.locator("#metadataPublisherLink").getAttribute("rel"),
+    "noopener",
+  );
+  assert.equal(
+    await page
+      .locator("#bookDialog")
+      .getByLabel("Bought from", { exact: true })
+      .inputValue(),
+    "Book fair",
+  );
+  await page.keyboard.press("Escape");
   await page.getByRole("link", { name: "User settings", exact: true }).click();
   await page
     .getByRole("heading", { name: "User settings", exact: true })
@@ -330,6 +358,14 @@ try {
     await page.locator("#status option[value='Read']").textContent(),
     "อ่านแล้ว",
   );
+  assert.equal(
+    await page
+      .locator("#bookDialog")
+      .getByLabel("ซื้อจาก", { exact: true })
+      .inputValue(),
+    "",
+  );
+  assert.equal(await page.locator("#metadataPublisherLink").isVisible(), false);
   await page.keyboard.press("Escape");
   await page.locator("#toggleSelection").click();
   assert.equal(
@@ -337,6 +373,21 @@ try {
     "เลือกเสร็จแล้ว",
   );
   await page.keyboard.press("Escape");
+  await page.locator(".series-row").click();
+  await page.waitForFunction(() => !!window.bookCollection?.state.data);
+  await page.locator(".book-row").click();
+  await page
+    .getByRole("link", { name: "ดูบนเว็บไซต์สำนักพิมพ์", exact: true })
+    .waitFor();
+  assert.equal(
+    await page
+      .locator("#bookDialog")
+      .getByLabel("ซื้อจาก", { exact: true })
+      .inputValue(),
+    "Book fair",
+  );
+  await page.keyboard.press("Escape");
+  await page.goto(url);
   assert.deepEqual(await preferences(), { locale: "th", theme: "dark" });
 
   // A fresh browser has no localStorage and an opposing system theme.

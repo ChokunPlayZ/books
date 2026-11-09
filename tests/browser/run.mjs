@@ -468,7 +468,7 @@ try {
   await volumeCover.click();
   assert.equal(
     await page
-      .getByRole("link", { name: "Open publisher site ↗", exact: true })
+      .getByRole("link", { name: "View on publisher site", exact: true })
       .getAttribute("href"),
     publisherPage + "?ref=meemai.ckl.moe",
   );

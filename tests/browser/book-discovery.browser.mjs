@@ -39,6 +39,7 @@ try {
           isbn: "9786165998840",
           isbnVerified: true,
           pageCount: 192,
+          url: "https://www.phoenixnext.com/lookup-volume.html",
         },
       },
     });
@@ -55,10 +56,18 @@ try {
   );
   assert.equal(await page.locator("#publisher").inputValue(), "Phoenix Next");
   assert.equal(await page.locator("#pageCount").inputValue(), "192");
+  await page
+    .getByRole("link", { name: "View on publisher site", exact: true })
+    .waitFor();
+  assert.equal(
+    await page.locator("#metadataPublisherLink").getAttribute("href"),
+    "https://www.phoenixnext.com/lookup-volume.html?ref=meemai.ckl.moe",
+  );
   assert.equal(requests[0].series, "ดอกรักผลิบานที่กลางใจ");
   assert.equal(requests[0].volume, "8");
   await page.locator("#closeBook").click();
   await page.locator("#addButton").click();
+  assert.equal(await page.locator("#metadataPublisherLink").isVisible(), false);
   await page.locator("#series").fill("ดอกรักผลิบานที่กลางใจ");
   await page.locator("#volume").fill("9");
   await page.locator("#lookupButton").click();

@@ -33,7 +33,8 @@ export function recordFields(row: Record<string, unknown>) {
   };
 }
 
-export function fieldLabel(key: string) {
+export function fieldLabel(key: string, resource = "") {
+  if (key === "source" && resource === "books") return "Bought from";
   const labels: Record<string, string> = {
     id: "Record ID",
     user_id: "Account ID",

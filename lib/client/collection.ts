@@ -15,7 +15,7 @@ import type { StoredBook } from "../types.ts";
 import { createScanner } from "./scanner.ts";
 import { activity, requestActivityLabel } from "./activity.ts";
 import { canonicalIsbn as canonical } from "../domain/isbn.ts";
-import { kinokuniyaSearchUrl } from "../domain/urls.ts";
+import { kinokuniyaSearchUrl, safePublisherUrl } from "../domain/urls.ts";
 import {
   outboundUrl,
   OUTBOUND_LINK_ATTRIBUTES,
@@ -1722,6 +1722,7 @@ export function mountCollection({
     $("saveButton").textContent = t(
       state.editing ? "Save changes" : quick ? "Add volume" : "Add book",
     );
+    renderPublisherLink();
   }
   function bookRow(entry) {
     if (state.view === "collection") {
@@ -1969,42 +1970,30 @@ export function mountCollection({
     );
   }
 
+  function renderPublisherLink() {
+    const link = $("metadataPublisherLink");
+    const url = safePublisherUrl(
+      $("publisherUrl").value.trim() ||
+        bookPublisherUrl({
+          publisher: $("publisher").value,
+          series: $("series").value,
+          volume: $("volume").value,
+          type: $("type").value,
+          isbn: $("isbn").value,
+        }),
+      $("publisher").value,
+    );
+    link.hidden = !url;
+    if (url) link.href = outboundUrl(url);
+    else link.removeAttribute("href");
+  }
+
   function renderMetadataCover() {
+    renderPublisherLink();
     if (!$("metadataCoverPreview")) return;
     $("metadataCoverPreview").replaceChildren(
       coverImage(state.selectedCoverId, $("series").value, "metadata-cover"),
     );
-    const link = $("metadataPublisherLink");
-    const url =
-      $("publisherUrl").value.trim() ||
-      (state.editing
-        ? bookPublisherUrl({ ...state.editing, publisherUrl: "" })
-        : "");
-    const hosts = {
-      phoenix: "www.phoenixnext.com",
-      firstpage: "www.firstpagepro.com",
-      luckpim: "www.luckpim.com",
-      yaakz: "www.yaakz.com",
-      animag: "www.animagshop.com",
-      dexpress: "www.dexpress-shop.com",
-      lilyhouse: "lily-house.com",
-      yenpress: "yenpress.com",
-      kodansha: "www.kodansha.co.jp",
-    };
-    let safe = false;
-    try {
-      const parsed = new URL(url);
-      safe =
-        parsed.protocol === "https:" &&
-        (!hosts[publisherKey($("publisher").value)] ||
-          parsed.hostname === hosts[publisherKey($("publisher").value)]) &&
-        !parsed.username &&
-        !parsed.password &&
-        !parsed.port;
-    } catch {}
-    link.hidden = !safe;
-    if (safe) link.href = outboundUrl(url);
-    else link.removeAttribute("href");
     document
       .querySelectorAll<HTMLElement>(".cover-choice")
       .forEach((choice) => {
@@ -3848,6 +3837,11 @@ export function mountCollection({
         if (d.pageCount && !$("pageCount").value)
           $("pageCount").value = String(d.pageCount);
         if (d.edition && !$("edition").value) $("edition").value = d.edition;
+        if (!$("publisherUrl").value)
+          $("publisherUrl").value = safePublisherUrl(
+            d.url,
+            $("publisher").value,
+          );
         fillListedPrice(d);
         state.lookupMatched = !!$("series").value.trim();
         state.lookupDetailsExpanded = false;

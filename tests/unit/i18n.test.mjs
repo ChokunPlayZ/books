@@ -32,6 +32,13 @@ test("meemai branding uses the original Thai name in the Thai interface", () => 
   assert.equal(translator("th")("meemai home"), "หน้าหลักมีมั้ย");
 });
 
+test("publisher links and purchase fields use their intended Thai labels", () => {
+  const th = translator("th");
+  assert.equal(th("View on publisher site"), "ดูบนเว็บไซต์สำนักพิมพ์");
+  assert.equal(th("Bought from"), "ซื้อจาก");
+  assert.equal(th("Source"), "แหล่งข้อมูล");
+});
+
 test("every explicitly translated interface literal has a Thai translation", () => {
   function scan(directory) {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
