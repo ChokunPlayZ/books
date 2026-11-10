@@ -51,11 +51,13 @@ function NestedRecord({
   field,
   markup,
   resource,
+  images,
 }: {
   value: unknown;
   field: string;
   markup: boolean;
   resource: string;
+  images: boolean;
 }) {
   const t = useTranslations();
   const [open, setOpen] = useState(false);
@@ -71,6 +73,7 @@ function NestedRecord({
           field={field}
           markup={markup}
           resource={resource}
+          images={images}
         />
       )}
     </details>
@@ -83,12 +86,14 @@ export function RecordContent({
   depth = 0,
   markup = false,
   resource = "",
+  images = true,
 }: {
   value: unknown;
   field?: string;
   depth?: number;
   markup?: boolean;
   resource?: string;
+  images?: boolean;
 }) {
   const t = useTranslations();
   const { preferences } = usePreferences();
@@ -124,7 +129,7 @@ export function RecordContent({
     return <span>{new Intl.NumberFormat(locale).format(parsed)}</span>;
   }
   if (typeof parsed === "string") {
-    const image = recordImage(parsed, field);
+    const image = images ? recordImage(parsed, field) : "";
     if (image)
       return (
         <RecordImage
@@ -158,6 +163,7 @@ export function RecordContent({
         field={field}
         markup={markup}
         resource={resource}
+        images={images}
       />
     );
   if (Array.isArray(parsed)) {
@@ -173,6 +179,7 @@ export function RecordContent({
               depth={depth + 1}
               markup={markup}
               resource={resource}
+              images={images}
             />
           </li>
         ))}
@@ -195,6 +202,7 @@ export function RecordContent({
               field={key}
               depth={depth + 1}
               resource={resource}
+              images={images}
               markup={
                 /^(?:html|description|body|content)$/.test(key) ||
                 (key === "value" &&

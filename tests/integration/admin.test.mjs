@@ -67,6 +67,8 @@ test("admin inspection spans all libraries but never returns account credentials
   await store.forUser(user, async () => {
     for (const [name, arg] of [
       ["getSystemOverview"],
+      ["getScraperDebugSources"],
+      ["debugScraperIsbn", { isbn: "9786164648357", providerId: "phoenix" }],
       ["getSystemRecords", { resource: "books" }],
       ["getScrapeQueue"],
       ["getScrapeJob", { id: "any" }],

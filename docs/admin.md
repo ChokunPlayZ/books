@@ -30,6 +30,27 @@ Pause/resume/cancel individual crawls in this tab. Cancelling never deletes shar
 cached metadata. Warm-up caches public metadata only, without downloading covers
 or editing anyone's library.
 
+## Scraper debugger
+
+Open **Scraper debugger**, enter an ISBN, select a provider and choose **Run fresh
+scrape**. The administrator-only task uses the normal scraper and safe HTTP
+transport, but starts with an empty, run-local success cache. Existing retry
+cooldowns remain enforced; failures also update those cooldowns. Successful
+diagnostics do not replace shared metadata or modify any library.
+
+The report includes each request URL, method, HTTP status, safe response headers, content type, timing,
+raw response body, intermediate parser snapshots, final parsed result and error
+stack. HTML and scripts are displayed as escaped text, never executed. Request
+credentials and response cookie headers are not recorded. **Download debug
+report** exports the captured data as JSON. Captured response text is bounded to
+32 Mi characters per run, with explicit truncation notices; the normal 8 MiB
+per-response transport limit still applies. No cover downloads are performed.
+
+Runs use the durable scraping queue and its concurrency/pause controls. Long-running
+or paused runs remain inspectable under **Scraping queue**, including after a
+restart. Only applicable ISBN providers can be selected; no arbitrary fetch URLs
+or executable code are accepted.
+
 ## Users and re-linking
 
 **Users** searches account names, email addresses and IDs, displays safe account

@@ -59,6 +59,19 @@
 .admin-page p {
   line-height: 1.6;
 }
+.admin-debug-raw {
+  max-height: 520px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 16px;
+  margin-top: 12px;
+  background: var(--surface-inset);
+  font-size: 12px;
+}
+.admin-debug-url {
+  overflow-wrap: anywhere;
+}
 .admin-toolbar,
 .admin-tabs,
 .admin-section-heading,

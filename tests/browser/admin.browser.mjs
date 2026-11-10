@@ -228,6 +228,8 @@ try {
   assert.equal(await reader.locator('a[href="/admin"]').count(), 0);
   for (const [name, arg] of [
     ["getSystemOverview"],
+    ["getScraperDebugSources"],
+    ["debugScraperIsbn", { isbn: "9786164648357", providerId: "phoenix" }],
     ["getSystemRecords", { resource: "books" }],
     ["getScrapeQueue"],
     ["getScrapeJob", { id: initialJob }],
@@ -395,6 +397,98 @@ try {
     true,
   );
   await page.setViewportSize({ width: 1280, height: 900 });
+  const debugBody =
+    "x".repeat(20000) +
+    "<script>window.adminDebugXss=true</script><h1>Complete debug response tail</h1>";
+  const debugReport = {
+    isbn: "9786164648357",
+    providerId: "phoenix",
+    startedAt: "2026-11-10T00:00:00.000Z",
+    durationMs: 42,
+    result: {
+      isbn: "9786164648357",
+      title: "Debug fixture",
+      msrp: 175,
+      msrpCurrency: "THB",
+      coverUrl:
+        "https://www.phoenixnext.com/media/catalog/product/debug-cover.jpg",
+    },
+    responses: [
+      {
+        url: "https://www.phoenixnext.com/mgm0098-01.html",
+        method: "GET",
+        status: 200,
+        contentType: "text/html",
+        body: debugBody,
+        bytes: debugBody.length,
+        durationMs: 20,
+        error: "",
+      },
+    ],
+    snapshots: [],
+    cooldowns: [],
+    error: "",
+    stack: "",
+  };
+  let debugCalls = 0,
+    coverDownloads = 0;
+  await page.route("https://www.phoenixnext.com/**", (route) => {
+    coverDownloads++;
+    return route.abort();
+  });
+  await page.route("**/api/rpc", async (route) => {
+    const input = route.request().postDataJSON();
+    if (input.name !== "debugScraperIsbn") return route.continue();
+    debugCalls++;
+    assert.deepEqual(input.arg, {
+      isbn: "9786164648357",
+      providerId: "phoenix",
+    });
+    return route.fulfill({ json: debugReport });
+  });
+  await page
+    .getByRole("button", { name: "Scraper debugger", exact: true })
+    .click();
+  await page.getByLabel("ISBN", { exact: true }).fill("9786164648357");
+  await page.getByLabel("Provider", { exact: true }).selectOption("phoenix");
+  await page
+    .getByRole("button", { name: "Run fresh scrape", exact: true })
+    .click();
+  await page
+    .getByRole("heading", { name: "Parsed result", exact: true })
+    .waitFor();
+  assert.equal(debugCalls, 1);
+  assert.match(await page.locator(".admin-debug-report").innerText(), /175/);
+  assert.equal(await page.locator(".admin-debug-report img").count(), 0);
+  await page.getByText("Raw response body", { exact: true }).click();
+  assert.equal(await page.locator(".admin-debug-raw").innerText(), debugBody);
+  assert.equal(await page.evaluate(() => window.adminDebugXss), undefined);
+  assert.equal(
+    await page
+      .locator(".admin-debug-report script, .admin-debug-report iframe")
+      .count(),
+    0,
+  );
+  const downloadPromise = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Download debug report", exact: true })
+    .click();
+  assert.equal(
+    (await downloadPromise).suggestedFilename(),
+    "scraper-phoenix-9786164648357.json",
+  );
+  assert.equal(coverDownloads, 0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+    true,
+  );
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page
+    .getByRole("button", { name: "System records", exact: true })
+    .click();
   await page
     .getByLabel("Record category", { exact: true })
     .selectOption("covers");

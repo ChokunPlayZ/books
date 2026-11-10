@@ -8,6 +8,7 @@ import {
   minimumScrapeDelay,
 } from "../scrape-runtime.ts";
 import { crawlRobots } from "../crawl-robots.ts";
+import type { ScraperDebugResponse } from "../../scraper-debug.ts";
 import type {
   ScraperCache,
   ScraperContext,
@@ -29,6 +30,7 @@ export function createScraperContext(
   cache: ScraperCache,
   fetchImpl: typeof fetch,
   definitions: readonly ScraperDefinition[],
+  onResponse?: (response: ScraperDebugResponse) => void,
 ): ScraperContext {
   const fetchRemote = outboundFetch(fetchImpl);
   const scrapeCache = createScrapeCache(cache);
@@ -89,20 +91,58 @@ export function createScraperContext(
     let current = parsed;
     for (let hop = 0; hop <= 3; hop++) {
       const response = await backgroundRequest(current.href, async () => {
-        const remote = await fetchRemote(current.href, {
-          ...fetchOptions,
-          signal: AbortSignal.timeout(15000),
-        });
-        const redirect = [301, 302, 303, 307, 308].includes(remote.status);
-        const body = redirect
-          ? ""
-          : (await readBody(remote, 8 * 1024 * 1024, 15_000)).toString("utf8");
-        if (redirect) await remote.body?.cancel();
-        const headers: Record<string, string | string[]> = Object.fromEntries(
-          remote.headers,
-        );
-        headers["set-cookie"] = remote.headers.getSetCookie?.() || [];
-        return { status: remote.status, body, headers, redirect };
+        const started = Date.now();
+        const trace: ScraperDebugResponse = {
+          url: current.href,
+          method: fetchOptions.method || "GET",
+          startedAt: new Date(started).toISOString(),
+          durationMs: 0,
+          status: null,
+          contentType: "",
+          headers: {},
+          body: "",
+          bytes: 0,
+          error: "",
+        };
+        try {
+          const remote = await fetchRemote(current.href, {
+            ...fetchOptions,
+            signal: AbortSignal.timeout(15000),
+          });
+          trace.status = remote.status;
+          trace.contentType = remote.headers.get("content-type") || "";
+          if (onResponse)
+            for (const name of [
+              "content-type",
+              "content-length",
+              "content-encoding",
+              "location",
+              "retry-after",
+              "server",
+            ])
+              if (remote.headers.has(name))
+                trace.headers[name] = remote.headers.get(name)!;
+          const redirect = [301, 302, 303, 307, 308].includes(remote.status);
+          const body = redirect
+            ? ""
+            : (await readBody(remote, 8 * 1024 * 1024, 15_000)).toString(
+                "utf8",
+              );
+          if (redirect) await remote.body?.cancel();
+          trace.body = body;
+          if (onResponse) trace.bytes = Buffer.byteLength(body);
+          const headers: Record<string, string | string[]> = Object.fromEntries(
+            remote.headers,
+          );
+          headers["set-cookie"] = remote.headers.getSetCookie?.() || [];
+          return { status: remote.status, body, headers, redirect };
+        } catch (error) {
+          trace.error = error instanceof Error ? error.message : String(error);
+          throw error;
+        } finally {
+          trace.durationMs = Date.now() - started;
+          onResponse?.(trace);
+        }
       });
       if (!response.redirect) return response;
       let location = String(response.headers.location || "");

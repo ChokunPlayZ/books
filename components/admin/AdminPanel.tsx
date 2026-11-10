@@ -24,6 +24,7 @@ import { canonicalIsbn } from "../../lib/domain/isbn.ts";
 import { useTranslations } from "../PreferencesProvider";
 import PublisherCrawlsPanel from "./PublisherCrawlsPanel";
 import AdminUsersPanel from "./AdminUsersPanel";
+import ScraperDebugPanel from "./ScraperDebugPanel";
 import { RecordCard, RecordContent } from "./RecordContent";
 
 async function rpc<T>(name: string, arg?: unknown): Promise<T> {
@@ -94,7 +95,7 @@ export default function AdminPanel({
 }) {
   const t = useTranslations();
   const [tab, setTab] = useState<
-    "queue" | "crawls" | "users" | "metadata" | "records"
+    "queue" | "crawls" | "debug" | "users" | "metadata" | "records"
   >("queue");
   const [queue, setQueue] = useState(initialQueue);
   const [queueQuery, setQueueQuery] = useState<QueueQuery>({
@@ -256,6 +257,7 @@ export default function AdminPanel({
             [
               ["queue", "Scraping queue"],
               ["crawls", "Publisher crawls"],
+              ["debug", "Scraper debugger"],
               ["users", "Users"],
               ["metadata", "Metadata & caches"],
               ["records", "System records"],
@@ -298,6 +300,7 @@ export default function AdminPanel({
         </p>
       )}
 
+      {tab === "debug" && <ScraperDebugPanel />}
       {tab === "queue" && (
         <section aria-labelledby="queueHeading">
           <div className="admin-section-heading">

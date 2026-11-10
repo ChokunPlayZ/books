@@ -8,6 +8,25 @@ export const thai: Record<string, string> = {
   "Inspect system-wide activity, manage scraping, and maintain shared metadata.":
     "ตรวจสอบกิจกรรมทั้งระบบ จัดการคิวดึงข้อมูล และดูแลข้อมูลหนังสือส่วนกลาง",
   "Scraping queue": "คิวดึงข้อมูล",
+  "Scraper debugger": "ตรวจสอบตัวดึงข้อมูล",
+  Provider: "แหล่งข้อมูล",
+  "Run fresh scrape": "ดึงข้อมูลใหม่เพื่อทดสอบ",
+  "Scraping…": "กำลังดึงข้อมูล…",
+  "Enter an ISBN to run one provider from scratch and inspect its raw responses, parsed data and errors. Successful caches are bypassed; retry cooldowns still apply. No covers are downloaded, shared metadata replaced or library books changed.":
+    "กรอก ISBN เพื่อทดสอบแหล่งข้อมูลหนึ่งแห่งตั้งแต่ต้น และตรวจสอบผลตอบกลับดิบ ข้อมูลที่แยกได้ และข้อผิดพลาด โดยไม่ใช้แคชสำเร็จ แต่ยังคงเว้นช่วงเมื่อแหล่งข้อมูลขัดข้อง ไม่มีการดาวน์โหลดปก เปลี่ยนข้อมูลส่วนกลาง หรือแก้ไขหนังสือในคลัง",
+  "Waiting for the scraping queue. Long-running results remain available in Scraping queue.":
+    "กำลังรอคิวดึงข้อมูล ผลลัพธ์ของงานที่ใช้เวลานานยังตรวจสอบได้ในคิวดึงข้อมูล",
+  "Download debug report": "ดาวน์โหลดรายงานตรวจสอบ",
+  "Error stack": "รายละเอียดลำดับข้อผิดพลาด",
+  "Parsed result": "ผลลัพธ์ที่แยกได้",
+  "Raw JSON": "JSON ดิบ",
+  Responses: "ผลตอบกลับ",
+  bytes: "ไบต์",
+  "Raw response body": "เนื้อหาผลตอบกลับดิบ",
+  "Response headers": "ส่วนหัวผลตอบกลับ",
+  "Parser snapshots": "ข้อมูลระหว่างการแยกผลลัพธ์",
+  "Response capture was truncated at the report size limit. The parser received the complete bounded response.":
+    "ข้อมูลที่บันทึกถูกตัดตามขนาดสูงสุดของรายงาน แต่ตัวแยกข้อมูลได้รับผลตอบกลับครบถ้วนภายในขนาดที่ระบบอนุญาต",
   "Metadata & caches": "ข้อมูลหนังสือและแคช",
   "System records": "ระเบียนระบบ",
   "Administration sections": "ส่วนการดูแลระบบ",

@@ -14,6 +14,7 @@ import { createAdminService } from "./admin.ts";
 import { createPublisherCrawls } from "./publisher-crawls.ts";
 import { createAdminUsers } from "./admin-users.ts";
 import { attachCoverPlaceholders } from "./covers.ts";
+import { createScraperDebugger } from "./scraper-debug.ts";
 import {
   createImportDiscovery,
   type ImportDiscoveryBatch,
@@ -46,6 +47,7 @@ export function createApplicationApi(
   const { validateCrawlTarget, ...maintenanceApi } = maintenance;
   const search = createSearchService(store, catalogs, fetchImpl);
   const discoverImportedBooks = createImportDiscovery(store, catalogs, covers);
+  const scraperDebugger = createScraperDebugger(store, fetchImpl);
   function authorizeRefresh(arg: unknown) {
     if (!arg || typeof arg !== "object") return;
     const refresh = (arg as { refresh?: unknown }).refresh;
@@ -135,6 +137,7 @@ export function createApplicationApi(
     searchExternalTitles: search.searchExternalTitles,
     recrawlMetadata: maintenance.recrawlMetadata,
     crawlPublisher: publisherCrawls.crawlPublisher,
+    debugScraperIsbn: scraperDebugger.debugScraperIsbn,
     discoverImportedBooks: async (arg: ImportDiscoveryBatch) => {
       const result = await discoverImportedBooks(arg);
       if (result.next)
@@ -222,6 +225,15 @@ export function createApplicationApi(
     ...search,
     ...createAdminService(store),
     ...createAdminUsers(store),
+    getScraperDebugSources: scraperDebugger.getScraperDebugSources,
+    debugScraperIsbn: async (arg) => {
+      const request = scraperDebugger.validateScraperDebug(arg);
+      return queue.run(
+        "debugScraperIsbn",
+        request,
+        `Debug ${request.providerId} · ${request.isbn}`,
+      );
+    },
     getPublisherCrawls: publisherCrawls.getPublisherCrawls,
     managePublisherCrawl: publisherCrawls.managePublisherCrawl,
     startPublisherCrawl: (arg) =>
