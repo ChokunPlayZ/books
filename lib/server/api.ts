@@ -141,6 +141,11 @@ export function createApplicationApi(
     recrawlMetadata: maintenance.recrawlMetadata,
     crawlPublisher: publisherCrawls.crawlPublisher,
     debugScraperIsbn: scraperDebugger.debugScraperIsbn,
+    discoverBook: (arg: { row: number }) =>
+      discoverImportedBooks(
+        { firstRow: arg?.row, lastRow: arg?.row, afterRow: 0 },
+        true,
+      ),
     discoverImportedBooks: async (arg: ImportDiscoveryBatch) => {
       const result = await discoverImportedBooks(arg);
       if (result.next)
@@ -233,8 +238,22 @@ export function createApplicationApi(
     const book = { ...request.book };
     if (book.coverUrl && !book.coverId)
       book.coverId = (await covers.ensure(book.coverUrl)).id;
-    return await store.api.saveBook({ ...request, book });
+    return store.transaction(async () => {
+      const result = await store.api.saveBook({ ...request, book });
+      const discoveryJobId = await store.enqueueBookDiscovery(
+        result.row,
+        request.requestId,
+      );
+      return { ...result, ...(discoveryJobId ? { discoveryJobId } : {}) };
+    });
   };
+  api.saveSeriesVolumes = (request) =>
+    store.transaction(async () => {
+      const result = await store.api.saveSeriesVolumes(request);
+      for (const change of request.changes)
+        await store.enqueueBookDiscovery(change.row, request.requestId);
+      return result;
+    });
   // Search does not download covers or change personal fields. Verified public
   // metadata discovered by its scrapers still fills missing derived fields.
   return {

@@ -13,6 +13,7 @@ import { createAccount } from "../../lib/server/auth.ts";
 import { parseImport } from "../../lib/server/importer.ts";
 import { phoenix } from "../../lib/server/scrapers/phoenix.ts";
 import { naiin } from "../../lib/server/scrapers/naiin.ts";
+import { googleBooks } from "../../lib/server/scrapers/google-books.ts";
 import { releaseItem } from "../../lib/domain.ts";
 import { createScrapeCache } from "../../lib/server/scrape-cache.ts";
 
@@ -113,13 +114,282 @@ test("name/volume discovery reuses one series category and targets only missing 
   );
   assert.equal((await exact.lookupIsbn(codes[9])).details.isbn, codes[9]);
   for (const request of [
-    { series, volume: "" },
+    { series, volume: null },
     { series, volume: -1 },
     { series: 8, volume: 8 },
     { series, volume: 8, publisher: [] },
   ]) {
     await assert.rejects(service.lookupBook(request), { status: 400 });
   }
+});
+
+test("saving without an ISBN atomically queues private discovery, survives restart and never waits for providers", async (t) => {
+  const key = crypto.randomUUID();
+  let store = await openTestStore(key);
+  const reader = await createAccount(
+    store,
+    "save-reader",
+    "save-reader@gmail.com",
+  );
+  const request = {
+    requestId: crypto.randomUUID(),
+    book: {
+      series,
+      volume: 9,
+      type: "Manga",
+      publisher: "Phoenix Next",
+      status: "Read",
+      price: 0,
+      source: "My shop",
+      note: "Private note",
+    },
+  };
+  const noNetwork = () => assert.fail("Saving must not contact providers");
+  let api = createApplicationApi(store, {}, noNetwork);
+  let result;
+  await store.forUser(reader, async () => {
+    result = await api.saveBook(request);
+    assert.ok(result.discoveryJobId);
+    assert.equal(
+      (await api.saveBook(request)).discoveryJobId,
+      result.discoveryJobId,
+    );
+    const indexed = await api.saveBook({
+      requestId: crypto.randomUUID(),
+      book: { ...request.book, isbn: codes[8], volume: 8 },
+    });
+    assert.equal(indexed.discoveryJobId, undefined);
+  });
+  const jobs = await store.db.prepare("SELECT * FROM scrape_jobs").all();
+  assert.equal(jobs.length, 1);
+  assert.equal(jobs[0].kind, "discoverBook");
+  assert.equal(jobs[0].priority, -10);
+  assert.equal(jobs[0].user_id, reader.id);
+  assert.deepEqual(jobs[0].payload, { row: result.row });
+  await store.close();
+
+  store = await openTestStore(key);
+  t.after(() => store.close());
+  const calls = [];
+  const covers = {
+    ensure: async () => {
+      throw new Error("Cover offline");
+    },
+  };
+  api = createApplicationApi(store, covers, remote(calls));
+  const queue = applicationQueue(store);
+  await store.forUser(reader, async () => {
+    assert.equal((await queue.wait(result.discoveryJobId)).filled, 1);
+    const saved = (await store.api.getCollection()).books.find(
+      (b) => b.row === result.row,
+    );
+    assert.equal(saved.isbn, codes[9]);
+    assert.equal(saved.series, series);
+    assert.equal(saved.price, 0);
+    assert.equal(saved.source, "My shop");
+    assert.equal(saved.status, "Read");
+    assert.equal(saved.note, "Private note");
+    assert.equal(saved.msrp, 175);
+    await api.saveBook(request);
+  });
+  assert.equal(
+    (await store.db.prepare("SELECT COUNT(*) AS n FROM scrape_jobs").get()).n,
+    1,
+  );
+  assert.equal((await store.api.getCollection()).books.length, 0);
+  assert.ok(calls.includes(category));
+});
+
+test("bulk volume saves queue missing ISBNs only and roll back discovery with a failed save", async (t) => {
+  const store = await openTestStore();
+  t.after(() => store.close());
+  const api = createApplicationApi(store, {}, () =>
+    assert.fail("No scraping during save"),
+  );
+  for (const volume of [8, 9])
+    await store.api.saveBook({
+      requestId: crypto.randomUUID(),
+      book: { series, volume, type: "Manga", status: "Read" },
+    });
+  let books = (await store.api.getCollection()).books;
+  await api.saveSeriesVolumes({
+    requestId: crypto.randomUUID(),
+    series,
+    changes: books.map((book) => ({
+      ...book,
+      book: { isbn: book.volume === 8 ? codes[8] : "", note: "Keep" },
+    })),
+  });
+  const jobs = await store.db.prepare("SELECT payload FROM scrape_jobs").all();
+  assert.deepEqual(
+    jobs.map((job) => job.payload.row),
+    [books[1].row],
+  );
+  books = (await store.api.getCollection()).books;
+  await assert.rejects(
+    store.transaction(async () => {
+      await api.saveBook({
+        requestId: crypto.randomUUID(),
+        row: books[1].row,
+        token: books[1].token,
+        book: { ...books[1], note: "Rollback" },
+      });
+      throw new Error("Rollback save and outbox");
+    }),
+    /Rollback/,
+  );
+  assert.equal((await store.api.getCollection()).books[1].note, "Keep");
+  assert.equal(
+    (await store.db.prepare("SELECT COUNT(*) AS n FROM scrape_jobs").get()).n,
+    1,
+  );
+});
+
+test("queued saved-book discovery skips ISBNs entered meanwhile, removed books and other accounts", async (t) => {
+  const store = await openTestStore();
+  t.after(() => store.close());
+  const api = createApplicationApi(store, {}, () =>
+    assert.fail("Obsolete work must not scrape"),
+  );
+  const added = await api.saveBook({
+    requestId: crypto.randomUUID(),
+    book: { series, volume: 9, type: "Manga", status: "Read" },
+  });
+  let book = (await store.api.getCollection()).books[0];
+  await api.saveBook({
+    requestId: crypto.randomUUID(),
+    ...book,
+    book: { ...book, isbn: codes[9] },
+  });
+  const queue = applicationQueue(store);
+  assert.equal((await queue.wait(added.discoveryJobId)).discovered, 0);
+  const removed = await api.saveBook({
+    requestId: crypto.randomUUID(),
+    book: { series, volume: 10, type: "Manga", status: "Read" },
+  });
+  book = (await store.api.getCollection()).books.at(-1);
+  await store.api.removeBook({ requestId: crypto.randomUUID(), ...book });
+  assert.equal((await queue.wait(removed.discoveryJobId)).discovered, 0);
+  const reader = await createAccount(
+    store,
+    "other-save-reader",
+    "other-save-reader@gmail.com",
+  );
+  await store.forUser(reader, async () => {
+    await assert.rejects(queue.wait(added.discoveryJobId), { status: 404 });
+  });
+});
+
+test("title discovery routes Thai, English and Japanese names while respecting explicit editions", async (t) => {
+  const store = await openTestStore();
+  t.after(() => store.close());
+  const calls = [];
+  const source = (id, languages, priority, isbn) => ({
+    id,
+    hosts: [id + ".example"],
+    titleLanguages: languages,
+    isbnPriority: priority,
+    create: () => ({
+      searchTitles: async (query) => {
+        calls.push(id);
+        return {
+          items: [
+            {
+              title: query,
+              series: query,
+              volume: 1,
+              isbn,
+              isbnVerified: true,
+              url: `https://${id}.example/book`,
+            },
+          ],
+          complete: true,
+        };
+      },
+    }),
+  });
+  const service = createCatalogService(
+    store,
+    () => assert.fail("Fixture providers only"),
+    [
+      source("phoenix", ["th", "en"], 1, codes[9]),
+      source("yenpress", ["en"], 2, "9780316469316"),
+      source("google-books", ["th", "en", "ja"], 3, "9784063951370"),
+    ],
+  );
+  for (const [name, expected, edition] of [
+    [series, "phoenix", ""],
+    ["Moon Library", "yenpress", ""],
+    ["進撃の巨人", "google-books", ""],
+    ["Thai edition alias", "phoenix", "Manga (TH)"],
+  ]) {
+    calls.length = 0;
+    assert.equal(
+      (await service.lookupBook({ series: name, volume: 1, edition })).found,
+      true,
+    );
+    assert.deepEqual(calls, [expected]);
+  }
+});
+
+test("Google Books title metadata discovers verified Japanese volumes and unnumbered English books without guessing a volume", async (t) => {
+  const store = await openTestStore();
+  t.after(() => store.close());
+  const records = [
+    {
+      title: "進撃の巨人（１）",
+      language: "ja",
+      isbn: "9784063951370",
+      categories: ["Comics & Graphic Novels"],
+    },
+    {
+      title: "Matilda",
+      language: "en",
+      isbn: "9780140328721",
+      categories: ["Fiction"],
+    },
+  ];
+  let requests = 0;
+  const service = createCatalogService(
+    store,
+    async (url) => {
+      requests++;
+      assert.ok(
+        url.startsWith("https://www.googleapis.com/books/v1/volumes?q="),
+      );
+      return new Response(
+        JSON.stringify({
+          items: records.map((record, i) => ({
+            id: "book_" + i,
+            volumeInfo: {
+              ...record,
+              publisher: "Publisher",
+              pageCount: 192,
+              industryIdentifiers: [{ identifier: record.isbn }],
+            },
+          })),
+        }),
+      );
+    },
+    [googleBooks],
+  );
+  const jp = await service.lookupBook({
+    series: "進撃の巨人",
+    volume: 1,
+    type: "Manga",
+  });
+  assert.equal(jp.isbn, "9784063951370");
+  assert.equal(jp.details.isbnVerified, true);
+  assert.equal(jp.details.pageCount, 192);
+  assert.equal(jp.details.edition, "(JP)");
+  assert.equal(
+    (await service.lookupBook({ series: "進撃の巨人", volume: "" })).found,
+    false,
+  );
+  const english = await service.lookupBook({ series: "Matilda", volume: "" });
+  assert.equal(english.isbn, "9780140328721");
+  assert.equal(english.details.volume, "");
+  assert.equal(requests, 2);
 });
 
 test("imports atomically queue discovery, resume after restart, preserve duplicates and continue in low-priority batches", async (t) => {

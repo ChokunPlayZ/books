@@ -387,11 +387,12 @@ export function createCatalogService(
         (value) =>
           value != null && (typeof value !== "string" || value.length > 500),
       ) ||
-      !/^\d+(?:\.\d+)?$/.test(String(request.volume)) ||
-      !Number.isFinite(Number(request.volume))
+      (request.volume !== "" &&
+        (!/^\d+(?:\.\d+)?$/.test(String(request.volume)) ||
+          !Number.isFinite(Number(request.volume))))
     )
       throw new AppError(
-        "Enter a series name and a non-negative volume number.",
+        "Enter a series name and, if provided, a non-negative volume number.",
       );
     const publisherId = request.publisherId || publisherKey(request.publisher);
     if (request.publisherId && !scrapers.get(request.publisherId))
@@ -411,20 +412,26 @@ export function createCatalogService(
         categoryUrl: "",
       };
     const type = request.type ? normalizeBookType(request.type) : "";
-    const spec = { ...request, series, type, publisherId };
-    const language = /\((TH|EN|JP)\)/i
-      .exec(request.edition || request.type || "")?.[1]
-      ?.toUpperCase();
+    const titleLanguage = searchLanguage(series);
+    const language =
+      /\((TH|EN|JP)\)/i
+        .exec(request.edition || request.type || "")?.[1]
+        ?.toUpperCase() ||
+      (!publisherId ? { th: "TH", en: "EN", ja: "JP" }[titleLanguage] : "");
+    // Explicit edition/publisher choices take precedence over a translated or
+    // romanized shelf name. Otherwise use its script to avoid unrelated editions.
+    const edition = language ? `(${language})` : request.edition;
+    const spec = { ...request, series, type, publisherId, edition };
     const eligible = scrapers.titleProviders.filter(
       (source) =>
         bookSourceApplies(source.id, spec) &&
-        source.titleLanguages.includes(searchLanguage(series)),
+        source.titleLanguages.includes(titleLanguage),
     );
     // Cache the entire series, not the volume query. Siblings (including imports)
     // reuse one matched category/listing and never repeat a full-store search.
     // These keys are account-scoped because explicit shelf aliases are private.
     const key =
-      "book-discovery:v1:" +
+      "book-discovery:v2:" +
       digest(
         JSON.stringify([
           catalogSeriesKey(series),
@@ -488,7 +495,7 @@ export function createCatalogService(
             }
           } else if (source.searchTitles) {
             result = await context.scrapeCache.get(
-              "discovery-titles:v1:" +
+              "discovery-titles:v2:" +
                 source.id +
                 ":" +
                 catalogSeriesKey(series),
@@ -504,7 +511,7 @@ export function createCatalogService(
               (!type || !item.type || normalizeBookType(item.type) === type) &&
               bookSourceApplies(source.id, {
                 ...item,
-                edition: request.edition || item.edition,
+                edition: edition || item.edition,
               }),
           );
           if (!items.length) continue;
@@ -533,9 +540,11 @@ export function createCatalogService(
       !item.special &&
       !item.bundle &&
       !item.variantGroup &&
-      item.volume !== "" &&
-      item.volume != null &&
-      Number(item.volume) === Number(request.volume) &&
+      (request.volume === ""
+        ? item.volume === "" || item.volume == null
+        : item.volume !== "" &&
+          item.volume != null &&
+          Number(item.volume) === Number(request.volume)) &&
       (!type || !item.type || normalizeBookType(item.type) === type) &&
       (!language ||
         !/\((TH|EN|JP)\)/i.test(item.edition || item.type || "") ||
@@ -560,9 +569,10 @@ export function createCatalogService(
           (a, b) => (a.isbnPriority ?? Infinity) - (b.isbnPriority ?? Infinity),
         )) {
         try {
-          const query = series + " " + request.volume;
+          const query =
+            series + (request.volume === "" ? "" : " " + request.volume);
           const result = await context.scrapeCache.get(
-            "discovery-volume:v1:" + source.id + ":" + query,
+            "discovery-volume:v2:" + source.id + ":" + query,
             { maxAge: SCRAPE_TTL.catalog, refresh: request.refresh },
             () => source.searchTitles(query),
           );

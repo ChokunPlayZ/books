@@ -991,7 +991,7 @@ export async function openStore(
       // An explicit category choice supersedes automatic discovery immediately.
       await run(
         "DELETE FROM cache WHERE key LIKE ?",
-        `user:${users.current().id}:book-discovery:v1:%`,
+        `user:${users.current().id}:book-discovery:%`,
       );
       return data;
     },
@@ -1083,7 +1083,7 @@ export async function openStore(
     async getMany(keys: string[]) {
       if (!keys.length) return new Map<string, string>();
       const scoped = keys.map((key) =>
-        key.startsWith("series:v1:") || key.startsWith("book-discovery:v1:")
+        key.startsWith("series:v1:") || key.startsWith("book-discovery:")
           ? `user:${users.current().id}:` + key
           : key,
       );
@@ -1108,11 +1108,11 @@ export async function openStore(
         ) ORDER BY key`,
         Date.now(),
         `user:${users.current().id}:series:v1:%`,
-        `user:${users.current().id}:book-discovery:v1:%`,
+        `user:${users.current().id}:book-discovery:%`,
       );
     },
     async get(key) {
-      if (key.startsWith("series:v1:") || key.startsWith("book-discovery:v1:"))
+      if (key.startsWith("series:v1:") || key.startsWith("book-discovery:"))
         key = `user:${users.current().id}:` + key;
       const row = await get(
         "SELECT value FROM cache WHERE key=? AND (expires_at=0 OR expires_at>?)",
@@ -1122,7 +1122,7 @@ export async function openStore(
       return row?.value || null;
     },
     async put(key, value, seconds) {
-      if (key.startsWith("series:v1:") || key.startsWith("book-discovery:v1:"))
+      if (key.startsWith("series:v1:") || key.startsWith("book-discovery:"))
         key = `user:${users.current().id}:` + key;
       await run(
         "INSERT INTO cache VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,expires_at=excluded.expires_at",
@@ -1373,6 +1373,44 @@ export async function openStore(
           row.id,
         );
         return true;
+      });
+    },
+    async enqueueBookDiscovery(row: number, requestId: string) {
+      return transaction(async () => {
+        const saved = await get(
+          `SELECT * FROM books WHERE ${owned} AND id=? AND removed_at IS NULL`,
+          row,
+        );
+        if (!saved || saved.isbn || !saved.series.trim()) return "";
+        // Commit background work with the save. Replayed receipts reuse even a
+        // completed job; a new save gets its own attempt so in-flight edits
+        // cannot lose discovery when the older snapshot is safely rejected.
+        const key = digest(
+          JSON.stringify([users.current().id, "discoverBook", row, requestId]),
+        );
+        const previous = await get(
+          "SELECT id FROM scrape_jobs WHERE dedupe_key=?",
+          key,
+        );
+        if (previous) return previous.id;
+        const id = randomUUID(),
+          now = Date.now();
+        await run(
+          `INSERT INTO scrape_jobs(id,dedupe_key,kind,payload,label,user_id,status,priority,available_at,created_at)
+           VALUES (?,?,'discoverBook',?::jsonb,?,app_user_id(),'queued',-10,?,?)`,
+          id,
+          key,
+          JSON.stringify({ row }),
+          ("Discover book · " + saved.series).slice(0, 500),
+          now,
+          now,
+        );
+        await run(
+          "INSERT INTO scrape_job_events(job_id,created_at,message,actor_id) VALUES (?,?,'Queued after saving without ISBN',app_user_id())",
+          id,
+          now,
+        );
+        return id;
       });
     },
     async importDiscoveryBatch(request: {

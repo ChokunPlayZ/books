@@ -15,7 +15,7 @@ export function createImportDiscovery(
   catalogs: ReturnType<typeof createCatalogService>,
   covers: ReturnType<typeof createCoverService>,
 ) {
-  return async (request: ImportDiscoveryBatch) =>
+  return async (request: ImportDiscoveryBatch, missingIsbnOnly = false) =>
     store.deferMetadataFill(async () => {
       if (
         !request ||
@@ -35,6 +35,7 @@ export function createImportDiscovery(
       // Sequential series discovery is intentional: the first book finds a category,
       // and all siblings then reuse it. The queue provides global concurrency.
       for (const book of batch) {
+        if (missingIsbnOnly && canonicalIsbn(book.isbn)) continue;
         if (
           canonicalIsbn(book.isbn) &&
           book.publisher &&
@@ -46,7 +47,7 @@ export function createImportDiscovery(
         )
           continue;
         let details;
-        if (book.volume !== "") {
+        if (book.volume !== "" || !canonicalIsbn(book.isbn)) {
           const result = await catalogs.lookupBook({
             series: book.series,
             volume: book.volume,
@@ -57,8 +58,8 @@ export function createImportDiscovery(
           });
           for (const warning of result.warnings) warnings.add(warning);
           details = result.details;
-          // Ambiguous formats/editions are for the owner to review, never guessed.
-          if (result.needsSelection) continue;
+          // Ambiguous formats/editions and stale fallbacks are never auto-confirmed.
+          if (result.needsSelection || result.stale) continue;
         }
         const isbn = canonicalIsbn(book.isbn);
         if (!details && isbn) {

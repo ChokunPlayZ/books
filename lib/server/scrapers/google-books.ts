@@ -1,10 +1,21 @@
-import { canonicalIsbn, safeCoverUrl, parsePageCount } from "../../domain.ts";
+import {
+  canonicalIsbn,
+  safeCoverUrl,
+  parsePageCount,
+  splitBookTitle,
+  splitKodanshaTitle,
+  specialSet,
+  releaseBundle,
+} from "../../domain.ts";
+import { searchLanguage } from "../../domain/search.ts";
 import type { ScraperContext, ScraperDefinition } from "./types.ts";
 type GoogleBooksResponse = {
   items?: {
     id?: string;
     volumeInfo?: {
       title?: string;
+      language?: string;
+      categories?: string[];
       publisher?: string;
       authors?: string[];
       pageCount?: number;
@@ -34,15 +45,47 @@ export const googleBooks: ScraperDefinition = {
           items: (data.items || []).flatMap((item) => {
             const v = item.volumeInfo;
             if (!v?.title || !/^[\w-]+$/.test(item.id || "")) return [];
+            const title = v.title.normalize("NFKC");
+            const language = { th: "TH", en: "EN", ja: "JP" }[
+              v.language || searchLanguage(title)
+            ];
+            const parsed = splitBookTitle(title);
+            const japanese =
+              language === "JP" ? splitKodanshaTitle(title) : null;
+            if (japanese && japanese.volume !== "") {
+              parsed.series = japanese.series;
+              parsed.volume = japanese.volume;
+            }
+            const isbn =
+              (v.industryIdentifiers || [])
+                .map((id) => canonicalIsbn(id.identifier))
+                .find(Boolean) || "";
+            const type = /light\s*novel|ไลท์โนเวล|\(LN\)/i.test(title)
+              ? "Light novel"
+              : /comics|graphic novels|manga|มังงะ|การ์ตูน/i.test(
+                    [title, ...(v.categories || [])].join(" "),
+                  )
+                ? "Manga"
+                : "";
             return [
               {
                 title: v.title,
+                series: parsed.series,
+                volume: parsed.volume,
+                type,
+                edition: language ? `(${language})` : "",
                 publisher: v.publisher || "",
-                isbn:
-                  (v.industryIdentifiers || [])
-                    .map((id) => canonicalIsbn(id.identifier))
-                    .find(Boolean) || "",
+                isbn,
+                isbnVerified: !!isbn,
+                special: specialSet(title),
+                bundle: releaseBundle(title),
                 url: "https://books.google.com/books?id=" + item.id,
+                authors: (v.authors || []).join(", "),
+                pageCount: parsePageCount(v.pageCount),
+                coverUrl: safeCoverUrl(
+                  v.imageLinks?.thumbnail || v.imageLinks?.smallThumbnail,
+                ),
+                source: "Google Books",
               },
             ];
           }),
