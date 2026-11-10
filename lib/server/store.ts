@@ -1,6 +1,11 @@
 import { openDatabase, type DatabaseValue } from "./database.ts";
 import type { Book, StoredBook } from "../types.ts";
 import { createHash, randomUUID } from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
+import {
+  scrapedMetadata,
+  fillScrapedMetadata,
+} from "../domain/scraped-metadata.ts";
 import { createUserContext, type User } from "./user-context.ts";
 import type { Preferences } from "../preferences.ts";
 import { exportLibraryBook } from "../domain/library-export.ts";
@@ -26,6 +31,8 @@ import {
   publisherKey,
   safePublisherUrl,
   splitFirstPageTitle,
+  normalizeMsrp,
+  normalizeCurrency,
 } from "../domain.ts";
 
 const columns = [
@@ -93,6 +100,9 @@ export async function openStore(
   const db = await openDatabase(connectionString, () => users.current().id);
   const closeHandlers = new Set<() => Promise<void>>();
   const owned = "user_id=app_user_id()";
+  const deferredMetadata = new AsyncLocalStorage<
+    Map<string, NonNullable<ReturnType<typeof scrapedMetadata>>>
+  >();
   function requireAdmin() {
     if (users.current().role !== "admin")
       throw new AppError(
@@ -278,6 +288,33 @@ export async function openStore(
       metadata.edition,
       id,
     );
+  }
+  async function fillEncounteredMetadata(details) {
+    return transaction(async () => {
+      let filled = 0;
+      const rows = await all(
+        `SELECT * FROM books WHERE ${owned} AND canonical_isbn=? AND removed_at IS NULL`,
+        details.isbn,
+      );
+      for (const row of rows) {
+        const before = book(row);
+        const next = { ...before };
+        if (!next.publisherUrl)
+          next.publisherUrl = safePublisherUrl(details.url, next.publisher);
+        if (!next.pageCount) next.pageCount = details.pageCount;
+        const price = fillScrapedMetadata(next, details);
+        next.msrp = price.msrp;
+        next.msrpCurrency = price.msrpCurrency;
+        if (stableJson(next) === stableJson(before)) continue;
+        await writeMetadata(row.id, next);
+        await run(
+          `UPDATE books SET revision=revision+1 WHERE ${owned} AND id=?`,
+          row.id,
+        );
+        filled++;
+      }
+      return filled;
+    });
   }
   async function duplicate(isbn, id) {
     return (
@@ -1020,12 +1057,29 @@ export async function openStore(
     });
   }
   const cache = {
+    async getMany(keys: string[]) {
+      if (!keys.length) return new Map<string, string>();
+      const scoped = keys.map((key) =>
+        key.startsWith("series:v1:") || key.startsWith("book-discovery:v1:")
+          ? `user:${users.current().id}:` + key
+          : key,
+      );
+      const rows = await all<{ key: string; value: string }>(
+        `SELECT key,value FROM cache WHERE key IN (${scoped.map(() => "?").join(",")}) AND (expires_at=0 OR expires_at>?)`,
+        ...scoped,
+        Date.now(),
+      );
+      const values = new Map(rows.map((row) => [row.key, row.value]));
+      return new Map(
+        keys.map((key, index) => [key, values.get(scoped[index]) ?? null]),
+      );
+    },
     async searchable() {
       // Only parsed public book metadata and this user's series aliases. Never
       // expose raw responses, private imports, or another user's catalog links.
       return await all<{ key: string; value: string }>(
         `SELECT key,value FROM cache WHERE (expires_at=0 OR expires_at>?) AND (
-          key LIKE 'isbn:v15:%' OR key LIKE 'publisher-catalog:v1:%' OR
+          key LIKE 'isbn:v15:%' OR key LIKE 'book-metadata:v1:%' OR key LIKE 'publisher-catalog:v1:%' OR
           key LIKE 'publisher-directory:v1:%' OR key LIKE 'releases:v1:%' OR
           key LIKE 'search-titles:v1:%' OR key LIKE ? OR key LIKE ?
         ) ORDER BY key`,
@@ -1220,6 +1274,84 @@ export async function openStore(
     cache,
     covers,
     importData,
+    async ingestScrapedMetadata(books) {
+      let filled = 0;
+      for (const input of books) {
+        const details = scrapedMetadata(input);
+        if (!details) continue;
+        await transaction(async () => {
+          // Account writes and shared ISBN enrichment are both serialized across
+          // workers. Each transaction takes only one ISBN lock.
+          await db.query("SELECT pg_advisory_xact_lock(726007, hashtext($1))", [
+            details.isbn,
+          ]);
+          const key = "book-metadata:v1:" + details.isbn;
+          let previous;
+          try {
+            previous = JSON.parse((await cache.get(key)) || "null");
+          } catch {}
+          const next =
+            previous?.isbn === details.isbn
+              ? fillScrapedMetadata(previous, details)
+              : {
+                  ...details,
+                  checkedAt: details.checkedAt || new Date().toISOString(),
+                };
+          if (stableJson(next) !== stableJson(previous))
+            await cache.put(key, JSON.stringify(next), Infinity);
+          // Keep scraped images automatic. Writing books.cover_url would turn
+          // them into a manual choice that survives an ISBN/edition change.
+          if (details.coverUrl)
+            await cache.put(
+              "cover:isbn:v1:" + details.isbn,
+              details.coverUrl,
+              Infinity,
+            );
+          const pending = deferredMetadata.getStore();
+          if (pending)
+            pending.set(
+              details.isbn,
+              fillScrapedMetadata(
+                pending.get(details.isbn) || details,
+                details,
+              ),
+            );
+          else filled += await fillEncounteredMetadata(details);
+        });
+      }
+      return filled;
+    },
+    async deferMetadataFill<T>(action: () => Promise<T>): Promise<T> {
+      if (deferredMetadata.getStore()) return action();
+      return deferredMetadata.run(new Map(), async () => {
+        try {
+          return await action();
+        } finally {
+          for (const details of deferredMetadata.getStore()!.values())
+            await fillEncounteredMetadata(details);
+        }
+      });
+    },
+    async fillMissingMsrp(snapshot: StoredBook, details) {
+      const msrp = normalizeMsrp(details.msrp);
+      const currency = normalizeCurrency(details.msrpCurrency);
+      if (msrp === "" || !canonicalIsbn(snapshot.isbn)) return false;
+      return transaction(async () => {
+        const row = await get(
+          `SELECT * FROM books WHERE ${owned} AND id=? AND removed_at IS NULL`,
+          snapshot.row,
+        );
+        if (!row || row.msrp != null || book(row).token !== snapshot.token)
+          return false;
+        await run(
+          `UPDATE books SET msrp=?,msrp_currency=?,revision=revision+1 WHERE ${owned} AND id=? AND msrp IS NULL`,
+          msrp,
+          currency,
+          row.id,
+        );
+        return true;
+      });
+    },
     async importDiscoveryBatch(request: {
       firstRow: number;
       lastRow: number;

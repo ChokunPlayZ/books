@@ -25,6 +25,8 @@ import { publisherCovers } from "./publisher-covers.ts";
 import { bookSourceApplies } from "../domain/book-sources.ts";
 import { searchLanguage } from "../domain/search.ts";
 import { bookEditionKey } from "../domain/book-type.ts";
+import { money } from "../domain/msrp.ts";
+import { fillScrapedMetadata } from "../domain/scraped-metadata.ts";
 import { AppError } from "./store.ts";
 import { SCRAPE_TTL } from "./scrape-cache.ts";
 import { createScraperContext } from "./scrapers/http.ts";
@@ -78,6 +80,7 @@ export async function knownBookCoverUrl(store, book) {
 // Catalog caches are durable; failed refreshes keep the previous successful result.
 export const CATALOG_REUSE = Symbol("catalog-cache-reuse");
 export const CATALOG_CRAWLER = Symbol("catalog-crawler");
+export const CATALOG_MSRP = Symbol("catalog-cached-msrp");
 export function createCatalogService(
   store,
   fetchImpl = globalThis.fetch,
@@ -86,10 +89,108 @@ export function createCatalogService(
   const cache = store.cache;
   const context = createScraperContext(cache, fetchImpl, sources);
   const { fetchText: fetchText_ } = context;
-  const scrapers = createScraperRegistry(context, sources);
+  const scrapers = createScraperRegistry(
+    context,
+    sources,
+    store.ingestScrapedMetadata,
+  );
   const pendingCovers = new Map();
   const pendingTitles = new Map();
+  async function reparseBook(book) {
+    const source = scrapers.get(
+      book.publisherId || publisherKey(book.publisher),
+    );
+    return source?.reparseBook ? await source.reparseBook(book) : book;
+  }
+  function explicitMsrp(book) {
+    if (!book || book.special || book.bundle) return null;
+    const msrp = money(book.msrp);
+    const msrpCurrency = String(book.msrpCurrency || book.currency || "")
+      .trim()
+      .toUpperCase();
+    return msrp !== "" && (!msrpCurrency || /^[A-Z]{3}$/.test(msrpCurrency))
+      ? { msrp, msrpCurrency }
+      : null;
+  }
+  // Read only verified local snapshots. A richer source may have been discovered
+  // after the permanent aggregate was saved, including through covers or a crawl.
+  async function cachedMsrp(isbn: string, aggregate?) {
+    const canonical = canonicalIsbn(isbn);
+    if (!canonical) return null;
+    aggregate ??= await cachedJson_(cache, "isbn:v15:" + canonical);
+    if (
+      aggregate?.found &&
+      canonicalIsbn(aggregate.isbn) === canonical &&
+      aggregate.details &&
+      (!aggregate.details.isbn ||
+        canonicalIsbn(aggregate.details.isbn) === canonical)
+    ) {
+      const price = explicitMsrp(await reparseBook(aggregate.details));
+      if (price) return price;
+    }
+    const encountered = await cachedJson_(
+      cache,
+      "book-metadata:v1:" + canonical,
+    );
+    if (encountered?.isbn === canonical && encountered.isbnVerified === true) {
+      const price = explicitMsrp(encountered);
+      if (price) return price;
+    }
+    const providers = new Set([
+      ...scrapers.isbnProviders,
+      ...scrapers.isbnSearchProviders,
+    ]);
+    const keys = [...providers]
+      .filter((source) => supportsIsbn(source, canonical))
+      .flatMap((source) =>
+        ["source-book", "source-search"].map(
+          (kind) =>
+            "scrape:v1:" + digest(`${kind}:v1:${source.id}:${canonical}`),
+        ),
+      );
+    const values = cache.getMany ? await cache.getMany(keys) : null;
+    const snapshots = values
+      ? { ...cache, get: (key) => values.get(key) ?? null }
+      : cache;
+    for (const source of providers) {
+      if (!supportsIsbn(source, canonical)) continue;
+      for (const kind of ["source-book", "source-search"]) {
+        const key = `${kind}:v1:${source.id}:${canonical}`;
+        const snapshot = await cachedJson_(
+          snapshots,
+          "scrape:v1:" + digest(key),
+        );
+        if (snapshot?.source !== key) continue;
+        const books =
+          kind === "source-book" ? [snapshot.value] : snapshot.value?.items;
+        if (!Array.isArray(books)) continue;
+        for (const book of books) {
+          if (canonicalIsbn(book?.isbn) !== canonical) continue;
+          try {
+            const url = new URL(book.url);
+            if (
+              url.protocol !== "https:" ||
+              !source.hosts.includes(url.hostname) ||
+              url.username ||
+              url.password ||
+              url.port
+            )
+              continue;
+            const parsed = source.reparseBook
+              ? await source.reparseBook(book)
+              : book;
+            const price = explicitMsrp(parsed);
+            if (price) return price;
+          } catch {
+            // Malformed old snapshots cannot block another verified source.
+          }
+        }
+      }
+    }
+    return null;
+  }
   async function rememberCovers(items) {
+    await scrapers.rememberBooks(items);
     for (const item of items) {
       const verifiedIsbn = canonicalIsbn(item.isbn);
       if (
@@ -160,16 +261,38 @@ export function createCatalogService(
     if (!isbn) throw new Error("Enter or scan an ISBN first.");
     const canonical = canonicalIsbn(isbn);
 
-    const cachedResult = await cachedJson_(cache, "isbn:v15:" + canonical);
-    if (cachedResult?.details) {
-      const source = scrapers.get(
-        cachedResult.details.publisherId ||
-          publisherKey(cachedResult.details.publisher),
-      );
-      if (source?.reparseBook)
-        cachedResult.details = await source.reparseBook(cachedResult.details);
+    let cachedResult = await cachedJson_(cache, "isbn:v15:" + canonical);
+    const encountered = await cachedJson_(
+      cache,
+      "book-metadata:v1:" + canonical,
+    );
+    if (
+      cachedResult?.found &&
+      encountered?.isbn === canonical &&
+      encountered.isbnVerified === true
+    ) {
+      cachedResult = {
+        ...cachedResult,
+        details: fillScrapedMetadata(cachedResult.details, encountered),
+      };
     }
-    if (cachedResult && !refresh) return cachedResult;
+    if (cachedResult?.details) {
+      cachedResult.details = await reparseBook(cachedResult.details);
+      if (
+        cachedResult.details.msrp === "" ||
+        cachedResult.details.msrp == null
+      ) {
+        const price = await cachedMsrp(canonical, cachedResult);
+        if (price) Object.assign(cachedResult.details, price);
+      }
+    }
+    if (cachedResult && !refresh) {
+      if (cachedResult.found)
+        await store.ingestScrapedMetadata?.([
+          { ...cachedResult.details, isbn: canonical, isbnVerified: true },
+        ]);
+      return cachedResult;
+    }
     const providers = scrapers.isbnProviders.filter((source) =>
       supportsIsbn(source, canonical),
     );
@@ -681,6 +804,15 @@ export function createCatalogService(
               request.refresh,
               SCRAPE_TTL.product,
             );
+            // Product details reuse the HTML just fetched for this gallery.
+            // Do not throw away pages/MSRP simply because covers were requested.
+            if (scraper?.bookDetails) {
+              try {
+                await scraper.bookDetails(item.url);
+              } catch {
+                // Gallery-only markup can still provide usable cover choices.
+              }
+            }
             const title = textHtml(
               /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(html)?.[1] ||
                 meta(html, "og:title") ||
@@ -1339,16 +1471,17 @@ export function createCatalogService(
         const source = scrapers.require(publisherId);
         const url = safeProductUrl(item.url, publisherId);
         if (!url) return;
-        const isbn = canonicalIsbn(item.isbn);
+        const requestedIsbn = canonicalIsbn(item.isbn);
         const details = source.bookDetails
           ? await source.bookDetails(url)
-          : isbn && source.lookupIsbn
-            ? await source.lookupIsbn(isbn)
+          : requestedIsbn && source.lookupIsbn
+            ? await source.lookupIsbn(requestedIsbn)
             : null;
+        const isbn = canonicalIsbn(details?.isbn);
         if (
           details &&
           isbn &&
-          canonicalIsbn(details.isbn) === isbn &&
+          (requestedIsbn ? isbn === requestedIsbn : details.isbnVerified) &&
           safeProductUrl(details.url, publisherId)
         ) {
           // Exact publisher metadata is enough to answer the next scan locally.
@@ -1370,10 +1503,12 @@ export function createCatalogService(
       },
     },
   });
+  Object.defineProperty(api, CATALOG_MSRP, { value: cachedMsrp });
   return Object.defineProperty(api, CATALOG_REUSE, {
     value: canReuse,
   }) as typeof api & {
     [CATALOG_REUSE]: typeof canReuse;
+    [CATALOG_MSRP]: typeof cachedMsrp;
     [CATALOG_CRAWLER]: {
       sources: { id: string; name: string; full: boolean }[];
       warm(

@@ -1,5 +1,6 @@
 import {
   CATALOG_REUSE,
+  CATALOG_MSRP,
   createCatalogService,
   knownBookCoverUrl,
 } from "./catalogs.ts";
@@ -129,7 +130,9 @@ export function createApplicationApi(
           name,
           async (arg) => {
             authorizeRefresh(arg);
-            return attachImages(await method(arg));
+            return store.deferMetadataFill(async () =>
+              attachImages(await method(arg)),
+            );
           },
         ],
       ),
@@ -184,7 +187,9 @@ export function createApplicationApi(
           Object.hasOwn(catalogs, name) &&
           (await catalogs[CATALOG_REUSE](name, arg))
         )
-          return attachImages(await method(arg));
+          return store.deferMetadataFill(async () =>
+            attachImages(await method(arg)),
+          );
         if (Object.hasOwn(queued, name))
           return queue.run(name, arg, label(name, arg));
         return await attachImages(await method(arg));
@@ -192,7 +197,19 @@ export function createApplicationApi(
     ]),
   );
   api.getCollection = async () => {
-    const collection = await store.api.getCollection();
+    let collection = await store.api.getCollection();
+    let filledMsrp = false;
+    const prices = new Map();
+    await eachLimit(collection.books, async (book) => {
+      const isbn = canonicalIsbn(book.isbn);
+      if (!isbn || (book.msrp !== "" && book.msrp != null)) return;
+      if (!prices.has(isbn)) prices.set(isbn, catalogs[CATALOG_MSRP](isbn));
+      const price = await prices.get(isbn);
+      if (price && (await store.fillMissingMsrp(book, price)))
+        filledMsrp = true;
+    });
+    // Metadata changes have new revision tokens; return one coherent shelf.
+    if (filledMsrp) collection = await store.api.getCollection();
     await eachLimit(
       [...collection.books, ...collection.trash.map((entry) => entry.book)],
       async (book) => {
@@ -218,7 +235,8 @@ export function createApplicationApi(
       book.coverId = (await covers.ensure(book.coverUrl)).id;
     return await store.api.saveBook({ ...request, book });
   };
-  // Search must never wait for cover downloads or mutate a user's shelf.
+  // Search does not download covers or change personal fields. Verified public
+  // metadata discovered by its scrapers still fills missing derived fields.
   return {
     ...api,
     ...maintenanceApi,

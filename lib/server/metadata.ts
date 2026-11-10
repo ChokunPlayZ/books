@@ -38,7 +38,8 @@ function parse(value: string) {
 function groupFor(key: string): CacheGroup {
   key = key.replace(/^user:\d+:/, "");
   if (cooldown(key)) return "cooldowns";
-  if (key.startsWith("isbn:")) return "isbn";
+  if (key.startsWith("isbn:") || key.startsWith("book-metadata:"))
+    return "isbn";
   if (/^(publisher-|series:|series-categories:|releases:)/.test(key))
     return "catalogs";
   if (key.startsWith("scrape:")) return "responses";
@@ -49,7 +50,7 @@ function groupFor(key: string): CacheGroup {
 const normalizedKey = "regexp_replace(key,'^user:[0-9]+:','')";
 const groupSql = `CASE
   WHEN key LIKE '%:retry' OR key LIKE '%:cooldown' OR ${normalizedKey} LIKE 'cover:retry:%' THEN 'cooldowns'
-  WHEN ${normalizedKey} LIKE 'isbn:%' THEN 'isbn'
+  WHEN ${normalizedKey} LIKE 'isbn:%' OR ${normalizedKey} LIKE 'book-metadata:%' THEN 'isbn'
   WHEN ${normalizedKey} ~ '^(publisher-|series:|series-categories:|releases:)' THEN 'catalogs'
   WHEN ${normalizedKey} LIKE 'scrape:%' THEN 'responses'
   WHEN ${normalizedKey} LIKE 'cover:%' THEN 'covers'
@@ -80,7 +81,7 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
   const cacheRows = async (targetsOnly = false) =>
     (await store.db
       .prepare(
-        `SELECT key, value, expires_at, octet_length(value) AS bytes FROM cache ${targetsOnly ? "WHERE regexp_replace(key,'^user:[0-9]+:','') ~ '^(isbn:|releases:v1:|publisher-catalog:v1:|publisher-directory:|series:v1:)'" : ""} ORDER BY key`,
+        `SELECT key, value, expires_at, octet_length(value) AS bytes FROM cache ${targetsOnly ? "WHERE regexp_replace(key,'^user:[0-9]+:','') ~ '^(isbn:|book-metadata:v1:|releases:v1:|publisher-catalog:v1:|publisher-directory:|series:v1:)'" : ""} ORDER BY key`,
       )
       .all()) as unknown as {
       key: string;
@@ -144,13 +145,13 @@ export function createMetadataService(store: Store, catalogs: Catalogs) {
     for (const row of rows) {
       const key = row.key.replace(/^user:\d+:/, "");
       if (
-        !/^(isbn:|releases:v1:|publisher-catalog:v1:|publisher-directory:|series:v1:)/.test(
+        !/^(isbn:|book-metadata:v1:|releases:v1:|publisher-catalog:v1:|publisher-directory:|series:v1:)/.test(
           key,
         )
       )
         continue;
       const value = parse(row.value);
-      if (/^isbn:v\d+:/.test(row.key)) {
+      if (/^(?:isbn:v\d+|book-metadata:v1):/.test(row.key)) {
         const isbn = canonicalIsbn(row.key.split(":").at(-1));
         if (isbn && !result.has("isbn:" + digest(JSON.stringify({ isbn }))))
           await add(

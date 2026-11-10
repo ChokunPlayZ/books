@@ -12,7 +12,12 @@ import { openLibrary } from "./open-library.ts";
 import { phoenix } from "./phoenix.ts";
 import { yaakz } from "./yaakz.ts";
 import { yenpress } from "./yenpress.ts";
-import type { Scraper, ScraperContext, ScraperDefinition } from "./types.ts";
+import type {
+  BookDetails,
+  Scraper,
+  ScraperContext,
+  ScraperDefinition,
+} from "./types.ts";
 import { canonicalIsbn } from "../../domain/isbn.ts";
 import { normalizeRecordTypes } from "../../domain/book-type.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
@@ -51,8 +56,10 @@ export function supportsIsbn(
 export function createScraperRegistry(
   context: ScraperContext,
   definitions: readonly ScraperDefinition[] = SCRAPER_SOURCES,
+  onBooks?: (books: BookDetails[]) => Promise<unknown>,
 ) {
   const sources = new Map<string, RegisteredScraper>();
+  const observers: ((books: BookDetails[]) => Promise<void>)[] = [];
   for (const definition of definitions) {
     if (sources.has(definition.id))
       throw new Error("Duplicate scraper source: " + definition.id);
@@ -81,6 +88,53 @@ export function createScraperRegistry(
       await context.cache.put("known-product:v1:" + url, isbn, Infinity);
       await context.scrapeCache.pin("text:" + url);
     }
+    async function observe(
+      books: BookDetails[],
+      expected = "",
+      exactLookup = false,
+    ) {
+      if (!onBooks) return;
+      const matches: BookDetails[] = [];
+      for (const book of books) {
+        if (!book || book.special || book.bundle || book.isbnVerified === false)
+          continue;
+        let url: URL | undefined;
+        if (book.url) {
+          try {
+            url = new URL(book.url);
+          } catch {
+            continue;
+          }
+          if (
+            url.protocol !== "https:" ||
+            !metadata.hosts.includes(url.hostname) ||
+            url.username ||
+            url.password ||
+            url.port
+          )
+            continue;
+        }
+        const known =
+          !exactLookup && !expected && book.isbnVerified !== true && url
+            ? await context.cache.get("known-product:v1:" + url.href)
+            : "";
+        const isbn = canonicalIsbn(
+          book.isbn || (exactLookup ? expected : known),
+        );
+        if (!isbn || (expected && isbn !== expected)) continue;
+        if (book.isbn && canonicalIsbn(book.isbn) !== isbn) continue;
+        if (known && known !== isbn) continue;
+        if (!exactLookup && !book.url) continue;
+        const confirmed =
+          exactLookup ||
+          (expected && verified(book, isbn)) ||
+          book.isbnVerified === true ||
+          known === isbn;
+        if (confirmed) matches.push({ ...book, isbn, isbnVerified: true });
+      }
+      if (matches.length) await onBooks(matches);
+    }
+    observers.push((books) => observe(books));
     if (scraper.bookDetails) {
       const load = scraper.bookDetails;
       scraper.bookDetails = async (url, refresh = false) =>
@@ -213,6 +267,64 @@ export function createScraperRegistry(
           reparseBook(await load(isbn, refresh));
       }
     }
+    // Observe results outside the response cache's loader: cache hits, parser
+    // repairs, searches and unrelated release/gallery work all enrich metadata.
+    if (scraper.lookupIsbn) {
+      const load = scraper.lookupIsbn;
+      scraper.lookupIsbn = async (isbn, refresh) => {
+        const result = await load(isbn, refresh);
+        await observe(result ? [result] : [], isbn, true);
+        return result;
+      };
+    }
+    if (scraper.bookDetails) {
+      const load = scraper.bookDetails;
+      scraper.bookDetails = async (...args) => {
+        const result = await load(...args);
+        await observe(result ? [result] : []);
+        return result;
+      };
+    }
+    if (scraper.searchIsbn) {
+      const load = scraper.searchIsbn;
+      scraper.searchIsbn = async (isbn, refresh) => {
+        const result = await load(isbn, refresh);
+        await observe(result.items, isbn);
+        return result;
+      };
+    }
+    if (scraper.catalog) {
+      const load = scraper.catalog;
+      scraper.catalog = async (...args) => {
+        const result = await load(...args);
+        await observe(result.items);
+        return result;
+      };
+    }
+    if (scraper.releases) {
+      const load = scraper.releases;
+      scraper.releases = async (...args) => {
+        const result = await load(...args);
+        await observe(result);
+        return result;
+      };
+    }
+    if (scraper.searchTitles) {
+      const load = scraper.searchTitles;
+      scraper.searchTitles = async (...args) => {
+        const result = await load(...args);
+        await observe(result.items);
+        return result;
+      };
+    }
+    if (scraper.gallery) {
+      const load = scraper.gallery;
+      scraper.gallery = async (...args) => {
+        const result = await load(...args);
+        await observe(result as BookDetails[]);
+        return result;
+      };
+    }
     if (scraper.coverOptions && scraper.lookupIsbn) {
       const load = scraper.coverOptions;
       scraper.coverOptions = async (book, refresh = false) => {
@@ -234,9 +346,25 @@ export function createScraperRegistry(
         return load({ ...book, type: book.edition || book.type }, refresh);
       };
     }
+    if (scraper.coverOptions) {
+      const load = scraper.coverOptions;
+      scraper.coverOptions = async (...args) => {
+        const result = await load(...args);
+        await observe(
+          result.map((option) => ({
+            ...option,
+            url: option.sourceUrl || option.url,
+          })),
+        );
+        return result;
+      };
+    }
     sources.set(definition.id, { ...metadata, ...scraper });
   }
   return {
+    async rememberBooks(books: BookDetails[]) {
+      for (const observe of observers) await observe(books);
+    },
     get: (id: string) => sources.get(id),
     titleProviders: [...sources.values()].filter(
       (source) =>

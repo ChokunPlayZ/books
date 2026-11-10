@@ -151,9 +151,12 @@ test("bookstores provide stored cover choices for unsupported publishers and rej
   assert.deepEqual((await covers.get(options.covers[0].coverId)).body, png);
   correct = false;
   assert.equal((await api.getBookCoverOptions({ row: 1 })).covers.length, 1);
+  const refreshed = await api.getBookCoverOptions({ row: 1, refresh: true });
+  assert.equal(refreshed.covers.length, 1);
   assert.equal(
-    (await api.getBookCoverOptions({ row: 1, refresh: true })).covers.length,
-    0,
+    refreshed.covers[0].coverId,
+    options.covers[0].coverId,
+    "Keep the previously verified cover, not metadata from the wrong ISBN",
   );
 });
 

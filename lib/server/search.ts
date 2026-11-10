@@ -47,7 +47,11 @@ export function createSearchService(
   definitions: readonly ScraperDefinition[] = SCRAPER_SOURCES,
 ) {
   const context = createScraperContext(store.cache, fetchImpl, definitions);
-  const registry = createScraperRegistry(context, definitions);
+  const registry = createScraperRegistry(
+    context,
+    definitions,
+    store.ingestScrapedMetadata,
+  );
   const describe = (source): SearchSource => ({
     id: source.id,
     name:
@@ -186,6 +190,7 @@ export function createSearchService(
         const books = [
           ...(Array.isArray(value.items) ? value.items : []),
           ...(Array.isArray(value.titles) ? value.titles : []),
+          ...(value.isbnVerified === true && value.title ? [value] : []),
           ...(value.found && value.details
             ? [{ ...value.details, isbn: value.isbn }]
             : []),

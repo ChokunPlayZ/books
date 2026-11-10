@@ -396,8 +396,11 @@ test("Kodansha product galleries verify the selected ISBN before offering a cove
     [kodansha],
   );
   assert.deepEqual(
-    (await wrong.getBookCoverOptions({ row: 1, refresh: true })).covers,
-    [],
+    (await wrong.getBookCoverOptions({ row: 1, refresh: true })).covers.map(
+      (cover) => cover.coverUrl,
+    ),
+    covers.covers.map((cover) => cover.coverUrl),
+    "A mismatched new response cannot replace the previously verified, automatically saved cover",
   );
 });
 

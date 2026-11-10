@@ -161,7 +161,8 @@ test("ISBN re-crawls bypass both cache layers and fill only missing fields on ma
   assert.equal((await service.recrawlMetadata({ id: target.id })).filled, 0);
   assert.equal(
     (await service.store.api.getCollection()).books[0].pageCount,
-    "",
+    200,
+    "A lookup already saved the missing pages; later crawls preserve that value",
   );
   assert.ok(
     requests > beforeRequests,
@@ -174,7 +175,7 @@ test("ISBN re-crawls bypass both cache layers and fill only missing fields on ma
   assert.equal(result.filled, 1);
   assert.equal(result.status, "updated");
   const books = (await service.store.api.getCollection()).books;
-  assert.equal(books[0].pageCount, 208);
+  assert.equal(books[0].pageCount, 200);
   assert.equal(books[0].coverUrl, source);
   assert.equal(books[0].series, book.series);
   assert.equal(books[0].publisher, "");
