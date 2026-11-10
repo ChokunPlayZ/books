@@ -21,7 +21,7 @@ export default function UniversalSearch({
   const [progress, setProgress] = useState<SearchProgress | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [grouped, setGrouped] = useState(false);
+  const [grouped, setGrouped] = useState(true);
   const pending = useRef<AbortController | null>(null);
 
   const search = useCallback(

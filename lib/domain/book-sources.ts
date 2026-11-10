@@ -1,5 +1,5 @@
 import { canonicalIsbn, ISBN_GROUP_PREFIXES } from "./isbn.ts";
-import { kinokuniyaSearchUrl } from "./urls.ts";
+import { kinokuniyaSearchUrl, publisherKey } from "./urls.ts";
 
 // Keep publisher choices and search links aligned with automatic ISBN routing.
 // Unrestricted sources, including multilingual bookstores, need no entry.
@@ -18,6 +18,24 @@ export const BOOK_SOURCE_ISBN_PREFIXES: Readonly<
   kodansha: ["978406"],
   hanmoto: ISBN_GROUP_PREFIXES.japanese,
 });
+
+export function isThaiBook(book: {
+  type?: string;
+  edition?: string;
+  publisher?: string;
+  series?: string;
+}) {
+  const language = /\((TH|EN|JP)\)/i.exec(book.edition || book.type || "")?.[1];
+  if (language) return language.toUpperCase() === "TH";
+  const publisher = publisherKey(book.publisher);
+  const prefixes = Object.hasOwn(BOOK_SOURCE_ISBN_PREFIXES, publisher)
+    ? BOOK_SOURCE_ISBN_PREFIXES[publisher]
+    : undefined;
+  return !!(
+    prefixes?.every((prefix) => ISBN_GROUP_PREFIXES.thai.includes(prefix)) ||
+    /\p{Script=Thai}/u.test(book.series || "")
+  );
+}
 
 export function bookSourceApplies(
   sourceId: string,

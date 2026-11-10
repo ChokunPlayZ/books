@@ -161,7 +161,8 @@ try {
       new URL("../../outputs/next-scan-result-phone.png", import.meta.url),
     ),
   });
-  assert.equal(await page.locator("#regularPrice").inputValue(), "180");
+  assert.equal(await page.locator("#regularPrice").inputValue(), "");
+  assert.equal(await page.locator("#listedPriceHint").isVisible(), false);
   await page.locator("#toggleLookupDetails").click();
   assert.equal(
     await page.getByLabel("Pages", { exact: true }).inputValue(),

@@ -132,6 +132,8 @@ try {
           publisher: next ? "Next press" : "Mobile press",
           source: "Test lookup",
           price: 180,
+          msrp: 200,
+          msrpCurrency: "THB",
         },
         warnings: [],
       },
@@ -230,10 +232,10 @@ try {
   assert.equal(await page.locator("#publisher").inputValue(), "Mobile press");
   assert.equal(await page.locator("#source").inputValue(), "");
   assert.equal(await page.locator("#price").inputValue(), "");
-  assert.equal(await page.locator("#regularPrice").inputValue(), "180");
+  assert.equal(await page.locator("#regularPrice").inputValue(), "200");
   assert.match(
     await page.locator("#listedPriceHint").textContent(),
-    /180.*Test lookup/,
+    /200.*Test lookup/,
   );
   for (const [width, height] of [
     [320, 568],

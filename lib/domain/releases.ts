@@ -23,7 +23,7 @@ import { parsePageCount } from "./page-count.ts";
 import { animagCategories, animagProducts, animagTotal } from "./animag.ts";
 import { lnwProducts, lnwTotal } from "./lnwshop.ts";
 import { lilyHousePage, lilyHouseTotal } from "./lilyhouse.ts";
-import { money } from "./msrp.ts";
+import { money, productMsrp } from "./msrp.ts";
 import { normalizeMsrp, normalizeCurrency } from "./validation.ts";
 
 export function parsePublisherTitles(id, html, sourceUrl) {
@@ -198,6 +198,8 @@ export function luckpimItem(book) {
     "",
     type,
   );
+  item.msrp = money(book.price);
+  item.msrpCurrency = "THB";
   item.availability =
     book.pre_order === "T"
       ? "Pre-order"
@@ -240,6 +242,8 @@ export function cleanRelease(input) {
     input.type,
   );
   item.series = String(input.series || item.series).slice(0, 500);
+  if (p.id === "yaakz")
+    item.publisher = String(input.publisher || "").slice(0, 500);
   item.volume =
     input.volume === "" || input.volume === undefined
       ? item.volume
@@ -491,6 +495,8 @@ export function parseCatalog(id, html, sourceUrl = "") {
     if (url && title)
       items.push({
         ...releaseItem(id, title, url, price, isbn),
+        msrp: productMsrp(card),
+        msrpCurrency: "THB",
         coverUrl: covers.get(url) || "",
       });
   });

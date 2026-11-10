@@ -15,6 +15,8 @@ import {
 } from "../../domain.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
 import { ISBN_GROUP_PREFIXES } from "../../domain/isbn.ts";
+import { isThaiBook } from "../../domain/book-sources.ts";
+import { normalizeBookType } from "../../domain/book-type.ts";
 import type {
   BookDetails,
   ScraperContext,
@@ -225,6 +227,13 @@ export const naiin: ScraperDefinition = {
         const page = await fetchText_(url, refresh, SCRAPE_TTL.product);
         for (const product of structuredBooks(page)) {
           const title = product.name || candidate.ProductName || "";
+          // A recommendation on this product page cannot establish a match.
+          if (
+            product.url
+              ? String(product.url).replace(/\/$/, "") !== url
+              : textHtml(title) !== textHtml(candidate.ProductName)
+          )
+            continue;
           const parsed = splitBookTitle(title);
           const publisher = names(product.publisher) || candidate.PublisherName;
           if (
@@ -235,8 +244,8 @@ export const naiin: ScraperDefinition = {
             catalogSeriesKey(parsed.series) !== catalogSeriesKey(book.series) ||
             !publisher ||
             publisherKey(publisher) !== publisherKey(book.publisher) ||
-            !parsed.type ||
-            parsed.type !== book.type
+            (parsed.type &&
+              normalizeBookType(parsed.type) !== normalizeBookType(book.type))
           )
             continue;
           return {
@@ -294,7 +303,7 @@ export const naiin: ScraperDefinition = {
       lookupIsbn: lookupNaiin_,
       coverOptions: async (book, refresh) => {
         const isbn = canonicalIsbn(book.isbn);
-        if (!isbn && !/\(TH\)/.test(book.type)) return [];
+        if (!isbn && !isThaiBook(book)) return [];
         const item = isbn
           ? await lookupNaiin_(isbn, refresh)
           : await lookupNaiinTitle_(book, refresh);

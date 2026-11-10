@@ -244,6 +244,113 @@ test("better online titles retain selected library covers and matching BlurHashe
   assert.equal(enriched[0].coverBlurhash, selected.coverBlurhash);
 });
 
+test("title fallback joins spacing and punctuation variants while keeping conflicting ISBNs, formats, languages and publishers separate", () => {
+  const books = [
+    result("Moon Library เล่ม 1", {
+      id: "publisher",
+      series: "Moon Library",
+      publisher: "Luckpim",
+      isbn: "9780140328721",
+    }),
+    result("Moon:Library เล่ม 01", {
+      id: "retailer",
+      series: "Moon:Library",
+      publisher: "รักพิมพ์",
+      type: "",
+      coverUrl: "https://du.lnwfile.com/moon.jpg",
+    }),
+    result("Moon Library เล่ม 1", {
+      id: "reprint",
+      publisher: "Luckpim",
+      series: "Moon Library",
+      isbn: "9780385496490",
+    }),
+    result("Moon Library เล่ม 1", {
+      id: "novel",
+      publisher: "Luckpim",
+      series: "Moon Library",
+      type: "Light novel",
+    }),
+    result("Moon Library volume 1", {
+      id: "english",
+      publisher: "Luckpim",
+      series: "Moon Library",
+      type: "Manga (EN)",
+    }),
+    result("Moon Library เล่ม 1", {
+      id: "other-publisher",
+      publisher: "Other publisher",
+      series: "Moon Library",
+    }),
+  ];
+  const merged = mergeSearchResults("Moon", [], books);
+  assert.equal(merged.length, 5);
+  assert.equal(
+    merged.find((item) => item.id === "publisher").coverUrl,
+    books[1].coverUrl,
+  );
+  assert.equal(
+    mergeSearchResults("Moon", [], [books[0], books[2], books[1]]).length,
+    3,
+    "An ISBN-less listing must not choose between two known ISBN editions",
+  );
+});
+
+test("series grouping fills missing format and language only for an unambiguous series", () => {
+  const books = [
+    result("Moon 1", { series: "Moon Library", volume: 1 }),
+    result("Moon 2", { series: "Moon:Library", volume: 2, type: "Manga" }),
+    result("Moon 3", {
+      series: "MoonLibrary",
+      volume: 3,
+      type: "",
+      publisher: "",
+    }),
+  ];
+  assert.equal(groupSearchResults(books).length, 1);
+  const ambiguous = groupSearchResults([
+    ...books,
+    result("Moon novel", {
+      series: "Moon Library",
+      volume: 1,
+      type: "Light novel",
+    }),
+  ]);
+  assert.equal(
+    ambiguous.length,
+    3,
+    "Unknown format must not bridge manga and novels",
+  );
+});
+
+test("Luckpim cover preference is independent of response order and keeps selected library covers", () => {
+  const publisher = result("Moon", {
+    coverUrl: "https://www.luckpim.com/stocks/product/d284x400/moon.webp",
+    coverId: "c".repeat(64),
+    coverBlurhash: "publisher",
+  });
+  const retailer = result("Moon", {
+    coverUrl: "https://du.lnwfile.com/moon.jpg",
+    coverBlurhash: "retailer",
+  });
+  for (const items of [
+    [publisher, retailer],
+    [retailer, publisher],
+  ]) {
+    const [merged] = mergeSearchResults("Moon", [], items);
+    assert.equal(merged.coverUrl, retailer.coverUrl);
+    assert.equal(merged.coverId, undefined);
+    assert.equal(merged.coverBlurhash, "retailer");
+  }
+  const [selected] = mergeSearchResults(
+    "Moon",
+    [],
+    [{ ...publisher, owned: true }, retailer],
+  );
+  assert.equal(selected.coverUrl, publisher.coverUrl);
+  assert.equal(selected.coverId, publisher.coverId);
+});
+
 test("search carries safe cover metadata and resolves only matching, user-visible results without network requests", async () => {
   const coverUrl = "https://www.phoenixnext.com/media/catalog/product/moon.jpg";
   const store = memoryStore([

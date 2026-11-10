@@ -89,7 +89,8 @@ try {
   );
   assert.equal(await page.locator("#type").inputValue(), "Others");
   assert.equal(await page.locator("#source").inputValue(), "");
-  assert.equal(await page.locator("#regularPrice").inputValue(), "355");
+  assert.equal(await page.locator("#regularPrice").inputValue(), "");
+  assert.equal(await page.locator("#listedPriceHint").isVisible(), false);
   assert.equal(await page.locator("#price").inputValue(), "");
   await page.locator("#toggleLookupDetails").click();
   assert.equal(

@@ -24,6 +24,7 @@ import {
 } from "../domain/outbound-links.ts";
 import { bookSourceApplies, isbnSearchLinks } from "../domain/book-sources.ts";
 import { bookEditionKey, normalizeBookType } from "../domain/book-type.ts";
+import { money } from "../domain/msrp.ts";
 import {
   releaseSeriesKey,
   matchingBookType,
@@ -3055,12 +3056,12 @@ export function mountCollection({
       ].filter(Boolean);
       copy.append(node("p", "release-meta", meta.join(" · ")));
       const facts = node("div", "publisher-facts");
-      if (item.price !== "")
+      if (item.msrp !== "" && item.msrp != null)
         facts.append(
           node(
             "p",
             "release-price",
-            t("Listed price ฿{price}", { price: number(Number(item.price)) }),
+            t("Listed price ฿{price}", { price: number(Number(item.msrp)) }),
           ),
         );
       if (item.isbn) facts.append(node("p", "hint", "ISBN " + item.isbn));
@@ -3684,26 +3685,21 @@ export function mountCollection({
     $("listedPriceHint").textContent = "";
   }
   function fillListedPrice(details) {
-    if (details.msrp !== "" && details.msrp != null && !$("msrp").value) {
-      $("msrp").value = String(details.msrp);
+    const price = money(details.msrp);
+    // The discount calculator starts from MSRP, never an already discounted
+    // store price (including stores with permanent discounts).
+    if (price === "") return;
+    if (!$("msrp").value) {
+      $("msrp").value = String(price);
       $("msrpCurrency").value = details.msrpCurrency || details.currency || "";
     }
-    const original =
-      details.regularPrice !== "" && details.regularPrice != null;
-    const price = original ? details.regularPrice : details.price;
-    if (
-      price === "" ||
-      price == null ||
-      !Number.isFinite(Number(price)) ||
-      Number(price) < 0
-    )
-      return;
     if (!$("regularPrice").value) {
       $("regularPrice").value = String(price);
       state.listedPrice = $("regularPrice").value;
     }
     $("listedPriceHint").textContent =
-      (original ? "Original price: " : "Listed price: ") +
+      t("MSRP / list price") +
+      ": " +
       number(Number(price)) +
       (details.source || details.publisher
         ? " · " + (details.source || details.publisher)

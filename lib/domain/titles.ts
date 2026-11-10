@@ -27,7 +27,7 @@ export function volumeCoverKey(book) {
     "cover:volume:v1:" +
     digest(
       JSON.stringify([
-        book.publisherId || publisherKey(book.publisher),
+        publisherKey(book.publisher) || book.publisherId,
         catalogSeriesKey(book.catalogSeries || book.series),
         book.type.replace(/\s*\(colou?r\)/gi, "").trim(),
         Number(book.volume),

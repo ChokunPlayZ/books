@@ -4,7 +4,33 @@ import {
   releaseItem,
   attr,
   publisherKey,
+  PUBLISHERS,
 } from "../domain.ts";
+import { money } from "../domain/msrp.ts";
+
+function yaakzPublisher(record, product) {
+  const explicit =
+    record.publisher_name ||
+    record.publisher?.name ||
+    (typeof record.publisher === "string" ? record.publisher : "") ||
+    product.publisher_name ||
+    product.publisher?.name ||
+    (typeof product.publisher === "string" ? product.publisher : "");
+  // Yaakz is a retailer as well as SIC's shop. Its category identifies the
+  // publisher; the website hosting the product does not.
+  const category = String(record.category_name || product.category_name || "");
+  const label = String(explicit || category.split(/\s*\/\s*/)[0]).trim();
+  const publisher = PUBLISHERS.find(
+    (entry) => entry.id === publisherKey(label),
+  );
+  return (
+    publisher?.name ||
+    (!explicit &&
+    /หนังสือ|มังงะ|การ์ตูน|นิยาย|new arrivals|best sellers/i.test(label)
+      ? ""
+      : label)
+  );
+}
 
 // Nuxt serializes public product data as JSON references. Never execute page scripts.
 export function yaakzProducts(html) {
@@ -60,12 +86,13 @@ export function yaakzItems(product) {
     );
     const title = record.title || record.name;
     if (!url || !title) return [];
-    const category = product.category_name || "";
+    const category = record.category_name || product.category_name || "";
     const type =
       record.type ||
       (/นิยาย|novel/i.test(title + " " + category)
         ? "LN (TH)"
-        : publisherKey(category) === "yaakz"
+        : /มังงะ|การ์ตูน|\b(?:manga|comic)\b/i.test(title + " " + category) ||
+            publisherKey(category) === "yaakz"
           ? "Manga (TH)"
           : "");
     const item = releaseItem(
@@ -76,6 +103,14 @@ export function yaakzItems(product) {
       record.barcode,
       type,
     );
+    item.publisher = yaakzPublisher(record, product);
+    // Never derive MSRP by reversing a discount: Yaakz may be permanently on
+    // sale. Keep an unknown list price blank rather than copying record.price.
+    item.msrp =
+      [record.msrp, record.list_price, record.price_full, record.regular_price]
+        .map(money)
+        .find((price) => price !== "") ?? "";
+    item.msrpCurrency = "THB";
     item.coverUrl = safeCoverUrl(record.images);
     item.availability = record.preorder_flag
       ? "Pre-order"

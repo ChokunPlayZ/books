@@ -4,7 +4,9 @@ import {
   digest,
   publisherKey,
   originalCoverUrl,
+  splitBookTitle,
 } from "../domain.ts";
+import { money } from "../domain/msrp.ts";
 import {
   mergeSearchResults,
   searchLanguage,
@@ -105,8 +107,11 @@ export function createSearchService(
     const title = typeof book.title === "string" ? book.title : book.series;
     if (typeof title !== "string" || !title.trim()) return null;
     const url = publicUrl(book.url || book.publisherUrl);
+    const parsed = splitBookTitle(title);
     const volume =
-      book.volume === "" || book.volume == null ? "" : Number(book.volume);
+      book.volume === "" || book.volume == null
+        ? parsed.volume
+        : Number(book.volume);
     return {
       id:
         "title:" +
@@ -128,14 +133,25 @@ export function createSearchService(
         ),
       kind: "title",
       title: title.slice(0, 1000),
-      series: typeof book.series === "string" ? book.series : title,
+      series:
+        typeof book.series === "string" && book.series
+          ? book.series
+          : parsed.series,
       publisher: typeof book.publisher === "string" ? book.publisher : "",
-      type: typeof book.type === "string" ? book.type : "",
+      type:
+        typeof book.type === "string" && book.type ? book.type : parsed.type,
       edition: typeof book.edition === "string" ? book.edition : "",
-      aliases:
-        typeof book.catalogSeries === "string" ? [book.catalogSeries] : [],
+      aliases: [
+        ...(typeof book.catalogSeries === "string" ? [book.catalogSeries] : []),
+        ...(Array.isArray(book.aliases)
+          ? book.aliases.filter((alias) => typeof alias === "string")
+          : []),
+      ],
       volume: Number.isFinite(volume) ? volume : "",
       isbn: canonicalIsbn(book.isbn),
+      msrp: money(book.msrp),
+      msrpCurrency:
+        typeof book.msrpCurrency === "string" ? book.msrpCurrency : "",
       url,
       coverId:
         typeof book.coverId === "string" && /^[a-f0-9]{64}$/.test(book.coverId)
@@ -204,6 +220,16 @@ export function createSearchService(
         ];
         for (const book of books) {
           const item = titleResult(book, label, true);
+          if (
+            item &&
+            row.key.startsWith("search-titles:v1:") &&
+            Array.isArray(book.sources)
+          )
+            item.sources = book.sources.flatMap((entry) => {
+              const provider = registry.get(entry?.id);
+              const url = provider && publicUrl(entry.url, provider.id);
+              return url ? [{ ...describe(provider), url }] : [];
+            });
           if (
             item &&
             row.key.startsWith("search-titles:v1:") &&
@@ -317,6 +343,7 @@ export function createSearchService(
     }
     if (
       previous &&
+      previous.version === 2 &&
       Date.now() - Date.parse(previous.checkedAt) < SCRAPE_TTL.catalog * 1000
     )
       return {
@@ -326,7 +353,7 @@ export function createSearchService(
       };
     try {
       const loaded = await context.scrapeCache.get(
-        "universal-search:v1:" + source.id + ":" + query,
+        "universal-search:v2:" + source.id + ":" + query,
         { maxAge: SCRAPE_TTL.catalog },
         async () => {
           const isbn = canonicalIsbn(query);
@@ -352,6 +379,7 @@ export function createSearchService(
         key,
         JSON.stringify({
           sourceId: source.id,
+          version: 2,
           items: results,
           status,
           checkedAt: new Date().toISOString(),

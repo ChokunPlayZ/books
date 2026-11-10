@@ -4,6 +4,7 @@ import {
   BOOK_SOURCE_ISBN_PREFIXES,
   bookSourceApplies,
   isbnSearchLinks,
+  isThaiBook,
 } from "../../lib/domain/book-sources.ts";
 import { SCRAPER_SOURCES } from "../../lib/server/scrapers/registry.ts";
 
@@ -14,6 +15,18 @@ test("publisher choices use the automatic lookup prefix rules", () => {
         BOOK_SOURCE_ISBN_PREFIXES[source.id],
         source.isbnPrefixes,
       );
+});
+
+test("title-based Thai covers infer missing language from the publisher or title, but respect explicit editions", () => {
+  assert.equal(isThaiBook({ type: "Manga", publisher: "Luckpim" }), true);
+  assert.equal(isThaiBook({ type: "Manga", series: "เกมสารภาพรัก" }), true);
+  for (const edition of ["Manga (EN)", "Manga (JP)"])
+    assert.equal(
+      isThaiBook({ publisher: "Luckpim", series: "เกมสารภาพรัก", edition }),
+      false,
+    );
+  for (const publisher of ["Unknown", "constructor", "Yen Press"])
+    assert.equal(isThaiBook({ publisher, series: "Moon Library" }), false);
 });
 
 test("Yen Press is omitted for Japanese and Thai editions, including without ISBNs", () => {

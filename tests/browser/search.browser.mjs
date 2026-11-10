@@ -94,8 +94,12 @@ try {
   const cards = page.locator("#universalSearchResults > li");
   await page.waitForFunction(
     () =>
-      document.querySelectorAll("#universalSearchResults > li").length === 7,
+      document.querySelectorAll("#universalSearchResults > li").length === 5,
   );
+  const group = page.getByRole("button", { name: "Group series", exact: true });
+  assert.equal(await group.getAttribute("aria-pressed"), "true");
+  await group.click();
+  assert.equal(await cards.count(), 7);
   await page.locator(`img[src="/api/covers/${lazyId}"]`).waitFor();
   assert.ok(
     coverRequests.some(
@@ -126,7 +130,6 @@ try {
       path: process.env.BOOKS_TEST_SCREENSHOT_DIR + "/search-desktop.png",
       fullPage: true,
     });
-  const group = page.getByRole("button", { name: "Group series", exact: true });
   await group.click();
   assert.equal(await group.getAttribute("aria-pressed"), "true");
   assert.equal(await cards.count(), 5);

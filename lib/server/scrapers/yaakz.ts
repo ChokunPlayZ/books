@@ -11,6 +11,8 @@ import { cachedJson as cachedJson_, cacheJson as cacheJson_ } from "./cache.ts";
 import { publisherRedirectIdentity } from "./http.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
 import { ISBN_GROUP_PREFIXES } from "../../domain/isbn.ts";
+import { isThaiBook } from "../../domain/book-sources.ts";
+import { normalizeBookType } from "../../domain/book-type.ts";
 import type {
   IsbnSearchResult,
   ScraperContext,
@@ -108,10 +110,13 @@ export const yaakz: ScraperDefinition = {
           await Promise.all(
             result.data.slice(start, start + 3).map(async (product) => {
               if (product.has_subproduct)
-                product = await fetchYaakzProduct_(
-                  "https://www.yaakz.com/product/" + product.uuid,
-                  refresh,
-                );
+                product = {
+                  ...product,
+                  ...(await fetchYaakzProduct_(
+                    "https://www.yaakz.com/product/" + product.uuid,
+                    refresh,
+                  )),
+                };
               for (const item of yaakzItems(product))
                 if (!specialSet(item.title)) items.set(item.id, item);
             }),
@@ -207,7 +212,7 @@ export const yaakz: ScraperDefinition = {
       searchTitles: (query) =>
         fetchYaakzCatalog_(
           "https://www.yaakz.com/search?q=" + encodeURIComponent(query),
-          1,
+          3,
         ),
       catalog: async (url, refresh) =>
         await fetchYaakzCatalog_(url, 20, refresh),
@@ -224,10 +229,7 @@ export const yaakz: ScraperDefinition = {
         "https://www.yaakz.com/search?q=" + encodeURIComponent(series),
       coverFromSeries: true,
       coverOptions: async (book, refresh) => {
-        if (
-          publisherKey(book.publisher) === "yaakz" ||
-          !/\(TH\)/.test(book.type)
-        )
+        if (publisherKey(book.publisher) === "yaakz" || !isThaiBook(book))
           return [];
         const isbn = canonicalIsbn(book.isbn);
         const catalog = await fetchYaakzCatalog_(
@@ -247,7 +249,13 @@ export const yaakz: ScraperDefinition = {
                 item.volume !== "" &&
                 book.volume !== "" &&
                 Number(item.volume) === Number(book.volume) &&
-                item.type === book.type)
+                (!item.type ||
+                  normalizeBookType(item.type) ===
+                    normalizeBookType(book.type)) &&
+                (!item.publisher ||
+                  !book.publisher ||
+                  publisherKey(item.publisher) ===
+                    publisherKey(book.publisher)))
             );
           })
           .map((item) => ({

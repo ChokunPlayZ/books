@@ -1001,7 +1001,7 @@ export const thai: Record<string, string> = {
     "ใช้ลิงก์สำนักพิมพ์ด้านบน หรือรีเฟรชเพื่อลองอีกครั้ง",
   "Try another search or publisher.": "ลองคำค้นหรือสำนักพิมพ์อื่น",
   "Special edition / set": "ฉบับพิเศษ / ชุด",
-  "Listed price ฿{price}": "ราคาขาย ฿{price}",
+  "Listed price ฿{price}": "ราคาปก ฿{price}",
   "Saved listing · Not in the latest check":
     "รายการที่บันทึก · ไม่อยู่ในผลตรวจล่าสุด",
   "On your shelf · ISBN match": "มีในคลัง · ISBN ตรงกัน",

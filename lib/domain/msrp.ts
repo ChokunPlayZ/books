@@ -33,7 +33,12 @@ export function productMsrp(
     if (price !== "") return price;
   }
   const tag = /<[^>]+\bdata-price-type=["']oldPrice["'][^>]*>/i.exec(html)?.[0];
-  return tag ? money(attr(tag, "data-price-amount")) : "";
+  if (tag) return money(attr(tag, "data-price-amount"));
+  const oldPrice =
+    /<[^>]+\bclass=["'][^"']*\bproduct_price_old\b[^"']*["'][^>]*>/i.exec(
+      html,
+    )?.[0];
+  return oldPrice ? money(attr(oldPrice, "realprice")) : "";
 }
 
 export function publisherYenMsrp(html: string): number | "" {

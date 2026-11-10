@@ -26,6 +26,7 @@ import { bookSourceApplies } from "../domain/book-sources.ts";
 import { searchLanguage } from "../domain/search.ts";
 import { bookEditionKey } from "../domain/book-type.ts";
 import { money } from "../domain/msrp.ts";
+import { coverPreference } from "../domain/cover-preference.ts";
 import { fillScrapedMetadata } from "../domain/scraped-metadata.ts";
 import { AppError } from "./store.ts";
 import { SCRAPE_TTL } from "./scrape-cache.ts";
@@ -190,6 +191,16 @@ export function createCatalogService(
     return null;
   }
   async function rememberCovers(items) {
+    const remember = async (key, cover) => {
+      const previous = await cache.get(key);
+      if (
+        previous &&
+        coverPreference({ coverUrl: previous }) <
+          coverPreference({ coverUrl: cover })
+      )
+        return;
+      await cache.put(key, cover, 2592000);
+    };
     await scrapers.rememberBooks(items);
     for (const item of items) {
       const verifiedIsbn = canonicalIsbn(item.isbn);
@@ -208,8 +219,8 @@ export function createCatalogService(
       if (!cover || item.bundle || item.special) continue;
       const isbn = canonicalIsbn(item.isbn),
         key = volumeCoverKey(item);
-      if (isbn) await cache.put("cover:isbn:v1:" + isbn, cover, 2592000);
-      if (key && !item.catalogVariant) await cache.put(key, cover, 2592000);
+      if (isbn) await remember("cover:isbn:v1:" + isbn, cover);
+      if (key && !item.catalogVariant) await remember(key, cover);
     }
   }
   const savedSeriesCatalog_ = async (spec) =>
@@ -233,6 +244,9 @@ export function createCatalogService(
           ),
           ...(scrapers.get(item.publisherId)?.preserveParsedSeries
             ? { series: item.series }
+            : {}),
+          ...(item.publisherId === "yaakz"
+            ? { publisher: item.publisher }
             : {}),
           availability: item.availability,
           coverUrl: originalCoverUrl(item.coverUrl),
@@ -682,7 +696,10 @@ export function createCatalogService(
     const cached =
       (isbn && (await cache.get(key))) ||
       (volumeKey && (await cache.get(volumeKey)));
-    if (cached)
+    if (
+      cached &&
+      (request.lookup === false || coverPreference({ coverUrl: cached }) === 0)
+    )
       return { row, token: book.token, coverUrl: safeCoverUrl(cached) };
     if (request.lookup === false)
       return { row, token: book.token, coverUrl: "" };
@@ -703,7 +720,22 @@ export function createCatalogService(
       );
       return { row, token: book.token, coverUrl: match?.coverUrl || "" };
     }
-    if (!isbn || (await cache.get("cover:miss:v9:" + isbn)))
+    if (!isbn) {
+      if (
+        book.volume === "" ||
+        !book.series ||
+        !collection.books.some((item) => item.row === row)
+      )
+        return { row, token: book.token, coverUrl: "" };
+      const options = await getBookCoverOptions({
+        row,
+        refresh: request.refresh,
+      });
+      const coverUrl = options.covers[0]?.coverUrl || "";
+      if (volumeKey && coverUrl) await cache.put(volumeKey, coverUrl, 2592000);
+      return { row, token: book.token, coverUrl };
+    }
+    if (await cache.get("cover:miss:v9:" + isbn))
       return { row, token: book.token, coverUrl: "" };
     if (!pendingCovers.has(isbn)) {
       const pending = lookupIsbn(isbn)
@@ -906,7 +938,9 @@ export function createCatalogService(
     }
     return {
       row: book.row,
-      covers: [...covers.values()],
+      covers: [...covers.values()].sort(
+        (a, b) => coverPreference(a) - coverPreference(b),
+      ),
       warnings,
       publisherUrl: candidates[0]?.url || catalog.url || "",
     };
