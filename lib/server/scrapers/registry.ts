@@ -58,6 +58,8 @@ export function createScraperRegistry(
       throw new Error("Duplicate scraper source: " + definition.id);
     const { create, ...metadata } = definition;
     const scraper = create(context);
+    const reparseBook = async (book) =>
+      book && scraper.reparseBook ? await scraper.reparseBook(book) : book;
     const verified = (book, isbn: string) => {
       if (!book?.url || canonicalIsbn(book.isbn) !== isbn) return false;
       try {
@@ -179,8 +181,8 @@ export function createScraperRegistry(
     }
     if (scraper.searchIsbn) {
       const load = scraper.searchIsbn;
-      scraper.searchIsbn = async (isbn, refresh = false) =>
-        await context.scrapeCache.get(
+      scraper.searchIsbn = async (isbn, refresh = false) => {
+        const result = await context.scrapeCache.get(
           `source-search:v1:${metadata.id}:${isbn}`,
           {
             maxAge: SCRAPE_TTL.isbn,
@@ -194,6 +196,22 @@ export function createScraperRegistry(
             return normalizeRecordTypes(result);
           },
         );
+        if (scraper.reparseBook)
+          result.items = await Promise.all(result.items.map(reparseBook));
+        return result;
+      };
+    }
+    if (scraper.reparseBook) {
+      if (scraper.bookDetails) {
+        const load = scraper.bookDetails;
+        scraper.bookDetails = async (url, refresh) =>
+          reparseBook(await load(url, refresh));
+      }
+      if (scraper.lookupIsbn) {
+        const load = scraper.lookupIsbn;
+        scraper.lookupIsbn = async (isbn, refresh) =>
+          reparseBook(await load(isbn, refresh));
+      }
     }
     if (scraper.coverOptions && scraper.lookupIsbn) {
       const load = scraper.coverOptions;

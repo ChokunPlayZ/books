@@ -13,6 +13,14 @@ const fixture = (name) =>
   );
 for (const [source, isbn, search, product, msrp, price] of [
   [
+    "phoenix",
+    "9786164648357",
+    "phoenix-kyo-wa-search.html",
+    "phoenix-kyo-wa-product.html",
+    175,
+    166.25,
+  ],
+  [
     "naiin",
     "9786166247275",
     "naiin-search.html",

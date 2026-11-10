@@ -152,6 +152,8 @@ Phoenix availability and release dates are left blank by this scraper. A missing
 
 Phoenix cover URLs use the original `/media/catalog/product/` image, removing Magento's `/cache/<hash>/` size variant from listing, Open Graph and gallery URLs. Some variants contain white side padding: a live check on November 10, 2026 found a 265×265 Open Graph image for `mg0435-02.html`, while the original cover was 430×608 without padding. The cover download service also normalizes older cached URLs before fetching. Existing stored image IDs keep their bytes and source; use **Pull covers** and select the original image to replace an already-saved padded cover.
 
+Permanent Phoenix ISBN, search and product snapshots are reparsed from their locally pinned product HTML on read, correcting old cover URLs and filling missing MSRP without another remote request. Hyvä's main-product `initPrice<ID>()` price box supplies the explicit `old-price`; recommendation cards and discounted final prices cannot supply MSRP. ISBN `9786164648357` (`mgm0098-01.html`) was verified on November 10, 2026 with an unpadded 430×608 original, THB 175 MSRP and THB 166.25 selling price. **Pull covers** also offers the original for an older stored thumbnail when gallery discovery is unavailable, while retaining the saved image for explicit user selection.
+
 ### First Page Pro
 
 `parseCatalog('firstpage', html)` splits the page at `div` elements with both `productArea` and `productItem` classes. Within each card, it reads the `gadgetThumbnail` anchor's `title` and `href`. The price comes from the anchor's HTML-encoded `GAEEPD` JSON attribute, specifically its `price` field.

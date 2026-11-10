@@ -12,6 +12,7 @@ import {
   meta,
   publisherCatalogSource,
   safeCoverUrl,
+  originalCoverUrl,
   volumeCoverKey,
   safePublisherTitleUrl,
   safeProductUrl,
@@ -133,6 +134,7 @@ export function createCatalogService(
             ? { series: item.series }
             : {}),
           availability: item.availability,
+          coverUrl: originalCoverUrl(item.coverUrl),
           ...(item.publisherId === "lilyhouse" && item.variantGroup
             ? { special: true, isbn: "", volume: "" }
             : {}),
@@ -158,8 +160,16 @@ export function createCatalogService(
     if (!isbn) throw new Error("Enter or scan an ISBN first.");
     const canonical = canonicalIsbn(isbn);
 
-    const cached = await cache.get("isbn:v15:" + canonical);
-    if (cached && !refresh) return JSON.parse(cached);
+    const cachedResult = await cachedJson_(cache, "isbn:v15:" + canonical);
+    if (cachedResult?.details) {
+      const source = scrapers.get(
+        cachedResult.details.publisherId ||
+          publisherKey(cachedResult.details.publisher),
+      );
+      if (source?.reparseBook)
+        cachedResult.details = await source.reparseBook(cachedResult.details);
+    }
+    if (cachedResult && !refresh) return cachedResult;
     const providers = scrapers.isbnProviders.filter((source) =>
       supportsIsbn(source, canonical),
     );
@@ -212,8 +222,8 @@ export function createCatalogService(
         msrpCurrency: msrpSource?.msrpCurrency || msrpSource?.currency || "",
       };
     }
-    if (!details && warnings.length && cached && refresh)
-      return { ...JSON.parse(cached), stale: true, warnings };
+    if (!details && warnings.length && cachedResult && refresh)
+      return { ...cachedResult, stale: true, warnings };
     const result = {
       isbn: isbn,
       found: !!details,
@@ -633,7 +643,7 @@ export function createCatalogService(
     const covers = new Map(),
       warnings = [];
     const add = (coverUrl, item) => {
-      coverUrl = safeCoverUrl(coverUrl);
+      coverUrl = originalCoverUrl(coverUrl);
       if (coverUrl && !covers.has(coverUrl))
         covers.set(coverUrl, {
           coverUrl,
@@ -725,6 +735,13 @@ export function createCatalogService(
           ? await store.covers.source(book.coverId)
           : await knownBookCoverUrl(store, book)),
     );
+    if (currentUrl && originalCoverUrl(currentUrl) !== currentUrl)
+      add(originalCoverUrl(currentUrl), {
+        url: book.publisherUrl || "",
+        title: book.series,
+        source: new URL(currentUrl).hostname,
+        sourceUrl: currentUrl,
+      });
     if (book.coverId) {
       const key = currentUrl || book.coverId;
       covers.set(key, {

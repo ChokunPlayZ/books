@@ -3,7 +3,36 @@ import { meta, structuredBooks, textHtml } from "./html.ts";
 import { releaseItem } from "./releases.ts";
 import { safeProductUrl, originalCoverUrl } from "./urls.ts";
 import { parsePageCount } from "./page-count.ts";
-import { productMsrp } from "./msrp.ts";
+import { money, productMsrp } from "./msrp.ts";
+
+function phoenixPriceHtml(html: string) {
+  // Hyvä's main product uses initPrice<ID>(); recommendation cards use
+  // initPriceBox(). Keep their list prices out of this edition's metadata.
+  const start = /<div\b[^>]*\bx-data=["']initPrice\d+\(\)["'][^>]*>/i.exec(
+    html,
+  );
+  if (!start) return "";
+  const tags = /<\/?div\b[^>]*>/gi;
+  tags.lastIndex = start.index + start[0].length;
+  let depth = 1;
+  for (let tag; (tag = tags.exec(html));) {
+    depth += /^<\//.test(tag[0]) ? -1 : 1;
+    if (!depth) return html.slice(start.index, tags.lastIndex);
+  }
+  return "";
+}
+
+function phoenixMsrp(html: string, product?: Record<string, any>) {
+  const priceHtml = phoenixPriceHtml(html);
+  // Older Magento markup exposes data-price-type="oldPrice" directly.
+  const explicit = productMsrp(priceHtml || html, product);
+  if (explicit !== "") return explicit;
+  const oldPrice =
+    /<(div|span)\b(?=[^>]*\bclass=["'][^"']*\bold-price\b)[^>]*>([\s\S]*?)<\/\1>/i.exec(
+      priceHtml,
+    )?.[2];
+  return money(/^฿\s*([\d,]+(?:\.\d+)?)$/.exec(textHtml(oldPrice || ""))?.[1]);
+}
 
 // Read the main product's labeled barcode, never a recommendation's ISBN.
 export function phoenixBook(html: string, isbn: string, productUrl: string) {
@@ -47,7 +76,7 @@ export function phoenixBook(html: string, isbn: string, productUrl: string) {
     isbnVerified: true,
     pageCount: parsePageCount(product?.numberOfPages),
     currency: meta(html, "product:price:currency") || "THB",
-    msrp: productMsrp(html, product),
+    msrp: phoenixMsrp(html, product),
     msrpCurrency: meta(html, "product:price:currency") || "THB",
     availability:
       meta(html, "product:availability") || offer?.availability || "",

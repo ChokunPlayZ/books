@@ -313,6 +313,36 @@ test("cached Phoenix thumbnail URLs download the original and keep an older stor
   assert.equal((await api.getCollection()).books[0].coverId, image.id);
 });
 
+test("Pull covers offers an original for a stored Phoenix thumbnail even when no gallery can be discovered", async (t) => {
+  const store = await database(t);
+  const thumbnail = source.replace(
+    "/product/",
+    "/product/cache/6517c62f5899ad6aa0ba23ceb3eeff97/",
+  );
+  const previous = await store.covers.put(
+    { body: png, contentType: "image/png" },
+    thumbnail,
+  );
+  await store.api.saveBook({
+    requestId: crypto.randomUUID(),
+    book: { ...book, coverId: previous.id, coverUrl: thumbnail },
+  });
+  const volume = (await store.api.getCollection()).books[0];
+  const catalog = createCatalogService(store, async () => {
+    throw new Error("Publisher offline");
+  });
+  const options = await catalog.getBookCoverOptions({ row: volume.row });
+  assert.ok(
+    options.covers.some((cover) => cover.coverUrl === source && !cover.coverId),
+  );
+  assert.ok(
+    options.covers.some(
+      (cover) => cover.coverUrl === thumbnail && cover.coverId === previous.id,
+    ),
+  );
+  assert.equal((await store.api.getCollection()).books[0].coverId, previous.id);
+});
+
 test("cached releases do not retry failed covers on every view or restart, and recover after the cooldown", async (t) => {
   t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
   const legacyDirectory = await directory(t);

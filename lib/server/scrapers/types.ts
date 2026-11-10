@@ -102,6 +102,8 @@ export type CoverOption = {
 export type Scraper = {
   // Read a known product directly, without doing another ISBN/title search.
   bookDetails?(url: string, refresh?: boolean): Promise<BookDetails | null>;
+  // Apply parser corrections to durable metadata using local data only.
+  reparseBook?(book: BookDetails): Promise<BookDetails>;
   searchTitles?(
     query: string,
   ): Promise<{ items: BookDetails[]; complete: boolean }>;
