@@ -79,6 +79,7 @@ test("admin debug starts fresh, captures exact raw responses and parsed metadata
   });
   assert.equal(report.isbn, isbn);
   assert.equal(report.error, "");
+  assert.equal(report.outcome, "found");
   assert.equal(report.result.msrp, 175);
   assert.equal(report.result.price, 166.25);
   assert.doesNotMatch(report.result.coverUrl, /\/cache\//);
@@ -135,6 +136,8 @@ test("debug captures non-200 source bodies and errors, and never bypasses durabl
   assert.equal(failed.responses[0].status, 503);
   assert.match(failed.responses[0].body, /notExecuted/);
   assert.match(failed.error, /unavailable/i);
+  assert.match(failed.error, /HTTP 503/);
+  assert.match(failed.error, /phoenixnext\.com/);
   assert.match(failed.stack, /Error/);
   const cooled = await createScraperDebugger(
     store,
@@ -144,7 +147,32 @@ test("debug captures non-200 source bodies and errors, and never bypasses durabl
   assert.equal(cooled.responses.length, 0);
   assert.ok(cooled.cooldowns.length > 0);
   assert.match(cooled.error, /cooldown/i);
+  assert.match(cooled.error, /HTTP 503/);
   assert.equal(calls, 1);
+});
+
+test("title debug runs through the queue with an inspectable search query and outcome", async (t) => {
+  const store = await openTestStore();
+  t.after(() => store.close());
+  const calls = [];
+  const api = createApplicationApi(
+    store,
+    { ensure: () => assert.fail("No covers") },
+    remote(calls),
+  );
+  const report = await api.debugScraperIsbn({
+    query: "今日はカノジョがいないから",
+    providerId: "phoenix",
+  });
+  assert.equal(report.mode, "title");
+  assert.equal(report.outcome, "found");
+  assert.ok(report.result.items.length > 0);
+  assert.equal(calls.length, 1, "Only the search listing is requested");
+  const { jobs } = await api.getScrapeQueue();
+  assert.match(jobs[0].label, /今日は/);
+  const job = await api.getScrapeJob({ id: jobs[0].id });
+  assert.equal(job.payload.query, report.query);
+  assert.equal(job.result.mode, "title");
 });
 
 test("debug authorization and input validation happen before any request or enqueue", async (t) => {

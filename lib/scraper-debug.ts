@@ -1,5 +1,16 @@
-export type ScraperDebugSource = { id: string; name: string };
-export type ScraperDebugRequest = { isbn: string; providerId: string };
+import type { ScrapeDiagnostic } from "./scrape-diagnostics.ts";
+
+export type ScraperDebugSource = {
+  id: string;
+  name: string;
+  isbn: boolean;
+  title: boolean;
+};
+export type ScraperDebugRequest = {
+  isbn?: string;
+  query?: string;
+  providerId: string;
+};
 export type ScraperDebugResponse = {
   url: string;
   method: string;
@@ -15,6 +26,11 @@ export type ScraperDebugResponse = {
 };
 export type ScraperDebugResult = {
   isbn: string;
+  query: string;
+  mode: "isbn" | "title";
+  outcome: "found" | "not_found" | "failed";
+  message: string;
+  diagnostics: ScrapeDiagnostic[];
   providerId: string;
   startedAt: string;
   durationMs: number;

@@ -1,5 +1,9 @@
 import { catalogTotal, parseCatalog, textHtml } from "../../domain.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
+import {
+  recordScrapeDiagnostic,
+  ScrapeFailure,
+} from "../scrape-diagnostics.ts";
 import type { Release } from "../../types.ts";
 import type { IsbnSearchResult, ScraperContext } from "./types.ts";
 
@@ -39,14 +43,33 @@ export function createIsbnSearch(
             textHtml(html),
           )
         )
-          throw new Error(
-            "The publisher’s search could not be read. Try again later.",
-          );
+          throw new ScrapeFailure({
+            kind: "parser",
+            url,
+            status: 200,
+            message:
+              "The publisher’s search could not be read: no readable product listings or recognized no-results message were present.",
+          });
+        const resolved = await options.resolve(
+          candidates,
+          isbn,
+          refresh,
+          total,
+        );
+        if (!resolved.items.length && !resolved.warnings.length)
+          recordScrapeDiagnostic({
+            kind: "not_found",
+            url,
+            status: 200,
+            message: candidates.length
+              ? `Search returned ${candidates.length} candidate(s), but none produced a verified match for ISBN ${isbn}.`
+              : `Publisher search explicitly returned no results for ISBN ${isbn}.`,
+          });
         return {
           publisherId: options.id,
           isbn,
           url,
-          ...(await options.resolve(candidates, isbn, refresh, total)),
+          ...resolved,
         };
       },
     );

@@ -2,9 +2,6 @@ import {
   PUBLISHERS,
   canonicalIsbn,
   digest,
-  parseCatalog,
-  catalogTotal,
-  splitFirstPageTitle,
   publisherKey,
   originalCoverUrl,
 } from "../domain.ts";
@@ -27,6 +24,10 @@ import {
 import type { ScraperDefinition } from "./scrapers/types.ts";
 import type { createCatalogService } from "./catalogs.ts";
 import { SCRAPE_TTL } from "./scrape-cache.ts";
+import {
+  searchSourceTitles,
+  supportsTitleSearch,
+} from "./scrapers/title-search.ts";
 
 function queryFrom(request: unknown) {
   const query = (request as { query?: unknown })?.query;
@@ -260,31 +261,8 @@ export function createSearchService(
   }
 
   async function loadTitles(source, query: string) {
-    if (source.searchTitles) return await source.searchTitles(query);
-    // Search a single listing page, rather than crawling every category or volume.
-    if (source.priceSource && source.catalog) {
-      const url = source.priceSource.searchUrl(encodeURIComponent(query));
-      const html = await context.fetchText(url);
-      const items = parseCatalog(source.id, html, url)
-        .slice(0, 48)
-        .map((item) =>
-          source.id === "firstpage"
-            ? { ...item, ...splitFirstPageTitle(item.title) }
-            : item,
-        );
-      const total = catalogTotal(source.id, html);
-      if (
-        !items.length &&
-        total !== 0 &&
-        !/ไม่พบสินค้า|ไม่พบข้อมูล|no results|no products|search found no/i.test(
-          html,
-        )
-      )
-        throw new Error("Title search markup unavailable.");
-      return { items, complete: total !== null && total === items.length };
-    }
-    if (source.searchSeriesUrl)
-      return await source.catalog(source.searchSeriesUrl(query));
+    if (supportsTitleSearch(source))
+      return searchSourceTitles(context, source, query);
     if (source.seriesDirectory?.fromPublisherDirectory) {
       const directory = await catalogs.getPublisherDirectory({
         url: source.seriesDirectory.url,

@@ -2,6 +2,12 @@ import { randomUUID, createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { AppError, type Store } from "./store.ts";
 import { ScrapeInterrupted, withScrapeRuntime } from "./scrape-runtime.ts";
+import type { ScrapeDiagnostic } from "../scrape-diagnostics.ts";
+import {
+  errorMessage,
+  formatScrapeDiagnostic,
+  withScrapeDiagnostics,
+} from "./scrape-diagnostics.ts";
 import {
   JOB_STATUSES,
   type QueueQuery,
@@ -175,6 +181,24 @@ export function createScrapeQueue(
     });
   }
   async function perform(row) {
+    const diagnostics: ScrapeDiagnostic[] = [];
+    async function saveDiagnostics() {
+      for (const diagnostic of diagnostics)
+        await event(row.id, formatScrapeDiagnostic(diagnostic));
+    }
+    function failureReason(reason: string) {
+      return [
+        ...new Set([
+          reason,
+          ...diagnostics
+            .filter((diagnostic) => diagnostic.kind !== "not_found")
+            .map(formatScrapeDiagnostic),
+        ]),
+      ]
+        .filter(Boolean)
+        .join("\n")
+        .slice(0, 2000);
+    }
     async function checkpoint() {
       for (;;) {
         if (stopped) throw new ScrapeInterrupted("Worker stopping.");
@@ -269,9 +293,8 @@ export function createScrapeQueue(
     heartbeat.unref();
     try {
       await event(row.id, `Started attempt ${row.attempts}`);
-      const result = await store.forUser(
-        { id: row.user_id } as any,
-        async () => {
+      const result = await withScrapeDiagnostics(diagnostics, () =>
+        store.forUser({ id: row.user_id } as any, async () => {
           if (!Object.hasOwn(handlers, row.kind))
             throw new AppError("This task is no longer supported.");
           return row.kind === "crawlPublisher"
@@ -286,7 +309,7 @@ export function createScrapeQueue(
                 () => handlers[row.kind](row.payload),
               )
             : handlers[row.kind](row.payload);
-        },
+        }),
       );
       const value = result as any;
       const failed =
@@ -307,21 +330,26 @@ export function createScrapeQueue(
             failed ? "failed" : "succeeded",
             JSON.stringify(result ?? null),
             failed
-              ? String(
-                  value.error ||
-                    value.message ||
-                    "Source unavailable; previous results retained.",
-                ).slice(0, 2000)
+              ? failureReason(
+                  String(
+                    value.error ||
+                      value.message ||
+                      value.warnings?.join("\n") ||
+                      "Source unavailable; previous results retained.",
+                  ),
+                )
               : "",
             Date.now(),
             row.id,
             row.lease_token,
           );
-        if (changed.changes)
+        if (changed.changes) {
+          await saveDiagnostics();
           await event(
             row.id,
             failed ? "Source failed; fallback result retained" : "Completed",
           );
+        }
       });
     } catch (error) {
       if (error instanceof ScrapeInterrupted) {
@@ -344,19 +372,23 @@ export function createScrapeQueue(
           )
           .run(
             retry ? "queued" : "failed",
-            String(error.message || "Scraping failed.").slice(0, 2000),
+            failureReason(errorMessage(error)),
             Date.now() + RETRY_MS,
             retry ? null : Date.now(),
             row.id,
             row.lease_token,
           );
-        if (changed.changes)
+        if (changed.changes) {
+          await saveDiagnostics();
           await event(
             row.id,
-            retry
+            (retry
               ? "Failed; retry scheduled after source cooldown"
-              : "Failed; no automatic attempts remain",
+              : "Failed; no automatic attempts remain") +
+              ": " +
+              errorMessage(error),
           );
+        }
       });
     } finally {
       clearInterval(heartbeat);

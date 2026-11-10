@@ -33,7 +33,7 @@ export const dexpress: ScraperDefinition = {
       id: "dexpress",
       url: (isbn) => base + "/search?q=" + isbn,
       resolve: async (candidates, isbn, refresh) => {
-        let unavailable = false;
+        let failure: unknown;
         for (const candidate of candidates
           .filter((item) => !item.special && !item.bundle)
           .slice(0, 4)) {
@@ -49,12 +49,14 @@ export const dexpress: ScraperDefinition = {
               !item.special
             )
               return { items: [{ ...item, source: "DEXpress" }], warnings: [] };
-          } catch {
-            unavailable = true;
+          } catch (error) {
+            failure = error;
           }
         }
-        if (unavailable)
-          throw new Error("DEXpress product ISBN details are unavailable.");
+        if (failure)
+          throw new Error("DEXpress product ISBN details are unavailable.", {
+            cause: failure,
+          });
         return { items: [], warnings: [] };
       },
     });

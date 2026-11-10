@@ -9,6 +9,12 @@ import {
 } from "../scrape-runtime.ts";
 import { crawlRobots } from "../crawl-robots.ts";
 import type { ScraperDebugResponse } from "../../scraper-debug.ts";
+import {
+  httpFailure,
+  recordScrapeError,
+  requestFailure,
+  ScrapeFailure,
+} from "../scrape-diagnostics.ts";
 import type {
   ScraperCache,
   ScraperContext,
@@ -49,9 +55,7 @@ export function createScraperContext(
             if (cached !== null) return cached;
             const robots = await requestUncached(origin + "/robots.txt");
             if (![200, 404, 410].includes(robots.status))
-              throw new Error(
-                "Could not check publisher robots.txt; crawl stopped safely.",
-              );
+              throw httpFailure(origin + "/robots.txt", robots.status);
             const text = robots.status === 200 ? robots.body : "";
             await cache.put(key, text || "# No rules", 86400);
             return text;
@@ -63,7 +67,11 @@ export function createScraperContext(
       const policy = crawlRobots(await robotsPending.get(origin), parsed);
       minimumScrapeDelay(policy.delay);
       if (!policy.allowed)
-        throw new Error("Publisher robots.txt disallows this crawl URL.");
+        throw new ScrapeFailure({
+          kind: "scraper",
+          url,
+          message: "Publisher robots.txt disallows this crawl URL.",
+        });
     }
     return requestUncached(url, options);
   }
@@ -110,6 +118,11 @@ export function createScraperContext(
             signal: AbortSignal.timeout(15000),
           });
           trace.status = remote.status;
+          if (remote.status >= 400) {
+            const failure = httpFailure(current.href, remote.status);
+            trace.error = failure.message;
+            recordScrapeError(failure);
+          }
           trace.contentType = remote.headers.get("content-type") || "";
           if (onResponse)
             for (const name of [
@@ -135,10 +148,18 @@ export function createScraperContext(
             remote.headers,
           );
           headers["set-cookie"] = remote.headers.getSetCookie?.() || [];
-          return { status: remote.status, body, headers, redirect };
+          return {
+            url: current.href,
+            status: remote.status,
+            body,
+            headers,
+            redirect,
+          };
         } catch (error) {
-          trace.error = error instanceof Error ? error.message : String(error);
-          throw error;
+          const failure = requestFailure(error, current.href, trace.status);
+          trace.error = failure.message;
+          recordScrapeError(failure);
+          throw failure;
         } finally {
           trace.durationMs = Date.now() - started;
           onResponse?.(trace);
@@ -154,7 +175,13 @@ export function createScraperContext(
         !location ||
         hop === 3
       )
-        throw new Error("Unsupported catalog redirect.");
+        throw new ScrapeFailure({
+          kind: "http",
+          url: current.href,
+          status: response.status,
+          message:
+            "Unsupported catalog redirect (missing destination, unsupported source or redirect limit reached).",
+        });
       // This publisher sends raw UTF-8 Thai slugs in Location. Fetch exposes
       // header bytes as Latin-1; restore UTF-8 before URL percent-encoding.
       if (
@@ -181,7 +208,12 @@ export function createScraperContext(
         !canonical?.(current) ||
         canonical(next) !== canonical(current)
       )
-        throw new Error("Unsupported catalog redirect.");
+        throw new ScrapeFailure({
+          kind: "http",
+          url: current.href,
+          status: response.status,
+          message: `Unsupported catalog redirect to ${next.href}; destination must identify the same resource on the same host.`,
+        });
       current = next;
     }
     throw new Error("Unsupported catalog redirect.");
@@ -203,7 +235,8 @@ export function createScraperContext(
       },
       async () => {
         const response = await requestRemote(url, options);
-        if (response.status !== 200) throw new Error("Website unavailable");
+        if (response.status !== 200)
+          throw httpFailure(response.url, response.status);
         return response.body;
       },
     );
@@ -220,8 +253,22 @@ export function createScraperContext(
       async () => {
         const response = await requestRemote(url);
         if (response.status !== 200)
-          throw new Error("Book lookup service returned " + response.status);
-        return JSON.parse(response.body) as T;
+          throw httpFailure(response.url, response.status);
+        try {
+          return JSON.parse(response.body) as T;
+        } catch (error) {
+          const failure = new ScrapeFailure(
+            {
+              kind: "parser",
+              url,
+              status: response.status,
+              message: `Website returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
+            },
+            error,
+          );
+          recordScrapeError(failure);
+          throw failure;
+        }
       },
     );
   }

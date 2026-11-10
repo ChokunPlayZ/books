@@ -14,6 +14,7 @@ import {
   yenPressPrintReleases,
 } from "../../domain/yenpress-catalogs.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
+import { httpFailure } from "../scrape-diagnostics.ts";
 import type {
   CatalogResult,
   ScraperContext,
@@ -62,7 +63,7 @@ export const yenpress: ScraperDefinition = {
       // The site's public key is held only for this operation, never persisted.
       const bootstrap = await requestRemote("https://yenpress.com/search");
       if (bootstrap.status !== 200)
-        throw new Error("Yen Press search unavailable.");
+        throw httpFailure(bootstrap.url, bootstrap.status);
       return yenPressSearchKey(bootstrap.body);
     }
 
@@ -84,7 +85,7 @@ export const yenpress: ScraperDefinition = {
         },
       );
       if (response.status !== 200)
-        throw new Error("Yen Press search unavailable.");
+        throw httpFailure(response.url, response.status);
       return JSON.parse(response.body) as unknown;
     }
 

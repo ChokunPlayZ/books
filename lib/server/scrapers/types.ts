@@ -14,6 +14,7 @@ export type ScraperContext = {
     url: string,
     options?: RequestInit,
   ): Promise<{
+    url: string;
     status: number;
     body: string;
     headers: Record<string, string | string[]>;

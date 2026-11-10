@@ -1,5 +1,6 @@
 import { attr, luckpimItem } from "../../domain.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
+import { httpFailure } from "../scrape-diagnostics.ts";
 import type { ScraperContext, ScraperDefinition } from "./types.ts";
 
 export const luckpim: ScraperDefinition = {
@@ -26,7 +27,7 @@ export const luckpim: ScraperDefinition = {
           encodeURIComponent(keyword),
         { headers: session },
       );
-      if (result.status !== 200) throw new Error("Series search unavailable");
+      if (result.status !== 200) throw httpFailure(result.url, result.status);
       const response = JSON.parse(result.body),
         data = response.data;
       if (
@@ -51,7 +52,8 @@ export const luckpim: ScraperDefinition = {
       const response = await requestRemote(url, {
         headers: { "User-Agent": "Mozilla/5.0" },
       });
-      if (response.status !== 200) throw new Error("Catalog unavailable");
+      if (response.status !== 200)
+        throw httpFailure(response.url, response.status);
       const tag =
           /<input\b[^>]*name=["']?__RequestVerificationToken["']?[^>]*>/i.exec(
             response.body,
@@ -92,7 +94,7 @@ export const luckpim: ScraperDefinition = {
             headers: session,
           },
         );
-        if (result.status !== 200) throw new Error("Catalog unavailable");
+        if (result.status !== 200) throw httpFailure(result.url, result.status);
         const data = JSON.parse(result.body);
         if (data.sc !== 200 || !data.d || !Array.isArray(data.d.data))
           throw new Error("Catalog changed");

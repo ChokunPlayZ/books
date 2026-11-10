@@ -1,5 +1,10 @@
 import { digest } from "../domain.ts";
 import { ScrapeInterrupted, isBackgroundScrape } from "./scrape-runtime.ts";
+import {
+  errorMessage,
+  recordScrapeError,
+  ScrapeFailure,
+} from "./scrape-diagnostics.ts";
 
 // Seconds. Keep these independent of Next's fetch cache so CLI runs and restarts
 // share the same PostgreSQL entries as the web application.
@@ -90,10 +95,27 @@ export function createScrapeCache(cache: Cache) {
           }
           // A failed attempt must not turn every subsequent view into a retry.
           // Apply the cooldown to explicit refreshes too, including after restart.
-          if (await cache.get(key + ":retry"))
-            throw new Error(
-              "Source unavailable. Try again after the retry cooldown.",
-            );
+          const retry = await cache.get(key + ":retry");
+          if (retry) {
+            let previous: { message?: string; url?: string; status?: number } =
+              {};
+            try {
+              const saved = JSON.parse(retry);
+              if (saved && typeof saved === "object") previous = saved;
+            } catch {
+              /* Legacy cooldowns did not retain their cause. */
+            }
+            const failure = new ScrapeFailure({
+              kind: "cooldown",
+              ...(previous.url ? { url: previous.url } : {}),
+              ...(previous.status ? { status: previous.status } : {}),
+              message: previous.message
+                ? `Retry cooldown active. Previous failure: ${previous.message}`
+                : "Retry cooldown active. The original failure was not recorded by the older scraper.",
+            });
+            recordScrapeError(failure);
+            throw failure;
+          }
           return Promise.resolve()
             .then(load)
             .then(async (value) => {
@@ -107,7 +129,16 @@ export function createScrapeCache(cache: Cache) {
             .catch(async (error) => {
               if (error instanceof ScrapeInterrupted) throw error;
               // Keep the previous successful entry and its original timestamp.
-              await cache.put(key + ":retry", "1", SCRAPE_TTL.retry);
+              const diagnostic =
+                error instanceof ScrapeFailure
+                  ? error.diagnostic
+                  : { message: errorMessage(error) };
+              await cache.put(
+                key + ":retry",
+                JSON.stringify(diagnostic),
+                SCRAPE_TTL.retry,
+              );
+              recordScrapeError(error);
               throw error;
             });
         })().finally(() => pending.delete(pendingKey));

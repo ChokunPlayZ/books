@@ -287,7 +287,7 @@ export function createApplicationApi(
       return queue.run(
         "debugScraperIsbn",
         request,
-        `Debug ${request.providerId} · ${request.isbn}`,
+        `Debug ${request.providerId} · ${request.isbn || request.query}`,
       );
     },
     getPublisherCrawls: publisherCrawls.getPublisherCrawls,

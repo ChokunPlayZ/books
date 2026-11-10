@@ -1,6 +1,7 @@
 import { kinokuniyaBook } from "../../domain/kinokuniya.ts";
 import { canonicalIsbn } from "../../domain/isbn.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
+import { httpFailure } from "../scrape-diagnostics.ts";
 import type { ScraperContext, ScraperDefinition } from "./types.ts";
 
 export const kinokuniya: ScraperDefinition = {
@@ -26,7 +27,7 @@ export const kinokuniya: ScraperDefinition = {
           );
           if (response.status === 404) return null;
           if (response.status !== 200)
-            throw new Error("Kinokuniya unavailable.");
+            throw httpFailure(response.url, response.status);
           return kinokuniyaBook(response.body, canonical);
         },
       );

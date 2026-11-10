@@ -552,6 +552,12 @@ export default function AdminPanel({
               <p>
                 {selected.id} · {selected.username} · {t(selected.status)}
               </p>
+              {selected.error && (
+                <div className="admin-error" role="alert">
+                  <h4>{t("Failure reason")}</h4>
+                  <p>{selected.error}</p>
+                </div>
+              )}
               <ol className="admin-events">
                 {selected.events.map((event) => (
                   <li key={event.id}>

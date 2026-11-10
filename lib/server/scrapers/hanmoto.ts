@@ -1,6 +1,7 @@
 import { hanmotoBook } from "../../domain/hanmoto.ts";
 import { canonicalIsbn, ISBN_GROUP_PREFIXES } from "../../domain/isbn.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
+import { httpFailure } from "../scrape-diagnostics.ts";
 import type { ScraperContext, ScraperDefinition } from "./types.ts";
 
 export const hanmoto: ScraperDefinition = {
@@ -24,7 +25,8 @@ export const hanmoto: ScraperDefinition = {
             "https://www.hanmoto.com/bd/isbn/" + isbn,
           );
           if (response.status === 404) return null;
-          if (response.status !== 200) throw new Error("Hanmoto unavailable.");
+          if (response.status !== 200)
+            throw httpFailure(response.url, response.status);
           return hanmotoBook(response.body, isbn);
         },
       );

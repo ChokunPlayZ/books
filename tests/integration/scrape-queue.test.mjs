@@ -4,6 +4,10 @@ import { openTestStore } from "../helpers/database.mjs";
 import { createScrapeQueue } from "../../lib/server/scrape-queue.ts";
 import { createAccount } from "../../lib/server/auth.ts";
 import { AppError } from "../../lib/server/store.ts";
+import {
+  recordScrapeError,
+  httpFailure,
+} from "../../lib/server/scrape-diagnostics.ts";
 
 async function setup(t, handlers, key) {
   const store = await openTestStore(key);
@@ -233,4 +237,53 @@ test("ordinary accounts cannot inspect/manage jobs and workers recheck roles and
   );
   await store.db.prepare("UPDATE users SET role='user' WHERE id=1").run();
   await assert.rejects(queue.wait(privileged), /Only an administrator/);
+});
+
+test("fallback results keep exact source errors in queue summaries and permanent attempt history", async (t) => {
+  const url = "https://www.phoenixnext.com/catalogsearch/result/?q=Moon";
+  const { queue } = await setup(t, {
+    scrape: async () => {
+      recordScrapeError(httpFailure(url, 429));
+      return { stale: true, items: [{ title: "Previous data" }] };
+    },
+  });
+  const id = await queue.enqueue("scrape", {}, "Rate limited lookup");
+  assert.equal((await queue.wait(id)).items[0].title, "Previous data");
+  const job = await queue.getScrapeJob({ id });
+  assert.equal(job.status, "failed");
+  assert.match(job.error, /HTTP 429 \(Too Many Requests\)/);
+  assert.ok(job.error.includes(url));
+  assert.ok(
+    job.events.some(
+      (event) =>
+        event.message.includes("HTTP 429") && event.message.includes(url),
+    ),
+  );
+});
+
+test("automatic retries preserve each attempt's cause instead of overwriting its history", async (t) => {
+  const { queue, store } = await setup(t, {
+    scrape: async () => {
+      throw new Error("First attempt: DNS ENOTFOUND");
+    },
+  });
+  const id = await queue.enqueue("scrape", {}, "Retry diagnostics");
+  await queue.tick();
+  await queue.stop();
+  const retry = createScrapeQueue(store, {
+    scrape: async () => {
+      throw new Error("Second attempt: HTTP 503");
+    },
+  });
+  await store.db
+    .prepare(
+      "UPDATE scrape_jobs SET attempts=max_attempts-1,available_at=? WHERE id=?",
+    )
+    .run(Date.now() - 1, id);
+  await assert.rejects(retry.wait(id), /HTTP 503/);
+  const job = await retry.getScrapeJob({ id });
+  assert.ok(
+    job.events.some((event) => event.message.includes("DNS ENOTFOUND")),
+  );
+  assert.ok(job.events.some((event) => event.message.includes("HTTP 503")));
 });

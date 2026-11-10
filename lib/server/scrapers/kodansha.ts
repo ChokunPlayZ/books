@@ -9,6 +9,7 @@ import {
 } from "../../domain/kodansha.ts";
 import { safeProductUrl, safeSeriesCatalogUrl } from "../../domain/urls.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
+import { httpFailure } from "../scrape-diagnostics.ts";
 import type { CatalogResult, ScraperDefinition } from "./types.ts";
 import type { Release } from "../../types.ts";
 
@@ -30,7 +31,7 @@ export const kodansha: ScraperDefinition = {
           const response = await context.requestRemote(searchUrl(isbn));
           if (response.status === 404) return null;
           if (response.status !== 200)
-            throw new Error("Kodansha search unavailable.");
+            throw httpFailure(response.url, response.status);
           const candidates = kodanshaListings(response.body).items.slice(0, 4);
           let failure: unknown;
           for (const candidate of candidates) {

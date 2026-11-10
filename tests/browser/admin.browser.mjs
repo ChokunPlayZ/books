@@ -403,6 +403,11 @@ try {
     "<script>window.adminDebugXss=true</script><h1>Complete debug response tail</h1>";
   const debugReport = {
     isbn: "9786164648357",
+    query: "9786164648357",
+    mode: "isbn",
+    outcome: "found",
+    message: "Matching results returned.",
+    diagnostics: [],
     providerId: "phoenix",
     startedAt: "2026-11-10T00:00:00.000Z",
     durationMs: 42,
@@ -433,6 +438,8 @@ try {
   };
   let debugCalls = 0,
     coverDownloads = 0;
+  let expectedDebugRequest = { isbn: "9786164648357", providerId: "phoenix" };
+  let debugResponse = debugReport;
   await page.route("https://www.phoenixnext.com/**", (route) => {
     coverDownloads++;
     return route.abort();
@@ -441,11 +448,8 @@ try {
     const input = route.request().postDataJSON();
     if (input.name !== "debugScraperIsbn") return route.continue();
     debugCalls++;
-    assert.deepEqual(input.arg, {
-      isbn: "9786164648357",
-      providerId: "phoenix",
-    });
-    return route.fulfill({ json: debugReport });
+    assert.deepEqual(input.arg, expectedDebugRequest);
+    return route.fulfill({ json: debugResponse });
   });
   await page
     .getByRole("button", { name: "Scraper debugger", exact: true })
@@ -487,6 +491,96 @@ try {
     true,
   );
   await page.setViewportSize({ width: 1280, height: 900 });
+  await page.getByLabel("Search by", { exact: true }).selectOption("title");
+  assert.equal(
+    await page
+      .getByLabel("Provider", { exact: true })
+      .locator('option[value="kinokuniya"]')
+      .count(),
+    0,
+  );
+  assert.equal(
+    await page
+      .getByLabel("Provider", { exact: true })
+      .locator('option[value="luckpim"]')
+      .count(),
+    1,
+  );
+  expectedDebugRequest = { query: "Moon & Stars", providerId: "phoenix" };
+  debugResponse = {
+    ...debugReport,
+    isbn: "",
+    query: "Moon & Stars",
+    mode: "title",
+    result: {
+      items: [
+        { title: "Moon & Stars", url: "https://www.phoenixnext.com/moon.html" },
+      ],
+    },
+  };
+  await page
+    .getByLabel("Title", { exact: true })
+    .fill(expectedDebugRequest.query);
+  await page
+    .getByRole("button", { name: "Run fresh scrape", exact: true })
+    .click();
+  await page
+    .getByRole("heading", { name: "Moon & Stars · Phoenix Next", exact: true })
+    .waitFor();
+  assert.equal(debugCalls, 2);
+  expectedDebugRequest = { query: "Missing title", providerId: "phoenix" };
+  debugResponse = {
+    ...debugResponse,
+    query: "Missing title",
+    outcome: "not_found",
+    message:
+      "The scraper returned no matching results. Review the source responses and diagnostics below.",
+    result: { items: [] },
+  };
+  await page
+    .getByLabel("Title", { exact: true })
+    .fill(expectedDebugRequest.query);
+  await page
+    .getByRole("button", { name: "Run fresh scrape", exact: true })
+    .click();
+  await page
+    .getByRole("heading", { name: "No matching results", exact: true })
+    .waitFor();
+  expectedDebugRequest = { query: "Website failure", providerId: "phoenix" };
+  debugResponse = {
+    ...debugResponse,
+    query: "Website failure",
+    outcome: "failed",
+    error: "Website returned HTTP 503 (Service Unavailable).",
+    diagnostics: [
+      {
+        kind: "http",
+        sourceId: "phoenix",
+        status: 503,
+        url: "https://www.phoenixnext.com/catalogsearch/result/?q=Website%20failure",
+        message: "Website returned HTTP 503 (Service Unavailable).",
+      },
+    ],
+  };
+  await page
+    .getByLabel("Title", { exact: true })
+    .fill(expectedDebugRequest.query);
+  await page
+    .getByRole("button", { name: "Run fresh scrape", exact: true })
+    .click();
+  await page
+    .getByRole("heading", { name: "Scrape failed", exact: true })
+    .waitFor();
+  assert.match(
+    await page.locator(".admin-debug-report").innerText(),
+    /HTTP 503/,
+  );
+  assert.match(
+    await page.locator(".admin-debug-report").innerText(),
+    /q=Website%20failure/,
+  );
+  assert.equal(debugCalls, 4);
+  assert.equal(coverDownloads, 0);
   await page
     .getByRole("button", { name: "System records", exact: true })
     .click();

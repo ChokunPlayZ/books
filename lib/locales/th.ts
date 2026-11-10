@@ -24,8 +24,24 @@ export const thai: Record<string, string> = {
   Provider: "แหล่งข้อมูล",
   "Run fresh scrape": "ดึงข้อมูลใหม่เพื่อทดสอบ",
   "Scraping…": "กำลังดึงข้อมูล…",
-  "Enter an ISBN to run one provider from scratch and inspect its raw responses, parsed data and errors. Successful caches are bypassed; retry cooldowns still apply. No covers are downloaded, shared metadata replaced or library books changed.":
-    "กรอก ISBN เพื่อทดสอบแหล่งข้อมูลหนึ่งแห่งตั้งแต่ต้น และตรวจสอบผลตอบกลับดิบ ข้อมูลที่แยกได้ และข้อผิดพลาด โดยไม่ใช้แคชสำเร็จ แต่ยังคงเว้นช่วงเมื่อแหล่งข้อมูลขัดข้อง ไม่มีการดาวน์โหลดปก เปลี่ยนข้อมูลส่วนกลาง หรือแก้ไขหนังสือในคลัง",
+  "Enter an ISBN or title to run one provider from scratch and inspect its raw responses, parsed data and errors. Successful caches are bypassed; retry cooldowns still apply. No covers are downloaded, shared metadata replaced or library books changed.":
+    "กรอก ISBN หรือชื่อหนังสือเพื่อทดสอบแหล่งข้อมูลหนึ่งแห่งตั้งแต่ต้น และตรวจสอบผลตอบกลับดิบ ข้อมูลที่แยกได้ และข้อผิดพลาด โดยไม่ใช้แคชสำเร็จ แต่ยังคงเว้นช่วงเมื่อแหล่งข้อมูลขัดข้อง ไม่มีการดาวน์โหลดปก เปลี่ยนข้อมูลส่วนกลาง หรือแก้ไขหนังสือในคลัง",
+  "Search by": "ค้นหาด้วย",
+  Title: "ชื่อเรื่อง",
+  "Book or series name": "ชื่อหนังสือหรือซีรีส์",
+  "Enter a valid ISBN or title and choose a provider.":
+    "กรอก ISBN หรือชื่อเรื่องที่ถูกต้อง และเลือกแหล่งข้อมูล",
+  "This provider does not support ISBN search.":
+    "แหล่งข้อมูลนี้ไม่รองรับการค้นหาด้วย ISBN",
+  "This provider does not support title search.":
+    "แหล่งข้อมูลนี้ไม่รองรับการค้นหาด้วยชื่อเรื่อง",
+  "Failure reason": "สาเหตุที่ล้มเหลว",
+  "Scrape failed": "ดึงข้อมูลไม่สำเร็จ",
+  "Scrape diagnostics": "รายละเอียดการดึงข้อมูล",
+  "No matching results": "ไม่พบผลลัพธ์ที่ตรงกัน",
+  "Matching results returned.": "พบผลลัพธ์ที่ตรงกัน",
+  "The scraper returned no matching results. Review the source responses and diagnostics below.":
+    "ตัวดึงข้อมูลไม่พบผลลัพธ์ที่ตรงกัน ตรวจสอบผลตอบกลับจากแหล่งข้อมูลและรายละเอียดด้านล่าง",
   "Waiting for the scraping queue. Long-running results remain available in Scraping queue.":
     "กำลังรอคิวดึงข้อมูล ผลลัพธ์ของงานที่ใช้เวลานานยังตรวจสอบได้ในคิวดึงข้อมูล",
   "Download debug report": "ดาวน์โหลดรายงานตรวจสอบ",

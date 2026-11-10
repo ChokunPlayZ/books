@@ -21,6 +21,11 @@ import type {
 import { canonicalIsbn } from "../../domain/isbn.ts";
 import { normalizeRecordTypes } from "../../domain/book-type.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
+import {
+  recordScrapeDiagnostic,
+  recordScrapeError,
+  withScrapeSource,
+} from "../scrape-diagnostics.ts";
 
 // Register or remove a source here. Its capabilities and allowed hosts travel
 // together; the catalog service does not need a new source-selection branch.
@@ -358,6 +363,42 @@ export function createScraperRegistry(
         );
         return result;
       };
+    }
+    // Keep diagnostics outside response caches and inside the calling job's
+    // async context, including failures that a higher-level fallback catches.
+    for (const operation of [
+      "lookupIsbn",
+      "searchIsbn",
+      "searchTitles",
+      "bookDetails",
+      "catalog",
+      "directory",
+      "releases",
+      "coverOptions",
+      "gallery",
+    ] as const) {
+      const load = scraper[operation];
+      if (!load) continue;
+      (scraper as any)[operation] = (...args: any[]) =>
+        withScrapeSource(definition.id, operation, async () => {
+          try {
+            const result = await (load as Function)(...args);
+            if (
+              (operation === "lookupIsbn" && !result) ||
+              (["searchIsbn", "searchTitles"].includes(operation) &&
+                result?.items?.length === 0 &&
+                !result?.warnings?.length)
+            )
+              recordScrapeDiagnostic({
+                kind: "not_found",
+                message: `No matching result returned for ${JSON.stringify(args[0])}.`,
+              });
+            return result;
+          } catch (error) {
+            recordScrapeError(error);
+            throw error;
+          }
+        });
     }
     sources.set(definition.id, { ...metadata, ...scraper });
   }

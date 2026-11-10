@@ -166,7 +166,7 @@ export const yaakz: ScraperDefinition = {
             (item) =>
               item.has_subproduct || !specialSet(item.title || item.name || ""),
           );
-          let unavailable = false;
+          let failure: unknown;
           for (const candidate of candidates.slice(0, 4)) {
             try {
               // Search listings omit barcodes, even for standalone products.
@@ -189,12 +189,14 @@ export const yaakz: ScraperDefinition = {
                 };
               if (regular.some((item) => !item.isbn))
                 throw new Error("Yaakz product ISBN details are unavailable.");
-            } catch {
-              unavailable = true;
+            } catch (error) {
+              failure = error;
             }
           }
-          if (unavailable)
-            throw new Error("Yaakz product ISBN details are unavailable.");
+          if (failure)
+            throw new Error("Yaakz product ISBN details are unavailable.", {
+              cause: failure,
+            });
           return result;
         },
       );

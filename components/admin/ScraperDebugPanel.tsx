@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { canonicalIsbn } from "../../lib/domain/isbn.ts";
+import { formatScrapeDiagnostic } from "../../lib/scrape-diagnostics.ts";
 import type {
   ScraperDebugResult,
   ScraperDebugSource,
@@ -28,7 +29,8 @@ export default function ScraperDebugPanel() {
   const t = useTranslations();
   const [sources, setSources] = useState<ScraperDebugSource[]>([]);
   const [providerId, setProviderId] = useState("phoenix");
-  const [isbn, setIsbn] = useState("");
+  const [query, setQuery] = useState("");
+  const [mode, setMode] = useState<"isbn" | "title">("isbn");
   const [report, setReport] = useState<ScraperDebugResult | null>(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
@@ -56,7 +58,7 @@ export default function ScraperDebugPanel() {
     try {
       setReport(
         await adminRpc<ScraperDebugResult>("debugScraperIsbn", {
-          isbn,
+          ...(mode === "isbn" ? { isbn: query } : { query }),
           providerId,
         }),
       );
@@ -74,7 +76,7 @@ export default function ScraperDebugPanel() {
     );
     const link = document.createElement("a");
     link.href = url;
-    link.download = `scraper-${report.providerId}-${report.isbn}.json`;
+    link.download = `scraper-${report.providerId}-${report.query.replace(/[^\p{L}\p{N}_-]+/gu, "-").slice(0, 80)}.json`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -83,7 +85,7 @@ export default function ScraperDebugPanel() {
       <h2 id="scraperDebugHeading">{t("Scraper debugger")}</h2>
       <p>
         {t(
-          "Enter an ISBN to run one provider from scratch and inspect its raw responses, parsed data and errors. Successful caches are bypassed; retry cooldowns still apply. No covers are downloaded, shared metadata replaced or library books changed.",
+          "Enter an ISBN or title to run one provider from scratch and inspect its raw responses, parsed data and errors. Successful caches are bypassed; retry cooldowns still apply. No covers are downloaded, shared metadata replaced or library books changed.",
         )}
       </p>
       <form
@@ -94,13 +96,31 @@ export default function ScraperDebugPanel() {
         }}
       >
         <label>
-          {t("ISBN")}
+          {t("Search by")}
+          <select
+            value={mode}
+            disabled={busy}
+            onChange={(event) => {
+              const next = event.target.value as "isbn" | "title";
+              setMode(next);
+              if (!sources.find((source) => source.id === providerId)?.[next])
+                setProviderId(sources.find((source) => source[next])?.id || "");
+            }}
+          >
+            <option value="isbn">{t("ISBN")}</option>
+            <option value="title">{t("Title")}</option>
+          </select>
+        </label>
+        <label>
+          {t(mode === "isbn" ? "ISBN" : "Title")}
           <input
-            value={isbn}
-            onChange={(event) => setIsbn(event.target.value)}
-            placeholder="9786164648357"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={
+              mode === "isbn" ? "9786164648357" : t("Book or series name")
+            }
             required
-            maxLength={100}
+            maxLength={mode === "isbn" ? 100 : 200}
             disabled={busy}
           />
         </label>
@@ -111,16 +131,24 @@ export default function ScraperDebugPanel() {
             onChange={(event) => setProviderId(event.target.value)}
             disabled={busy}
           >
-            {sources.map((source) => (
-              <option key={source.id} value={source.id}>
-                {source.name}
-              </option>
-            ))}
+            {sources
+              .filter((source) => source[mode])
+              .map((source) => (
+                <option key={source.id} value={source.id}>
+                  {source.name}
+                </option>
+              ))}
           </select>
         </label>
         <button
           className="btn primary"
-          disabled={busy || !canonicalIsbn(isbn) || !sources.length}
+          disabled={
+            busy ||
+            (mode === "isbn"
+              ? !canonicalIsbn(query)
+              : query.trim().length < 2) ||
+            !sources.some((source) => source.id === providerId && source[mode])
+          }
         >
           {t(busy ? "Scraping…" : "Run fresh scrape")}
         </button>
@@ -142,7 +170,7 @@ export default function ScraperDebugPanel() {
           <div className="admin-section-heading">
             <div>
               <h3>
-                {report.isbn} ·{" "}
+                {report.query} ·{" "}
                 {sources.find((source) => source.id === report.providerId)
                   ?.name || report.providerId}
               </h3>
@@ -157,9 +185,32 @@ export default function ScraperDebugPanel() {
           </div>
           {report.error && (
             <div role="alert" className="admin-error">
+              <h4>{t("Scrape failed")}</h4>
               {report.error}
               <RawData title={t("Error stack")} value={report.stack} />
             </div>
+          )}
+          {!report.error && (
+            <div className="admin-card" role="status">
+              <h4>
+                {t(
+                  report.outcome === "found"
+                    ? "Matching results returned."
+                    : "No matching results",
+                )}
+              </h4>
+              {report.outcome !== "found" && <p>{t(report.message)}</p>}
+            </div>
+          )}
+          {!!report.diagnostics.length && (
+            <section className="admin-card">
+              <h3>{t("Scrape diagnostics")}</h3>
+              <ul>
+                {report.diagnostics.map((diagnostic, index) => (
+                  <li key={index}>{formatScrapeDiagnostic(diagnostic)}</li>
+                ))}
+              </ul>
+            </section>
           )}
           {!!report.cooldowns.length && (
             <div className="admin-card">

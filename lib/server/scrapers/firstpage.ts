@@ -54,7 +54,7 @@ export const firstpage: ScraperDefinition = {
     });
     async function lookupFirstPage_(canonical: string, refresh = false) {
       const result = await searchIsbn(canonical, refresh);
-      let unavailable = false;
+      let failure: unknown;
       for (const candidate of result.items.slice(0, 4)) {
         try {
           const html = await context.fetchText(
@@ -64,12 +64,14 @@ export const firstpage: ScraperDefinition = {
           );
           const book = firstPageBook(html, canonical, candidate.url);
           if (book) return book;
-        } catch {
-          unavailable = true;
+        } catch (error) {
+          failure = error;
         }
       }
-      if (unavailable)
-        throw new Error("First Page Pro product details are unavailable.");
+      if (failure)
+        throw new Error("First Page Pro product details are unavailable.", {
+          cause: failure,
+        });
       return null;
     }
 
