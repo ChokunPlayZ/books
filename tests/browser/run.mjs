@@ -141,6 +141,7 @@ try {
       .run("series", "Bookmarked title", 1);
   });
   await runBrowserScenario("book-discovery.browser.mjs", url);
+  await runBrowserScenario("search.browser.mjs", url);
   await runBrowserScenario(
     "loading-feedback.browser.mjs",
     await start("loading-feedback"),

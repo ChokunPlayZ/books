@@ -16,6 +16,9 @@ export type SearchResult = {
   volume: number | "";
   isbn: string;
   url: string;
+  coverId?: string;
+  coverUrl?: string;
+  coverBlurhash?: string;
   variant?: boolean;
   librarySeries?: string;
   known: boolean;
@@ -179,6 +182,10 @@ export function mergeSearchResults(
     const old = results[index];
     const best = item.score > old.score ? item : old;
     const other = best === item ? old : item;
+    // Keep a selected library cover even when a better online title wins.
+    const cover =
+      [old, item].find((result) => result.owned && result.coverId) ||
+      [best, other].find((result) => result.coverId || result.coverUrl);
     results[index] = {
       ...other,
       ...best,
@@ -189,6 +196,9 @@ export function mergeSearchResults(
       edition: best.edition || other.edition,
       volume: best.volume === "" ? other.volume : best.volume,
       url: best.url || other.url,
+      coverId: cover?.coverId,
+      coverUrl: cover?.coverUrl,
+      coverBlurhash: cover?.coverBlurhash,
       aliases: [...new Set([...(old.aliases || []), ...(item.aliases || [])])],
       librarySeries: old.librarySeries || item.librarySeries,
       known: old.known || item.known,
@@ -214,4 +224,38 @@ export function mergeSearchResults(
         a.id.localeCompare(b.id),
     )
     .slice(0, limit);
+}
+
+export type SearchResultGroup = {
+  id: string;
+  title: string;
+  items: SearchResult[];
+};
+
+// Group presentation only: never merge volumes or lose edition/source links.
+export function groupSearchResults(
+  results: SearchResult[],
+): SearchResultGroup[] {
+  const groups = new Map<string, SearchResultGroup>();
+  for (const item of results) {
+    const title = item.librarySeries || item.series || item.title;
+    const id =
+      item.kind === "title"
+        ? JSON.stringify([
+            searchKey(title),
+            publisherKey(item.publisher),
+            bookEditionKey(item),
+          ])
+        : item.id;
+    if (!groups.has(id)) groups.set(id, { id, title, items: [] });
+    groups.get(id)!.items.push(item);
+  }
+  // Preserve relevance between groups, but put each series' volumes in order.
+  for (const group of groups.values())
+    group.items.sort(
+      (a, b) =>
+        (a.volume === "" ? Infinity : a.volume) -
+        (b.volume === "" ? Infinity : b.volume),
+    );
+  return [...groups.values()];
 }

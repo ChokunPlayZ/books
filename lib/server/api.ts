@@ -254,12 +254,31 @@ export function createApplicationApi(
         await store.enqueueBookDiscovery(change.row, request.requestId);
       return result;
     });
-  // Search does not download covers or change personal fields. Verified public
-  // metadata discovered by its scrapers still fills missing derived fields.
+  // Searching stays independent of image downloads. Visible search covers are
+  // resolved separately, without assigning them to books or changing the shelf.
+  async function attachSearchPreviews(result) {
+    await eachLimit(result.results, async (item) => {
+      // Shared metadata can refer to an image first stored by another account.
+      // Let the on-demand resolver grant access through its public source URL.
+      if (item.coverId && !(await store.covers.canAccess(item.coverId)))
+        item.coverId = "";
+    });
+    return attachCoverPlaceholders(store, result);
+  }
   return {
     ...api,
     ...maintenanceApi,
     ...search,
+    searchKnownEntities: async (arg) =>
+      attachSearchPreviews(await search.searchKnownEntities(arg)),
+    getSearchCover: async (arg) => {
+      const result = await search.getSearchCover(arg);
+      if (result.coverId && !(await store.covers.canAccess(result.coverId)))
+        result.coverId = "";
+      if (!result.coverId && result.coverUrl)
+        result.coverId = (await covers.ensure(result.coverUrl)).id;
+      return attachCoverPlaceholders(store, result);
+    },
     ...createAdminService(store),
     ...createAdminUsers(store),
     getScraperDebugSources: scraperDebugger.getScraperDebugSources,
@@ -282,10 +301,12 @@ export function createApplicationApi(
     manageScrapeQueue: queue.manageScrapeQueue,
     manageScrapeJob: queue.manageScrapeJob,
     searchExternalTitles: async (arg) =>
-      queue.run(
-        "searchExternalTitles",
-        arg,
-        label("searchExternalTitles", arg),
+      attachSearchPreviews(
+        await queue.run(
+          "searchExternalTitles",
+          arg,
+          label("searchExternalTitles", arg),
+        ),
       ),
     recrawlMetadata: async (arg) => {
       store.requireAdmin();

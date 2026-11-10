@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   mergeSearchResults,
+  groupSearchResults,
   searchKey,
   searchLanguage,
   searchScore,
@@ -167,6 +168,118 @@ test("linked catalog aliases match without inventing translations or changing th
   assert.equal(known.results[0].score, 1000);
 });
 
+test("series grouping keeps relevance, orders volumes and preserves editions, variants and non-title results", () => {
+  const items = [
+    result("Moon 3", { id: "third", series: "Moon", volume: 3 }),
+    result("Moon 1", { id: "first", series: "moon", volume: 1 }),
+    result("Moon special", {
+      id: "variant",
+      series: "Moon",
+      volume: 1,
+      variant: true,
+    }),
+    result("Moon novel", { id: "novel", series: "Moon", type: "Light novel" }),
+    result("Moon EN", { id: "english", series: "Moon", type: "Manga (EN)" }),
+    result("Moon directory", { id: "directory", series: "Moon", volume: "" }),
+    result("Moon", { id: "publisher", kind: "publisher", series: "" }),
+    result("Moon", { id: "store", kind: "store", series: "" }),
+    result("Moon 2", {
+      id: "other-publisher",
+      series: "Moon",
+      publisher: "Other",
+    }),
+  ];
+  const original = items.map((item) => item.id);
+  const groups = groupSearchResults(items);
+  assert.equal(groups.length, 6);
+  assert.deepEqual(
+    groups[0].items.map((item) => item.id),
+    ["first", "variant", "third", "directory"],
+  );
+  assert.deepEqual(
+    groups[1].items.map((item) => item.id),
+    ["novel"],
+  );
+  assert.deepEqual(
+    groups
+      .flatMap((group) => group.items)
+      .map((item) => item.id)
+      .sort(),
+    [...original].sort(),
+  );
+  assert.deepEqual(
+    items.map((item) => item.id),
+    original,
+  );
+  assert.deepEqual(groupSearchResults([]), []);
+});
+
+test("better online titles retain selected library covers and matching BlurHashes", () => {
+  const selected = {
+    coverId: "a".repeat(64),
+    coverUrl: "https://www.phoenixnext.com/selected.jpg",
+    coverBlurhash: "library-hash",
+  };
+  const owned = result("Moon companion", {
+    id: "library:1",
+    owned: true,
+    isbn: "9780140328721",
+    ...selected,
+  });
+  const online = result("Moon", {
+    isbn: owned.isbn,
+    coverId: "b".repeat(64),
+    coverBlurhash: "online-hash",
+  });
+  const merged = mergeSearchResults("Moon", [owned], [online]);
+  assert.equal(merged[0].title, "Moon");
+  for (const [key, value] of Object.entries(selected))
+    assert.equal(merged[0][key], value);
+  const enriched = mergeSearchResults(
+    "Moon",
+    [result("Moon")],
+    [result("Moon", selected)],
+  );
+  assert.equal(enriched[0].coverId, selected.coverId);
+  assert.equal(enriched[0].coverBlurhash, selected.coverBlurhash);
+});
+
+test("search carries safe cover metadata and resolves only matching, user-visible results without network requests", async () => {
+  const coverUrl = "https://www.phoenixnext.com/media/catalog/product/moon.jpg";
+  const store = memoryStore([
+    { row: 7, series: "Moon", volume: 1, coverId: "a".repeat(64), coverUrl },
+    {
+      row: 8,
+      series: "Moon unsafe",
+      volume: 2,
+      coverId: "untrusted",
+      coverUrl: "https://127.0.0.1/private",
+    },
+  ]);
+  const service = createSearchService(store, {}, noNetwork);
+  const known = await service.searchKnownEntities({ query: "Moon" });
+  assert.equal(known.results[0].coverId, "a".repeat(64));
+  assert.equal(known.results[0].coverUrl, coverUrl);
+  assert.equal(known.results[1].coverId, "");
+  assert.equal(known.results[1].coverUrl, "");
+  assert.deepEqual(
+    await service.getSearchCover({ query: "Moon", id: "library:7" }),
+    { coverId: "a".repeat(64), coverUrl },
+  );
+  await assert.rejects(
+    service.getSearchCover({ query: "Moon", id: "library:999" }),
+    /Choose a search result/,
+  );
+  await assert.rejects(
+    service.getSearchCover({ query: "Unrelated", id: "library:7" }),
+    /Choose a search result/,
+  );
+  await assert.rejects(
+    service.getSearchCover({ query: "Moon", coverUrl }),
+    /Choose a search result/,
+  );
+});
+
 test("English publisher title lookup uses a bounded search instead of crawling the full directory", async () => {
   const fixture = (name) =>
     readFileSync(
@@ -252,7 +365,12 @@ test("external search caches public titles, rejects unsafe source URLs and reuse
       calls++;
       return {
         items: [
-          { title: "ห้องสมุด", url: "https://thai.example/book" },
+          {
+            title: "ห้องสมุด",
+            url: "https://thai.example/book",
+            coverUrl:
+              "https://www.phoenixnext.com/media/catalog/product/moon.jpg",
+          },
           { title: "ห้องสมุด unsafe", url: "https://other.example/book" },
           { title: "ห้องสมุด javascript", url: "javascript:alert(1)" },
         ],
@@ -280,6 +398,64 @@ test("external search caches public titles, rejects unsafe source URLs and reuse
   const known = await reopened.searchKnownEntities({ query: "ห้องสมุด" });
   assert.equal(known.results[0].known, true);
   assert.equal(known.results[0].title, "ห้องสมุด");
+  assert.equal(
+    (
+      await reopened.getSearchCover({
+        query: "ห้องสมุด",
+        id: response.results[0].id,
+      })
+    ).coverUrl,
+    response.results[0].coverUrl,
+  );
+  assert.equal(calls, 1);
+});
+
+test("cached search cover IDs remain resolvable when duplicate listings were merged under a better title", async () => {
+  const id = "title:" + "d".repeat(43);
+  const coverUrl = "https://www.phoenixnext.com/media/catalog/product/moon.jpg";
+  const store = memoryStore(
+    [],
+    [
+      {
+        key: "search-titles:v1:fixture",
+        value: JSON.stringify({
+          sourceId: "phoenix",
+          items: [result("Moon Library", { id, coverUrl })],
+        }),
+      },
+    ],
+  );
+  const service = createSearchService(store, {}, noNetwork);
+  const known = await service.searchKnownEntities({ query: "Moon" });
+  assert.equal(known.results[0].id, id);
+  assert.equal(
+    (await service.getSearchCover({ query: "Moon", id })).coverUrl,
+    coverUrl,
+  );
+});
+
+test("an owned result without a cover can resolve the cover supplied by a merged public listing", async () => {
+  const coverUrl = "https://www.phoenixnext.com/media/catalog/product/moon.jpg";
+  const store = memoryStore(
+    [{ row: 3, series: "Moon Library", volume: 1, isbn: "9780140328721" }],
+    [
+      {
+        key: "publisher-catalog:v1:fixture",
+        value: JSON.stringify({
+          publisherId: "phoenix",
+          items: [{ title: "Moon Library", isbn: "9780140328721", coverUrl }],
+        }),
+      },
+    ],
+  );
+  const service = createSearchService(store, {}, noNetwork);
+  const known = await service.searchKnownEntities({ query: "Moon" });
+  assert.equal(known.results.length, 1);
+  assert.equal(known.results[0].id, "library:3");
+  assert.equal(
+    (await service.getSearchCover({ query: "Moon", id: "library:3" })).coverUrl,
+    coverUrl,
+  );
 });
 
 test("source outages preserve previous discoveries without relabeling stale snapshots as new successes", async () => {

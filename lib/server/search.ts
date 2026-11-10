@@ -6,10 +6,12 @@ import {
   catalogTotal,
   splitFirstPageTitle,
   publisherKey,
+  originalCoverUrl,
 } from "../domain.ts";
 import {
   mergeSearchResults,
   searchLanguage,
+  searchScore,
   type KnownSearch,
   type ExternalSearch,
   type SearchResult,
@@ -134,6 +136,11 @@ export function createSearchService(
       volume: Number.isFinite(volume) ? volume : "",
       isbn: canonicalIsbn(book.isbn),
       url,
+      coverId:
+        typeof book.coverId === "string" && /^[a-f0-9]{64}$/.test(book.coverId)
+          ? book.coverId
+          : "",
+      coverUrl: originalCoverUrl(book.coverUrl),
       variant: !!(
         book.variant ||
         book.special ||
@@ -147,8 +154,7 @@ export function createSearchService(
     };
   }
 
-  async function searchKnownEntities(request: unknown): Promise<KnownSearch> {
-    const query = queryFrom(request);
+  async function knownResults(query: string): Promise<SearchResult[]> {
     const [collection, rows] = await Promise.all([
       store.api.getCollection(),
       store.cache.searchable(),
@@ -197,6 +203,12 @@ export function createSearchService(
         ];
         for (const book of books) {
           const item = titleResult(book, label, true);
+          if (
+            item &&
+            row.key.startsWith("search-titles:v1:") &&
+            /^title:[A-Za-z0-9_-]{43}$/.test(book.id)
+          )
+            item.id = book.id;
           if (item) results.push(item);
         }
       } catch {
@@ -235,9 +247,14 @@ export function createSearchService(
         sources: [],
         score: 0,
       });
+    return results;
+  }
+
+  async function searchKnownEntities(request: unknown): Promise<KnownSearch> {
+    const query = queryFrom(request);
     return {
       query,
-      results: mergeSearchResults(query, [], results),
+      results: mergeSearchResults(query, [], await knownResults(query)),
       sources: providers(query).map(describe),
     };
   }
@@ -372,5 +389,24 @@ export function createSearchService(
       };
     }
   }
-  return { searchKnownEntities, searchExternalTitles };
+  async function getSearchCover(request: unknown) {
+    const id = (request as { id?: unknown })?.id;
+    if (typeof id !== "string" || !id || id.length > 200)
+      throw new AppError("Choose a search result.");
+    // Resolve only results visible to this user. Never accept arbitrary image
+    // URLs or stored cover IDs from the browser, and never crawl for a cover.
+    const query = queryFrom(request);
+    const results = await knownResults(query);
+    const item =
+      mergeSearchResults(query, [], results).find(
+        (result) => result.id === id,
+      ) ||
+      results.find(
+        (result) => result.id === id && searchScore(query, result) > 0,
+      );
+    if (!item || item.kind !== "title")
+      throw new AppError("Choose a search result.", 404);
+    return { coverId: item.coverId || "", coverUrl: item.coverUrl || "" };
+  }
+  return { searchKnownEntities, searchExternalTitles, getSearchCover };
 }

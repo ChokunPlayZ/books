@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { seriesPath } from "../../lib/domain/navigation.ts";
 import {
   runUniversalSearch,
   type SearchProgress,
 } from "../../lib/client/universal-search.ts";
 import Icon from "../Icon";
-import ExternalLink from "../ExternalLink";
+import SearchResults from "./SearchResults";
 import { useTranslations } from "../PreferencesProvider";
 import LoadingStatus from "../LoadingStatus";
 import { activity } from "../../lib/client/activity.ts";
@@ -22,6 +21,7 @@ export default function UniversalSearch({
   const [progress, setProgress] = useState<SearchProgress | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [grouped, setGrouped] = useState(false);
   const pending = useRef<AbortController | null>(null);
 
   const search = useCallback(
@@ -164,31 +164,45 @@ export default function UniversalSearch({
           {error}
         </p>
       )}
-      {loading ? (
-        <LoadingStatus
-          className="universal-search-loading"
-          label={t("Searching…")}
-          detail={
-            progress
-              ? t("{count} matches · Checking sources {done}/{total}…", {
-                  count: progress.results.length,
-                  done: completed,
-                  total: progress.sources.length,
-                })
-              : t("Looking up known titles…")
+      <div className="universal-search-toolbar">
+        {loading ? (
+          <LoadingStatus
+            className="universal-search-loading"
+            label={t("Searching…")}
+            detail={
+              progress
+                ? t("{count} matches · Checking sources {done}/{total}…", {
+                    count: progress.results.length,
+                    done: completed,
+                    total: progress.sources.length,
+                  })
+                : t("Looking up known titles…")
+            }
+            completed={completed}
+            total={progress?.sources.length}
+          />
+        ) : (
+          <p className="universal-search-status" role="status">
+            {progress &&
+              !error &&
+              t("{count} matches · Search complete", {
+                count: progress.results.length,
+              })}
+          </p>
+        )}
+        <button
+          className="btn universal-search-group-toggle"
+          type="button"
+          aria-pressed={grouped}
+          aria-controls={
+            progress?.results.length ? "universalSearchResults" : undefined
           }
-          completed={completed}
-          total={progress?.sources.length}
-        />
-      ) : (
-        <p className="universal-search-status" role="status">
-          {progress &&
-            !error &&
-            t("{count} matches · Search complete", {
-              count: progress.results.length,
-            })}
-        </p>
-      )}
+          onClick={() => setGrouped((value) => !value)}
+        >
+          <Icon name="books" />
+          {t("Group series")}
+        </button>
+      </div>
       {unavailable.length > 0 && (
         <p className="price-warning">
           {t("Could not check {sources}. Other matches are still available.", {
@@ -197,68 +211,11 @@ export default function UniversalSearch({
         </p>
       )}
       {progress && progress.results.length > 0 && (
-        <ol
-          className="universal-search-results"
-          aria-label={t("Search results")}
-        >
-          {progress.results.map((item) => (
-            <li key={item.id} className="universal-search-result">
-              <div className="universal-search-result-heading">
-                <h2>
-                  {item.librarySeries ? (
-                    <a href={seriesPath(item.librarySeries)}>{item.title}</a>
-                  ) : item.url ? (
-                    <ExternalLink href={item.url} target="_blank">
-                      {item.title} ↗
-                    </ExternalLink>
-                  ) : (
-                    item.title
-                  )}
-                </h2>
-                <span className="universal-search-label">
-                  {t(
-                    item.owned
-                      ? "In your library"
-                      : item.kind === "publisher"
-                        ? "Publisher"
-                        : item.kind === "store"
-                          ? "Bookshop"
-                          : item.known
-                            ? "Previously found"
-                            : "Found online",
-                  )}
-                </span>
-              </div>
-              {item.kind === "title" && (
-                <p className="hint">
-                  {[
-                    item.publisher,
-                    t(item.type),
-                    item.volume !== ""
-                      ? t("Volume {volume}", { volume: item.volume })
-                      : "",
-                    item.isbn ? "ISBN " + item.isbn : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-              )}
-              <div className="universal-search-links">
-                {item.sources
-                  .filter((source) => source.url && source.id !== "library")
-                  .map((source) => (
-                    <ExternalLink
-                      key={source.id + source.url}
-                      href={source.url}
-                      target="_blank"
-                    >
-                      {source.name} ↗
-                    </ExternalLink>
-                  ))}
-              </div>
-            </li>
-          ))}
-        </ol>
+        <SearchResults
+          results={progress.results}
+          query={progress.query}
+          grouped={grouped}
+        />
       )}
       {progress && !progress.results.length && (
         <div className="empty">
