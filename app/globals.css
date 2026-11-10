@@ -24,6 +24,7 @@
 @import "./styles/controls.css" layer(components);
 @import "./styles/loading.css" layer(components);
 @import "./styles/admin.css" layer(components);
+@import "./styles/edit-conflicts.css" layer(components);
 @source "../components";
 @source "../lib/client";
 

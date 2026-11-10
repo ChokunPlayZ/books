@@ -5,6 +5,7 @@ import { createServer } from "node:net";
 import { chromium } from "playwright";
 import { openTestStore, testDatabaseUrl } from "../helpers/database.mjs";
 import { createAccount, signInWithGoogle } from "../../lib/server/auth.ts";
+import { checkAdminEditConflicts } from "../helpers/admin-edit-conflicts.mjs";
 import {
   createApplicationApi,
   applicationQueue,
@@ -595,6 +596,18 @@ try {
   const relinked = await (await rpc(recipientContext, "getCollection")).json();
   assert.equal(relinked.books[0].series, "Reader private inspection");
   assert.equal((await rpc(readerContext, "getCollection")).status(), 401);
+  await checkAdminEditConflicts(
+    page,
+    async (name, arg) => {
+      const response = await rpc(adminContext, name, arg);
+      assert.equal(response.status(), 200, await response.text());
+      return response.json();
+    },
+    (row) =>
+      store.db
+        .prepare("UPDATE books SET revision=revision+1 WHERE id=?")
+        .run(row),
+  );
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(
     await page.evaluate(

@@ -2,6 +2,18 @@
 
 Only signed-in administrators can open `/admin` or call maintenance APIs.
 
+## Library edit conflicts
+
+Single-book and bulk-volume saves check only the rows being edited. Changes to
+other rows do not block saving. If a row's revision changed without changing its
+values, the editor retries automatically with the latest token.
+
+When an edited row has changed, administrators see the original, latest saved and
+draft values and choose which values to keep. Non-overlapping changes have safe
+defaults; competing edits require an explicit choice. **Back to editing** preserves
+the draft without saving. Bulk edits remain atomic, and every confirmed save checks
+the latest tokens again so a newer edit cannot be overwritten unnoticed.
+
 ## Publisher cache warm-up
 
 Open **Publisher crawls**, choose a publisher and mode, then confirm **Start crawl**.

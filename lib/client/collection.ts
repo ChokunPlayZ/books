@@ -6,6 +6,8 @@ import { createInfiniteList } from "./infinite-list.ts";
 import { createBulkSelection } from "./bulk-selection.ts";
 import { createPublisherIsbnSearch } from "./publisher-isbn-search.ts";
 import { createSeriesEditor } from "./series-editor.ts";
+import { BookEditConflictError } from "../book-edit-conflicts.ts";
+import { saveBookEdits } from "./book-edit-conflicts.ts";
 import { createMissingBrowser } from "./missing.ts";
 import { createAnimeBrowser } from "./anime.ts";
 import { shelfCoverBook, coverTint } from "../domain/shelf.ts";
@@ -186,8 +188,16 @@ export function mountCollection({
         throw new Error("Sign in to open your library.");
       }
       const value = await response.json();
-      if (!response.ok)
-        throw new Error(value.message || "The request could not finish.");
+      if (!response.ok) {
+        const message = value.message || "The request could not finish.";
+        if (
+          response.status === 409 &&
+          state.data?.user.role === "admin" &&
+          Array.isArray(value.editConflict?.books)
+        )
+          throw new BookEditConflictError(message, value.editConflict.books);
+        throw new Error(message);
+      }
       rememberCoverPlaceholders(value);
       if (value.bookCoverIds && state.data) {
         for (const book of state.data.books) {
@@ -3953,6 +3963,7 @@ export function mountCollection({
       state.pendingSave = {
         key,
         request: { ...content, requestId: requestId() },
+        originals: state.editing ? [{ ...state.editing }] : [],
       };
     const keep = !state.editing && $("keepAdding").checked,
       defaults = keep
@@ -3969,7 +3980,14 @@ export function mountCollection({
     setBusy(true);
     $("saveButton").textContent = t("Saving…");
     try {
-      const result = await rpc("saveBook", state.pendingSave.request);
+      const result = await saveBookEdits(
+        "saveBook",
+        state.pendingSave.request,
+        state.pendingSave.originals,
+        rpc,
+        events.signal,
+      );
+      if (!result) return;
       $("bookDialog").close();
       state.editing = null;
       state.pendingSave = null;

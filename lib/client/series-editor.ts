@@ -4,6 +4,7 @@ import { bookSourceApplies } from "../domain/book-sources.ts";
 import { publisherKey } from "./matching.ts";
 import type { CollectionState } from "./state.ts";
 import type { StoredBook } from "../types.ts";
+import { saveBookEdits } from "./book-edit-conflicts.ts";
 
 const labels = {
   volume: "Volume number",
@@ -53,6 +54,7 @@ export function createSeriesEditor({
   let rows: EditRow[] = [];
   let pending: {
     key: string;
+    originals: StoredBook[];
     request: {
       requestId: string;
       series: string;
@@ -392,12 +394,23 @@ export function createSeriesEditor({
     const content = { series: state.selectedSeries!, changes: edits };
     const key = JSON.stringify(content);
     if (pending?.key !== key)
-      pending = { key, request: { ...content, requestId: requestId() } };
+      pending = {
+        key,
+        request: { ...content, requestId: requestId() },
+        originals: rows.filter(changed).map((row) => ({ ...row.book })),
+      };
     $("seriesEditError").hidden = true;
     setBusy(true);
     form.setAttribute("aria-busy", "true");
     try {
-      const result = await rpc("saveSeriesVolumes", pending.request);
+      const result = await saveBookEdits(
+        "saveSeriesVolumes",
+        pending.request,
+        pending.originals,
+        rpc,
+        signal,
+      );
+      if (!result) return;
       close();
       notify(
         t("Details saved for {count} volumes.", { count: result.volumes }),

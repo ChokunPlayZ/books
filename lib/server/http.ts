@@ -28,6 +28,9 @@ export function errorResponse(error: unknown) {
           : expected
             ? error.message
             : "The request failed. Please try again.",
+      ...(expected && error.editConflict
+        ? { editConflict: error.editConflict }
+        : {}),
     },
     status,
   );

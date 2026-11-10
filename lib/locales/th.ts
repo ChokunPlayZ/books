@@ -1,6 +1,16 @@
 // Interface text only. Book titles, notes, publishers and stored option values
 // stay in their original language; translations never modify collection data.
 export const thai: Record<string, string> = {
+  "Resolve edit conflict": "เลือกข้อมูลเมื่อมีการแก้ไขพร้อมกัน",
+  "These rows changed while you were editing. Compare the original, latest saved and your values, then choose what to keep. Nothing is saved until you confirm.":
+    "แถวเหล่านี้เปลี่ยนไประหว่างที่คุณแก้ไข เปรียบเทียบข้อมูลเดิม ข้อมูลที่บันทึกล่าสุด และข้อมูลของคุณ แล้วเลือกข้อมูลที่ต้องการเก็บ จะยังไม่มีการบันทึกจนกว่าคุณจะยืนยัน",
+  "Original value: {value}": "ข้อมูลเดิม: {value}",
+  "Your value": "ข้อมูลของคุณ",
+  "Latest saved value": "ข้อมูลที่บันทึกล่าสุด",
+  "Back to editing": "กลับไปแก้ไข",
+  "Save selected values": "บันทึกข้อมูลที่เลือก",
+  "A book changed since you opened this editor. Review the differences before saving.":
+    "หนังสือบางเล่มเปลี่ยนไปหลังจากเปิด โปรดตรวจสอบความแตกต่างก่อนบันทึก",
   Administration: "การดูแลระบบ",
   Close: "ปิด",
   ISBN: "ISBN",

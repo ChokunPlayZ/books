@@ -77,6 +77,7 @@ type CoverRow = {
 export type Store = Awaited<ReturnType<typeof openStore>>;
 export class AppError extends Error {
   readonly status: number;
+  readonly editConflict?: { books: StoredBook[] };
   // Instrumentation, RSC and route handlers can load separate server bundles.
   // Preserve typed HTTP errors across those bundles without trusting arbitrary
   // objects containing a caller-controlled `status` property.
@@ -86,10 +87,11 @@ export class AppError extends Error {
       Reflect.get(value, Symbol.for("meemai.AppError")) === true
     );
   }
-  constructor(message, status = 400) {
+  constructor(message, status = 400, editConflict?: { books: StoredBook[] }) {
     super(message);
     Object.defineProperty(this, Symbol.for("meemai.AppError"), { value: true });
     this.status = status;
+    this.editConflict = editConflict;
   }
 }
 
@@ -184,7 +186,7 @@ export async function openStore(
       token: digest(stableJson([row.id, row.revision, data])),
     };
   }
-  async function current(request) {
+  async function current(request, editing = false) {
     if (!Number.isSafeInteger(request.row))
       throw new AppError("Choose a book and try again.");
     const row = await get(
@@ -195,6 +197,9 @@ export async function openStore(
       throw new AppError(
         "This book changed since you opened it. Refresh and reopen the book.",
         409,
+        row && editing && users.current().role === "admin"
+          ? { books: [book(row)] }
+          : undefined,
       );
     return row;
   }
@@ -409,7 +414,7 @@ export async function openStore(
       )
         .toISOString()
         .slice(0, 10);
-    const existing = request.row == null ? null : await current(request);
+    const existing = request.row == null ? null : await current(request, true);
     Object.assign(
       data,
       bookMetadata({
@@ -792,10 +797,28 @@ export async function openStore(
         )
           throw new AppError("Choose volumes in this series to update.");
         const seen = new Set<number>();
+        const conflicts: StoredBook[] = [];
+        // Check only submitted rows, and report every changed row before writing.
+        // The account transaction lock keeps these checks and the saves atomic.
         for (const change of request.changes) {
           if (!change || typeof change !== "object" || seen.has(change.row))
             throw new AppError("Include each volume only once.");
           seen.add(change.row);
+          try {
+            await current(change, true);
+          } catch (error) {
+            if (!(error instanceof AppError) || !error.editConflict)
+              throw error;
+            conflicts.push(...error.editConflict.books);
+          }
+        }
+        if (conflicts.length)
+          throw new AppError(
+            "A book changed since you opened this editor. Review the differences before saving.",
+            409,
+            { books: conflicts },
+          );
+        for (const change of request.changes) {
           const row = await current(change);
           if ((row.series.trim() || "Untitled series") !== request.series)
             throw new AppError("Choose volumes from the same series.");
