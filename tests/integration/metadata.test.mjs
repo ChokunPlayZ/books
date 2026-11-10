@@ -308,7 +308,7 @@ test("cover lookup includes Phoenix revised editions without a product link and 
   const series = "ดอกรักผลิบานที่กลางใจ";
   const revisedUrl = "https://www.phoenixnext.com/mg0435-02.html";
   const revisedCover =
-    "https://www.phoenixnext.com/media/catalog/product/cache/616a7398005cfee60500354f848a3838/_/m/_m_kaoru_hana_vol1_jacket_cover_1.jpg";
+    "https://www.phoenixnext.com/media/catalog/product/_/m/_m_kaoru_hana_vol1_jacket_cover_1.jpg";
   const gallery = readFileSync(
     new URL(
       "../fixtures/publishers/phoenix-revised-volume.html",

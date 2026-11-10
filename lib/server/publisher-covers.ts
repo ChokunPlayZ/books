@@ -1,4 +1,10 @@
-import { attr, meta, safeCoverUrl, structuredBooks } from "../domain.ts";
+import {
+  attr,
+  meta,
+  safeCoverUrl,
+  originalCoverUrl,
+  structuredBooks,
+} from "../domain.ts";
 import { animagProducts } from "../domain/animag.ts";
 import { safeProductUrl } from "../domain/urls.ts";
 import { dexpressProduct } from "../domain/dexpress.ts";
@@ -35,7 +41,7 @@ export function publisherCovers(html, pageUrl) {
   }
   const covers = new Set();
   const add = (raw) => {
-    const url = safeCoverUrl(raw, pageUrl);
+    const url = originalCoverUrl(raw, pageUrl);
     if (url) covers.add(url);
   };
   // Phoenix Hyvä and Magento galleries expose the original image in JSON.

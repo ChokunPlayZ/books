@@ -1,7 +1,7 @@
 import { canonicalIsbn } from "./isbn.ts";
 import { meta, structuredBooks, textHtml } from "./html.ts";
 import { releaseItem } from "./releases.ts";
-import { safeProductUrl, safeCoverUrl } from "./urls.ts";
+import { safeProductUrl, originalCoverUrl } from "./urls.ts";
 import { parsePageCount } from "./page-count.ts";
 import { productMsrp } from "./msrp.ts";
 
@@ -51,6 +51,6 @@ export function phoenixBook(html: string, isbn: string, productUrl: string) {
     msrpCurrency: meta(html, "product:price:currency") || "THB",
     availability:
       meta(html, "product:availability") || offer?.availability || "",
-    coverUrl: safeCoverUrl(meta(html, "og:image")),
+    coverUrl: originalCoverUrl(meta(html, "og:image")),
   };
 }

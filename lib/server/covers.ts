@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { open } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { safeCoverUrl } from "../domain.ts";
+import { originalCoverUrl } from "../domain.ts";
 import { AppError } from "./store.ts";
 import { SCRAPE_TTL } from "./scrape-cache.ts";
 import { outboundFetch } from "./outbound.ts";
@@ -33,7 +33,7 @@ export function imageType(body) {
 }
 
 function imageSource(raw) {
-  const url = safeCoverUrl(raw);
+  const url = originalCoverUrl(raw);
   if (!url || new URL(raw).protocol !== "https:")
     throw new AppError("Unsupported cover image source.");
   return url;

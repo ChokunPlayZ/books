@@ -150,6 +150,8 @@ The ISBN comes from the listing's preview link; the release fetch does not visit
 
 Phoenix availability and release dates are left blank by this scraper. A missing price or ISBN remains blank; the scraper does not infer those values from the product slug.
 
+Phoenix cover URLs use the original `/media/catalog/product/` image, removing Magento's `/cache/<hash>/` size variant from listing, Open Graph and gallery URLs. Some variants contain white side padding: a live check on November 10, 2026 found a 265×265 Open Graph image for `mg0435-02.html`, while the original cover was 430×608 without padding. The cover download service also normalizes older cached URLs before fetching. Existing stored image IDs keep their bytes and source; use **Pull covers** and select the original image to replace an already-saved padded cover.
+
 ### First Page Pro
 
 `parseCatalog('firstpage', html)` splits the page at `div` elements with both `productArea` and `productItem` classes. Within each card, it reads the `gadgetThumbnail` anchor's `title` and `href`. The price comes from the anchor's HTML-encoded `GAEEPD` JSON attribute, specifically its `price` field.

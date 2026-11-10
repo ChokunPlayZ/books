@@ -265,6 +265,20 @@ export function safeCoverUrl(raw, base?: string) {
   }
 }
 
+export function originalCoverUrl(raw, base?: string) {
+  const safe = safeCoverUrl(raw, base);
+  if (!safe) return "";
+  const url = new URL(safe);
+  // Phoenix's Magento thumbnails can bake white padding into the image itself.
+  // Keep stored-source validation separate so older image bytes retain their origin.
+  if (url.hostname === "www.phoenixnext.com")
+    url.pathname = url.pathname.replace(
+      /^\/media\/catalog\/product\/cache\/[a-f0-9]{32}\//i,
+      "/media/catalog/product/",
+    );
+  return url.href;
+}
+
 export function publisherKey(name) {
   const key = String(name || "")
     .toLocaleLowerCase()

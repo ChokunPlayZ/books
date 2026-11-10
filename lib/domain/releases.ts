@@ -1,6 +1,11 @@
 import type { Release } from "../types.ts";
 import { attr, textHtml, decodeHtml } from "./html.ts";
-import { safePublisherTitleUrl, safeCoverUrl, safeProductUrl } from "./urls.ts";
+import {
+  safePublisherTitleUrl,
+  safeCoverUrl,
+  originalCoverUrl,
+  safeProductUrl,
+} from "./urls.ts";
 import {
   catalogSeriesKey,
   splitBookTitle,
@@ -436,7 +441,7 @@ export function parseCatalog(id, html, sourceUrl = "") {
     );
     const img = /<img\b[^>]*>/i.exec(anchor);
     if (url && img) {
-      const cover = safeCoverUrl(
+      const cover = originalCoverUrl(
         attr(img[0], "data-src") || attr(img[0], "src"),
         url,
       );

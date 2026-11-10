@@ -228,6 +228,91 @@ test("content IDs deduplicate different sources and old file caches migrate with
   );
 });
 
+test("cached Phoenix thumbnail URLs download the original and keep an older stored cover available", async (t) => {
+  const store = await database(t);
+  const thumbnail = source.replace(
+    "/product/",
+    "/product/cache/6517c62f5899ad6aa0ba23ceb3eeff97/",
+  );
+  const padded = await sharp({
+    create: { width: 265, height: 265, channels: 3, background: "white" },
+  })
+    .png()
+    .toBuffer();
+  const previous = await store.covers.put(
+    { body: padded, contentType: "image/png" },
+    thumbnail,
+  );
+  const original = await sharp({
+    create: { width: 430, height: 608, channels: 3, background: "#639057" },
+  })
+    .png()
+    .toBuffer();
+  const calls = [];
+  const covers = createCoverService(store, {
+    fetchImpl: async (url) => {
+      calls.push(url);
+      return new Response(original);
+    },
+  });
+  const image = await covers.ensure(thumbnail);
+  assert.deepEqual(calls, [source]);
+  assert.equal(image.id, coverDigest(original));
+  assert.notEqual(image.id, previous.id);
+  assert.deepEqual((await covers.get(previous.id)).body, padded);
+  assert.equal(await store.covers.source(previous.id), thumbnail);
+  assert.equal((await covers.ensure(source)).id, image.id);
+  assert.equal((await covers.ensure(thumbnail)).id, image.id);
+  assert.deepEqual(
+    calls,
+    [source],
+    "Thumbnail and original URLs share one download",
+  );
+
+  const product = "https://www.phoenixnext.com/stored-cover.html";
+  const category = "https://www.phoenixnext.com/book-series/stored-cover.html";
+  await store.api.saveBook({
+    requestId: "phoenix_padded_cover_1",
+    book: {
+      ...book,
+      publisherUrl: product,
+      coverUrl: thumbnail,
+      coverId: previous.id,
+    },
+  });
+  await store.api.setSeriesCatalog({
+    series: book.series,
+    type: book.type,
+    publisherId: "phoenix",
+    url: category,
+  });
+  const api = createApplicationApi(
+    store,
+    covers,
+    async (url) =>
+      new Response(
+        url === category
+          ? `<span class="toolbar-number">1</span><a class="product-item-link" href="${product}">Stored cover เล่ม 1 (Mg)</a>`
+          : `<h1>Stored cover เล่ม 1 (Mg)</h1><meta property="og:image" content="${thumbnail}">`,
+      ),
+  );
+  const volume = (await api.getCollection()).books[0];
+  const options = await api.getBookCoverOptions({ row: volume.row });
+  assert.equal(
+    options.covers.find((cover) => cover.coverUrl === source).coverId,
+    image.id,
+    "Pull covers offers the original rather than reusing the stored padded ID",
+  );
+  assert.ok(options.covers.some((cover) => cover.coverId === previous.id));
+  await api.saveBook({
+    row: volume.row,
+    token: volume.token,
+    requestId: "phoenix_original_cover_1",
+    book: { ...book, coverUrl: source, coverId: image.id },
+  });
+  assert.equal((await api.getCollection()).books[0].coverId, image.id);
+});
+
 test("cached releases do not retry failed covers on every view or restart, and recover after the cooldown", async (t) => {
   t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
   const legacyDirectory = await directory(t);
