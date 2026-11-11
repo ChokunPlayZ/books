@@ -146,6 +146,7 @@ export function createApplicationApi(
       ),
     ),
     searchExternalTitles: search.searchExternalTitles,
+    searchExternalSuggestions: search.searchExternalSuggestions,
     recrawlMetadata: maintenance.recrawlMetadata,
     crawlPublisher: publisherCrawls.crawlPublisher,
     debugScraperIsbn: scraperDebugger.debugScraperIsbn,
@@ -387,6 +388,14 @@ export function createApplicationApi(
     getScrapeJob: queue.getScrapeJob,
     manageScrapeQueue: queue.manageScrapeQueue,
     manageScrapeJob: queue.manageScrapeJob,
+    searchKnownSuggestions: search.searchKnownSuggestions,
+    searchExternalSuggestions: async (arg) =>
+      (await search.cachedSearchSuggestions(arg)) ??
+      queue.run(
+        "searchExternalSuggestions",
+        arg,
+        label("searchExternalSuggestions", arg),
+      ),
     searchExternalTitles: async (arg) =>
       attachSearchPreviews(
         await queue.run(

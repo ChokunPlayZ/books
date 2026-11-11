@@ -17,6 +17,7 @@ import { SCRAPE_TTL } from "../scrape-cache.ts";
 import { ISBN_GROUP_PREFIXES } from "../../domain/isbn.ts";
 import { isThaiBook } from "../../domain/book-sources.ts";
 import { normalizeBookType } from "../../domain/book-type.ts";
+import { naiinSuggestions } from "./suggestions.ts";
 import type {
   BookDetails,
   ScraperContext,
@@ -38,7 +39,7 @@ export const naiin: ScraperDefinition = {
     "Naiin is unavailable right now. You can still search it using the link below.",
   coverPriority: 10,
   coverWarning: "Could not check Naiin for this ISBN.",
-  create({ fetchText: fetchText_ }: ScraperContext) {
+  create({ fetchText: fetchText_, requestRemote }: ScraperContext) {
     const reviewEdition = (title: string) =>
       /limited|special\s*(?:set|edition)|ฉบับพิเศษ|ปกพิเศษ|เซต|เซ็[ตท]|ชุด/i.test(
         title,
@@ -259,6 +260,7 @@ export const naiin: ScraperDefinition = {
     }
 
     return {
+      suggestTitles: naiinSuggestions({ requestRemote }),
       bookDetails,
       searchTitles: async (query) => {
         const html = await fetchText_(

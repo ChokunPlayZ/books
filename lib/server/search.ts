@@ -26,6 +26,7 @@ import {
 import type { ScraperDefinition } from "./scrapers/types.ts";
 import type { createCatalogService } from "./catalogs.ts";
 import { SCRAPE_TTL } from "./scrape-cache.ts";
+import { createSearchSuggestions } from "./search-suggestions.ts";
 import {
   searchSourceTitles,
   supportsTitleSearch,
@@ -171,10 +172,13 @@ export function createSearchService(
     };
   }
 
-  async function knownResults(query: string): Promise<SearchResult[]> {
+  async function knownResults(
+    query: string,
+    completions = false,
+  ): Promise<SearchResult[]> {
     const [collection, rows] = await Promise.all([
       store.api.getCollection(),
-      store.cache.searchable(),
+      store.cache.searchable(completions),
     ]);
     const results: SearchResult[] = [];
     for (const book of collection.books) {
@@ -200,6 +204,8 @@ export function createSearchService(
       if (item) results.push(item);
     }
     for (const row of rows) {
+      if (!completions && row.key.startsWith("search-suggestions:v1:"))
+        continue;
       try {
         const value = JSON.parse(row.value);
         const source = registry.get(
@@ -414,5 +420,17 @@ export function createSearchService(
       throw new AppError("Choose a search result.", 404);
     return { coverId: item.coverId || "", coverUrl: item.coverUrl || "" };
   }
-  return { searchKnownEntities, searchExternalTitles, getSearchCover };
+  return {
+    searchKnownEntities,
+    searchExternalTitles,
+    getSearchCover,
+    ...createSearchSuggestions({
+      store,
+      context,
+      queryFrom,
+      describe,
+      knownResults: (query) => knownResults(query, true),
+      sources: definitions.map((source) => registry.get(source.id)!),
+    }),
+  };
 }

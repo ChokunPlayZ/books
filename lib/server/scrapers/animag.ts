@@ -17,6 +17,7 @@ import { createIsbnSearch } from "./isbn-search.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
 import { ISBN_GROUP_PREFIXES } from "../../domain/isbn.ts";
 import type { ScraperContext, ScraperDefinition } from "./types.ts";
+import { lnwSuggestions } from "./suggestions.ts";
 
 export const animag: ScraperDefinition = {
   id: "animag",
@@ -138,6 +139,11 @@ export const animag: ScraperDefinition = {
       },
     });
     return {
+      suggestTitles: lnwSuggestions(
+        context,
+        "animag",
+        "https://www.animagshop.com",
+      ),
       ...createHtmlCatalog(context, {
         id: "animag",
         pagination: "tskp",

@@ -1319,6 +1319,8 @@ export const thai: Record<string, string> = {
   "Manage users": "จัดการผู้ใช้",
   "Account details do not load private libraries. Opening a library requires confirmation and is recorded in the audit log.":
     "ข้อมูลบัญชีจะไม่โหลดคลังส่วนตัว การเปิดคลังต้องยืนยันและจะถูกบันทึกไว้ในประวัติการตรวจสอบ",
+  "Search suggestions": "คำแนะนำการค้นหา",
+  "{count} search suggestions available.": "มีคำแนะนำการค้นหา {count} รายการ",
   "Search users": "ค้นหาผู้ใช้",
   "Name, email or account ID": "ชื่อ อีเมล หรือรหัสบัญชี",
   "Add user": "เพิ่มผู้ใช้",

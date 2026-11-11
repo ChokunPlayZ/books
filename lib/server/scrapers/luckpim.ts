@@ -17,14 +17,15 @@ export const luckpim: ScraperDefinition = {
       );
     }
 
-    async function loadLuckpimSeries_(url, limit = -1) {
+    async function loadLuckpimSeries_(url, limit = -1, take = false) {
       const keyword = decodeURIComponent(url.split("?k=")[1]),
         session = await luckpimSession_("https://www.luckpim.com/");
       const result = await requestRemote(
         "https://www.luckpim.com/get/search_pin/key?page=1&limit=" +
           limit +
           "&keyword=" +
-          encodeURIComponent(keyword),
+          encodeURIComponent(keyword) +
+          (take ? "&take=true" : ""),
         { headers: session },
       );
       if (result.status !== 200) throw httpFailure(result.url, result.status);
@@ -109,6 +110,15 @@ export const luckpim: ScraperDefinition = {
     }
 
     return {
+      suggestTitles: async (query) =>
+        (
+          await loadLuckpimSeries_(
+            "https://www.luckpim.com/search_result?k=" +
+              encodeURIComponent(query),
+            48,
+            true,
+          )
+        ).items.map((item) => item.series),
       searchTitles: (query) =>
         loadLuckpimSeries_(
           "https://www.luckpim.com/search_result?k=" +

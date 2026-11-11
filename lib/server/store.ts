@@ -1190,16 +1190,17 @@ export async function openStore(
         keys.map((key, index) => [key, values.get(scoped[index]) ?? null]),
       );
     },
-    async searchable() {
+    async searchable(completions = false) {
       // Only parsed public book metadata and this user's series aliases. Never
       // expose raw responses, private imports, or another user's catalog links.
       return await all<{ key: string; value: string }>(
         `SELECT key,value FROM cache WHERE (expires_at=0 OR expires_at>?) AND (
           key LIKE 'isbn:v15:%' OR key LIKE 'book-metadata:v1:%' OR key LIKE 'publisher-catalog:v1:%' OR
           key LIKE 'publisher-directory:v1:%' OR key LIKE 'releases:v1:%' OR
-          key LIKE 'search-titles:v1:%' OR key LIKE ? OR key LIKE ?
+          key LIKE 'search-titles:v1:%' OR (? AND key LIKE 'search-suggestions:v1:%') OR key LIKE ? OR key LIKE ?
         ) ORDER BY key`,
         Date.now(),
+        completions,
         `user:${users.current().id}:series:v1:%`,
         `user:${users.current().id}:book-discovery:%`,
       );

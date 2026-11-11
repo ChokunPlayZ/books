@@ -56,6 +56,23 @@ The optional `fillMissing` argument defaults to off. When enabled, it also pins 
 
 ## Publisher ISBN search
 
+### Cache-first query completion
+
+**Search everywhere** uses `searchKnownSuggestions` for account-scoped shelf names, saved titles, linked aliases and parsed public catalog/completion caches. This read is local and unqueued. Six distinct matching names are enough to avoid remote completion; results are deduplicated to at most eight names, rather than one option per volume. ISBNs, partial numeric barcodes and punctuation-only input do not call completion APIs. Full title/catalog searches still require Search/Enter.
+
+If local matches are sparse, the browser waits 180 ms before the local request and another 300 ms before `searchExternalSuggestions`, runs at most two sources concurrently, and stops starting sources once six names are available. Changing the query, composing IME text, submitting, blurring or dismissing the menu aborts its browser requests and ignores late responses. Already-enqueued remote reads may finish and warm the public cache. A bounded, five-minute in-memory cache belongs only to that mounted search field; private names are not written to browser storage or shared completion snapshots.
+
+| Source                           | Confirmed completion endpoint                                       | Parsing                                                                                                                     |
+| -------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Phoenix Next                     | `GET /seriesbrands/ajax/searchbrands/?query=<query>`                | `brand_name`; separately suggests the source's Thai and appended romanized names                                            |
+| Luckpim                          | `GET /get/search_pin/key?page=1&limit=48&keyword=<query>&take=true` | Validated `data.list` through the existing book parser; fresh public token/cookie session only when needed                  |
+| Naiin                            | `GET /autocomplete?query=<query>`                                   | `RefName` from Product entries only; excludes author/publisher and generic search links                                     |
+| First Page Pro, Animag, DEXpress | `POST /search/box` with form field `q`                              | Complete product-image `alt` titles, not the truncated displayed text; explicit no-results markup is a valid empty response |
+
+These endpoints were checked on November 11, 2026. Luckpim's `limit=-1&take=true` response returned hundreds of records, so completion deliberately requests `limit=48`. LnwShop's shared search script identifies the three `/search/box` endpoints. Naiin's header module identifies `/autocomplete`. Phoenix also exposes product autocomplete through `/mageworx_searchsuiteautocomplete/ajax/index/?q=…`; this implementation uses its smaller series-brand response instead. The inspected Yaakz, Lily House and Yen Press frontends did not establish another dedicated completion adapter; their normal title searches remain unchanged.
+
+Parsed public names and exact misses reuse durable PostgreSQL snapshots for 24 hours and are retained for 30 days. Fresh snapshots bypass the remote queue even while paused; otherwise completion uses the same queue, source host checks, response bounds, in-flight request coalescing and 15-minute failure cooldown as other scraping work. Invalid payloads and unavailable sources are not cached as successful misses. Stale names survive failures without changing their original check time. Limited prefix results can supply local names for longer queries but never assert exhaustive coverage of those queries. Completion records are not verified book metadata and do not enter full-search, series-detail or owned-copy enrichment records.
+
 ### Name-and-volume discovery
 
 `lookupBook({ series, volume, publisher?, publisherId?, type?, edition?, isbn?, refresh? })` works without an ISBN or publisher. It checks applicable publishers' series directories before broad title searches, requires an exact normalized series/category match, and caches the series selection separately from its volumes. Matched catalog reads are shared across accounts before private alias annotation. Book-discovery aliases and selections remain account-scoped. Source additions/removals and language/ISBN applicability are part of discovery cache identity.

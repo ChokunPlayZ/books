@@ -7,6 +7,7 @@ import { createHtmlCatalog } from "./html-catalog.ts";
 import { publisherRedirectIdentity } from "./http.ts";
 import { createIsbnSearch } from "./isbn-search.ts";
 import type { CatalogResult, ScraperDefinition } from "./types.ts";
+import { lnwSuggestions } from "./suggestions.ts";
 
 const base = "https://www.dexpress-shop.com";
 
@@ -138,6 +139,7 @@ export const dexpress: ScraperDefinition = {
       };
     }
     return {
+      suggestTitles: lnwSuggestions(context, "dexpress", base),
       releases: recent.releases,
       catalog,
       searchIsbn,

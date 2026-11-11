@@ -7,6 +7,7 @@ import {
 } from "../../lib/client/universal-search.ts";
 import Icon from "../Icon";
 import SearchResults from "./SearchResults";
+import SearchQueryInput from "./SearchQueryInput";
 import { useTranslations } from "../PreferencesProvider";
 import LoadingStatus from "../LoadingStatus";
 import { activity } from "../../lib/client/activity.ts";
@@ -119,31 +120,18 @@ export default function UniversalSearch({
           void search(query);
         }}
       >
-        <label className="field" htmlFor="universalSearchQuery">
-          <span>{t("Title, publisher or ISBN")}</span>
-          <input
-            id="universalSearchQuery"
-            type="search"
-            value={query}
-            maxLength={200}
-            placeholder={t("Search Thai, English or Japanese titles…")}
-            enterKeyHint="search"
-            autoComplete="off"
-            aria-describedby={
-              error
-                ? "universalSearchHint universalSearchError"
-                : "universalSearchHint"
-            }
-            aria-invalid={!!error}
-            onChange={(event) => {
-              pending.current?.abort();
-              setQuery(event.target.value);
-              setProgress(null);
-              setError("");
-              setLoading(false);
-            }}
-          />
-        </label>
+        <SearchQueryInput
+          query={query}
+          error={error}
+          searching={loading}
+          onChange={(value) => {
+            pending.current?.abort();
+            setQuery(value);
+            setProgress(null);
+            setError("");
+            setLoading(false);
+          }}
+        />
         <button
           className="btn primary"
           type="submit"

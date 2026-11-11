@@ -7,6 +7,7 @@ import { cachedJson } from "./cache.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
 import { ISBN_GROUP_PREFIXES } from "../../domain/isbn.ts";
 import type { ScraperContext, ScraperDefinition } from "./types.ts";
+import { phoenixSuggestions } from "./suggestions.ts";
 
 export const phoenix: ScraperDefinition = {
   id: "phoenix",
@@ -52,6 +53,7 @@ export const phoenix: ScraperDefinition = {
       },
     });
     return {
+      suggestTitles: phoenixSuggestions(context),
       reparseBook: async (book) => {
         const url = safeProductUrl(book.url, "phoenix");
         if (!url) return book;

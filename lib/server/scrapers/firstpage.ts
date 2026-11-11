@@ -10,6 +10,7 @@ import { createIsbnSearch } from "./isbn-search.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
 import { ISBN_GROUP_PREFIXES } from "../../domain/isbn.ts";
 import type { ScraperContext, ScraperDefinition } from "./types.ts";
+import { lnwSuggestions } from "./suggestions.ts";
 
 export const firstpage: ScraperDefinition = {
   id: "firstpage",
@@ -76,6 +77,11 @@ export const firstpage: ScraperDefinition = {
     }
 
     return {
+      suggestTitles: lnwSuggestions(
+        context,
+        "firstpage",
+        "https://www.firstpagepro.com",
+      ),
       ...createHtmlCatalog(context, {
         id: "firstpage",
         pagination: "tskp",

@@ -410,6 +410,7 @@ export function createScraperRegistry(
       "lookupIsbn",
       "searchIsbn",
       "searchTitles",
+      "suggestTitles",
       "bookDetails",
       "catalog",
       "directory",

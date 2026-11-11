@@ -68,6 +68,11 @@ try {
   });
   const errors = [];
   const coverRequests = [];
+  const completionRequests = [];
+  const searches = [];
+  const slowStarted = Promise.withResolvers();
+  const slowRelease = Promise.withResolvers();
+  const completionRelease = Promise.withResolvers();
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("**/api/covers/*", (route) =>
     route.request().url().endsWith("c".repeat(64))
@@ -76,7 +81,72 @@ try {
   );
   await page.route("**/api/rpc", async (route) => {
     const { name, arg } = route.request().postDataJSON();
-    if (name === "searchKnownEntities")
+    if (name === "searchKnownSuggestions") {
+      completionRequests.push({ name, query: arg.query });
+      if (arg.query === "Slow") {
+        slowStarted.resolve();
+        await slowRelease.promise;
+        return route
+          .fulfill({
+            json: {
+              query: arg.query,
+              suggestions: [
+                {
+                  value: "Slow stale name",
+                  label: "Previously found",
+                  known: true,
+                },
+              ],
+              sources: [],
+            },
+          })
+          .catch(() => {});
+      }
+      if (arg.query === "Failure")
+        return route.fulfill({ status: 503, json: {} });
+      const values = arg.query.startsWith("ดอก")
+        ? [
+            "ดอกรักผลิบานที่กลางใจ",
+            "ดอกรักผลิบานที่กลางใจ ฉบับทดสอบชื่อที่ยาวมากเพื่อยืนยันว่าคำแนะนำตัดบรรทัดได้โดยไม่ล้นหน้าจอบนโทรศัพท์",
+            "ดอกไม้ในสวน",
+            "ดอกไม้ใต้แสงจันทร์",
+            "ดอกไม้หลังฝน",
+            "ดอกไม้แห่งวันพรุ่งนี้",
+            "ดอกไม้บนชั้นหนังสือ",
+            "ดอกไม้ยามเช้า",
+          ]
+        : arg.query === "Empty"
+          ? []
+          : ["Moon Library"];
+      return route.fulfill({
+        json: {
+          query: arg.query,
+          suggestions: values.map((value) => ({
+            value,
+            label: "Your library",
+            known: true,
+          })),
+          sources:
+            arg.query === "Mo" ? [{ id: "phoenix", name: "Phoenix Next" }] : [],
+        },
+      });
+    }
+    if (name === "searchExternalSuggestions") {
+      completionRequests.push({ name, query: arg.query });
+      await completionRelease.promise;
+      return route.fulfill({
+        json: {
+          query: arg.query,
+          suggestions: [
+            { value: "Mo", label: "Phoenix Next", known: false },
+            { value: "Moon Garden", label: "Phoenix Next", known: false },
+          ],
+          sources: [],
+        },
+      });
+    }
+    if (name === "searchKnownEntities") {
+      searches.push(arg.query);
       return route.fulfill({
         json: {
           query: arg.query,
@@ -84,6 +154,7 @@ try {
           sources: [],
         },
       });
+    }
     if (name === "getSearchCover") {
       coverRequests.push(arg);
       return route.fulfill({ json: { coverId: lazyId } });
@@ -203,9 +274,166 @@ try {
     .getByRole("heading", { name: "No matching titles found" })
     .waitFor();
   assert.equal(await cards.count(), 0);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addStyleTag({
+    content:
+      "*, *::before, *::after { transition: none !important; animation: none !important; }",
+  });
+  // Typing completes a query without running a full catalog search.
+  const input = page.getByRole("combobox", {
+    name: "Title, publisher or ISBN",
+  });
+  const list = page.getByRole("listbox", { name: "Search suggestions" });
+  const beforeSearch = searches.length;
+  await input.fill("Mo");
+  await page
+    .getByRole("option", { name: "Moon Library Your library" })
+    .waitFor();
+  await input.press("ArrowDown");
+  completionRelease.resolve();
+  // A late exact match sorts ahead of the highlighted library name. Enter must
+  // still choose that name rather than its former array position.
+  await page
+    .getByRole("option", { name: "Moon Garden Phoenix Next" })
+    .waitFor();
+  assert.equal(searches.length, beforeSearch);
+  assert.equal(await input.getAttribute("aria-expanded"), "true");
+  assert.ok(await input.getAttribute("aria-activedescendant"));
+  assert.match(
+    await page
+      .locator("#" + (await input.getAttribute("aria-activedescendant")))
+      .innerText(),
+    /Moon Library/,
+  );
+  await input.press("Enter");
+  assert.equal(await input.inputValue(), "Moon Library");
+  assert.equal(await list.count(), 0);
+  assert.equal(
+    searches.length,
+    beforeSearch,
+    "choosing a query never submits it",
+  );
+  await input.press("Enter");
+  await page.waitForFunction(() =>
+    document
+      .querySelector(".universal-search-status")
+      ?.textContent.includes("Search complete"),
+  );
+  assert.equal(searches.at(-1), "Moon Library");
+  const beforeReuse = completionRequests.length;
+  await input.fill("Mo");
+  await list.waitFor();
+  await input.press("ArrowDown");
+  await input.press("ArrowDown");
+  // The 180ms effect replays the exact browser-cache answer. It must not clear
+  // a choice made immediately from the already-visible cached options.
+  await page.waitForTimeout(250);
+  const searchesBeforeReplay = searches.length;
+  await input.press("Enter");
+  assert.equal(await input.inputValue(), "Moon Library");
+  assert.equal(searches.length, searchesBeforeReplay);
+  await input.fill("Mo");
+  await list.waitFor();
+  await input.press("Escape");
+  assert.equal(await input.inputValue(), "Mo");
+  assert.equal(await list.count(), 0);
+  assert.equal(
+    completionRequests.length,
+    beforeReuse,
+    "cached completions appear immediately without another RPC",
+  );
+  await input.fill("Slow");
+  await slowStarted.promise;
+  await input.fill("Moon");
+  slowRelease.resolve();
+  await list.waitFor();
+  assert.doesNotMatch(await list.innerText(), /Slow/);
+  await input.press("Tab");
+  assert.equal(await list.count(), 0);
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Search", exact: true })
+      .evaluate((element) => element === document.activeElement),
+    true,
+  );
+  for (const query of ["978616", "Empty", "Failure"]) {
+    await input.fill(query);
+    // Wait past both debounce intervals to prove an optional failure/miss stays quiet.
+    await page.waitForTimeout(600);
+    assert.equal(await list.count(), 0);
+    assert.equal(await input.inputValue(), query);
+  }
+  assert.ok(!completionRequests.some((request) => request.query === "978616"));
+  const beforeComposition = completionRequests.length;
+  await input.dispatchEvent("compositionstart");
+  await input.fill("Compose");
+  await page.waitForTimeout(600);
+  assert.equal(completionRequests.length, beforeComposition);
+  await input.dispatchEvent("compositionend");
+  await input.fill("ดอก");
+  await list.waitFor();
+  assert.equal(await list.getByRole("option").count(), 8);
+  await input.press("ArrowDown");
+  for (const [width, theme] of [
+    [1440, "light"],
+    [390, "light"],
+    [390, "dark"],
+    [320, "dark"],
+  ]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.evaluate(
+      (theme) => document.documentElement.setAttribute("data-theme", theme),
+      theme,
+    );
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      true,
+      JSON.stringify(
+        await page.evaluate(() => ({
+          width: innerWidth,
+          scroll: document.documentElement.scrollWidth,
+          overflow: [...document.querySelectorAll("body *")]
+            .filter(
+              (element) =>
+                !element.closest(".tabs") &&
+                element.getBoundingClientRect().right > innerWidth,
+            )
+            .slice(0, 20)
+            .map((element) => ({
+              tag: element.tagName,
+              class: element.className,
+              right: element.getBoundingClientRect().right,
+              width: element.getBoundingClientRect().width,
+            })),
+        })),
+      ),
+    );
+    const bounds = await list.boundingBox();
+    assert.ok(
+      bounds.x >= 0 &&
+        bounds.x + bounds.width <= width &&
+        bounds.y + bounds.height <= 844,
+    );
+    assert.ok(
+      await list
+        .getByRole("option")
+        .first()
+        .evaluate((element) => element.getBoundingClientRect().height >= 44),
+    );
+    if (process.env.BOOKS_TEST_SCREENSHOT_DIR && width !== 320)
+      await page.screenshot({
+        path: `${process.env.BOOKS_TEST_SCREENSHOT_DIR}/search-completion-${width}-${theme}.png`,
+        fullPage: true,
+      });
+  }
+  await list.getByRole("option").first().click();
+  assert.equal(await input.inputValue(), "ดอกรักผลิบานที่กลางใจ");
+  assert.equal(await list.count(), 0);
   assert.deepEqual(errors, []);
   console.log(
-    "PASS search covers, lazy images, missing/broken cover fallback, desktop grid, series grouping, links, keyboard and responsive layout",
+    "PASS search covers, grouping, cache-first completion, keyboard/pointer/IME controls, cancellation, optional failures and responsive themes",
   );
 } finally {
   await browser.close();

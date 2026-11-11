@@ -118,6 +118,8 @@ export type CoverOption = {
 
 // Implement only the capabilities a source actually supports.
 export type Scraper = {
+  // Lightweight query completion only; never traverse catalogs/product pages.
+  suggestTitles?(query: string): Promise<string[]>;
   // Read a known product directly, without doing another ISBN/title search.
   bookDetails?(url: string, refresh?: boolean): Promise<BookDetails | null>;
   // Apply parser corrections to durable metadata using local data only.
