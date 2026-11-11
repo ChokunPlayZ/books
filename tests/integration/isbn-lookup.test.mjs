@@ -19,7 +19,6 @@ const sources = [
   "www.dexpress-shop.com",
   "www.phoenixnext.com",
   "kinokuniya.co.th",
-  "www.googleapis.com",
   "openlibrary.org",
 ];
 function emptyResponse(address) {
@@ -43,16 +42,9 @@ function emptyResponse(address) {
     return new Response("Not found", { status: 404 });
   return new Response("{}");
 }
-function googleResponse() {
+function openLibraryResponse() {
   return Response.json({
-    items: [
-      {
-        volumeInfo: {
-          title: "Generic edition",
-          industryIdentifiers: [{ identifier: isbn }],
-        },
-      },
-    ],
+    ["ISBN:" + isbn]: { title: "Generic edition" },
   });
 }
 async function controlledLookup(t, respond = emptyResponse) {
@@ -93,9 +85,7 @@ test("applicable ISBN sources start together and keep source preference when a g
               : "naiin-detail.html",
           ),
         );
-      if (address.includes("googleapis.com")) return googleResponse();
-      if (address.includes("openlibrary.org"))
-        return new Response("Unavailable", { status: 503 });
+      if (address.includes("openlibrary.org")) return openLibraryResponse();
       return emptyResponse(address);
     },
   );
@@ -109,7 +99,7 @@ test("applicable ISBN sources start together and keep source preference when a g
     if (source !== "www.naiin.com") gate.resolve();
   });
   await setImmediate();
-  assert.ok(completed.has("www.googleapis.com"));
+  assert.ok(completed.has("openlibrary.org"));
   assert.ok(!completed.has("www.naiin.com"));
   gates.get("www.naiin.com").resolve();
   const lookup = await result;
@@ -124,9 +114,9 @@ test("applicable ISBN sources start together and keep source preference when a g
 
 test("parallel ISBN failures retain ordered warnings and allow a verified fallback", async (t) => {
   const { gates, result } = await controlledLookup(t, (address) => {
-    if (/naiin|firstpagepro|openlibrary/.test(address))
+    if (/naiin|firstpagepro/.test(address))
       return new Response("Unavailable", { status: 503 });
-    if (address.includes("googleapis.com")) return googleResponse();
+    if (address.includes("openlibrary.org")) return openLibraryResponse();
     return emptyResponse(address);
   });
   for (const source of [...sources].reverse()) {
@@ -134,7 +124,7 @@ test("parallel ISBN failures retain ordered warnings and allow a verified fallba
     await setImmediate();
   }
   const lookup = await result;
-  assert.equal(lookup.details.source, "Google Books");
+  assert.equal(lookup.details.source, "Open Library");
   assert.deepEqual(lookup.warnings, [
     "Naiin is unavailable right now. You can still search it using the link below.",
     "First Page Pro is unavailable right now.",

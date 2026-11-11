@@ -594,7 +594,7 @@ test("source outages preserve previous discoveries without relabeling stale snap
   assert.equal(failed.results[0].title, "ห้องสมุด");
 });
 
-test("Thai title search reads publisher and Naiin listing cards while Japanese text only checks multilingual title sources", async () => {
+test("Thai title search reads publisher and Naiin listings while Google Books only serves English title queries", async () => {
   const calls = [];
   const store = memoryStore();
   const fetchImpl = async (url) => {
@@ -612,7 +612,7 @@ test("Thai title search reads publisher and Naiin listing cards while Japanese t
         items: [
           {
             id: "book1",
-            volumeInfo: { title: "図書館", publisher: "Publisher" },
+            volumeInfo: { title: "Moon Library", publisher: "Publisher" },
           },
         ],
       });
@@ -634,13 +634,28 @@ test("Thai title search reads publisher and Naiin listing cards while Japanese t
   });
   assert.equal(shop.results[0].title, "ห้องสมุด เล่ม 1");
   assert.equal(shop.results[0].isbn, "");
+  for (const query of ["ห้องสมุด", "図書館", "9786166247275", "4063951375"]) {
+    const known = await service.searchKnownEntities({ query });
+    assert.ok(!known.sources.some((source) => source.id === "google-books"));
+    await assert.rejects(
+      service.searchExternalTitles({ query, sourceId: "google-books" }),
+      /applicable search source/,
+    );
+  }
+  assert.equal(calls.length, 2, "Excluded searches must not make requests");
+  const english = await service.searchKnownEntities({ query: "Moon Library" });
+  assert.ok(english.sources.some((source) => source.id === "google-books"));
+  const englishIsbn = await service.searchKnownEntities({
+    query: "0140328726",
+  });
+  assert.ok(englishIsbn.sources.some((source) => source.id === "google-books"));
   const japanese = await service.searchKnownEntities({ query: "図書館" });
   assert.deepEqual(
     japanese.sources.map((item) => item.id),
-    ["google-books"],
+    [],
   );
   const google = await service.searchExternalTitles({
-    query: "図書館",
+    query: "Moon Library",
     sourceId: "google-books",
   });
   assert.equal(

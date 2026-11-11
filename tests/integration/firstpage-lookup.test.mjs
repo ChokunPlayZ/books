@@ -47,9 +47,8 @@ function remote(calls, overrides = {}) {
       return new Response('{"results":[]}');
     if (address.includes("kinokuniya.co.th"))
       return new Response("Not found", { status: 404 });
-    if (address.includes("googleapis.com"))
-      return new Response(JSON.stringify(overrides.google ?? {}));
-    if (address.includes("openlibrary.org")) return new Response("{}");
+    if (address.includes("openlibrary.org"))
+      return Response.json(overrides.openLibrary ?? {});
     assert.fail("Unexpected source: " + address);
   };
 }
@@ -126,8 +125,9 @@ test("scan lookup uses verified First Page Pro metadata, bypasses old misses and
       .length,
     1,
   );
-  for (const source of ["kinokuniya", "googleapis", "openlibrary"])
+  for (const source of ["kinokuniya", "openlibrary"])
     assert.ok(calls.some((address) => address.includes(source)));
+  assert.ok(!calls.some((address) => address.includes("googleapis")));
   assert.ok(!calls.some((address) => address.includes("yenpress")));
   assert.equal(
     (await service.getBookCover({ row: 1 })).coverUrl,
@@ -154,20 +154,13 @@ test("First Page mismatches, empty results, outages and unreadable product metad
       store,
       remote([], {
         ...overrides,
-        google: {
-          items: [
-            {
-              volumeInfo: {
-                title: "Verified fallback",
-                industryIdentifiers: [{ identifier: isbn }],
-              },
-            },
-          ],
+        openLibrary: {
+          ["ISBN:" + isbn]: { title: "Verified fallback" },
         },
       }),
     );
     const result = await service.lookupIsbn(isbn);
-    assert.equal(result.details.source, "Google Books");
+    assert.equal(result.details.source, "Open Library");
     assert.deepEqual(
       result.warnings,
       warning ? ["First Page Pro is unavailable right now."] : [],

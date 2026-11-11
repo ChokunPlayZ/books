@@ -213,7 +213,7 @@ Special-edition detection recognizes markers including `Special Set`, `Complete 
 
 ## ISBN source selection
 
-Automatic metadata lookup and supplementary ISBN cover choices select sources using canonical ISBN-13 prefixes. A source declares optional `isbnPrefixes` alongside its capabilities; omitted prefixes mean the source serves multiple countries/languages. ISBN-10 inputs use the same routing after conversion.
+Automatic metadata lookup and supplementary ISBN cover choices select sources using canonical ISBN-13 prefixes. A source declares optional `isbnPrefixes` and `isbnExcludedPrefixes` alongside its capabilities; omitted allowed prefixes mean the source serves multiple countries/languages, except for any excluded prefixes. ISBN-10 inputs use the same routing after conversion.
 
 | Registration group                                         | Applicable local sources                                     |
 | ---------------------------------------------------------- | ------------------------------------------------------------ |
@@ -222,7 +222,7 @@ Automatic metadata lookup and supplementary ISBN cover choices select sources us
 | Japan: `978-4`                                             | Hanmoto; Kodansha JP additionally requires `978406`          |
 | Other groups                                               | Multilingual sources only                                    |
 
-Kinokuniya, Google Books and Open Library remain eligible for every group, within their supported capabilities. In particular, `979-10`/`11`/`12`/`13` do not match the English `978-1` group. The International ISBN Agency documents the distinction between [English-speaking `978-0`/`978-1` and US `979-8`](https://www.isbn-international.org/index.php/content/changes-united-states-isbn-prefixes); Thailand's National Library documents its [country registration groups](https://www.nlt.go.th/storage/contents/file/TjLGCPVzFahIvMgSlxnKfrwbyg9mGhWLk19PvhR8.pdf).
+Kinokuniya and Open Library remain eligible for every group, within their supported capabilities. Google Books excludes all Thai and Japanese registration groups; its title searches support English queries only, including when a recorded edition overrides a romanized title. Other ISBN groups retain Google Books eligibility. In particular, `979-10`/`11`/`12`/`13` do not match the English `978-1` group. The International ISBN Agency documents the distinction between [English-speaking `978-0`/`978-1` and US `979-8`](https://www.isbn-international.org/index.php/content/changes-united-states-isbn-prefixes); Thailand's National Library documents its [country registration groups](https://www.nlt.go.th/storage/contents/file/TjLGCPVzFahIvMgSlxnKfrwbyg9mGhWLk19PvhR8.pdf).
 
 Applicable metadata sources start concurrently and retain their configured preference and warning order. Skipped sources make no request and contribute no outage warning. Unknown groups retain the multilingual fallbacks. Supplementary cover lookups without an ISBN retain their existing title-based matching. Explicit publisher searches and product/series links use the selected publisher. The aggregate ISBN cache uses a new version so previously cached unrelated warnings are discarded.
 
@@ -238,9 +238,17 @@ Publisher suggestions, ISBN search links, release source choices and discovery c
 4. Parses `application/ld+json` script contents as JSON, including arrays and `@graph` records. A candidate must have an exact canonical ISBN match in `isbn`, `gtin13`, or `sku`, or in the page's `book:isbn` meta tag. A search result alone is insufficient.
 5. Returns the matched title, parsed series/volume/type, publisher, authors, product URL, and `book:release_date` when present. Publisher/author names can fall back to the search record after the detail page confirms the ISBN.
 
-For Thai registration groups, metadata preference is Naiin, Yaakz, First Page Pro, Animag, DEXpress, Phoenix Next, Kinokuniya, Google Books, then Open Library. Yaakz verifies the ISBN of an individual product variant. Google Books also requires a matching ISBN in `industryIdentifiers`; Open Library is queried by the canonical ISBN key. Naiin and Kinokuniya search links remain available even if all metadata providers fail. Suggested details are reviewed in the form before saving.
+For Thai registration groups, metadata preference is Naiin, Yaakz, First Page Pro, Animag, DEXpress, Phoenix Next, Kinokuniya, then Open Library. Yaakz verifies the ISBN of an individual product variant. Open Library is queried by the canonical ISBN key. Naiin and Kinokuniya search links remain available even if all metadata providers fail. Suggested details are reviewed in the form before saving.
 
 An HTTP error or parsing failure ends that provider's attempt and adds an availability warning if it precedes the selected result in source preference. Candidate-page errors are not retried individually. Up to five Naiin requests are made per uncached lookup: one search and four detail pages. Each fallback uses its own bounded requests.
+
+## Google Books request limits
+
+Uncached Google Books API requests share a minimum **1.1-second interval** and a **950-request Pacific-calendar-day budget** across title search, ISBN lookup, refresh, background work and administrator debugging. PostgreSQL claims are atomic across users and application instances sharing the database, and survive restarts and metadata purges. Cache hits consume no quota; other providers are not throttled by this limiter. Failed requests still consume a slot.
+
+These caps leave headroom below the commonly provisioned 1 request/second and 1,000 requests/day defaults; they are not a guarantee of the quota Google assigns to a particular project or shared outbound IP. Google's [Books API documentation](https://developers.google.com/books/docs/v1/using#APIKey) identifies the API project as the quota owner; check the project's Cloud Console for its actual limits. Deployments using separate databases do not share this budget.
+
+HTTP 429 and quota-related 403 responses trigger a durable, provider-wide cooldown: at least 15 minutes for rate throttling or 24 hours for daily quota exhaustion, extended by a longer `Retry-After` (seconds or HTTP date). Other lookups continue through applicable fallback sources. Existing saved books and previously cached metadata are not deleted.
 
 ## Kinokuniya Thailand ISBN lookup and covers
 
@@ -290,7 +298,7 @@ Trimmed live fixtures cover two print-release pages, a print product and all fiv
 
 ## Japanese covers from Hanmoto
 
-[Hanmoto](https://www.hanmoto.com/) supplies exact-ISBN metadata and cover choices for Japanese books, including Kodansha manga. Requests use `/bd/isbn/<isbn>` for canonical ISBNs beginning with `9784`; missing ISBNs and other language groups require no request. The source is registered for automatic ISBN cover lookup and **Pull covers**, after Kinokuniya and before Google Books in metadata preference. It does not require an API key.
+[Hanmoto](https://www.hanmoto.com/) supplies exact-ISBN metadata and cover choices for Japanese books, including Kodansha manga. Requests use `/bd/isbn/<isbn>` for canonical ISBNs beginning with `9784`; missing ISBNs and other language groups require no request. The source is registered for automatic ISBN cover lookup and **Pull covers**, after Kinokuniya and before Open Library in metadata preference. Google Books is not queried for Japanese ISBNs. It does not require an API key.
 
 The parser verifies both the page's `books:isbn` metadata and its main book's ISBN field. Titles omit ruby pronunciation readings. Cover images must come from `img.hanmoto.com/bd/img/` and their filename must match the requested ISBN; placeholders, logos and other volumes' images are excluded. Source links identify the Hanmoto page while retaining the book's saved publisher link. Images use permanent PostgreSQL storage and normal backup behavior.
 

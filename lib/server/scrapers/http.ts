@@ -8,6 +8,10 @@ import {
   minimumScrapeDelay,
 } from "../scrape-runtime.ts";
 import { crawlRobots } from "../crawl-robots.ts";
+import {
+  observeGoogleBooksResponse,
+  waitForGoogleBooksRequest,
+} from "./google-books-rate-limit.ts";
 import type { ScraperDebugResponse } from "../../scraper-debug.ts";
 import {
   httpFailure,
@@ -113,6 +117,7 @@ export function createScraperContext(
           error: "",
         };
         try {
+          await waitForGoogleBooksRequest(cache, current.href);
           const remote = await fetchRemote(current.href, {
             ...fetchOptions,
             signal: AbortSignal.timeout(15000),
@@ -142,6 +147,13 @@ export function createScraperContext(
                 "utf8",
               );
           if (redirect) await remote.body?.cancel();
+          await observeGoogleBooksResponse(
+            cache,
+            current.href,
+            remote.status,
+            remote.headers,
+            body,
+          );
           trace.body = body;
           if (onResponse) trace.bytes = Buffer.byteLength(body);
           const headers: Record<string, string | string[]> = Object.fromEntries(

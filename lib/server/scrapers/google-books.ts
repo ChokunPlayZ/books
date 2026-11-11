@@ -8,6 +8,7 @@ import {
   releaseBundle,
 } from "../../domain.ts";
 import { searchLanguage } from "../../domain/search.ts";
+import { ISBN_GROUP_PREFIXES } from "../../domain/isbn.ts";
 import type { ScraperContext, ScraperDefinition } from "./types.ts";
 type GoogleBooksResponse = {
   items?: {
@@ -24,20 +25,27 @@ type GoogleBooksResponse = {
     };
   }[];
 };
+const excludedIsbnPrefixes = [
+  ...ISBN_GROUP_PREFIXES.thai,
+  ...ISBN_GROUP_PREFIXES.japanese,
+];
 
 export const googleBooks: ScraperDefinition = {
   id: "google-books",
   hosts: ["www.googleapis.com", "books.google.com"],
-  titleLanguages: ["th", "en", "ja"],
+  titleLanguages: ["en"],
+  isbnExcludedPrefixes: excludedIsbnPrefixes,
   isbnPriority: 80,
   isbnWarning: "Google Books is unavailable right now.",
   create({ fetchJson: fetchJson_ }: ScraperContext) {
     return {
       searchTitles: async (query) => {
+        if (searchLanguage(query) !== "en")
+          return { items: [], complete: true };
         const data = await fetchJson_<GoogleBooksResponse>(
           "https://www.googleapis.com/books/v1/volumes?q=" +
             encodeURIComponent(query) +
-            "&maxResults=24&printType=books",
+            "&maxResults=24&printType=books&langRestrict=en",
         );
         if (data.items && !Array.isArray(data.items))
           throw new Error("Google Books search changed.");
@@ -92,7 +100,13 @@ export const googleBooks: ScraperDefinition = {
           complete: false,
         };
       },
-      lookupIsbn: async (canonical, refresh = false) => {
+      lookupIsbn: async (raw, refresh = false) => {
+        const canonical = canonicalIsbn(raw);
+        if (
+          !canonical ||
+          excludedIsbnPrefixes.some((prefix) => canonical.startsWith(prefix))
+        )
+          return null;
         const data = await fetchJson_<GoogleBooksResponse>(
           "https://www.googleapis.com/books/v1/volumes?q=isbn:" +
             encodeURIComponent(canonical) +

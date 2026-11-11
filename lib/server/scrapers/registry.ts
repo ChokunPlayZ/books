@@ -49,12 +49,13 @@ export const SCRAPER_SOURCES: readonly ScraperDefinition[] = Object.freeze([
 type RegisteredScraper = Scraper & Omit<ScraperDefinition, "create">;
 
 export function supportsIsbn(
-  source: Pick<ScraperDefinition, "isbnPrefixes">,
+  source: Pick<ScraperDefinition, "isbnPrefixes" | "isbnExcludedPrefixes">,
   canonical: string,
 ) {
   return (
-    !source.isbnPrefixes ||
-    source.isbnPrefixes.some((prefix) => canonical.startsWith(prefix))
+    (!source.isbnPrefixes ||
+      source.isbnPrefixes.some((prefix) => canonical.startsWith(prefix))) &&
+    !source.isbnExcludedPrefixes?.some((prefix) => canonical.startsWith(prefix))
   );
 }
 

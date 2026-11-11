@@ -6,6 +6,7 @@ import { digest } from "../../lib/domain/hash.ts";
 import { safeCoverUrl } from "../../lib/domain/urls.ts";
 import { hanmoto } from "../../lib/server/scrapers/hanmoto.ts";
 import { googleBooks } from "../../lib/server/scrapers/google-books.ts";
+import { openLibrary } from "../../lib/server/scrapers/open-library.ts";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 import { createApplicationApi } from "../../lib/server/api.ts";
 import { createCoverService } from "../../lib/server/covers.ts";
@@ -233,7 +234,7 @@ test("Hanmoto skips missing and non-Japanese ISBNs without network requests", as
   }
 });
 
-test("Hanmoto failures preserve Google Books fallback and a durable retry cooldown", async (t) => {
+test("Hanmoto failures preserve Open Library fallback without querying Google Books and retain a durable retry cooldown", async (t) => {
   t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
   const store = await database(t);
   await save(store);
@@ -246,22 +247,15 @@ test("Hanmoto failures preserve Google Books fallback and a durable retry cooldo
         ? new Response("Unavailable", { status: 503 })
         : new Response(first);
     }
-    return Response.json({
-      items: [
-        {
-          volumeInfo: {
-            title: "Fallback",
-            industryIdentifiers: [{ identifier: isbn }],
-          },
-        },
-      ],
-    });
+    assert.equal(new URL(url).hostname, "openlibrary.org");
+    return Response.json({ ["ISBN:" + isbn]: { title: "Fallback" } });
   };
-  let service = createCatalogService(store, fetchImpl, [hanmoto, googleBooks]);
+  const sources = [hanmoto, googleBooks, openLibrary];
+  let service = createCatalogService(store, fetchImpl, sources);
   const lookup = await service.lookupIsbn(isbn);
-  assert.equal(lookup.details.source, "Google Books");
+  assert.equal(lookup.details.source, "Open Library");
   assert.deepEqual(lookup.warnings, ["Hanmoto is unavailable right now."]);
-  service = createCatalogService(store, fetchImpl, [hanmoto, googleBooks]);
+  service = createCatalogService(store, fetchImpl, sources);
   const choices = await service.getBookCoverOptions({ row: 1, refresh: true });
   assert.deepEqual(choices.warnings, [
     "Could not check Hanmoto for this ISBN.",

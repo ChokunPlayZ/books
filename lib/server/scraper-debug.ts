@@ -12,6 +12,7 @@ import {
   supportsIsbn,
 } from "./scrapers/registry.ts";
 import type { ScraperCache, ScraperDefinition } from "./scrapers/types.ts";
+import { claimScraperRateLimit } from "./scrapers/google-books-rate-limit.ts";
 import {
   formatScrapeDiagnostic,
   recordScrapeDiagnostic,
@@ -132,6 +133,7 @@ export function createScraperDebugger(
     // local values and durable failure cooldowns. Never change library metadata.
     const values = new Map<string, string>();
     const cache: ScraperCache = {
+      claimRateLimit: (...args) => claimScraperRateLimit(store.cache, ...args),
       async get(key) {
         if (cooldownKey(key)) {
           const value = await store.cache.get(key);

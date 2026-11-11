@@ -1080,6 +1080,29 @@ export async function openStore(
     });
   }
   const cache = {
+    async claimRateLimit(key: string, limit: number, windowMs: number) {
+      const now = Date.now();
+      const claimed = await get(
+        `INSERT INTO request_limits (key,attempts,resets_at) VALUES (?,1,?)
+         ON CONFLICT(key) DO UPDATE SET
+           attempts=CASE WHEN request_limits.resets_at<=? THEN 1 ELSE request_limits.attempts+1 END,
+           resets_at=CASE WHEN request_limits.resets_at<=? THEN excluded.resets_at ELSE request_limits.resets_at END
+         WHERE request_limits.resets_at<=? OR request_limits.attempts<?
+         RETURNING resets_at`,
+        key,
+        now + windowMs,
+        now,
+        now,
+        now,
+        limit,
+      );
+      if (claimed) return 0;
+      const row = await get(
+        "SELECT resets_at FROM request_limits WHERE key=?",
+        key,
+      );
+      return Math.max(1, Number(row?.resets_at || now) - now);
+    },
     async getMany(keys: string[]) {
       if (!keys.length) return new Map<string, string>();
       const scoped = keys.map((key) =>

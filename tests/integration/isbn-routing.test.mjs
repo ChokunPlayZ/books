@@ -3,11 +3,7 @@ import assert from "node:assert/strict";
 import { openTestStore as openStore } from "../helpers/database.mjs";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
 
-const multilingual = [
-  "kinokuniya.co.th",
-  "www.googleapis.com",
-  "openlibrary.org",
-];
+const multilingual = ["kinokuniya.co.th", "openlibrary.org"];
 const thai = [
   "www.naiin.com",
   "www.yaakz.com",
@@ -28,9 +24,9 @@ const cases = [
   ["Thai 974", withChecksum("978974000000"), thai],
   ["Thai 611", withChecksum("978611000000"), thai],
   ["Thai ISBN-10", "9748585476", thai],
-  ["English 0 ISBN-10", "0140328726", ["yenpress.com"]],
-  ["English 1", "9781975319434", ["yenpress.com"]],
-  ["US 979-8", "9798400903526", ["yenpress.com"]],
+  ["English 0 ISBN-10", "0140328726", ["yenpress.com", "www.googleapis.com"]],
+  ["English 1", "9781975319434", ["yenpress.com", "www.googleapis.com"]],
+  ["US 979-8", "9798400903526", ["yenpress.com", "www.googleapis.com"]],
   [
     "Japanese Kodansha ISBN-10",
     "4063951375",
@@ -41,12 +37,12 @@ const cases = [
     withChecksum("978408000000"),
     ["www.hanmoto.com"],
   ],
-  ["French 978-2", withChecksum("978200000000"), []],
-  ["Chinese 978-7", withChecksum("978700000000"), []],
-  ["French 979-10", withChecksum("979100000000"), []],
-  ["Korean 979-11", withChecksum("979110000000"), []],
-  ["Italian 979-12", withChecksum("979120000000"), []],
-  ["Spanish 979-13", withChecksum("979130000000"), []],
+  ["French 978-2", withChecksum("978200000000"), ["www.googleapis.com"]],
+  ["Chinese 978-7", withChecksum("978700000000"), ["www.googleapis.com"]],
+  ["French 979-10", withChecksum("979100000000"), ["www.googleapis.com"]],
+  ["Korean 979-11", withChecksum("979110000000"), ["www.googleapis.com"]],
+  ["Italian 979-12", withChecksum("979120000000"), ["www.googleapis.com"]],
+  ["Spanish 979-13", withChecksum("979130000000"), ["www.googleapis.com"]],
 ];
 
 test("ISBN metadata requests and outage warnings include only applicable sources", async (t) => {
@@ -67,6 +63,12 @@ test("ISBN metadata requests and outage warnings include only applicable sources
         assert.fail("A routed lookup must retain its cached retry cooldown"),
       );
       assert.deepEqual(await offline.lookupIsbn(isbn), result);
+      const refreshed = await service.lookupIsbn({ isbn, refresh: true });
+      assert.equal(refreshed.found, false);
+      assert.ok(
+        hosts.every((host) => [...local, ...multilingual].includes(host)),
+        "Refresh must not contact an excluded source",
+      );
     });
 });
 

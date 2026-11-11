@@ -314,13 +314,13 @@ test("title discovery routes Thai, English and Japanese names while respecting e
     [
       source("phoenix", ["th", "en"], 1, codes[9]),
       source("yenpress", ["en"], 2, "9780316469316"),
-      source("google-books", ["th", "en", "ja"], 3, "9784063951370"),
+      source("japanese", ["ja"], 3, "9784063951370"),
     ],
   );
   for (const [name, expected, edition] of [
     [series, "phoenix", ""],
     ["Moon Library", "yenpress", ""],
-    ["進撃の巨人", "google-books", ""],
+    ["進撃の巨人", "japanese", ""],
     ["Thai edition alias", "phoenix", "Manga (TH)"],
   ]) {
     calls.length = 0;
@@ -332,7 +332,7 @@ test("title discovery routes Thai, English and Japanese names while respecting e
   }
 });
 
-test("Google Books title metadata discovers verified Japanese volumes and unnumbered English books without guessing a volume", async (t) => {
+test("Google Books title discovery skips Thai and Japanese books and preserves unnumbered English books", async (t) => {
   const store = await openTestStore();
   t.after(() => store.close());
   const records = [
@@ -357,6 +357,7 @@ test("Google Books title metadata discovers verified Japanese volumes and unnumb
       assert.ok(
         url.startsWith("https://www.googleapis.com/books/v1/volumes?q="),
       );
+      assert.equal(new URL(url).searchParams.get("langRestrict"), "en");
       return new Response(
         JSON.stringify({
           items: records.map((record, i) => ({
@@ -373,23 +374,22 @@ test("Google Books title metadata discovers verified Japanese volumes and unnumb
     },
     [googleBooks],
   );
-  const jp = await service.lookupBook({
-    series: "進撃の巨人",
-    volume: 1,
-    type: "Manga",
-  });
-  assert.equal(jp.isbn, "9784063951370");
-  assert.equal(jp.details.isbnVerified, true);
-  assert.equal(jp.details.pageCount, 192);
-  assert.equal(jp.details.edition, "(JP)");
-  assert.equal(
-    (await service.lookupBook({ series: "進撃の巨人", volume: "" })).found,
-    false,
-  );
+  for (const book of [
+    { series: "進撃の巨人", volume: 1, type: "Manga" },
+    { series: "進撃の巨人", volume: "" },
+    { series, volume: 1 },
+    { series: "Moon Library", volume: 1, edition: "(TH)" },
+    { series: "Moon Library", volume: 1, edition: "(JP)" },
+  ])
+    assert.equal((await service.lookupBook(book)).found, false);
+  assert.equal(requests, 0, "Excluded editions must not query Google Books");
   const english = await service.lookupBook({ series: "Matilda", volume: "" });
   assert.equal(english.isbn, "9780140328721");
+  assert.equal(english.details.isbnVerified, true);
+  assert.equal(english.details.pageCount, 192);
+  assert.equal(english.details.edition, "(EN)");
   assert.equal(english.details.volume, "");
-  assert.equal(requests, 2);
+  assert.equal(requests, 1);
 });
 
 test("imports atomically queue discovery, resume after restart, preserve duplicates and continue in low-priority batches", async (t) => {

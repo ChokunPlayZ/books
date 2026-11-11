@@ -439,6 +439,10 @@ export function createCatalogService(
     const eligible = scrapers.titleProviders.filter(
       (source) =>
         bookSourceApplies(source.id, spec) &&
+        (!language ||
+          source.titleLanguages.includes(
+            ({ TH: "th", EN: "en", JP: "ja" } as const)[language],
+          )) &&
         source.titleLanguages.includes(titleLanguage),
     );
     // Cache the entire series, not the volume query. Siblings (including imports)

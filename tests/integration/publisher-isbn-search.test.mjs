@@ -40,9 +40,8 @@ function scanRemote(calls, overrides = {}) {
       return new Response('{"results":[]}');
     if (address.includes("kinokuniya.co.th"))
       return new Response("Not found", { status: 404 });
-    if (address.includes("googleapis.com"))
-      return new Response(JSON.stringify(overrides.google ?? {}));
-    if (address.includes("openlibrary.org")) return new Response("{}");
+    if (address.includes("openlibrary.org"))
+      return Response.json(overrides.openLibrary ?? {});
     assert.fail("Unexpected source: " + address);
   };
 }
@@ -253,8 +252,9 @@ test("scan lookup uses verified Phoenix metadata and covers, bypasses old misses
       .length,
     1,
   );
-  for (const source of ["kinokuniya", "googleapis", "openlibrary"])
+  for (const source of ["kinokuniya", "openlibrary"])
     assert.ok(calls.some((address) => address.includes(source)));
+  assert.ok(!calls.some((address) => address.includes("googleapis")));
   assert.ok(!calls.some((address) => address.includes("yenpress")));
   const offline = createCatalogService(store, () =>
     assert.fail("Use durable cached metadata"),
@@ -283,20 +283,13 @@ test("Phoenix misses, wrong barcodes and unavailable pages continue to verified 
       store,
       scanRemote([], {
         ...overrides,
-        google: {
-          items: [
-            {
-              volumeInfo: {
-                title: "Verified fallback",
-                industryIdentifiers: [{ identifier: isbn }],
-              },
-            },
-          ],
+        openLibrary: {
+          ["ISBN:" + isbn]: { title: "Verified fallback" },
         },
       }),
     );
     const result = await api.lookupIsbn(isbn);
-    assert.equal(result.details.source, "Google Books");
+    assert.equal(result.details.source, "Open Library");
     assert.deepEqual(
       result.warnings,
       warning ? ["Phoenix Next is unavailable right now."] : [],

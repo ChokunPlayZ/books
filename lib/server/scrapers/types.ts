@@ -5,6 +5,12 @@ import type { SearchLanguage } from "../../domain/search.ts";
 export type ScraperCache = {
   get(key: string): Promise<string | null> | string | null;
   put(key: string, value: string, seconds: number): Promise<void> | void;
+  // Atomically claim a shared request slot; return milliseconds until retry, or 0.
+  claimRateLimit?(
+    key: string,
+    limit: number,
+    windowMs: number,
+  ): Promise<number>;
 };
 
 export type ScraperContext = {
@@ -148,6 +154,8 @@ export type ScraperDefinition = {
   redirectIdentity?(url: URL): string;
   // Canonical ISBN-13 prefixes served by this source; omit for multilingual sources.
   isbnPrefixes?: readonly string[];
+  // Exclude specific registration groups from an otherwise multilingual source.
+  isbnExcludedPrefixes?: readonly string[];
   // Lower numbers are preferred, independently of request completion order.
   isbnPriority?: number;
   isbnWarning?: string;

@@ -43,7 +43,7 @@ Cover images are served as cached WebP previews (up to 528 × 740 pixels), with 
 
 ## Universal search
 
-Open **Search** to find a title, publisher, bookshop or ISBN. Your own library, saved titles and previously cached catalog matches appear first, without contacting external sources. Applicable publishers and bookshops are then checked in the background; results are deduplicated and better matches move up as each source responds. Thai queries check Thai publishers and Naiin; English titles also check English catalogs, and Google Books supports multilingual title searches. ISBN searches use the existing language-specific lookup providers.
+Open **Search** to find a title, publisher, bookshop or ISBN. Your own library, saved titles and previously cached catalog matches appear first, without contacting external sources. Applicable publishers and bookshops are then checked in the background; results are deduplicated and better matches move up as each source responds. Thai queries check Thai publishers and Naiin; English titles also check English catalogs and Google Books. Google Books is excluded from Thai and Japanese title and ISBN lookups. ISBN searches use the existing language-specific lookup providers.
 
 Searches reuse durable metadata caches, show source failures without hiding other matches, and never add books or change your collection. Private shelves and linked series aliases remain account-specific. External title searches check bounded listing pages, not every volume in a catalog; source details indicate partial coverage.
 
