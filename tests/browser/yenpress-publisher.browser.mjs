@@ -38,7 +38,8 @@ const catalogs = createCatalogService(store, async (url, options) => {
   );
 });
 const bytes = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
+  // Mocked picker IDs must exist in the server's stored cover fixture.
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWP4//8/AAX+Av5Y8msOAAAAAElFTkSuQmCC",
   "base64",
 );
 const coverId = createHash("sha256").update(bytes).digest("hex");
@@ -55,11 +56,14 @@ const browser = await chromium.launch({
 });
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-  const errors = [];
+  const errors = [],
+    releaseRequests = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("https://cdn.jsdelivr.net/**", (route) => route.abort());
   await page.route("**/api/rpc", async (route) => {
     const { name, arg } = route.request().postDataJSON();
+    if (name === "getPublisherReleases" && arg.publisherId === "yenpress")
+      releaseRequests.push(arg);
     if (name === "getBookCover")
       return route.fulfill({ json: { row: arg.row, coverId: "" } });
     if (name === "getPublisherReleases" && arg.publisherId !== "yenpress")
@@ -194,9 +198,11 @@ try {
   await page.waitForFunction(
     () => !window.bookCollection.state.releasesLoading,
   );
+  // Personal-library refresh reuses fresh cached feeds, even while offline.
+  assert.equal(releaseRequests.at(-1).refresh, false);
   assert.match(
     await page.locator("#publisherSources").textContent(),
-    /Could not refresh Yen Press/,
+    /Yen Press/,
   );
   assert.equal(await page.locator(".release-card").count(), 1);
   for (const width of [320, 1440]) {
@@ -209,7 +215,7 @@ try {
   }
   assert.deepEqual(errors, []);
   console.log(
-    "PASS Yen Press discovery with separate English formats, Ize Press series matching, missing volumes, release filters, save/reload and cached outages",
+    "PASS Yen Press discovery with separate English formats, Ize Press series matching, missing volumes, release filters, save/reload and cached offline reuse",
   );
 } finally {
   await browser.close();

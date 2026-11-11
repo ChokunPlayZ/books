@@ -156,10 +156,16 @@ try {
       path: join(process.cwd(), "outputs", `book-page-${width}.png`),
       fullPage: true,
     });
-    assert.ok(
-      first.y < (width === 390 ? 530 : 390),
-      `Owned volumes stay near the top of the page (${width}px viewport, first row at ${first.y}px)`,
-    );
+    // Series profiles can precede the shelf; owned books remain one jump away.
+    await page
+      .getByRole("link", { name: "Owned volumes", exact: true })
+      .click();
+    await page.waitForFunction(() => {
+      const first = document
+        .querySelector("#bookList .book-row")
+        ?.getBoundingClientRect();
+      return first && first.top < innerHeight && first.bottom > 0;
+    });
   }
   const volume = page.getByRole("button", {
     name: `Edit ${series}, volume 2`,

@@ -6,7 +6,8 @@ import { testUrl } from "../helpers/browser.mjs";
 import { kinokuniyaBook } from "../../lib/domain/kinokuniya.ts";
 
 const bytes = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
+  // Cover picker IDs must refer to the real stored fixture seeded by run.mjs.
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWP4//8/AAX+Av5Y8msOAAAAAElFTkSuQmCC",
   "base64",
 );
 const coverId = createHash("sha256").update(bytes).digest("hex");
@@ -43,6 +44,21 @@ try {
   );
   await page.route("**/api/rpc", (route) => {
     const request = route.request().postDataJSON();
+    // This scenario isolates cover picking; automatic source enrichment has its
+    // own scenario and should not launch live metadata requests here.
+    if (request.name === "pullSeriesInfo" && request.arg.automatic)
+      return route.fulfill({
+        json: {
+          series: request.arg.series,
+          type: request.arg.type,
+          workId: "",
+          titles: [],
+          synopses: [],
+          editions: [],
+          candidates: [],
+          warnings: [],
+        },
+      });
     if (request.name === "lookupIsbn")
       return route.fulfill({
         json: { isbn, found: true, details, warnings: [] },
@@ -135,7 +151,11 @@ try {
   assert.equal(saved.coverId, coverId);
   assert.equal(saved.coverUrl, details.coverUrl);
   assert.equal(saved.publisher, "Bantam Doubleday Dell");
-  assert.equal(saved.publisherUrl, "");
+  assert.equal(
+    saved.publisherUrl,
+    details.url,
+    "A cover choice without a link must retain the verified ISBN source page",
+  );
   assert.deepEqual(errors, []);
   assert.deepEqual(externalImages, []);
   console.log(

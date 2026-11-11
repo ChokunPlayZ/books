@@ -114,9 +114,9 @@ try {
     const first = await page.locator(selector).first().elementHandle();
     let count = await page.locator(selector).count();
     while (count < 45) {
-      await page.evaluate(() =>
-        window.scrollTo(0, document.documentElement.scrollHeight),
-      );
+      // Detailed series records can follow the shelf. Reach this list's marker
+      // rather than jumping past it to the document footer.
+      await page.locator(".infinite-scroll").scrollIntoViewIfNeeded();
       await page.waitForFunction(
         ({ selector, count }) =>
           document.querySelectorAll(selector).length > count,

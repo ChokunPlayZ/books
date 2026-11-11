@@ -64,9 +64,29 @@ const browser = await chromium.launch({
 });
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  // The real account must know the name for server-rendered series navigation;
+  // browser RPCs below still use the isolated publisher fixture library.
+  const seeded = await page.request.post(testUrl + "/api/rpc", {
+    data: {
+      name: "saveBook",
+      arg: {
+        requestId: crypto.randomUUID(),
+        book: {
+          series,
+          publisher: "Lilly House",
+          type: "Light novel",
+          edition: "(TH)",
+          volume: 1,
+          status: "Read",
+        },
+      },
+    },
+  });
+  assert.equal(seeded.ok(), true, await seeded.text());
   const errors = [],
     externalImages = [],
-    calls = [];
+    calls = [],
+    catalogRequests = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("request", (request) => {
     if (
@@ -82,6 +102,7 @@ try {
   await page.route("**/api/rpc", async (route) => {
     const { name, arg } = route.request().postDataJSON();
     calls.push(name);
+    if (name === "getSeriesCatalog") catalogRequests.push(arg);
     try {
       return route.fulfill({ json: await api[name](arg) });
     } catch (error) {
@@ -187,9 +208,16 @@ try {
       !window.bookCollection.state.catalogRefreshing &&
       !window.bookCollection.state.catalogLoading.size,
   );
+  // Library refresh reuses fresh shared data instead of forcing a remote crawl.
+  // Expired-cache outage fallback is covered by the Lily House integration tests.
+  assert.equal(catalogRequests.at(-1).refresh, false);
   assert.match(
     await page.locator("#seriesReleaseSources").textContent(),
-    /previous check/i,
+    /Lily House/,
+  );
+  assert.equal(
+    await page.locator("#seriesReleaseList .release-card").count(),
+    2,
   );
   assert.equal(
     await page.evaluate(

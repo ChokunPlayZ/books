@@ -14,7 +14,7 @@ const coverUrl = (source) => "/api/covers/" + coverId(source);
 const storedCoverId = createHash("sha256")
   .update(
     Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWP4//8/AAX+Av5Y8msOAAAAAElFTkSuQmCC",
       "base64",
     ),
   )
@@ -299,6 +299,7 @@ try {
       name: /^Open Discovery owned, 1 owned volumes?$/,
     })
     .click();
+  await page.getByRole("link", { name: "Owned volumes", exact: true }).click();
   await page.locator(".book-row .shelf-cover img").waitFor();
   assert.equal(
     await page.locator(".book-row .shelf-cover img").getAttribute("alt"),
