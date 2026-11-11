@@ -14,6 +14,7 @@ try {
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     hasTouch: true,
+    serviceWorkers: "block",
   });
   const page = await context.newPage();
   const errors = [];
@@ -133,6 +134,61 @@ try {
   assert.equal(await type.inputValue(), "Light novel");
   assert.equal(await menu.count(), 0);
   assert.equal(await page.locator("#bookDialog").isVisible(), true);
+
+  await type.tap();
+  await menu.waitFor();
+  await type.tap();
+  assert.equal(await menu.count(), 0, "A second touch tap closes the menu");
+
+  // A touch sequence can end without a click in WebKit. Also exercise the
+  // compatibility-click path and interrupted gestures deterministically.
+  const pointer = (name, extra = {}) =>
+    type.dispatchEvent(name, {
+      pointerId: 1,
+      pointerType: "touch",
+      isPrimary: true,
+      button: 0,
+      clientX: 100,
+      clientY: 100,
+      ...extra,
+    });
+  await pointer("pointerdown");
+  await pointer("pointerup");
+  await menu.waitFor();
+  await type.dispatchEvent("click", { detail: 1 });
+  assert.equal(
+    await menu.count(),
+    1,
+    "A compatibility click must not close the menu",
+  );
+  await type.press("Escape");
+  await pointer("pointerdown");
+  await pointer("pointermove", { clientY: 140 });
+  await pointer("pointerup");
+  assert.equal(
+    await menu.count(),
+    0,
+    "Scrolling across a selector is not a tap",
+  );
+  await pointer("pointerdown");
+  await pointer("pointercancel");
+  await pointer("pointerup");
+  assert.equal(
+    await menu.count(),
+    0,
+    "A cancelled gesture must not open the menu",
+  );
+  await pointer("pointerdown");
+  await pointer("pointerdown", { pointerId: 2, isPrimary: false });
+  await pointer("pointerup");
+  assert.equal(
+    await menu.count(),
+    0,
+    "A second finger cancels the pending tap",
+  );
+  await type.tap();
+  await menu.waitFor();
+  await type.press("Escape");
 
   // Keyboard navigation does not submit the form or dismiss the parent dialog.
   const status = page.locator("#status");

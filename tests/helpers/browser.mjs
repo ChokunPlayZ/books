@@ -1,4 +1,10 @@
-import { chromium } from "playwright";
+import { chromium, webkit } from "playwright";
+
+const engine = process.env.BOOKS_TEST_ENGINE || "chromium";
+if (!["chromium", "webkit"].includes(engine))
+  throw new Error("BOOKS_TEST_ENGINE must be chromium or webkit.");
+// Scenarios keep a shared launch entry point, including session fixtures.
+if (engine === "webkit") chromium.launch = webkit.launch.bind(webkit);
 
 export const testUrl = process.env.BOOKS_TEST_URL;
 if (!testUrl)
@@ -30,8 +36,11 @@ if (process.env.BOOKS_TEST_SESSION) {
     const browser = await launch(...args);
     const newContext = browser.newContext.bind(browser);
     const newPage = browser.newPage.bind(browser);
-    browser.newContext = (options) => newContext({ storageState, ...options });
-    browser.newPage = (options) => newPage({ storageState, ...options });
+    // Fixture RPCs must not escape Playwright routing through a service worker.
+    // The dedicated PWA scenario gets no session fixture and tests real workers.
+    const defaults = { storageState, serviceWorkers: "block" };
+    browser.newContext = (options) => newContext({ ...defaults, ...options });
+    browser.newPage = (options) => newPage({ ...defaults, ...options });
     return browser;
   };
 }

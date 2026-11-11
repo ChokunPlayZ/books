@@ -12,6 +12,7 @@ const browser = await chromium.launch({
 const marker = "Mobile adding " + Date.now();
 try {
   const page = await browser.newPage({
+    serviceWorkers: "block",
     viewport: { width: 390, height: 844 },
     isMobile: true,
     hasTouch: true,

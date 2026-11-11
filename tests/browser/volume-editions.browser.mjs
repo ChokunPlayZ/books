@@ -14,10 +14,6 @@ const store = await openStore();
 const snapshot = JSON.parse(
   readFileSync(new URL("../fixtures/collection.json", import.meta.url), "utf8"),
 );
-for (const book of snapshot.filter(
-  (book) => book.series === title || book.series === colorTitle,
-))
-  await store.api.saveBook({ book, requestId: crypto.randomUUID() });
 const card = (volume, special = "") =>
   `<a class="product-item-link" href="https://www.phoenixnext.com/color-${special ? "special-" : ""}${volume}.html">(มังงะ) ${special}${colorTitle} เล่ม ${volume}</a>`;
 const service = createCatalogService(
@@ -50,8 +46,24 @@ const browser = await chromium.launch({
     : {}),
 });
 try {
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 } }),
+  const page = await browser.newPage({
+      viewport: { width: 390, height: 844 },
+      serviceWorkers: "block",
+    }),
     errors = [];
+  const rpc = async (name, arg) => {
+    const response = await page.request.post(testUrl + "/api/rpc", {
+      data: { name, arg },
+    });
+    assert.equal(response.status(), 200, await response.text());
+    return response.json();
+  };
+  // Navigation is server-rendered: seed the same library used by the server,
+  // and intercept only external catalog work, not collection reads or writes.
+  for (const book of snapshot.filter(
+    (book) => book.series === title || book.series === colorTitle,
+  ))
+    await rpc("saveBook", { book, requestId: crypto.randomUUID() });
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("https://cdn.jsdelivr.net/**", (route) => route.abort());
   const coloredListing = releaseItem(
@@ -98,13 +110,15 @@ try {
           stale: false,
           error: "",
         };
-      } else result = await store.api[name](arg);
+      } else if (name === "getBookCover") {
+        result = { row: arg.row, coverId: "" };
+      } else return route.continue();
       return route.fulfill({ json: normalizeRecordTypes(result) });
     } catch (error) {
       return route.fulfill({ status: 400, json: { message: error.message } });
     }
   });
-  await page.goto(process.env.BOOKS_TEST_URL || "http://localhost:3000");
+  await page.goto(testUrl);
   await page.waitForFunction(
     () =>
       typeof window.bookCollection?.state !== "undefined" &&
@@ -144,7 +158,7 @@ try {
       type: "Manga (TH)",
     })
   ).items.find((item) => item.special && item.volume === 22);
-  await store.api.saveBook({
+  await rpc("saveBook", {
     book: {
       series: title,
       type: "Manga (TH)",
@@ -225,7 +239,7 @@ try {
     /No gaps through volume 6/,
   );
   assert.equal(
-    (await store.api.getCollection()).books.filter(
+    (await rpc("getCollection")).books.filter(
       (book) =>
         book.series === colorTitle &&
         book.type === "Manga" &&

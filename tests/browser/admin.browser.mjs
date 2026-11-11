@@ -145,7 +145,7 @@ try {
     httpOnly: true,
     sameSite: "Lax",
   });
-  const adminContext = await browser.newContext();
+  const adminContext = await browser.newContext({ serviceWorkers: "block" });
   const readerContext = await browser.newContext({ javaScriptEnabled: false });
   const anonymous = await browser.newContext({ javaScriptEnabled: false });
   await adminContext.addCookies([cookie(ownerSession.token)]);
@@ -455,7 +455,11 @@ try {
     .getByRole("button", { name: "Scraper debugger", exact: true })
     .click();
   await page.getByLabel("ISBN", { exact: true }).fill("9786164648357");
-  await page.getByLabel("Provider", { exact: true }).selectOption("phoenix");
+  const provider = page.getByRole("combobox", {
+    name: "Provider",
+    exact: true,
+  });
+  await provider.selectOption("phoenix");
   await page
     .getByRole("button", { name: "Run fresh scrape", exact: true })
     .click();
@@ -492,20 +496,12 @@ try {
   );
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.getByLabel("Search by", { exact: true }).selectOption("title");
-  assert.equal(
-    await page
-      .getByLabel("Provider", { exact: true })
-      .locator('option[value="kinokuniya"]')
-      .count(),
-    0,
-  );
-  assert.equal(
-    await page
-      .getByLabel("Provider", { exact: true })
-      .locator('option[value="luckpim"]')
-      .count(),
-    1,
-  );
+  await page.getByLabel("Title", { exact: true }).waitFor();
+  await provider
+    .locator('option[value="luckpim"]')
+    .waitFor({ state: "attached" });
+  assert.equal(await provider.locator('option[value="kinokuniya"]').count(), 0);
+  assert.equal(await provider.locator('option[value="luckpim"]').count(), 1);
   expectedDebugRequest = { query: "Moon & Stars", providerId: "phoenix" };
   debugResponse = {
     ...debugReport,
@@ -580,6 +576,33 @@ try {
     /q=Website%20failure/,
   );
   assert.equal(debugCalls, 4);
+  expectedDebugRequest = { query: "เกมสารภาพรัก", providerId: "luckpim" };
+  debugResponse = {
+    ...debugReport,
+    isbn: "",
+    query: expectedDebugRequest.query,
+    mode: "title",
+    providerId: "luckpim",
+    result: {
+      items: [
+        {
+          title: expectedDebugRequest.query,
+          url: "https://www.luckpim.com/product/fixture",
+        },
+      ],
+    },
+  };
+  await provider.selectOption("luckpim");
+  await page
+    .getByLabel("Title", { exact: true })
+    .fill(expectedDebugRequest.query);
+  await page
+    .getByRole("button", { name: "Run fresh scrape", exact: true })
+    .click();
+  await page
+    .getByRole("heading", { name: "เกมสารภาพรัก · Luckpim", exact: true })
+    .waitFor();
+  assert.equal(debugCalls, 5);
   assert.equal(coverDownloads, 0);
   await page
     .getByRole("button", { name: "System records", exact: true })

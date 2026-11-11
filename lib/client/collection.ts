@@ -936,7 +936,12 @@ export function mountCollection({
       (state.seriesCatalogs.get(seriesCatalogKey(spec))?.items || []).forEach(
         (item) => {
           const same =
-              matchingBookType(item.type) === matchingBookType(spec.type),
+              matchingBookType(item.type) === matchingBookType(spec.type) &&
+              owned.some(
+                (book) =>
+                  publisherKey(book.publisher) === spec.publisherId &&
+                  bookEditionKey(book) === bookEditionKey(item),
+              ),
             uncertain =
               !item.type ||
               (!same && item.type.split(" (")[0] === spec.type.split(" (")[0]);
@@ -975,7 +980,7 @@ export function mountCollection({
       .forEach((entry) => {
         const key = JSON.stringify([
             entry.item.publisherId,
-            matchingBookType(entry.item.type),
+            bookEditionKey(entry.item),
             entry.item.volume,
           ]),
           old = missingVolumes.get(key);
@@ -1093,6 +1098,7 @@ export function mountCollection({
             () => {
               openBook(null, { series: state.selectedSeries, volume: from });
               $("type").value = normalizeBookType(edition.type);
+              $("edition").value = bookEditionKey(edition.books[0]);
               $("publisher").value = edition.publisher || "";
               renderBookDetails();
             },
@@ -1423,18 +1429,25 @@ export function mountCollection({
       defaults[k] = edition.find((b) => String(b[k] ?? "").trim())?.[k] || "";
       if (defaults[k]) edition = edition.filter((b) => b[k] === defaults[k]);
     });
-    return defaults;
+    return { ...defaults, edition: bookEditionKey(edition[0]) };
   }
-  function titleEditions(series) {
+  function titleEditions(series, splitLanguage = false) {
+    // Title-wide edits share type/publisher; volume choices also need language.
     const editions = new Map();
     state.data.books
       .filter((book) => seriesKey(book) === series)
       .forEach((book) => {
-        const key = JSON.stringify([book.type, book.publisher]);
+        const edition = bookEditionKey(book);
+        const key = JSON.stringify([
+          book.type,
+          book.publisher,
+          ...(splitLanguage ? [edition] : []),
+        ]);
         if (!editions.has(key))
           editions.set(key, {
             key,
             type: book.type,
+            edition,
             publisher: book.publisher,
             books: [],
           });
@@ -1603,9 +1616,12 @@ export function mountCollection({
     if (series !== state.formSeries) {
       if (!state.formSeries)
         state.sharedDraft = Object.fromEntries(
-          (["type", "publisher"] as const).map((k) => [k, $(k).value]),
+          (["type", "publisher", "edition"] as const).map((k) => [
+            k,
+            $(k).value,
+          ]),
         );
-      (["type", "publisher"] as const).forEach(
+      (["type", "publisher", "edition"] as const).forEach(
         (k) =>
           ($(k).value = series
             ? defaults[k] || (k === "type" ? "Manga" : "")
@@ -1665,8 +1681,14 @@ export function mountCollection({
       "aria-expanded",
       String(state.lookupDetailsExpanded),
     );
-    const editions = state.formSeries ? titleEditions(state.formSeries) : [];
-    const editionKey = JSON.stringify([$("type").value, $("publisher").value]);
+    const editions = state.formSeries
+      ? titleEditions(state.formSeries, true)
+      : [];
+    const editionKey = JSON.stringify([
+      $("type").value,
+      $("publisher").value,
+      bookEditionKey({ type: $("type").value, edition: $("edition").value }),
+    ]);
     const inherited =
       editions.some((edition) => edition.key === editionKey) &&
       !state.newEdition;
@@ -1681,7 +1703,7 @@ export function mountCollection({
       const option = node(
         "option",
         "",
-        [edition.type, edition.publisher || "No publisher"].join(" · "),
+        [edition.edition, edition.publisher || "No publisher"].join(" · "),
       );
       option.value = edition.key;
       $("bookEdition").append(option);
@@ -2403,17 +2425,19 @@ export function mountCollection({
       "https://www.phoenixnext.com/",
     )
       ? "phoenix"
-      : state.discoveryUrl.startsWith("https://www.firstpagepro.com/")
-        ? "firstpage"
-        : state.discoveryUrl.startsWith("https://www.animagshop.com/")
-          ? "animag"
-          : state.discoveryUrl.startsWith("https://www.dexpress-shop.com/")
-            ? "dexpress"
-            : state.discoveryUrl.startsWith("https://lily-house.com/")
-              ? "lilyhouse"
-              : state.discoveryUrl.startsWith("https://www.kodansha.co.jp/")
-                ? "kodansha"
-                : "";
+      : state.discoveryUrl.startsWith("https://www.yaakz.com/")
+        ? "yaakz"
+        : state.discoveryUrl.startsWith("https://www.firstpagepro.com/")
+          ? "firstpage"
+          : state.discoveryUrl.startsWith("https://www.animagshop.com/")
+            ? "animag"
+            : state.discoveryUrl.startsWith("https://www.dexpress-shop.com/")
+              ? "dexpress"
+              : state.discoveryUrl.startsWith("https://lily-house.com/")
+                ? "lilyhouse"
+                : state.discoveryUrl.startsWith("https://www.kodansha.co.jp/")
+                  ? "kodansha"
+                  : "";
     const isbnSearch = publisherIsbnSearch.get(
       publisherId,
       $("discoverySearch").value,
@@ -3638,6 +3662,7 @@ export function mountCollection({
     if (!book && defaults?.type && defaults.publisher !== undefined) {
       $("type").value = defaults.type;
       $("publisher").value = defaults.publisher;
+      if (defaults.edition !== undefined) $("edition").value = defaults.edition;
       renderBookDetails();
     }
     $("saveButton").disabled = false;
@@ -3965,10 +3990,9 @@ export function mountCollection({
       defaults = keep
         ? {
             ...Object.fromEntries(
-              (["type", "publisher", "status", "date"] as const).map((k) => [
-                k,
-                $(k).value,
-              ]),
+              (["type", "publisher", "edition", "status", "date"] as const).map(
+                (k) => [k, $(k).value],
+              ),
             ),
             ...(state.formSeries ? { series: state.formSeries } : {}),
           }
@@ -4166,9 +4190,12 @@ export function mountCollection({
     () => {
       state.newEdition = $("bookEdition").value === "new";
       if (!state.newEdition) {
-        const [type, publisher] = JSON.parse($("bookEdition").value);
+        const [type, publisher, edition] = JSON.parse($("bookEdition").value);
         $("type").value = type;
         $("publisher").value = publisher;
+        $("edition").value = edition;
+      } else {
+        $("edition").value = "";
       }
       state.typeTouched = true;
       state.coverPickerGeneration++;

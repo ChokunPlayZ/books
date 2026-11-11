@@ -2,6 +2,7 @@ import { testUrl } from "../helpers/browser.mjs";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { fileURLToPath } from "node:url";
+import { seriesPath } from "../../lib/domain/navigation.ts";
 
 const browser = await chromium.launch({
   headless: true,
@@ -14,7 +15,10 @@ const marker = "Title details check " + Date.now();
 const original = marker + " original",
   renamed = marker + " renamed";
 try {
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
+  });
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("https://cdn.jsdelivr.net/**", (route) => route.abort());
@@ -30,7 +34,7 @@ try {
   });
   await page.goto(url);
   await page.waitForFunction(
-    () => !document.getElementById("addButton").disabled,
+    () => document.getElementById("addButton")?.disabled === false,
   );
   for (const book of [
     {
@@ -158,7 +162,9 @@ try {
   await page.locator("#source").fill("My new shop");
   await page
     .locator("#bookEdition")
-    .selectOption(JSON.stringify(["Light novel", "Updated Thai press"]));
+    .selectOption(
+      JSON.stringify(["Light novel", "Updated Thai press", "Light novel (TH)"]),
+    );
   assert.equal(await page.locator("#source").inputValue(), "My new shop");
   await page.locator("#volume").fill("3");
   await page.locator("#toggleBookDetails").click();
@@ -223,7 +229,7 @@ try {
   await page.reload();
   await page.locator("#backSeries").click();
   await page.waitForFunction(
-    () => !document.getElementById("addButton").disabled,
+    () => document.getElementById("addButton")?.disabled === false,
   );
   await page.locator("#search").fill(renamed);
   await page.locator(".series-row").click();
@@ -253,6 +259,96 @@ try {
       ),
     ),
   });
+  await page.locator("#cancelTitle").click();
+
+  // One publisher may sell the same type in multiple languages. Keep language
+  // choices separate without copying a volume's colour/format or purchase data.
+  const bilingual = marker + " bilingual";
+  for (const book of [
+    { volume: 1, edition: "Manga (JP)", date: "2026-10-01" },
+    { volume: 1, edition: "Manga (TH) (Color)", date: "2026-10-02" },
+    { volume: 3, edition: "Manga (TH) (Color)", date: "2026-10-03" },
+  ])
+    await page.evaluate(
+      (book) =>
+        window.bookCollection.rpc("saveBook", {
+          requestId: crypto.randomUUID(),
+          book,
+        }),
+      {
+        series: bilingual,
+        type: "Manga",
+        publisher: "Bilingual press",
+        status: "Read",
+        source: "Original shop",
+        note: "Original note",
+        price: 90,
+        ...book,
+      },
+    );
+  await page.goto(url + seriesPath(bilingual));
+  const ready = () =>
+    page.waitForFunction(
+      () =>
+        !!window.bookCollection?.state.data &&
+        !window.bookCollection.state.busy,
+    );
+  await ready();
+  await page.locator("#seriesGaps .missing-volume").click();
+  assert.equal(await page.locator("#edition").inputValue(), "Manga (TH)");
+  await page.locator("#cancelBook").click();
+  await page.locator("#addButton").click();
+  assert.equal(await page.locator("#edition").inputValue(), "Manga (TH)");
+  assert.equal(await page.locator("#source").inputValue(), "");
+  assert.equal(await page.locator("#note").inputValue(), "");
+  assert.equal(await page.locator("#price").inputValue(), "");
+  assert.equal(await page.locator("#bookEdition option").count(), 3);
+  assert.match(
+    await page.locator("#bookEdition").textContent(),
+    /Manga \(TH\)/,
+  );
+  assert.match(
+    await page.locator("#bookEdition").textContent(),
+    /Manga \(JP\)/,
+  );
+  await page
+    .locator("#bookEdition")
+    .selectOption(JSON.stringify(["Manga", "Bilingual press", "Manga (JP)"]));
+  assert.equal(await page.locator("#edition").inputValue(), "Manga (JP)");
+  await page.locator("#volume").fill("2");
+  await page.locator("#keepAdding").check();
+  await page.locator("#saveButton").click();
+  await page.waitForFunction(
+    () =>
+      document.getElementById("bookDialog").open &&
+      document.getElementById("volume").value === "" &&
+      !window.bookCollection.state.busy,
+  );
+  assert.equal(await page.locator("#edition").inputValue(), "Manga (JP)");
+  await page.locator("#bookEdition").selectOption("new");
+  assert.equal(await page.locator("#edition").inputValue(), "");
+  await page.locator("#cancelBook").click();
+  await page.reload();
+  await ready();
+  const reloaded = await page.evaluate(
+    () => window.bookCollection.state.data.books,
+  );
+  assert.equal(
+    reloaded.find((book) => book.series === bilingual && book.volume === 2)
+      .edition,
+    "Manga (JP)",
+  );
+  assert.ok(
+    reloaded
+      .filter((book) => book.series === bilingual && book.volume !== 2)
+      .every(
+        (book) =>
+          book.source === "Original shop" &&
+          book.note === "Original note" &&
+          book.price === 90,
+      ),
+  );
+  assert.equal(await page.locator("#seriesGaps .missing-edition").count(), 2);
   assert.deepEqual(errors, []);
   console.log(
     "PASS title-level series, type and publisher edits, separate editions, inheritance, cancellation, reload and phone/desktop layouts",

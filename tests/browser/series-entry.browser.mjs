@@ -28,7 +28,10 @@ const base = {
   note: "Only this volume",
 };
 try {
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
+  });
   const errors = [],
     saves = [];
   page.on("pageerror", (error) => errors.push(error.message));

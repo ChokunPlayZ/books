@@ -155,7 +155,10 @@ try {
     headless: true,
     ...(executable ? { executablePath: executable } : {}),
   });
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 } }),
+  const page = await browser.newPage({
+      viewport: { width: 390, height: 844 },
+      serviceWorkers: "block",
+    }),
     errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("https://cdn.jsdelivr.net/**", (route) => route.abort());
@@ -481,7 +484,10 @@ try {
   console.log(
     "PASS volume cover details, publisher cover picker, cancellation, saved cover priority, publisher link and reload persistence",
   );
-  const backup = await (await page.request.get(url + "/api/backup")).json();
+  await page.waitForLoadState("networkidle");
+  const backupResponse = await page.request.get(url + "/api/backup");
+  assert.equal(backupResponse.status(), 200, await backupResponse.text());
+  const backup = await backupResponse.json();
   assert.equal(backup.books.length, 151);
   assert.equal(backup.format, "book-collection");
   assert.equal(
@@ -579,8 +585,8 @@ try {
   ])
     await runBrowserScenario(
       name,
-      name === "publishers.browser.mjs"
-        ? await start("publishers")
+      ["publishers.browser.mjs", "volume-editions.browser.mjs"].includes(name)
+        ? await start(name.replace(".browser.mjs", ""))
         : fixturesUrl,
     );
   await runBrowserScenario(

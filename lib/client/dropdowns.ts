@@ -17,6 +17,13 @@ export function mountDropdowns() {
   let originalExpanded: string | null = null;
   let originalActive: string | null = null;
   let choosing = false;
+  let touch: {
+    control: HTMLSelectElement;
+    pointerId: number;
+    x: number;
+    y: number;
+  } | null = null;
+  let touchClick: HTMLSelectElement | null = null;
   const inputs = new Map<
     HTMLInputElement,
     {
@@ -378,13 +385,49 @@ export function mountDropdowns() {
   document.addEventListener(
     "pointerdown",
     (event) => {
+      touch = null;
+      touchClick = null;
       const control = trigger(event.target);
       if (control && event.button === 0) {
         if (control instanceof HTMLSelectElement) {
           event.preventDefault();
           control.focus({ preventScroll: true });
+          if (event.pointerType === "touch" && event.isPrimary)
+            touch = {
+              control,
+              pointerId: event.pointerId,
+              x: event.clientX,
+              y: event.clientY,
+            };
         }
       } else if (menu && !menu.contains(event.target as Node)) close();
+    },
+    { capture: true, signal },
+  );
+  document.addEventListener(
+    "pointerup",
+    (event) => {
+      const pending = touch;
+      if (!pending || event.pointerId !== pending.pointerId) return;
+      touch = null;
+      if (
+        trigger(event.target) !== pending.control ||
+        Math.hypot(event.clientX - pending.x, event.clientY - pending.y) > 10
+      )
+        return;
+      // Cancelling pointerdown suppresses the native picker, but WebKit may
+      // also omit its compatibility click. Complete a touch tap here instead.
+      event.preventDefault();
+      touchClick = pending.control;
+      if (select === pending.control) close();
+      else open(pending.control);
+    },
+    { capture: true, signal },
+  );
+  document.addEventListener(
+    "pointercancel",
+    () => {
+      touch = null;
     },
     { capture: true, signal },
   );
@@ -407,6 +450,10 @@ export function mountDropdowns() {
       if (control) {
         if (control instanceof HTMLSelectElement) {
           event.preventDefault();
+          if (control === touchClick && event.detail > 0) {
+            touchClick = null;
+            return;
+          }
           if (control === select) close();
           else open(control);
         } else if (control !== select) open(control);
@@ -425,6 +472,12 @@ export function mountDropdowns() {
   document.addEventListener(
     "pointermove",
     (event) => {
+      if (
+        touch &&
+        event.pointerId === touch.pointerId &&
+        Math.hypot(event.clientX - touch.x, event.clientY - touch.y) > 10
+      )
+        touch = null;
       if (
         !menu ||
         event.pointerType === "touch" ||

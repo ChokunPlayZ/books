@@ -138,7 +138,8 @@ test("debug captures non-200 source bodies and errors, and never bypasses durabl
   assert.match(failed.error, /unavailable/i);
   assert.match(failed.error, /HTTP 503/);
   assert.match(failed.error, /phoenixnext\.com/);
-  assert.match(failed.stack, /Error/);
+  assert.match(failed.stack, /^ScrapeFailure:.*HTTP 503/);
+  assert.match(failed.stack, /\n\s+at /);
   const cooled = await createScraperDebugger(
     store,
     () => assert.fail("Cooldown survives a new debugger instance"),
