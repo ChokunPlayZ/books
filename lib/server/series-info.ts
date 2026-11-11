@@ -172,6 +172,13 @@ export function createSeriesInfoService(
           )
             records.push(result.details);
           warnings.push(...(result?.warnings || []));
+        } catch {
+          warnings.push(
+            "Some publisher metadata could not be loaded. Saved descriptions were kept.",
+          );
+        }
+        // A failed ISBN provider must not prevent reading the saved source page.
+        try {
           if (book.publisherUrl && catalogs.getBookSourceMetadata)
             records.push(
               await catalogs.getBookSourceMetadata({ row: book.row }),

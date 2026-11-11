@@ -14,6 +14,7 @@ import {
 } from "../../lib/admin-presentation.ts";
 import { usePreferences, useTranslations } from "../PreferencesProvider";
 import Icon from "../Icon";
+import ExternalLink from "../ExternalLink";
 
 function RecordImage({ src, alt }: { src: string; alt: string }) {
   const t = useTranslations();
@@ -26,12 +27,7 @@ function RecordImage({ src, alt }: { src: string; alt: string }) {
           <span>{t("Image unavailable")}</span>
         </div>
       ) : (
-        <a
-          href={src}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={t("Open image")}
-        >
+        <ExternalLink href={src} target="_blank" aria-label={t("Open image")}>
           <img
             src={src}
             alt={alt}
@@ -40,7 +36,7 @@ function RecordImage({ src, alt }: { src: string; alt: string }) {
             referrerPolicy="no-referrer"
             onError={() => setFailed(true)}
           />
-        </a>
+        </ExternalLink>
       )}
     </figure>
   );
@@ -141,14 +137,9 @@ export function RecordContent({
     const link = safeRecordLink(parsed);
     if (link)
       return (
-        <a
-          className="admin-record-link"
-          href={link}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <ExternalLink className="admin-record-link" href={link} target="_blank">
           {link}
-        </a>
+        </ExternalLink>
       );
     return (
       <div className="admin-readable-text">

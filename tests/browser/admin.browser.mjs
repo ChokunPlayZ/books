@@ -52,6 +52,7 @@ await store.forUser(readerSession.user, () =>
       coverId: cover.id,
       volume: 2,
       publisher: "Reader publisher",
+      publisherUrl: "https://www.phoenixnext.com/book.html",
     },
   }),
 );
@@ -382,6 +383,19 @@ try {
     /<em>Keep this literal note<\/em>/,
   );
   assert.equal(await bookRecord.locator(".admin-record-notes em").count(), 0);
+  const publisherLink = bookRecord.getByRole("link", {
+    name: "https://www.phoenixnext.com/book.html",
+    exact: true,
+  });
+  assert.equal(
+    await publisherLink.getAttribute("href"),
+    "https://www.phoenixnext.com/book.html?ref=meemai.ckl.moe",
+  );
+  assert.equal(await publisherLink.getAttribute("rel"), "noopener");
+  assert.equal(
+    await publisherLink.getAttribute("referrerpolicy"),
+    "strict-origin-when-cross-origin",
+  );
   await bookRecord
     .getByRole("img", { name: "Reader private inspection", exact: true })
     .scrollIntoViewIfNeeded();

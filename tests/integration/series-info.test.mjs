@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { openTestStore } from "../helpers/database.mjs";
 import { createSeriesInfoService } from "../../lib/server/series-info.ts";
 import { parseAnimeMedia } from "../../lib/domain/anime.ts";
@@ -18,7 +19,14 @@ const media = parseAnimeMedia({
   },
   description: "The English series synopsis.",
 });
-async function add(store, series, edition = "(EN)", type = "Manga", isbn = "") {
+async function add(
+  store,
+  series,
+  edition = "(EN)",
+  type = "Manga",
+  isbn = "",
+  publisherUrl = "",
+) {
   return store.api.saveBook({
     requestId: randomUUID(),
     book: {
@@ -34,7 +42,7 @@ async function add(store, series, edition = "(EN)", type = "Manga", isbn = "") {
       source: "",
       note: "",
       coverUrl: "",
-      publisherUrl: "",
+      publisherUrl,
     },
   });
 }
@@ -116,6 +124,140 @@ test("ISBN enrichment retains descriptions from every source and reparses pinned
       (await offline.lookupIsbn(isbn)).details.synopses,
       result.details.synopses,
     );
+  } finally {
+    await store.close();
+  }
+});
+
+test("saved supported product links supply readable synopses without ISBNs, reuse pages offline and reject unsafe links", async () => {
+  const store = await openTestStore();
+  const url = "https://www.animagshop.com/product/1169";
+  const html = readFileSync(
+    new URL("../fixtures/publishers/animag-synopsis.html", import.meta.url),
+    "utf8",
+  );
+  try {
+    await add(store, "Publisher-only edition", "(TH)", "Manga", "", url);
+    await add(
+      store,
+      "Unsupported source",
+      "(EN)",
+      "Manga",
+      "",
+      "https://example.com/book",
+    );
+    const requests = [];
+    const catalogs = createCatalogService(store, async (request) => {
+      requests.push(request);
+      assert.equal(
+        request,
+        url,
+        "Backend requests must retain canonical URLs without attribution",
+      );
+      return new Response(html);
+    });
+    const api = createSeriesInfoService(store, catalogs, {
+      getAnimeAdaptations: async () => ({ items: [] }),
+    });
+    const pulled = await api.pullSeriesInfo({
+      series: "Publisher-only edition",
+      type: "Manga",
+    });
+    assert.equal(pulled.synopses.length, 1);
+    assert.match(pulled.synopses[0].text, /เรื่องราวความสำเร็จ/);
+    assert.equal(pulled.synopses[0].source, "Animag");
+    assert.equal(pulled.synopses[0].url, url);
+    assert.deepEqual(
+      (
+        await api.getSeriesInfo({
+          series: "Publisher-only edition",
+          type: "Manga",
+        })
+      ).synopses,
+      pulled.synopses,
+    );
+    const books = (await store.api.getCollection()).books;
+    const offline = createCatalogService(store, () =>
+      assert.fail("Source HTML should be cached"),
+    );
+    assert.deepEqual(
+      (
+        await offline.getBookSourceMetadata({
+          row: books.find((book) => book.series === "Publisher-only edition")
+            .row,
+        })
+      ).synopses,
+      pulled.synopses,
+    );
+    assert.deepEqual(
+      await offline.getBookSourceMetadata({
+        row: books.find((book) => book.series === "Unsupported source").row,
+      }),
+      { titles: [], synopses: [] },
+    );
+    assert.equal(requests.length, 1);
+  } finally {
+    await store.close();
+  }
+});
+
+test("an ISBN outage cannot skip a successful publisher synopsis, while mismatched product ISBNs are rejected", async () => {
+  const store = await openTestStore();
+  const url = "https://www.animagshop.com/product/1169";
+  try {
+    await add(
+      store,
+      "Publisher fallback",
+      "(TH)",
+      "Manga",
+      "9786163377302",
+      url,
+    );
+    await add(
+      store,
+      "Wrong product",
+      "(TH)",
+      "Manga",
+      "9786165898843",
+      "https://www.animagshop.com/product/1170",
+    );
+    const catalogs = createCatalogService(
+      store,
+      async (request) =>
+        new Response(
+          `<script type="application/ld+json">${JSON.stringify({
+            sku: request === url ? "978616337-730-2" : "9780385496490",
+            url: request,
+            description: "The publisher's full synopsis.\nSecond paragraph.",
+          })}</script>`,
+        ),
+    );
+    const api = createSeriesInfoService(
+      store,
+      {
+        lookupIsbn: async () => {
+          throw new Error("ISBN provider unavailable");
+        },
+        getBookSourceMetadata: catalogs.getBookSourceMetadata,
+      },
+      { getAnimeAdaptations: async () => ({ items: [] }) },
+    );
+    const pulled = await api.pullSeriesInfo({
+      series: "Publisher fallback",
+      type: "Manga",
+    });
+    assert.equal(
+      pulled.synopses[0].text,
+      "The publisher's full synopsis.\nSecond paragraph.",
+    );
+    assert.ok(pulled.warnings.length);
+    const wrong = (await store.api.getCollection()).books.find(
+      (book) => book.series === "Wrong product",
+    );
+    assert.deepEqual(await catalogs.getBookSourceMetadata({ row: wrong.row }), {
+      titles: [],
+      synopses: [],
+    });
   } finally {
     await store.close();
   }

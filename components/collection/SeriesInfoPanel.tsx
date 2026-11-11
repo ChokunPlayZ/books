@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "../PreferencesProvider";
+import ExternalLink from "../ExternalLink";
 import { seriesPath } from "../../lib/domain/navigation.ts";
 import { normalizeBookType } from "../../lib/domain/book-type.ts";
 import type { StoredBook } from "../../lib/types.ts";
@@ -216,13 +217,9 @@ export default function SeriesInfoPanel({
                   <li key={JSON.stringify(item)}>
                     <span lang={item.language}>{item.title}</span>{" "}
                     <span className="hint">· {language(item.language)} · </span>
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
+                    <ExternalLink href={item.url} target="_blank">
                       {item.source}
-                    </a>
+                    </ExternalLink>
                   </li>
                 ))}
               </ul>
@@ -254,14 +251,13 @@ export default function SeriesInfoPanel({
               <p className="series-synopsis-text" lang={synopsis.language}>
                 {synopsis.text}
               </p>
-              <a
+              <ExternalLink
                 className="series-info-source"
                 href={synopsis.url}
                 target="_blank"
-                rel="noopener noreferrer"
               >
                 {t("View synopsis source")} · {synopsis.source}
-              </a>
+              </ExternalLink>
             </div>
           ) : (
             !loading && (
@@ -388,13 +384,9 @@ export default function SeriesInfoPanel({
                   <div>
                     <strong>{candidate.title}</strong>
                     <p className="hint">{candidate.titles.join(" · ")}</p>
-                    <a
-                      href={candidate.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
+                    <ExternalLink href={candidate.url} target="_blank">
                       AniList
-                    </a>
+                    </ExternalLink>
                   </div>
                   <button
                     className="btn"

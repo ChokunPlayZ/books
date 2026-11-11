@@ -5,6 +5,7 @@ import {
   textHtml,
 } from "./html.ts";
 import { animeCatalogTitleKeys } from "./anime.ts";
+import { canonicalIsbn } from "./isbn.ts";
 export { descriptionText as synopsisText } from "./html.ts";
 
 export type SeriesTitle = {
@@ -80,7 +81,8 @@ export function mergeSeriesMetadata(...records: Partial<SeriesProfile>[]) {
         source: synopsisText(item.source).slice(0, 200),
         url,
       };
-      synopses.set(JSON.stringify([next.language, text, url]), next);
+      // Replace an older excerpt from this source, preserving other sources.
+      synopses.set(JSON.stringify([next.language, next.source, url]), next);
     }
   }
   const order = (a, b) =>
@@ -125,6 +127,63 @@ export function descriptionTitles(
   });
 }
 
+function elementBody(html: string, start: RegExpExecArray) {
+  const tags = new RegExp("<\\/?" + start[1] + "\\b[^>]*>", "gi");
+  tags.lastIndex = start.index + start[0].length;
+  let depth = 1;
+  for (let tag; (tag = tags.exec(html));) {
+    depth += /^<\//.test(tag[0]) ? -1 : 1;
+    if (!depth) return html.slice(start.index + start[0].length, tag.index);
+  }
+  return "";
+}
+
+function productDescription(html: string) {
+  // Read inert source markup, including accordion/template contents. Never run
+  // storefront scripts or include recommendations, payment help or shop terms.
+  const markup = html.replace(
+    /<!--[^]*?-->|<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi,
+    "",
+  );
+  const elements = /<(div|section|article|p)\b[^>]*>/gi;
+  for (let start; (start = elements.exec(markup));) {
+    const id = attr(start[0], "id");
+    const classes = attr(start[0], "class").split(/\s+/);
+    if (
+      !attr(start[0], "itemprop").split(/\s+/).includes("description") &&
+      !["description", "tab-description"].includes(id) &&
+      !(id === "detail" && classes.includes("tabPanel")) &&
+      !classes.some((name) =>
+        [
+          "product-description",
+          "product_description",
+          "product-detail-description",
+          "book-description",
+          "entry-content",
+          "content-heading-txt",
+        ].includes(name),
+      ) &&
+      !(classes.includes("product") && classes.includes("description"))
+    )
+      continue;
+    let body = elementBody(markup, start);
+    if (id === "detail") {
+      const short =
+        /<(div)\b[^>]*class=["'][^"']*\bshort_description\b[^"']*["'][^>]*>/i.exec(
+          body,
+        );
+      if (short)
+        body = body.replace(short[0] + elementBody(body, short) + "</div>", "");
+      body = body.split(
+        /<hr\b|<h[1-6]\b[^>]*>\s*(?:เงื่อนไข|วิธีการสั่งซื้อ|terms|conditions)/i,
+      )[0];
+    }
+    body = body.replace(/<h[1-6]\b[^>]*>[\s\S]*?<\/h[1-6]>/gi, "");
+    if (synopsisText(body)) return body;
+  }
+  return "";
+}
+
 export function htmlSeriesMetadata(
   html: string,
   source: string,
@@ -132,52 +191,56 @@ export function htmlSeriesMetadata(
   isbn = "",
 ) {
   const structured = structuredBooks(html).find((book) => {
-    const code = String(
-      book.isbn || book.gtin13 || book.gtin || book.sku || "",
-    ).replace(/\D/g, "");
+    const code = [book.isbn, book.gtin13, book.gtin, book.sku]
+      .map(canonicalIsbn)
+      .find(Boolean);
     return !isbn || code === isbn || (!code && book.url === url);
   });
   const description =
     typeof structured?.description === "string" ? structured.description : "";
   const metaTags = html.match(/<meta\b[^>]*>/gi) || [];
-  const metaDescription = metaTags.find((tag) =>
-    /^(?:og:description|description)$/i.test(
-      attr(tag, "property") || attr(tag, "name"),
-    ),
-  );
-  const start =
-    /<(div|section|article|p)\b(?=[^>]*(?:itemprop=["']description["']|(?:id|class)=["'][^"']*(?:product-description|product_description|product attribute description|entry-content|product-detail-description|book-description)[^"']*["']))[^>]*>/i.exec(
-      html,
-    );
-  let productDescription = "";
-  if (start) {
-    const tags = new RegExp("<\\/?" + start[1] + "\\b[^>]*>", "gi");
-    tags.lastIndex = start.index + start[0].length;
-    let depth = 1;
-    for (let tag; (tag = tags.exec(html));) {
-      depth += /^<\//.test(tag[0]) ? -1 : 1;
-      if (!depth) {
-        productDescription = html.slice(
-          start.index + start[0].length,
-          tag.index,
-        );
-        break;
-      }
-    }
-  }
+  const titleKey = (value: string) =>
+    synopsisText(value).toLocaleLowerCase().replace(/\s+/g, " ");
+  const titles = new Set([
+    ...structuredBooks(html).map((book) => titleKey(book.name || "")),
+    ...metaTags
+      .filter((tag) =>
+        /^(?:og:title|title)$/i.test(
+          attr(tag, "property") || attr(tag, "name"),
+        ),
+      )
+      .map((tag) => titleKey(attr(tag, "content"))),
+    ...[
+      ...html.matchAll(/<(?:h1|title)\b[^>]*>([\s\S]*?)<\/(?:h1|title)>/gi),
+    ].map((match) => titleKey(match[1])),
+  ]);
+  const body = productDescription(html);
   const raw =
-    productDescription ||
-    description ||
-    (metaDescription ? attr(metaDescription, "content") : "");
+    [
+      body,
+      description,
+      ...metaTags
+        .filter((tag) =>
+          /^(?:og:description|description)$/i.test(
+            attr(tag, "property") || attr(tag, "name"),
+          ),
+        )
+        .map((tag) => attr(tag, "content")),
+    ].find((value) => {
+      const text = titleKey(value);
+      return (
+        text &&
+        !titles.has(text) &&
+        !/^(?:รายละเอียดสินค้า|description|product details|เรื่องย่อ)[.!…\s]*$/i.test(
+          text,
+        )
+      );
+    }) || "";
   const text = synopsisText(raw);
   // A site's interface language need not be the language of the book synopsis.
   const language = textLanguage(text);
   return mergeSeriesMetadata({
-    titles: descriptionTitles(
-      [description, productDescription, raw].join("\n"),
-      source,
-      url,
-    ),
+    titles: descriptionTitles([description, body, raw].join("\n"), source, url),
     synopses: text ? [{ text, language, source, url }] : [],
   });
 }

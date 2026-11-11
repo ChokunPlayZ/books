@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   descriptionTitles,
   htmlSeriesMetadata,
@@ -52,14 +53,14 @@ test("publisher descriptions expose labeled original titles, not arbitrary prose
 });
 
 test("HTML synopsis is text-only, preserves paragraphs, and matches the verified product", () => {
-  const html = `<html lang="ja"><script type="application/ld+json">[{"isbn":"9784065400028","description":"<p>本の物語。</p><p>続き。</p><script>alert(1)</script>"},{"isbn":"9781975325746","description":"Unrelated recommendation"}]</script></html>`;
+  const html = `<html lang="ja"><script type="application/ld+json">[{"isbn":"9784063951370","description":"<p>本の物語。</p><p>続き。</p><script>alert(1)</script>"},{"isbn":"9781975325746","description":"Unrelated recommendation"}]</script></html>`;
   // A script terminator in JSON is invalid HTML; use a separately safe fixture.
   const safe = html.replace("<script>alert(1)</script>", "");
   const metadata = htmlSeriesMetadata(
     safe,
     "Publisher",
     "https://example.com/book",
-    "9784065400028",
+    "9784063951370",
   );
   assert.equal(metadata.synopses[0].text, "本の物語。\n続き。");
   assert.equal(metadata.synopses[0].language, "ja");
@@ -148,4 +149,104 @@ test("nested product descriptions keep the romanized title and use content langu
   assert.equal(metadata.synopses[0].language, "th");
   assert.match(metadata.synopses[0].text, /Romaji/);
   assert.equal(metadata.titles[0].title, "Tsuki no Toshokan");
+});
+
+test("current publisher markup supplies the full synopsis rather than a title or SEO excerpt", () => {
+  for (const [fixture, source, url, language, ending] of [
+    [
+      "phoenix-synopsis.html",
+      "Phoenix Next",
+      "https://www.phoenixnext.com/ln0838-01.html",
+      "th",
+      "เพื่อนำมาปั้นทฤษฎีและเรื่องรา",
+    ],
+    [
+      "yenpress-synopsis.html",
+      "Yen Press",
+      "https://yenpress.com/titles/9781975319434-solo-leveling-vol-1-comic",
+      "en",
+      "find them a way out?",
+    ],
+    [
+      "animag-synopsis.html",
+      "Animag",
+      "https://www.animagshop.com/product/1169",
+      "th",
+      "เรื่องราวความสำเร็จที่เต็มไปด้วยความผิดแผนนัดที่ 2 !!",
+    ],
+  ]) {
+    const html = readFileSync(
+      new URL("../fixtures/publishers/" + fixture, import.meta.url),
+      "utf8",
+    );
+    const { synopses } = htmlSeriesMetadata(html, source, url);
+    assert.equal(synopses.length, 1, fixture);
+    assert.equal(synopses[0].language, language);
+    assert.equal(synopses[0].source, source);
+    assert.equal(synopses[0].url, url);
+    assert.ok(synopses[0].text.endsWith(ending), synopses[0].text);
+    assert.doesNotMatch(
+      synopses[0].text,
+      /รีวิวสินค้า|ชำระเงิน|เงื่อนไขอื่นๆ|ข้อตกลง|จัดพิมพ์|book-price|<[^>]+>/,
+    );
+  }
+});
+
+test("image-only descriptions and title-only metadata are not presented as synopses", () => {
+  const html = `<meta name="title" content="Moon Library"><meta name="description" content="Moon Library"><meta property="og:description" content=""><div id="detail" class="tabPanel mceContentBody"><h2>รายละเอียดสินค้า</h2><img src="cover.jpg"></div><div id="howto" class="tabPanel">Payment instructions</div>`;
+  assert.deepEqual(
+    htmlSeriesMetadata(html, "Publisher", "https://example.com/book").synopses,
+    [],
+  );
+  assert.equal(
+    htmlSeriesMetadata(
+      html + '<div itemprop="description"><p>The actual story.</p></div>',
+      "Publisher",
+      "https://example.com/book",
+    ).synopses[0].text,
+    "The actual story.",
+  );
+});
+
+test("ISBN-10 and hyphenated structured identifiers retain verified source descriptions", () => {
+  for (const isbn of ["0385496494", "978-0-385-49649-0"]) {
+    const html = `<script type="application/ld+json">${JSON.stringify({ isbn, description: "The book synopsis." })}</script>`;
+    assert.equal(
+      htmlSeriesMetadata(
+        html,
+        "Publisher",
+        "https://example.com/book",
+        "9780385496490",
+      ).synopses[0].text,
+      "The book synopsis.",
+    );
+  }
+});
+
+test("pulling a full description replaces the same source's older excerpt without dropping other sources", () => {
+  const synopsis = {
+    text: "A short excerpt…",
+    language: "en",
+    source: "Publisher",
+    url: "https://example.com/book",
+  };
+  const other = {
+    ...synopsis,
+    source: "AniList",
+    url: "https://anilist.co/manga/42",
+  };
+  const full = {
+    ...synopsis,
+    text: "The full source-provided description.\nWith another paragraph.",
+  };
+  const merged = mergeSeriesMetadata(
+    { synopses: [synopsis, other] },
+    { synopses: [full] },
+  );
+  assert.equal(merged.synopses.length, 2);
+  assert.deepEqual(
+    merged.synopses.find((item) => item.source === "Publisher"),
+    full,
+  );
+  assert.ok(merged.synopses.some((item) => item.source === "AniList"));
 });

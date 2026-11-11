@@ -169,6 +169,23 @@ try {
     await page.locator(".series-synopsis-text").textContent(),
     /月の光/,
   );
+  await page
+    .getByLabel("Synopsis · language & source")
+    .selectOption({ label: "Thai · Publisher · 3" });
+  assert.equal(
+    await page.locator(".series-synopsis-text").innerText(),
+    info.synopses[2].text,
+    "Publisher text must be readable in the app, not only through its link",
+  );
+  assert.equal(
+    new URL(
+      await page.locator(".series-info-source").getAttribute("href"),
+    ).searchParams.get("ref"),
+    "meemai.ckl.moe",
+  );
+  await page
+    .getByLabel("Synopsis · language & source")
+    .selectOption({ label: "Japanese · Publisher · 2" });
   await page.waitForFunction(
     () => document.querySelectorAll("#bookList .book-row").length === 1,
   );
@@ -184,6 +201,19 @@ try {
       document.querySelector(".series-info-matching")?.open &&
       document.querySelector(".series-info-matching .series-info-candidates"),
   );
+  for (const link of await page
+    .locator('.series-info a[href^="https://"]')
+    .all()) {
+    assert.equal(
+      new URL(await link.getAttribute("href")).searchParams.get("ref"),
+      "meemai.ckl.moe",
+    );
+    assert.equal(await link.getAttribute("rel"), "noopener");
+    assert.equal(
+      await link.getAttribute("referrerpolicy"),
+      "strict-origin-when-cross-origin",
+    );
+  }
   mkdirSync(".impeccable/review", { recursive: true });
   const capture = async (path) => {
     await page.evaluate(() => {

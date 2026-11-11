@@ -9,6 +9,7 @@ import {
   catalogSeriesKey,
   releaseItem,
   textHtml,
+  structuredBooks,
   meta,
   publisherCatalogSource,
   safeCoverUrl,
@@ -28,7 +29,10 @@ import { bookEditionKey } from "../domain/book-type.ts";
 import { money } from "../domain/msrp.ts";
 import { coverPreference } from "../domain/cover-preference.ts";
 import { fillScrapedMetadata } from "../domain/scraped-metadata.ts";
-import { mergeSeriesMetadata } from "../domain/series-info.ts";
+import {
+  htmlSeriesMetadata,
+  mergeSeriesMetadata,
+} from "../domain/series-info.ts";
 import { AppError } from "./store.ts";
 import { SCRAPE_TTL } from "./scrape-cache.ts";
 import { createScraperContext } from "./scrapers/http.ts";
@@ -1454,9 +1458,44 @@ export function createCatalogService(
             source.hosts.includes(new URL(book.publisherUrl).hostname),
           )?.id || "";
       } catch {}
-      const url = id && safeProductUrl(book.publisherUrl, id);
+      const url =
+        id &&
+        (safeProductUrl(book.publisherUrl, id) ||
+          (id === "naiin" &&
+          /^https:\/\/www\.naiin\.com\/product\/detail\/\d+$/.test(
+            book.publisherUrl,
+          )
+            ? book.publisherUrl
+            : ""));
       const source = scrapers.get(id);
-      if (!url || !source?.bookDetails) return { titles: [], synopses: [] };
+      if (!url || !source) return { titles: [], synopses: [] };
+      // A saved, allowlisted product link is also a source for editions without
+      // ISBN lookup or a dedicated book-details adapter (e.g. Lily House).
+      if (!source.bookDetails) {
+        const html = await fetchText_(url, false, SCRAPE_TTL.product);
+        const product = structuredBooks(html).find(
+          (product) => safeProductUrl(product.url, id) === url,
+        );
+        const codes = [
+          product?.isbn,
+          product?.gtin13,
+          product?.gtin,
+          product?.sku,
+        ]
+          .map(canonicalIsbn)
+          .filter(Boolean);
+        const isbn = canonicalIsbn(book.isbn);
+        if (isbn && codes.length && !codes.includes(isbn))
+          return { titles: [], synopses: [] };
+        return htmlSeriesMetadata(
+          html,
+          PUBLISHERS.find((publisher) => publisher.id === id)?.name ||
+            book.publisher ||
+            id,
+          url,
+          isbn || codes[0] || "",
+        );
+      }
       const details = await source.bookDetails(url);
       const isbn = canonicalIsbn(book.isbn);
       if (!details || (isbn && canonicalIsbn(details.isbn) !== isbn))
