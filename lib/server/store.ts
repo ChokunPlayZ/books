@@ -9,6 +9,7 @@ import {
 import { createUserContext, type User } from "./user-context.ts";
 import type { Preferences } from "../preferences.ts";
 import { exportLibraryBook } from "../domain/library-export.ts";
+import { mergeSeriesMetadata } from "../domain/series-info.ts";
 import { COVER_PREVIEW_VERSION } from "./cover-images.ts";
 import {
   normalizeBookType,
@@ -398,6 +399,58 @@ export async function openStore(
       return normalizeRecordTypes(item);
     });
   }
+  async function seriesProfiles(series?: string) {
+    return (
+      await all(`SELECT series,type,data FROM series_profiles WHERE ${owned}`)
+    )
+      .filter((row) => series === undefined || row.series === series)
+      .map((row) => ({
+        series: row.series,
+        type: row.type,
+        ...JSON.parse(row.data),
+      }));
+  }
+  async function moveSeriesProfile(
+    original: string,
+    series: string,
+    fromType?: string,
+    toType?: string,
+  ) {
+    for (const row of await all(
+      `SELECT series,type,data FROM series_profiles WHERE ${owned} AND series=?`,
+      original,
+    )) {
+      if (fromType && row.type !== fromType) continue;
+      const type = toType || row.type;
+      if (series === original && type === row.type) continue;
+      const target = await get(
+        `SELECT data FROM series_profiles WHERE ${owned} AND series=? AND type=?`,
+        series,
+        type,
+      );
+      const source = JSON.parse(row.data);
+      const previous = target ? JSON.parse(target.data) : null;
+      const profile = previous
+        ? {
+            ...previous,
+            ...(previous.workId === source.workId
+              ? mergeSeriesMetadata(previous, source)
+              : {}),
+          }
+        : source;
+      await run(
+        "INSERT INTO series_profiles VALUES(app_user_id(),?,?,?) ON CONFLICT(user_id,series,type) DO UPDATE SET data=excluded.data",
+        series,
+        type,
+        JSON.stringify(profile),
+      );
+      await run(
+        `DELETE FROM series_profiles WHERE ${owned} AND series=? AND type=?`,
+        original,
+        row.type,
+      );
+    }
+  }
   function titleToken(series, rows) {
     return digest(
       stableJson([series, rows.map((row) => [row.id, row.revision])]),
@@ -583,6 +636,7 @@ export async function openStore(
           );
         for (const title of titles) {
           if (title.series === series) continue;
+          await moveSeriesProfile(title.series, series);
           await run(
             `UPDATE books SET series=?,revision=revision+1 WHERE ${owned} AND series=? AND removed_at IS NULL`,
             series,
@@ -760,6 +814,13 @@ export async function openStore(
             type: edition?.type ?? catalog.type,
           });
         }
+        for (const edition of editions.values())
+          await moveSeriesProfile(
+            original,
+            series,
+            normalizeBookType(edition.originalType),
+            edition.type,
+          );
         return { series, volumes: rows.length, action: "title updated" };
       });
     },
@@ -1033,6 +1094,15 @@ export async function openStore(
       for (const item of plan.savedReleases)
         await api.setSavedRelease({ release: item, saved: true });
       for (const item of plan.seriesCatalogs) await api.setSeriesCatalog(item);
+      for (const profile of plan.seriesProfiles || []) {
+        const { series, type, ...data } = profile;
+        await run(
+          "INSERT INTO series_profiles VALUES(app_user_id(),?,?,?) ON CONFLICT DO NOTHING",
+          series,
+          type,
+          JSON.stringify(data),
+        );
+      }
       for (const [field, values] of Object.entries(plan.options || {}))
         for (const value of values as string[])
           await run(
@@ -1592,6 +1662,7 @@ export async function openStore(
           trash: data.trash,
           savedReleases: data.savedReleases,
           seriesCatalogs: data.seriesCatalogs,
+          seriesProfiles: await seriesProfiles(series),
           options: data.options,
         };
       }, true);

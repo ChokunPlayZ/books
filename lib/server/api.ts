@@ -6,6 +6,7 @@ import {
 } from "./catalogs.ts";
 import { canonicalIsbn, volumeCoverKey } from "../domain.ts";
 import { createAnimeService } from "./anime.ts";
+import { createSeriesInfoService } from "./series-info.ts";
 import { createSeasonalDiscoveryService } from "./seasonal-discovery.ts";
 import { createMetadataService } from "./metadata.ts";
 import { AppError } from "./store.ts";
@@ -42,6 +43,7 @@ export function createApplicationApi(
 ) {
   const catalogs = createCatalogService(store, fetchImpl);
   const anime = createAnimeService(store, fetchImpl);
+  const seriesInfo = createSeriesInfoService(store, catalogs, anime);
   const seasonal = createSeasonalDiscoveryService(anime, catalogs);
   const maintenance = createMetadataService(store, catalogs);
   const publisherCrawls = createPublisherCrawls(store, catalogs);
@@ -124,6 +126,7 @@ export function createApplicationApi(
     return await attachCoverPlaceholders(store, result);
   }
   const queued = {
+    pullSeriesInfo: seriesInfo.pullSeriesInfo,
     ...Object.fromEntries(
       Object.entries({ ...catalogs, ...anime, ...seasonal }).map(
         ([name, method]) => [
@@ -181,6 +184,7 @@ export function createApplicationApi(
     ...catalogs,
     ...anime,
     ...seasonal,
+    ...seriesInfo,
   };
   const api = Object.fromEntries(
     Object.entries(methods).map(([name, method]) => [

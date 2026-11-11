@@ -9,12 +9,14 @@ import {
 } from "../../domain.ts";
 import { searchLanguage } from "../../domain/search.ts";
 import { ISBN_GROUP_PREFIXES } from "../../domain/isbn.ts";
+import { synopsisText } from "../../domain/series-info.ts";
 import type { ScraperContext, ScraperDefinition } from "./types.ts";
 type GoogleBooksResponse = {
   items?: {
     id?: string;
     volumeInfo?: {
       title?: string;
+      description?: string;
       language?: string;
       categories?: string[];
       publisher?: string;
@@ -94,6 +96,16 @@ export const googleBooks: ScraperDefinition = {
                   v.imageLinks?.thumbnail || v.imageLinks?.smallThumbnail,
                 ),
                 source: "Google Books",
+                synopses: synopsisText(v.description)
+                  ? [
+                      {
+                        text: synopsisText(v.description),
+                        language: v.language || "en",
+                        source: "Google Books",
+                        url: "https://books.google.com/books?id=" + item.id,
+                      },
+                    ]
+                  : [],
               },
             ];
           }),
@@ -123,6 +135,20 @@ export const googleBooks: ScraperDefinition = {
         if (!found) return null;
         const v = found.volumeInfo;
         return {
+          isbn: canonical,
+          url: /^[\w-]+$/.test(found.id || "")
+            ? "https://books.google.com/books?id=" + found.id
+            : "https://books.google.com/books?vid=ISBN" + canonical,
+          synopses: synopsisText(v.description)
+            ? [
+                {
+                  text: synopsisText(v.description),
+                  language: v.language || "en",
+                  source: "Google Books",
+                  url: "https://books.google.com/books?vid=ISBN" + canonical,
+                },
+              ]
+            : [],
           title: v.title || "",
           publisher: v.publisher || "",
           authors: (v.authors || []).join(", "),

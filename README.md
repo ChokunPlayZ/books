@@ -49,6 +49,12 @@ Searches reuse durable metadata caches, show source failures without hiding othe
 
 Outgoing external links include `ref=meemai.ckl.moe` for traffic attribution, preserving destination query parameters and fragments. They allow origin-only browser referrers and keep new tabs isolated with `noopener`; private page paths and queries are not sent to external sites. Attribution is applied only to navigation links, not stored source URLs, backend requests, internal links or downloads.
 
+## Series languages and synopses
+
+Open a series and choose **Pull series details** to retrieve available publisher descriptions and AniList's English, Japanese and romaji titles. Choose a synopsis by language and source, or change the displayed title without renaming your collection. The same choices are available from every linked language edition; display selections are remembered in this browser for your account.
+
+Exact original-title matches link automatically, including explicitly labeled romanized names in publisher descriptions. Ambiguous results require **Use this series**. Under **Find or change a series link**, you can also link editions already in your collection or remove an incorrect link. Manga and light novels remain separate, as do each edition's owned volumes and spending. Only source-provided text is used; missing translations are not fabricated. Server backups preserve links and synopsis metadata; the personal library export remains books-only.
+
 ## Everyday commands
 
 | Command                                       | Purpose                                                   |

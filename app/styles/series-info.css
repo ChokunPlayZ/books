@@ -1,0 +1,114 @@
+.series-info {
+  margin-block: 24px 28px;
+  padding-block: 20px;
+  border-block: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+
+.series-info-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.series-info h2,
+.series-info h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.series-info .field {
+  min-width: 0;
+  margin: 0;
+}
+
+.series-info select,
+.series-info input {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+}
+
+.series-info-language {
+  max-width: 320px;
+}
+
+.series-info summary {
+  min-height: 44px;
+  padding-block: 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.series-info ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.series-info-aliases li {
+  padding-block: 6px;
+}
+
+.series-synopsis {
+  max-width: 75ch;
+  margin-block: 20px;
+}
+
+.series-synopsis-text {
+  line-height: 1.7;
+  white-space: pre-line;
+}
+
+.series-info-source {
+  font-size: 12px;
+}
+
+.series-edition-links {
+  margin-top: 24px;
+}
+
+.series-edition-links li,
+.series-info-candidates li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-block: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.series-edition-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.series-info-form {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  margin-block: 16px;
+  max-width: 680px;
+}
+
+.series-info-form .field {
+  flex: 1;
+}
+
+.series-info-candidates li > div {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+@media (max-width: 560px) {
+  .series-info-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

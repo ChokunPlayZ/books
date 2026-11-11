@@ -19,6 +19,11 @@ import type {
   ScraperDefinition,
 } from "./types.ts";
 import { canonicalIsbn } from "../../domain/isbn.ts";
+import { digest } from "../../domain/hash.ts";
+import {
+  htmlSeriesMetadata,
+  mergeSeriesMetadata,
+} from "../../domain/series-info.ts";
 import { normalizeRecordTypes } from "../../domain/book-type.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
 import {
@@ -71,8 +76,35 @@ export function createScraperRegistry(
       throw new Error("Duplicate scraper source: " + definition.id);
     const { create, ...metadata } = definition;
     const scraper = create(context);
-    const reparseBook = async (book) =>
-      book && scraper.reparseBook ? await scraper.reparseBook(book) : book;
+    const parseBook = scraper.reparseBook;
+    const reparseBook = async (book) => {
+      if (!book) return book;
+      const parsed = parseBook ? await parseBook(book) : book;
+      if (!parsed?.url) return parsed;
+      try {
+        const snapshot = JSON.parse(
+          (await context.cache.get(
+            "scrape:v1:" + digest("text:" + parsed.url),
+          )) || "null",
+        );
+        if (typeof snapshot?.value !== "string") return parsed;
+        const source = parsed.source || parsed.publisher || metadata.id;
+        return {
+          ...parsed,
+          ...mergeSeriesMetadata(
+            parsed,
+            htmlSeriesMetadata(
+              snapshot.value,
+              source,
+              parsed.url,
+              canonicalIsbn(parsed.isbn),
+            ),
+          ),
+        };
+      } catch {
+        return parsed;
+      }
+    };
     const verified = (book, isbn: string) => {
       if (!book?.url || canonicalIsbn(book.isbn) !== isbn) return false;
       try {
@@ -261,7 +293,8 @@ export function createScraperRegistry(
         return result;
       };
     }
-    if (scraper.reparseBook) {
+    scraper.reparseBook = reparseBook;
+    {
       if (scraper.bookDetails) {
         const load = scraper.bookDetails;
         scraper.bookDetails = async (url, refresh) =>

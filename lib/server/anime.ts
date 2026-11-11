@@ -14,7 +14,7 @@ import {
 } from "../domain/anime.ts";
 
 const fields = `id idMal type format status season seasonYear
-  title { english romaji native } synonyms`;
+  title { english romaji native } synonyms description(asHtml: false)`;
 const relations = `relations { edges { relationType node { ${fields} } } }`;
 const searchQuery = `query ($search: String!, $formats: [MediaFormat]) {
   Page(page: 1, perPage: 8) {
@@ -99,10 +99,10 @@ export function createAnimeService(
     maxAge: number,
     load: () => Promise<T>,
   ): Promise<T> {
-    const savedKey = "anilist:last:v1:" + digest(key);
+    const savedKey = "anilist:last:v2:" + digest(key);
     try {
       const result = await cache.get(
-        "anilist:v1:" + key,
+        "anilist:v2:" + key,
         { maxAge, refresh },
         load,
       );

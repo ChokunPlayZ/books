@@ -603,6 +603,10 @@ try {
     await start("infinite-scroll"),
   );
   await runBrowserScenario("anime.browser.mjs", await start("anime"));
+  await runBrowserScenario(
+    "series-info.browser.mjs",
+    await start("series-info"),
+  );
   await runBrowserScenario("discovery.browser.mjs", await start("discovery"));
   console.log("PASS all standalone app browser checks");
 } finally {

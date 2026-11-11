@@ -4,6 +4,7 @@ import CollectionHeading from "./collection/CollectionHeading";
 import CollectionStats from "./collection/CollectionStats";
 import CollectionSpending from "./collection/CollectionSpending";
 import SeriesHeader from "./collection/SeriesHeader";
+import SeriesInfoPanel from "./collection/SeriesInfoPanel";
 import SeriesEditor from "./collection/SeriesEditor";
 import SeriesCatalogPanel from "./collection/SeriesCatalogPanel";
 import ShelfBrowser from "./collection/ShelfBrowser";
@@ -49,6 +50,14 @@ export default async function CollectionShell({
         {overview && <CollectionHeading removed={view === "trash"} />}
         {overview && <CollectionStats books={data.books} />}
         {series !== null && <SeriesHeader series={series} books={data.books} />}
+        {series !== null && (
+          <SeriesInfoPanel
+            key={series}
+            series={series}
+            books={data.books}
+            userId={data.user.id}
+          />
+        )}
         {series !== null && <SeriesEditor />}
         {shelf && (
           <ShelfBrowser

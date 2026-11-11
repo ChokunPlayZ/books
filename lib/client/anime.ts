@@ -537,7 +537,12 @@ export function createAnimeBrowser({
       if ($("adaptationPanel")) {
         const types = new Set(
           books()
-            .filter((book) => book.series === $("seriesTitle").textContent)
+            .filter(
+              (book) =>
+                book.series ===
+                ($("seriesTitle").dataset.series ||
+                  $("seriesTitle").textContent),
+            )
             .map((book) =>
               /^(?:LN\b|Light novel)/i.test(book.type)
                 ? "LN"

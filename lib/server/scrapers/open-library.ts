@@ -1,9 +1,11 @@
 import { safeCoverUrl, parsePageCount } from "../../domain.ts";
 import type { ScraperContext, ScraperDefinition } from "./types.ts";
+import { synopsisText } from "../../domain/series-info.ts";
 type OpenLibraryResponse = Record<
   string,
   {
     title?: string;
+    description?: string | { value?: string };
     number_of_pages?: number;
     publishers?: { name?: string }[];
     authors?: { name?: string }[];
@@ -29,6 +31,26 @@ export const openLibrary: ScraperDefinition = {
         const v = data[key];
         if (!v) return null;
         return {
+          isbn: canonical,
+          url: "https://openlibrary.org/isbn/" + canonical,
+          synopses: synopsisText(
+            typeof v.description === "string"
+              ? v.description
+              : v.description?.value,
+          )
+            ? [
+                {
+                  text: synopsisText(
+                    typeof v.description === "string"
+                      ? v.description
+                      : v.description?.value,
+                  ),
+                  language: "und",
+                  source: "Open Library",
+                  url: "https://openlibrary.org/isbn/" + canonical,
+                },
+              ]
+            : [],
           title: v.title || "",
           pageCount: parsePageCount(v.number_of_pages),
           publisher: (v.publishers || [])

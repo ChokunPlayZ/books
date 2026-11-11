@@ -1,6 +1,40 @@
 // Interface text only. Book titles, notes, publishers and stored option values
 // stay in their original language; translations never modify collection data.
 export const thai: Record<string, string> = {
+  "Series languages & synopsis": "ชื่อเรื่องหลายภาษาและเรื่องย่อ",
+  "Pull series details": "ดึงข้อมูลซีรีส์",
+  "Pulling series details…": "กำลังดึงข้อมูลซีรีส์…",
+  "Loading series details…": "กำลังโหลดข้อมูลซีรีส์…",
+  "View series title in": "ภาษาของชื่อเรื่อง",
+  "Collection title": "ชื่อในคลัง",
+  "Titles from sources": "ชื่อเรื่องจากแหล่งข้อมูล",
+  "Synopsis · language & source": "เรื่องย่อ · ภาษาและแหล่งข้อมูล",
+  "View synopsis source": "ดูแหล่งที่มาของเรื่องย่อ",
+  "No synopsis saved. Pull series details to check publishers and AniList.":
+    "ยังไม่มีเรื่องย่อ กดดึงข้อมูลซีรีส์เพื่อค้นหาจากสำนักพิมพ์และ AniList",
+  "Linked language editions": "ฉบับภาษาอื่นที่เชื่อมโยง",
+  "Shared titles and synopsis choices. Owned volumes stay separate.":
+    "ใช้ชื่อเรื่องและตัวเลือกเรื่องย่อร่วมกัน โดยแยกเล่มที่เป็นเจ้าของตามฉบับ",
+  "{count} owned": "มีแล้ว {count} เล่ม",
+  "Find or change a series link": "ค้นหาหรือเปลี่ยนการเชื่อมโยงซีรีส์",
+  "Search English, Japanese or romaji. Select the same original work for each language edition.":
+    "ค้นหาด้วยชื่ออังกฤษ ญี่ปุ่น หรือโรมาจิ แล้วเลือกผลงานต้นฉบับเดียวกันสำหรับแต่ละฉบับภาษา",
+  "Find series": "ค้นหาซีรีส์",
+  "Same series in your collection": "ซีรีส์เดียวกันในคลัง",
+  "Choose a series": "เลือกซีรีส์",
+  "Link editions": "เชื่อมโยงฉบับ",
+  "Remove series link": "ยกเลิกการเชื่อมโยงซีรีส์",
+  "Choose the matching original series. No automatic link was made.":
+    "เลือกซีรีส์ต้นฉบับที่ตรงกัน ยังไม่ได้เชื่อมโยงโดยอัตโนมัติ",
+  "Use this series": "เลือกซีรีส์นี้",
+  Romaji: "โรมาจิ",
+  "Language unspecified": "ไม่ระบุภาษา",
+  "Choose a series and book type.": "เลือกซีรีส์และประเภทหนังสือ",
+  "This series is not in your library.": "ไม่พบซีรีส์นี้ในคลังของคุณ",
+  "This book is not in your library.": "ไม่พบหนังสือเล่มนี้ในคลังของคุณ",
+  "Choose a title from the search results.": "เลือกชื่อเรื่องจากผลการค้นหา",
+  "Some publisher metadata could not be loaded. Saved descriptions were kept.":
+    "โหลดข้อมูลบางแหล่งไม่ได้ โดยเก็บเรื่องย่อที่บันทึกไว้เดิม",
   "Group series": "จัดกลุ่มตามซีรีส์",
   "View {count} matches": "ดูผลลัพธ์ {count} รายการ",
   "Resolve edit conflict": "เลือกข้อมูลเมื่อมีการแก้ไขพร้อมกัน",

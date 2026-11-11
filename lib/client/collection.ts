@@ -605,7 +605,8 @@ export function mountCollection({
     );
     if ($("collectionSpending")) renderCollectionSpending(books);
     if (state.selectedSeries !== null) {
-      $("seriesTitle").textContent = state.selectedSeries;
+      $("seriesTitle").textContent =
+        $("seriesTitle").dataset.translatedTitle || state.selectedSeries;
       const numbered = owned.filter(
         (b) => b.volume !== "" && b.volume !== null,
       ).length;

@@ -71,3 +71,19 @@ export function textHtml(s) {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+// Read source descriptions without running markup; retain paragraph boundaries.
+export function descriptionText(value: unknown) {
+  if (typeof value !== "string") return "";
+  return decodeHtml(
+    value
+      .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
+      .replace(/<br\s*\/?\s*>|<\/(?:p|div|li)>/gi, "\n")
+      .replace(/<[^>]*>/g, " "),
+  )
+    .replace(/[^\S\n]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, 16000);
+}

@@ -119,6 +119,13 @@ const migrations = [
     action TEXT NOT NULL, created_at BIGINT NOT NULL
   );
   `,
+  `
+  CREATE TABLE series_profiles (
+    user_id INTEGER NOT NULL REFERENCES users(id), series TEXT NOT NULL,
+    type TEXT NOT NULL, data TEXT NOT NULL,
+    PRIMARY KEY(user_id,series,type)
+  );
+  `,
 ];
 
 export async function migrateDatabase(pool: Pool) {

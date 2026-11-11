@@ -1,6 +1,8 @@
 import type { Release } from "../types.ts";
 import { normalizeBookType } from "./book-type.ts";
 import { bookSeriesTitle, seriesCategoryTitle } from "./title-normalization.ts";
+import { descriptionText as synopsisText } from "./html.ts";
+import type { SeriesTitle, Synopsis } from "./series-info.ts";
 
 export const ANIME_SEASONS = ["WINTER", "SPRING", "SUMMER", "FALL"] as const;
 export type AnimeSeason = (typeof ANIME_SEASONS)[number];
@@ -17,6 +19,8 @@ export type AnimeMedia = {
   year: number | null;
   url: string;
   malUrl: string;
+  translatedTitles?: SeriesTitle[];
+  synopses?: Synopsis[];
 };
 export type AnimeAdaptation = { book: AnimeMedia; anime: AnimeMedia[] };
 export type SeasonalBook = {
@@ -233,6 +237,32 @@ export function parseAnimeMedia(value: unknown): AnimeMedia | null {
       : null,
     url: `https://anilist.co/${category}/${id}`,
     malUrl: malId ? `https://myanimelist.net/${category}/${malId}` : "",
+    translatedTitles: [
+      ["en", title.english],
+      ["ja-Latn", title.romaji],
+      ["ja", title.native],
+    ].flatMap(([language, name]) =>
+      typeof name === "string" && name.trim()
+        ? [
+            {
+              title: name.trim().slice(0, 500),
+              language: String(language),
+              source: "AniList",
+              url: `https://anilist.co/${category}/${id}`,
+            },
+          ]
+        : [],
+    ),
+    synopses: synopsisText(media.description)
+      ? [
+          {
+            text: synopsisText(media.description),
+            language: "en",
+            source: "AniList",
+            url: `https://anilist.co/${category}/${id}`,
+          },
+        ]
+      : [],
   };
 }
 

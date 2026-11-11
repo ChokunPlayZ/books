@@ -3,6 +3,7 @@ import { money } from "./msrp.ts";
 import { parsePageCount } from "./page-count.ts";
 import { safeCoverUrl, safePublisherUrl } from "./urls.ts";
 import { specialSet, releaseBundle } from "./titles.ts";
+import { mergeSeriesMetadata } from "./series-info.ts";
 
 // Public scraper fields only. In particular, price paid, notes, shelf aliases,
 // reading state and user-selected cover IDs must never enter this record.
@@ -24,6 +25,7 @@ export function scrapedMetadata(book) {
   const currency = text(book.msrpCurrency || book.currency).toUpperCase();
   const msrp = money(book.msrp);
   return {
+    ...mergeSeriesMetadata(book),
     isbn,
     isbnVerified: true,
     title: text(book.title),
@@ -45,7 +47,7 @@ export function scrapedMetadata(book) {
 }
 
 export function fillScrapedMetadata(previous, incoming) {
-  const next = { ...previous };
+  const next = { ...previous, ...mergeSeriesMetadata(previous, incoming) };
   for (const key of [
     "title",
     "series",

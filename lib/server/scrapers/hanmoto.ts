@@ -3,6 +3,7 @@ import { canonicalIsbn, ISBN_GROUP_PREFIXES } from "../../domain/isbn.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
 import { httpFailure } from "../scrape-diagnostics.ts";
 import type { ScraperContext, ScraperDefinition } from "./types.ts";
+import { htmlSeriesMetadata } from "../../domain/series-info.ts";
 
 export const hanmoto: ScraperDefinition = {
   id: "hanmoto",
@@ -27,7 +28,13 @@ export const hanmoto: ScraperDefinition = {
           if (response.status === 404) return null;
           if (response.status !== 200)
             throw httpFailure(response.url, response.status);
-          return hanmotoBook(response.body, isbn);
+          const book = hanmotoBook(response.body, isbn);
+          return book
+            ? {
+                ...book,
+                ...htmlSeriesMetadata(response.body, "Hanmoto", book.url, isbn),
+              }
+            : null;
         },
       );
     }

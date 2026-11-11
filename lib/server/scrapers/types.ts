@@ -1,6 +1,7 @@
 import type { Book, Release } from "../../types.ts";
 import type { createScrapeCache } from "../scrape-cache.ts";
 import type { SearchLanguage } from "../../domain/search.ts";
+import type { SeriesTitle, Synopsis } from "../../domain/series-info.ts";
 
 export type ScraperCache = {
   get(key: string): Promise<string | null> | string | null;
@@ -73,6 +74,8 @@ export type IsbnSearchResult = {
 };
 
 export type BookDetails = {
+  titles?: SeriesTitle[];
+  synopses?: Synopsis[];
   isbn?: string;
   isbnVerified?: boolean;
   special?: boolean;

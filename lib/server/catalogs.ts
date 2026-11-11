@@ -28,6 +28,7 @@ import { bookEditionKey } from "../domain/book-type.ts";
 import { money } from "../domain/msrp.ts";
 import { coverPreference } from "../domain/cover-preference.ts";
 import { fillScrapedMetadata } from "../domain/scraped-metadata.ts";
+import { mergeSeriesMetadata } from "../domain/series-info.ts";
 import { AppError } from "./store.ts";
 import { SCRAPE_TTL } from "./scrape-cache.ts";
 import { createScraperContext } from "./scrapers/http.ts";
@@ -98,9 +99,14 @@ export function createCatalogService(
   const pendingCovers = new Map();
   const pendingTitles = new Map();
   async function reparseBook(book) {
-    const source = scrapers.get(
-      book.publisherId || publisherKey(book.publisher),
-    );
+    let id = book.publisherId || publisherKey(book.publisher);
+    try {
+      id =
+        sources.find((source) =>
+          source.hosts.includes(new URL(book.url).hostname),
+        )?.id || id;
+    } catch {}
+    const source = scrapers.get(id);
     return source?.reparseBook ? await source.reparseBook(book) : book;
   }
   function explicitMsrp(book) {
@@ -354,6 +360,11 @@ export function createCatalogService(
         );
       details = {
         ...details,
+        ...mergeSeriesMetadata(
+          ...results.flatMap((result) =>
+            result.status === "fulfilled" && result.value ? [result.value] : [],
+          ),
+        ),
         pageCount,
         msrp: msrpSource?.msrp ?? "",
         msrpCurrency: msrpSource?.msrpCurrency || msrpSource?.currency || "",
@@ -1429,6 +1440,29 @@ export function createCatalogService(
   }
 
   const methods = {
+    async getBookSourceMetadata(request: { row: number }) {
+      if (!Number.isSafeInteger(request?.row))
+        throw new AppError("Choose a book and try again.");
+      const book = (await store.api.getCollection()).books.find(
+        (book) => book.row === request.row,
+      );
+      if (!book) throw new AppError("This book is not in your library.", 404);
+      let id = "";
+      try {
+        id =
+          sources.find((source) =>
+            source.hosts.includes(new URL(book.publisherUrl).hostname),
+          )?.id || "";
+      } catch {}
+      const url = id && safeProductUrl(book.publisherUrl, id);
+      const source = scrapers.get(id);
+      if (!url || !source?.bookDetails) return { titles: [], synopses: [] };
+      const details = await source.bookDetails(url);
+      const isbn = canonicalIsbn(book.isbn);
+      if (!details || (isbn && canonicalIsbn(details.isbn) !== isbn))
+        return { titles: [], synopses: [] };
+      return mergeSeriesMetadata(details);
+    },
     lookupBook,
     lookupIsbn,
     searchPublisherIsbn,

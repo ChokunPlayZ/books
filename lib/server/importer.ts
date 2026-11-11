@@ -15,6 +15,7 @@ import { AppError } from "./store.ts";
 import type { Book, ImportReview } from "../types.ts";
 import { normalizeBookType } from "../domain/book-type.ts";
 import { validateWorkbookArchive } from "./workbook-archive.ts";
+import { mergeSeriesMetadata } from "../domain/series-info.ts";
 
 const MAX_RECORDS = 20000;
 
@@ -314,7 +315,13 @@ export function parseImport(buffer, filename) {
   }
   if (!Array.isArray(raw.books) || raw.books.length > MAX_RECORDS)
     throw new AppError("The import must contain at most 20,000 books.");
-  for (const key of ["trash", "savedReleases", "seriesCatalogs", "covers"])
+  for (const key of [
+    "trash",
+    "savedReleases",
+    "seriesCatalogs",
+    "seriesProfiles",
+    "covers",
+  ])
     if (
       raw[key] != null &&
       (!Array.isArray(raw[key]) || raw[key].length > MAX_RECORDS)
@@ -344,6 +351,31 @@ export function parseImport(buffer, filename) {
     };
   });
   const savedReleases = (raw.savedReleases || []).map(cleanRelease);
+  const seriesProfiles = (raw.seriesProfiles || []).map((item) => {
+    if (
+      !item ||
+      typeof item.series !== "string" ||
+      item.series.length > 500 ||
+      !["Manga", "Light novel", "Others"].includes(item.type) ||
+      typeof item.workId !== "string" ||
+      !/^(?:anilist:\d+|local:[a-f0-9-]{36})$/.test(item.workId) ||
+      !books.some(
+        (book) => book.series === item.series && book.type === item.type,
+      ) ||
+      !Array.isArray(item.titles) ||
+      !Array.isArray(item.synopses) ||
+      item.titles.length > 200 ||
+      item.synopses.length > 200
+    )
+      throw new AppError("Invalid linked series in the backup.");
+    return {
+      series: item.series,
+      type: item.type,
+      workId: item.workId,
+      manual: item.manual === true,
+      ...mergeSeriesMetadata(item),
+    };
+  });
   const seriesCatalogs = (raw.seriesCatalogs || []).map((item) => {
     const spec = seriesCatalogRequest(item),
       url = safeSeriesCatalogUrl(item.url, spec.publisherId);
@@ -425,6 +457,7 @@ export function parseImport(buffer, filename) {
     seriesCatalogs,
     options,
     warnings,
+    seriesProfiles,
   };
 }
 

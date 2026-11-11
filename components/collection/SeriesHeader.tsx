@@ -19,7 +19,9 @@ export default async function SeriesHeader({
         {t("← All series")}
       </a>
       <div className="series-title-line">
-        <h1 id={"seriesTitle"}>{series}</h1>
+        <h1 id={"seriesTitle"} data-series={series}>
+          {series}
+        </h1>
         <div className="series-header-actions">
           <a
             id="exportSeriesButton"
