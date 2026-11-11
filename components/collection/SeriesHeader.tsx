@@ -32,7 +32,7 @@ export default async function SeriesHeader({
             <svg aria-hidden="true">
               <use href="#i-download" />
             </svg>
-            {t("Export series")}
+            <span className="title-export-label">{t("Export series")}</span>
           </a>
           <button
             id="editTitleButton"

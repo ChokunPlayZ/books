@@ -166,7 +166,7 @@ try {
   await page.locator("#isbnLookupStatus").waitFor({ state: "visible" });
   assert.match(
     await page.locator("#isbnLookupStatus").textContent(),
-    /Looking up ISBN…/,
+    /Looking up book details…/,
   );
   assert.match(
     await page.locator("#isbnLookupMessage").textContent(),

@@ -22,7 +22,7 @@ colors:
   "success-background": "#e8f0e4"
   "success-ink": "#46613c"
   "warning-background": "#fbf0da"
-  "warning-ink": "#8e6b2d"
+  "warning-ink": "#8a672b"
   "red": "#b33838"
   "error-background": "#fff2ef"
   "error-line": "#e9c5c0"

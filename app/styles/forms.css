@@ -259,6 +259,7 @@ textarea {
   inset: 0;
   opacity: 0;
   @apply w-full;
+  height: 100%;
   @apply cursor-pointer;
   padding: 0;
 }

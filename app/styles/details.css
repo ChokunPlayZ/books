@@ -259,9 +259,7 @@
   }
 
   .series-page .series-header-actions {
-    position: absolute;
-    top: 0;
-    right: 0;
+    position: static;
   }
 
   .series-page .series-title-line {
@@ -281,7 +279,8 @@
     flex: none;
   }
 
-  .series-page .title-edit-label {
+  .series-page .title-edit-label,
+  .series-page .title-export-label {
     @apply sr-only;
   }
 

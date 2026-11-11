@@ -18,6 +18,14 @@
   max-width: 100%;
 }
 @media (max-width: 760px) {
+  .data-header .top-inner {
+    flex-wrap: wrap;
+  }
+  .data-header .header-links {
+    display: flex;
+    flex: 1 1 auto;
+    justify-content: flex-end;
+  }
   .top:has(.admin-link) .top-inner {
     flex-wrap: wrap;
   }
@@ -145,21 +153,19 @@ button.admin-count {
   display: flex;
   flex-direction: column;
   gap: 7px;
-  min-width: 180px;
+  min-width: min(180px, 100%);
   max-width: 100%;
   font-size: 13px;
   color: var(--muted);
 }
 .admin-filters input:not([type="checkbox"]),
 .admin-filters select {
-  min-height: 40px;
-  padding: 9px 12px;
+  min-height: 48px;
   max-width: 100%;
-  background: var(--white);
-  color: var(--ink);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  font: inherit;
+  font-size: 16px;
+}
+.admin-filters > .btn {
+  min-height: 48px;
 }
 .admin-filters select {
   max-width: min(600px, 100%);
@@ -184,6 +190,7 @@ button.admin-count {
 }
 .admin-table {
   width: 100%;
+  min-width: 760px;
   border-collapse: collapse;
   text-align: left;
   font-size: 13px;
@@ -221,11 +228,10 @@ button.admin-count {
   min-width: 150px;
 }
 .admin-row-actions .btn {
-  font-size: 12px;
-  min-height: 34px;
-  padding: 6px 10px;
+  font-size: 13px;
 }
 .admin-text-button {
+  min-height: 44px;
   border: 0;
   background: none;
   text-align: left;

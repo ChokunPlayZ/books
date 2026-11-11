@@ -98,6 +98,7 @@ export default function ScraperDebugPanel() {
         <label>
           {t("Search by")}
           <select
+            aria-label={t("Search by")}
             value={mode}
             disabled={busy}
             onChange={(event) => {

@@ -157,7 +157,13 @@ export function mountDropdowns() {
 
   function position() {
     if (!select || !menu) return;
-    if (!select.isConnected || !select.checkVisibility()) {
+    // Popovers shipped before checkVisibility in Safari. Keep the shared
+    // dropdown usable in those browsers rather than blocking native input.
+    if (
+      !select.isConnected ||
+      !select.getClientRects().length ||
+      getComputedStyle(select).visibility !== "visible"
+    ) {
       close();
       return;
     }

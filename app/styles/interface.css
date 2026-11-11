@@ -990,6 +990,8 @@ dialog::backdrop {
   }
   .data-card {
     padding: 20px 0;
+    border-inline: 0;
+    border-radius: 0;
   }
   .data-card h2 {
     font-size: 22px;

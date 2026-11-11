@@ -18,6 +18,7 @@
     "test:multi-user": "node tests/browser/multi-user.browser.mjs",
     "test:preferences": "node tests/browser/preferences.browser.mjs",
     "test:admin": "node tests/browser/admin.browser.mjs",
+    "test:ui": "node tests/browser/ui-consistency.browser.mjs",
     "test:docker": "node scripts/test-docker.mjs",
     "import": "node scripts/import.mjs",
     "backup": "node scripts/backup.mjs",

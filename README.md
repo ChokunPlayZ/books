@@ -61,6 +61,7 @@ Outgoing external links include `ref=meemai.ckl.moe` for traffic attribution, pr
 | `npm run build`                               | Create the production standalone server                   |
 | `npm start`                                   | Start the production build                                |
 | `npm run test:e2e`                            | Run browser scenarios against temporary databases         |
+| `npm run test:ui`                             | Check pages, controls and overflow from 320px to 1440px   |
 | `npm run test:docker`                         | Check a disposable Docker deployment                      |
 | `npm run import -- collection.xlsx --preview` | Review an import                                          |
 | `npm run backup -- backup.json`               | Export a library backup                                   |

@@ -338,7 +338,13 @@ try {
     .getByRole("option", { name: "Use device setting", exact: true })
     .click();
   await page.waitForFunction(
-    () => document.documentElement.dataset.accountTheme === "system",
+    () =>
+      document.documentElement.dataset.theme ===
+      (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"),
+  );
+  assert.equal(
+    (await (await page.request.get(testUrl + "/api/preferences")).json()).theme,
+    "system",
   );
 
   await page.goto(testUrl + "/discover");

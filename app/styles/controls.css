@@ -103,6 +103,17 @@ select:disabled {
   flex: 0 0 44px;
 }
 
+:is(.check, .admin-check) {
+  min-height: 44px;
+}
+
+:is(.check, .admin-check) input[type="checkbox"] {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--primary);
+}
+
 .toolbar > .btn,
 .discovery-source > .btn {
   min-height: 48px;
