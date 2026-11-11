@@ -60,6 +60,20 @@ const browser = await chromium.launch({
 });
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  // Server-rendered series routes need the fixture names in the real account;
+  // catalog and ownership assertions below still use the isolated fixture store.
+  for (const series of [chishunki, parfait, numbered, boss]) {
+    const response = await page.request.post(testUrl + "/api/rpc", {
+      data: {
+        name: "saveBook",
+        arg: {
+          requestId: crypto.randomUUID(),
+          book: { series, type: "Manga", volume: 1, status: "Read" },
+        },
+      },
+    });
+    assert.equal(response.ok(), true, await response.text());
+  }
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("https://cdn.jsdelivr.net/**", (route) => route.abort());
