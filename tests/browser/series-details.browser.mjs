@@ -1,5 +1,6 @@
 import { testUrl as url } from "../helpers/browser.mjs";
 import assert from "node:assert/strict";
+import { mkdirSync } from "node:fs";
 import { chromium } from "playwright";
 import { seriesPath } from "../../lib/domain/navigation.ts";
 
@@ -61,7 +62,7 @@ try {
   const source = "https://example.com/synthetic-book";
   await page.route("**/api/rpc", async (route) => {
     const { name, arg } = route.request().postDataJSON();
-    if (name === "getSeriesInfo")
+    if (name === "getSeriesInfo" || name === "pullSeriesInfo")
       return route.fulfill({
         json: {
           series,
@@ -135,6 +136,16 @@ try {
     new URL(await creator.getAttribute("href"), url).searchParams.get("field"),
     "Author",
   );
+  assert.equal(await page.locator(".metadata-attribution").count(), 0);
+  assert.doesNotMatch(
+    await page.locator(".metadata-facts").textContent(),
+    /Synthetic publisher|Your library/,
+  );
+  mkdirSync(".impeccable/review", { recursive: true });
+  await page.screenshot({
+    path: ".impeccable/review/publication-desktop.png",
+    fullPage: true,
+  });
   await page.locator(".suggest-edit > summary").click();
   await page.getByLabel("Field to correct").fill("Author");
   await page
@@ -157,6 +168,10 @@ try {
     .getByText("Synthetic corrected creator", { exact: true })
     .waitFor();
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: ".impeccable/review/publication-mobile.png",
+    fullPage: true,
+  });
   assert.equal(
     await page
       .locator(".title-edit-label")

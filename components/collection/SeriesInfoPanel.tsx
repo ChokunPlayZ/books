@@ -6,6 +6,7 @@ import ExternalLink from "../ExternalLink";
 import { normalizeBookType } from "../../lib/domain/book-type.ts";
 import type { StoredBook } from "../../lib/types.ts";
 import type { SeriesInfo } from "../../lib/domain/series-info.ts";
+import { preferredSynopses } from "../../lib/domain/metadata-source.ts";
 import {
   languageName,
   metadataBrowsePath,
@@ -45,6 +46,21 @@ async function rpc(
   return value;
 }
 
+function waitForDiscovery(signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const abort = () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", abort);
+      resolve();
+    }, 1500);
+    if (signal.aborted) abort();
+    else signal.addEventListener("abort", abort, { once: true });
+  });
+}
+
 export default function SeriesInfoPanel({
   series,
   books,
@@ -73,7 +89,7 @@ export default function SeriesInfoPanel({
   const [error, setError] = useState("");
   const [search, setSearch] = useState(series.slice(0, 200));
   const [titleLanguage, setTitleLanguage] = useState("");
-  const [synopsisKey, setSynopsisKey] = useState("");
+  const [synopsisLanguage, setSynopsisLanguage] = useState("");
   const [targetSeries, setTargetSeries] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
   const matchingDisclosure = useRef<HTMLDetailsElement>(null);
@@ -83,21 +99,41 @@ export default function SeriesInfoPanel({
   }, [info?.candidates]);
   const key = userId + ":" + (info?.workId || series);
   const language = (code: string) => t(languageName(code));
-  const synopsisId = (item: SeriesInfo["synopses"][number]) =>
-    JSON.stringify([item.url, item.text]);
 
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
+    setBusy(true);
     setInfo(emptyInfo(series, type));
     setError("");
     rpc("getSeriesInfo", { series, type }, controller.signal)
-      .then(setInfo)
+      .then(async (saved) => {
+        if (controller.signal.aborted) return;
+        setInfo(saved);
+        setLoading(false);
+        let discovered = await rpc(
+          "pullSeriesInfo",
+          { series, type, automatic: true },
+          controller.signal,
+        );
+        while (discovered.discoveryJobId && !controller.signal.aborted) {
+          await waitForDiscovery(controller.signal);
+          discovered = await rpc(
+            "getSeriesDiscovery",
+            { series, type, id: discovered.discoveryJobId },
+            controller.signal,
+          );
+        }
+        if (!controller.signal.aborted) setInfo(discovered);
+      })
       .catch((failure) => {
         if (!controller.signal.aborted) setError(failure.message);
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+          setBusy(false);
+        }
       });
     return () => controller.abort();
   }, [series, type]);
@@ -106,7 +142,9 @@ export default function SeriesInfoPanel({
       setTitleLanguage(
         localStorage.getItem("series-title-language:" + key) || "",
       );
-      setSynopsisKey(localStorage.getItem("series-synopsis:" + key) || "");
+      setSynopsisLanguage(
+        localStorage.getItem("series-synopsis-language:" + key) || "",
+      );
     } catch {}
   }, [key]);
   useEffect(() => {
@@ -124,6 +162,23 @@ export default function SeriesInfoPanel({
       heading.lang = "";
     };
   }, [info, titleLanguage, series]);
+  useEffect(() => {
+    const heading = document.getElementById("seriesTitle");
+    if (!heading) return;
+    const title = ["en", "ja-Latn", "ja"].flatMap((language) =>
+      info.titles.filter(
+        (item) =>
+          item.language === language &&
+          item.url === `https://anilist.co/manga/${info.workId.split(":")[1]}`,
+      ),
+    )[0];
+    if (!title) return;
+    heading.dataset.anilistSearch = title.title;
+    window.dispatchEvent(new Event("series-metadata-ready"));
+    return () => {
+      delete heading.dataset.anilistSearch;
+    };
+  }, [info]);
 
   async function run(name: string, extra = {}) {
     setBusy(true);
@@ -136,9 +191,14 @@ export default function SeriesInfoPanel({
       setBusy(false);
     }
   }
+  const synopses = preferredSynopses(info.synopses);
+  const editionLanguage = info.editions.find(
+    (edition) => edition.series === series,
+  )?.language;
   const synopsis =
-    info?.synopses.find((item) => synopsisId(item) === synopsisKey) ||
-    info?.synopses[0];
+    synopses.find((item) => item.language === synopsisLanguage) ||
+    synopses.find((item) => item.language === editionLanguage) ||
+    synopses[0];
   const targets = [
     ...new Set(
       books
@@ -233,14 +293,19 @@ export default function SeriesInfoPanel({
           className="btn"
           type="button"
           disabled={busy || loading}
-          onClick={() => run("pullSeriesInfo", sourceUrl ? { sourceUrl } : {})}
+          onClick={() => run("pullSeriesInfo")}
         >
-          {t(busy ? "Pulling series details…" : "Pull series details")}
+          {t(busy ? "Finding series details…" : "Refresh details")}
         </button>
       </div>
       {loading && (
         <p className="hint" role="status">
           {t("Loading series details…")}
+        </p>
+      )}
+      {busy && !loading && (
+        <p className="hint" role="status">
+          {t("Finding series details…")}
         </p>
       )}
       {error && (
@@ -296,46 +361,37 @@ export default function SeriesInfoPanel({
             )}
             {synopsis ? (
               <div className="series-synopsis">
-                <label className="field">
-                  <span>{t("Synopsis · language & source")}</span>
-                  <select
-                    value={synopsisId(synopsis)}
-                    onChange={(event) => {
-                      setSynopsisKey(event.target.value);
-                      try {
-                        localStorage.setItem(
-                          "series-synopsis:" + key,
-                          event.target.value,
-                        );
-                      } catch {}
-                    }}
-                  >
-                    {info.synopses.map((item, index) => (
-                      <option key={synopsisId(item)} value={synopsisId(item)}>
-                        {language(item.language)} · {item.source} · {index + 1}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <h3>{t("Synopsis")}</h3>
+                {synopses.length > 1 && (
+                  <label className="field series-info-language">
+                    <span>{t("Synopsis language")}</span>
+                    <select
+                      value={synopsis.language}
+                      onChange={(event) => {
+                        setSynopsisLanguage(event.target.value);
+                        try {
+                          localStorage.setItem(
+                            "series-synopsis-language:" + key,
+                            event.target.value,
+                          );
+                        } catch {}
+                      }}
+                    >
+                      {synopses.map((item) => (
+                        <option key={item.language} value={item.language}>
+                          {language(item.language)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <p className="series-synopsis-text" lang={synopsis.language}>
                   {synopsis.text}
                 </p>
-                <ExternalLink
-                  className="series-info-source"
-                  href={synopsis.url}
-                  target="_blank"
-                >
-                  {t("View synopsis source")} · {synopsis.source}
-                </ExternalLink>
               </div>
             ) : (
-              !loading && (
-                <p className="hint">
-                  {t(
-                    "No synopsis saved. Pull series details to check publishers and AniList.",
-                  )}
-                </p>
-              )
+              !loading &&
+              !busy && <p className="hint">{t("No synopsis available yet.")}</p>
             )}
             {info.warnings.map((warning) => (
               <p className="hint" role="status" key={warning}>

@@ -30,6 +30,32 @@ try {
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("**/api/rpc", async (route) => {
     const request = route.request().postDataJSON();
+    if (["getSeriesInfo", "pullSeriesInfo"].includes(request.name))
+      return route.fulfill({
+        json: {
+          ...request.arg,
+          workId: "anilist:301",
+          titles: [
+            {
+              title: "Moonlit Library",
+              language: "en",
+              source: "AniList",
+              url: "https://anilist.co/manga/301",
+            },
+          ],
+          synopses: [],
+          editions: [
+            {
+              series: request.arg.series,
+              type: "Manga",
+              language: "th",
+              count: 1,
+            },
+          ],
+          candidates: [],
+          warnings: [],
+        },
+      });
     if (request.name === "getSeasonalThaiBooks") {
       seasonCalls.push(request.arg);
       if (failSeason)
@@ -304,6 +330,15 @@ try {
   await page.goto(url + seriesPath("ห้องสมุดใต้แสงจันทร์"));
   await page.locator("#adaptationPanel > summary").click();
   await page.locator("#adaptationList .anime-card").waitFor();
+  await page.waitForFunction(
+    () =>
+      document.getElementById("adaptationSearch").value === "Moonlit Library",
+  );
+  assert.equal(
+    adaptationCalls.at(-1).search,
+    "Moonlit Library",
+    "Translated shelf names automatically reuse the discovered original title",
+  );
   assert.equal(adaptationCalls.at(-1).type, "Manga");
   assert.match(
     await page.locator("#adaptationSummary").textContent(),
@@ -321,6 +356,7 @@ try {
       .count(),
     1,
   );
+  await page.getByText("Change adaptation search", { exact: true }).click();
   await page.locator("#adaptationSearch").fill("Moon");
   await page.locator("#findAdaptations").click();
   await page.waitForFunction(

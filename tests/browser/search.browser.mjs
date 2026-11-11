@@ -110,6 +110,11 @@ try {
     await cards.first().locator(".universal-search-book").getAttribute("href"),
     seriesPath("Moon Library"),
   );
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll(".universal-search-result .cover-placeholder")
+        .length === 2,
+  );
   assert.equal(
     await page.locator(".universal-search-result .cover-placeholder").count(),
     2,

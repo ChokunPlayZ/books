@@ -200,6 +200,31 @@ export function createApplicationApi(
         // Validate before enqueueing and again in the worker after role lookup.
         authorizeRefresh(arg);
         if (
+          name === "pullSeriesInfo" &&
+          arg?.automatic === true &&
+          arg.search === undefined &&
+          arg.mediaId === undefined &&
+          arg.sourceUrl === undefined
+        ) {
+          // Automatic enrichment must not hold an HTTP/concurrency slot while
+          // sources are slow, or block unrelated library actions after navigation.
+          const request = {
+            series: arg.series,
+            type: arg.type,
+            automatic: true,
+          };
+          const info = await seriesInfo.getSeriesInfo(request);
+          return {
+            ...(await attachImages(info)),
+            discoveryJobId: await queue.enqueue(
+              name,
+              request,
+              label(name, request),
+              -10,
+            ),
+          };
+        }
+        if (
           Object.hasOwn(catalogs, name) &&
           (await catalogs[CATALOG_REUSE](name, arg))
         )
@@ -286,6 +311,49 @@ export function createApplicationApi(
     getSeriesInfo: async (
       arg: Parameters<typeof seriesInfo.getSeriesInfo>[0],
     ) => attachImages(await seriesInfo.getSeriesInfo(arg)),
+    getSeriesDiscovery: async (
+      arg: Parameters<typeof seriesInfo.getSeriesInfo>[0] & { id: string },
+    ) => {
+      const info = await seriesInfo.getSeriesInfo(arg);
+      if (typeof arg.id !== "string" || arg.id.length > 100)
+        throw new AppError("Scraping task not found.", 404);
+      const job = await store.db
+        .prepare(
+          "SELECT status,result,error,payload,available_at FROM scrape_jobs WHERE id=? AND user_id=app_user_id() AND kind='pullSeriesInfo'",
+        )
+        .get(arg.id);
+      if (
+        !job ||
+        job.payload.series !== arg.series ||
+        job.payload.type !== arg.type
+      )
+        throw new AppError("Scraping task not found.", 404);
+      if (job.result && ["succeeded", "failed"].includes(job.status))
+        return attachImages({
+          ...info,
+          candidates:
+            job.result.workId === info.workId ? job.result.candidates : [],
+          warnings: job.result.warnings,
+        });
+      if (["failed", "cancelled"].includes(job.status))
+        throw new AppError(job.error || "Scraping task cancelled.", 409);
+      if (job.status === "queued") {
+        if (job.available_at > Date.now())
+          throw new AppError(
+            "The source is unavailable. Your task will retry after the cooldown.",
+            503,
+          );
+        const settings = await store.db
+          .prepare("SELECT paused FROM scrape_queue_settings WHERE id=1")
+          .get();
+        if (settings.paused)
+          throw new AppError(
+            "Scraping is paused. Your task is queued for later.",
+            503,
+          );
+      }
+      return { ...info, discoveryJobId: arg.id };
+    },
     ...maintenanceApi,
     ...search,
     searchKnownEntities: async (arg) =>

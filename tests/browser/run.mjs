@@ -166,12 +166,29 @@ try {
     errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("https://cdn.jsdelivr.net/**", (route) => route.abort());
-  // CRUD/import checks must not launch live publisher discovery for 150 fixtures.
-  // Cover lookup itself is exercised by the dedicated publisher scenarios.
+  // CRUD/import checks must not launch live metadata discovery for 150 fixtures.
+  // Automatic enrichment, AniList and covers have dedicated scenarios below.
   await page.route("**/api/rpc", (route) => {
     const { name, arg } = route.request().postDataJSON();
     if (name === "getBookCover")
       return route.fulfill({ json: { row: arg.row, coverId: "" } });
+    if (name === "pullSeriesInfo" && arg.automatic)
+      return route.fulfill({
+        json: {
+          series: arg.series,
+          type: arg.type,
+          workId: "",
+          titles: [],
+          synopses: [],
+          editions: [],
+          candidates: [],
+          warnings: [],
+        },
+      });
+    if (name === "getAnimeAdaptations")
+      return route.fulfill({
+        json: { items: [], exactId: null, complete: true },
+      });
     return route.continue();
   });
   const post = (body) => page.request.post(url + "/api/rpc", { data: body });

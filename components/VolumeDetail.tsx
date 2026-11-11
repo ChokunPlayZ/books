@@ -13,6 +13,7 @@ import {
 } from "../lib/domain/series-detail.ts";
 import type { KnownVolume } from "../lib/server/series-details.ts";
 import type { SeriesInfo } from "../lib/domain/series-info.ts";
+import { preferredSynopses } from "../lib/domain/metadata-source.ts";
 import type { Store } from "../lib/server/store.ts";
 
 export default async function VolumeDetail({
@@ -28,6 +29,11 @@ export default async function VolumeDetail({
 }) {
   const t = await getTranslations();
   const unknown = t("Not recorded");
+  const synopses = preferredSynopses(
+    volume.synopses?.length ? volume.synopses : info.synopses,
+  );
+  const synopsis =
+    synopses.find((item) => item.language === volume.language) || synopses[0];
   const index = volumes.findIndex((item) => item.key === volume.key);
   const url = volume.publisherUrl || volume.url;
   const editionSeries = new Set(info.editions.map((edition) => edition.series));
@@ -192,24 +198,12 @@ export default async function VolumeDetail({
               <MetadataFacts facts={info.facts} />
             </>
           )}
-          {!!(volume.synopses?.length || info.synopses.length) && (
+          {synopsis && (
             <section className="volume-synopses">
-              <h2>{t("Descriptions & sources")}</h2>
-              {(volume.synopses?.length ? volume.synopses : info.synopses).map(
-                (synopsis) => (
-                  <div key={synopsis.url + synopsis.text}>
-                    <h3>
-                      {t(languageName(synopsis.language))} · {synopsis.source}
-                    </h3>
-                    <p className="preserve-lines" lang={synopsis.language}>
-                      {synopsis.text}
-                    </p>
-                    <ExternalLink href={synopsis.url} target="_blank">
-                      {t("View source")}
-                    </ExternalLink>
-                  </div>
-                ),
-              )}
+              <h2>{t("Synopsis")}</h2>
+              <p className="preserve-lines" lang={synopsis.language}>
+                {synopsis.text}
+              </p>
             </section>
           )}
           <section className="volume-language-editions">

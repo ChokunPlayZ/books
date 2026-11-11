@@ -370,7 +370,12 @@ export function createCatalogService(
         ...details,
         ...mergeSeriesMetadata(
           ...results.flatMap((result) =>
-            result.status === "fulfilled" && result.value ? [result.value] : [],
+            result.status === "fulfilled" &&
+            result.value &&
+            (!result.value.isbn ||
+              canonicalIsbn(result.value.isbn) === canonical)
+              ? [result.value]
+              : [],
           ),
         ),
         pageCount,

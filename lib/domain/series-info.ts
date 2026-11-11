@@ -57,6 +57,7 @@ export type SeriesImage = {
 };
 export type SeriesLink = { label: string; language: string; url: string };
 export type SeriesInfo = SeriesProfile & {
+  discoveryJobId?: string;
   series: string;
   type: string;
   editions: { series: string; type: string; language: string; count: number }[];

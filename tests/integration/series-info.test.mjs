@@ -7,6 +7,11 @@ import { createSeriesInfoService } from "../../lib/server/series-info.ts";
 import { parseAnimeMedia } from "../../lib/domain/anime.ts";
 import { parseImport } from "../../lib/server/importer.ts";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
+import { preferredSynopses } from "../../lib/domain/metadata-source.ts";
+import {
+  createApplicationApi,
+  applicationQueue,
+} from "../../lib/server/api.ts";
 
 const media = parseAnimeMedia({
   id: 42,
@@ -123,6 +128,250 @@ test("ISBN enrichment retains descriptions from every source and reparses pinned
     assert.deepEqual(
       (await offline.lookupIsbn(isbn)).details.synopses,
       result.details.synopses,
+    );
+  } finally {
+    await store.close();
+  }
+});
+
+test("automatic enrichment discovers no-ISBN titles and AniList, reuses attempts, and never skips explicit matching", async () => {
+  const store = await openTestStore();
+  try {
+    await add(store, "ห้องสมุดใต้แสงจันทร์", "(TH)");
+    let lookups = 0;
+    let searches = 0;
+    const api = createSeriesInfoService(
+      store,
+      {
+        lookupIsbn: () => assert.fail("No ISBN is required"),
+        lookupBook: async (request) => {
+          lookups++;
+          assert.equal(request.series, "ห้องสมุดใต้แสงจันทร์");
+          return {
+            found: true,
+            warnings: [],
+            details: {
+              titles: [
+                {
+                  title: "Tsuki no Toshokan",
+                  language: "ja-Latn",
+                  source: "Phoenix Next",
+                  url: "https://www.phoenixnext.com/moon.html",
+                },
+              ],
+              synopses: [
+                {
+                  text: "เรื่องย่อภาษาไทย",
+                  language: "th",
+                  source: "Phoenix Next",
+                  url: "https://www.phoenixnext.com/moon.html",
+                },
+              ],
+            },
+          };
+        },
+      },
+      {
+        getAnimeAdaptations: async () => {
+          searches++;
+          return { items: [{ book: media }] };
+        },
+      },
+    );
+    const request = {
+      series: "ห้องสมุดใต้แสงจันทร์",
+      type: "Manga",
+      automatic: true,
+    };
+    const result = await api.pullSeriesInfo(request);
+    assert.equal(result.workId, "anilist:42");
+    assert.equal(result.synopses.length, 2);
+    const count = searches;
+    assert.deepEqual(
+      (await api.pullSeriesInfo(request)).synopses,
+      result.synopses,
+    );
+    assert.equal(lookups, 1);
+    assert.equal(searches, count);
+    await api.pullSeriesInfo({
+      ...request,
+      automatic: false,
+      search: "Moon Library",
+      mediaId: 42,
+    });
+    assert.equal(lookups, 2);
+    assert.ok(searches > count);
+  } finally {
+    await store.close();
+  }
+});
+
+test("automatic discovery keeps ambiguous matches available after reload and isolates accounts", async () => {
+  const store = await openTestStore();
+  try {
+    await add(store, "Unknown title");
+    let searches = 0;
+    const api = createSeriesInfoService(
+      store,
+      { lookupIsbn: async () => ({ found: false }) },
+      {
+        getAnimeAdaptations: async () => {
+          searches++;
+          return { items: [{ book: media }, { book: { ...media, id: 43 } }] };
+        },
+      },
+    );
+    const request = { series: "Unknown title", type: "Manga", automatic: true };
+    assert.equal((await api.pullSeriesInfo(request)).candidates.length, 2);
+    assert.equal((await api.pullSeriesInfo(request)).candidates.length, 2);
+    assert.equal(searches, 1);
+    const other = await store.db
+      .prepare(
+        "INSERT INTO users(username,role,created_at) VALUES ('discovery-other','user','now') RETURNING id",
+      )
+      .get();
+    await store.forUser(
+      { id: other.id, username: "discovery-other", role: "user" },
+      async () => {
+        await add(store, "Unknown title");
+        await api.pullSeriesInfo(request);
+        assert.equal(searches, 2);
+      },
+    );
+  } finally {
+    await store.close();
+  }
+});
+
+test("automatic discovery deduplicates work, falls back to bookstores during publisher outages, and rechecks changed editions", async () => {
+  const store = await openTestStore();
+  try {
+    await add(
+      store,
+      "Moon Library",
+      "(EN)",
+      "Manga",
+      "9786163377302",
+      "https://www.phoenixnext.com/moon.html",
+    );
+    let lookups = 0;
+    const bookstore = {
+      text: "The store’s story.",
+      language: "en",
+      source: "Naiin",
+      url: "https://www.naiin.com/product/detail/42",
+    };
+    const api = createSeriesInfoService(
+      store,
+      {
+        getBookSourceMetadata: async () => {
+          throw new Error("Publisher offline");
+        },
+        lookupIsbn: async () => {
+          lookups++;
+          return {
+            found: true,
+            warnings: [],
+            details: { synopses: [bookstore] },
+          };
+        },
+      },
+      { getAnimeAdaptations: async () => ({ items: [{ book: media }] }) },
+    );
+    const request = { series: "Moon Library", type: "Manga", automatic: true };
+    const results = await Promise.all([
+      api.pullSeriesInfo(request),
+      api.pullSeriesInfo(request),
+    ]);
+    assert.equal(lookups, 1);
+    assert.deepEqual(preferredSynopses(results[0].synopses), [bookstore]);
+    assert.ok(results[0].warnings.length);
+    await api.pullSeriesInfo(request);
+    assert.equal(lookups, 1, "Provider warnings have a retry cooldown");
+    await add(store, "Moon Library", "(EN)", "Manga", "9786165898843");
+    await api.pullSeriesInfo(request);
+    assert.equal(lookups, 2, "Changed owned editions trigger new discovery");
+  } finally {
+    await store.close();
+  }
+});
+
+test("automatic API enrichment returns promptly, runs in the background, and keeps status private", async () => {
+  const store = await openTestStore();
+  try {
+    const url = "https://www.animagshop.com/product/1169";
+    await add(store, "Moon Library", "(TH)", "Manga", "", url);
+    let requests = 0;
+    const api = createApplicationApi(
+      store,
+      { ensure: () => assert.fail("No image lookup is needed") },
+      async (request) => {
+        requests++;
+        if (request === url)
+          return new Response(
+            readFileSync(
+              new URL(
+                "../fixtures/publishers/animag-synopsis.html",
+                import.meta.url,
+              ),
+              "utf8",
+            ),
+          );
+        assert.equal(request, "https://graphql.anilist.co");
+        return Response.json({
+          data: {
+            Page: {
+              media: [
+                {
+                  id: 42,
+                  type: "MANGA",
+                  format: "MANGA",
+                  title: { english: "Moon Library" },
+                  description: "The English series synopsis.",
+                  relations: { edges: [] },
+                },
+              ],
+            },
+          },
+        });
+      },
+    );
+    const request = { series: "Moon Library", type: "Manga", automatic: true };
+    const started = await api.pullSeriesInfo(request);
+    assert.ok(started.discoveryJobId);
+    assert.equal(requests, 0, "Starting discovery must not wait for providers");
+    assert.equal((await api.getCollection()).books.length, 1);
+    const pending = await api.getSeriesDiscovery({
+      ...request,
+      id: started.discoveryJobId,
+    });
+    assert.equal(pending.discoveryJobId, started.discoveryJobId);
+    const job = await store.db
+      .prepare("SELECT priority FROM scrape_jobs WHERE id=?")
+      .get(started.discoveryJobId);
+    assert.equal(job.priority, -10);
+    await applicationQueue(store).wait(started.discoveryJobId);
+    const ready = await api.getSeriesDiscovery({
+      ...request,
+      id: started.discoveryJobId,
+    });
+    assert.equal(ready.discoveryJobId, undefined);
+    assert.equal(ready.workId, "anilist:42");
+    assert.equal(ready.synopses.length, 2);
+    const other = await store.db
+      .prepare(
+        "INSERT INTO users(username,role,created_at) VALUES ('background-other','user','now') RETURNING id",
+      )
+      .get();
+    await store.forUser(
+      { id: other.id, username: "background-other", role: "user" },
+      async () => {
+        await add(store, "Moon Library");
+        await assert.rejects(
+          api.getSeriesDiscovery({ ...request, id: started.discoveryJobId }),
+          { status: 404 },
+        );
+      },
     );
   } finally {
     await store.close();

@@ -9,6 +9,7 @@ import {
   synopsisText,
 } from "../../lib/domain/series-info.ts";
 import { parseAnimeMedia } from "../../lib/domain/anime.ts";
+import { preferredSynopses } from "../../lib/domain/metadata-source.ts";
 import {
   scrapedMetadata,
   fillScrapedMetadata,
@@ -50,6 +51,57 @@ test("publisher descriptions expose labeled original titles, not arbitrary prose
     ),
     false,
   );
+});
+
+test("synopses choose publishers before bookstores and catalogs, independent of text or arrival order", () => {
+  const synopsis = (text, url, language = "en") => ({
+    text,
+    url,
+    language,
+    source: "Stored citation",
+  });
+  const catalog = synopsis("A catalog summary", "https://anilist.co/manga/42");
+  const store = synopsis(
+    "A store summary",
+    "https://www.naiin.com/product/detail/42",
+  );
+  const product = synopsis(
+    "Publisher product summary",
+    "https://yenpress.com/titles/moon",
+  );
+  const publisher = synopsis(
+    "Publisher series summary",
+    "https://yenpress.com/series/moon",
+  );
+  const thai = synopsis(
+    "เรื่องย่อ",
+    "https://www.phoenixnext.com/moon.html",
+    "th",
+  );
+  for (const records of [
+    [catalog, store, product, publisher, thai],
+    [thai, publisher, product, store, catalog],
+  ]) {
+    const result = preferredSynopses(records);
+    assert.equal(
+      result.find((item) => item.language === "en"),
+      publisher,
+    );
+    assert.equal(
+      result.find((item) => item.language === "th"),
+      thai,
+    );
+    assert.equal(
+      records.length,
+      5,
+      "All provenance remains in the stored input",
+    );
+  }
+  assert.deepEqual(preferredSynopses([catalog, store]), [store]);
+  assert.deepEqual(preferredSynopses([catalog]), [catalog]);
+  assert.deepEqual(preferredSynopses([{ ...publisher, text: " " }, store]), [
+    store,
+  ]);
 });
 
 test("HTML synopsis is text-only, preserves paragraphs, and matches the verified product", () => {

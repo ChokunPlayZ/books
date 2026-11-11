@@ -63,8 +63,8 @@
   white-space: pre-line;
 }
 
-.series-info-source {
-  font-size: 12px;
+.series-synopsis > .field {
+  margin-top: 10px;
 }
 
 .series-edition-links {
@@ -223,17 +223,6 @@
 .metadata-facts dd > a {
   font-size: 13px;
   font-weight: 600;
-}
-.metadata-attribution {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 8px;
-  margin-top: 2px;
-  font-size: 12px;
-  color: var(--muted);
-}
-.metadata-attribution a {
-  color: var(--muted);
 }
 .series-source-links {
   display: grid;

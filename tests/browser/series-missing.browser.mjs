@@ -178,6 +178,21 @@ let delayFeeds = true,
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } }),
     errors = [];
+  // App Router resolves series URLs against the real account before browser RPC
+  // fixtures run. Register these names instead of relying on earlier scenarios.
+  const fixtureBooks = (await h.api.getCollection()).books;
+  for (const series of new Set(fixtureBooks.map((book) => book.series))) {
+    const response = await page.request.post(testUrl + "/api/rpc", {
+      data: {
+        name: "saveBook",
+        arg: {
+          requestId: crypto.randomUUID(),
+          book: { series, type: "Manga", volume: 1, status: "Read" },
+        },
+      },
+    });
+    assert.equal(response.ok(), true, await response.text());
+  }
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("https://cdn.jsdelivr.net/**", (route) => route.abort());
   await page.route("**/rpc", async (route) => {
@@ -683,6 +698,7 @@ try {
       !document.getElementById("bookDialog").open &&
       !window.bookCollection?.state.busy,
   );
+  await page.locator("#seriesMissing").waitFor({ state: "hidden" });
   assert.equal(await page.locator("#seriesMissing").isVisible(), false);
   failPhoenix = true;
   await page.locator("#seriesCatalogToggle").click();

@@ -86,6 +86,7 @@ export function createAnimeBrowser({
   let seasonGeneration = 0,
     adaptationGeneration = 0;
   let ready = false;
+  let automaticAdaptationSearch = "";
   let seasonalList: ReturnType<typeof createInfiniteList> | null = null;
 
   function ownership(media: AnimeMedia) {
@@ -481,6 +482,24 @@ export function createAnimeBrowser({
     }
   }
 
+  function discoverAdaptations() {
+    if (!ready || !$("adaptationPanel")) return;
+    const heading = $("seriesTitle");
+    const input = $("adaptationSearch");
+    const original = heading.dataset.series || heading.textContent;
+    const search = heading.dataset.anilistSearch || original;
+    // Never overwrite a search the user has explicitly changed.
+    if (input.value !== original && input.value !== automaticAdaptationSearch)
+      return;
+    if (!search || search === automaticAdaptationSearch) return;
+    input.value = search.slice(0, 200);
+    automaticAdaptationSearch = input.value;
+    void findAdaptations();
+  }
+  window.addEventListener("series-metadata-ready", discoverAdaptations, {
+    signal,
+  });
+
   $("discoveryMode")?.addEventListener(
     "change",
     () => {
@@ -552,7 +571,7 @@ export function createAnimeBrowser({
             ),
         );
         if (types.size === 1) $("adaptationType").value = [...types][0];
-        void findAdaptations();
+        discoverAdaptations();
       }
     },
     update() {

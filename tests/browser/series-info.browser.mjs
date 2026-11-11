@@ -61,6 +61,18 @@ try {
     ],
     synopses: [
       {
+        text: "The publisher’s full English story.\nA second paragraph from the publisher.",
+        language: "en",
+        source: "Yen Press",
+        url: "https://yenpress.com/series/moon-library",
+      },
+      {
+        text: "A bookstore description that must not replace the publisher.",
+        language: "en",
+        source: "Naiin",
+        url: "https://www.naiin.com/product/detail/42",
+      },
+      {
         text: "A quiet library opens only beneath the moon. Its new keeper discovers that every borrowed book holds a memory of the town.",
         language: "en",
         source: "AniList",
@@ -87,6 +99,9 @@ try {
     warnings: [],
   };
   let pulled = false;
+  let automaticPulls = 0;
+  let discoveryChecks = 0;
+  let keepDiscoveryPending = false;
   let fail = false;
   await page.route("**/api/rpc", async (route) => {
     const { name, arg } = route.request().postDataJSON();
@@ -106,12 +121,22 @@ try {
         },
       });
     if (name === "pullSeriesInfo") {
+      if (arg.automatic) automaticPulls++;
       if (fail)
         return route.fulfill({
           status: 503,
           json: { message: "AniList is unavailable. Please try again later." },
         });
       pulled = true;
+      if (arg.automatic)
+        return route.fulfill({
+          json: {
+            ...info,
+            titles: [],
+            synopses: [],
+            discoveryJobId: "fixture-discovery",
+          },
+        });
       if (arg.search === "Moon" && !arg.mediaId)
         return route.fulfill({
           json: {
@@ -134,6 +159,17 @@ try {
         });
       return route.fulfill({ json: info });
     }
+    if (name === "getSeriesDiscovery") {
+      discoveryChecks++;
+      return route.fulfill({
+        json: {
+          ...info,
+          ...(keepDiscoveryPending
+            ? { discoveryJobId: "fixture-discovery" }
+            : {}),
+        },
+      });
+    }
     if (name === "getAnimeAdaptations")
       return route.fulfill({
         json: { items: [], exactId: null, complete: true },
@@ -143,49 +179,48 @@ try {
     return route.continue();
   });
   await page.goto(url + seriesPath("Moon Library"));
-  await page
-    .getByRole("button", { name: "Pull series details", exact: true })
-    .waitFor({ state: "visible" });
   await page.waitForFunction(
     () =>
       document.querySelector(".series-info")?.getAttribute("aria-busy") ===
       "false",
   );
-  assert.match(
-    await page.locator(".series-info").textContent(),
-    /No synopsis saved/,
+  assert.equal(pulled, true, "Series details load without a button click");
+  assert.equal(automaticPulls, 1);
+  assert.equal(
+    discoveryChecks,
+    1,
+    "Background results appear without keeping a lookup request open",
   );
-  await page
-    .getByRole("button", { name: "Pull series details", exact: true })
-    .click();
+  assert.equal(
+    await page.locator(".series-synopsis-text").innerText(),
+    info.synopses[0].text,
+    "The publisher wins automatically over bookstores and AniList",
+  );
+  assert.equal(await page.locator(".series-synopsis a").count(), 0);
+  assert.doesNotMatch(
+    await page.getByLabel("Synopsis language").textContent(),
+    /Publisher|AniList|Yen Press|Naiin/,
+  );
+  assert.equal(
+    await page.getByLabel("Synopsis language").locator("option").count(),
+    3,
+  );
   await page.getByLabel("View series title in").selectOption("ja");
   await page.waitForFunction(
     () => document.getElementById("seriesTitle")?.textContent === "月の図書館",
   );
-  await page
-    .getByLabel("Synopsis · language & source")
-    .selectOption({ label: "Japanese · Publisher · 2" });
+  await page.getByLabel("Synopsis language").selectOption("ja");
   assert.match(
     await page.locator(".series-synopsis-text").textContent(),
     /月の光/,
   );
-  await page
-    .getByLabel("Synopsis · language & source")
-    .selectOption({ label: "Thai · Publisher · 3" });
+  await page.getByLabel("Synopsis language").selectOption("th");
   assert.equal(
     await page.locator(".series-synopsis-text").innerText(),
-    info.synopses[2].text,
+    info.synopses.find((item) => item.language === "th").text,
     "Publisher text must be readable in the app, not only through its link",
   );
-  assert.equal(
-    new URL(
-      await page.locator(".series-info-source").getAttribute("href"),
-    ).searchParams.get("ref"),
-    "meemai.ckl.moe",
-  );
-  await page
-    .getByLabel("Synopsis · language & source")
-    .selectOption({ label: "Japanese · Publisher · 2" });
+  await page.getByLabel("Synopsis language").selectOption("ja");
   await page.waitForFunction(
     () => document.querySelectorAll("#bookList .book-row").length === 1,
   );
@@ -230,7 +265,7 @@ try {
     );
     await page.screenshot({ path, fullPage: true });
   };
-  await capture(".impeccable/review/desktop.png");
+  await capture(".impeccable/review/synopsis-desktop.png");
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(
     await page.evaluate(
@@ -238,7 +273,13 @@ try {
     ),
     true,
   );
-  await capture(".impeccable/review/mobile.png");
+  await capture(".impeccable/review/synopsis-mobile.png");
+  await page.getByRole("button", { name: "Dark theme", exact: true }).click();
+  await page.waitForFunction(
+    () => document.documentElement.dataset.theme === "dark",
+  );
+  await capture(".impeccable/review/synopsis-mobile-dark.png");
+  await page.getByRole("button", { name: "Dark theme", exact: true }).click();
   await page
     .locator(".series-info-candidates")
     .getByRole("button", { name: "Use this series" })
@@ -267,7 +308,7 @@ try {
   );
   fail = true;
   await page
-    .getByRole("button", { name: "Pull series details", exact: true })
+    .getByRole("button", { name: "Refresh details", exact: true })
     .click();
   await page
     .getByRole("alert")
@@ -277,9 +318,36 @@ try {
     await page.locator(".series-synopsis-text").textContent(),
     /月の光/,
   );
+  await page.reload();
+  await page
+    .getByRole("alert")
+    .filter({ hasText: "AniList is unavailable" })
+    .waitFor();
+  assert.match(
+    await page.locator(".series-synopsis-text").textContent(),
+    /月の光/,
+    "An automatic refresh failure must not remove the saved synopsis",
+  );
+  fail = false;
+  keepDiscoveryPending = true;
+  const pendingResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/rpc") &&
+      response.request().postDataJSON()?.name === "getSeriesDiscovery",
+  );
+  await page.reload();
+  await pendingResponse;
+  await page.goto(url + "/data");
+  const checksAfterNavigation = discoveryChecks;
+  await page.waitForTimeout(1800);
+  assert.equal(
+    discoveryChecks,
+    checksAfterNavigation,
+    "Leaving a series stops background-status requests",
+  );
   assert.deepEqual(errors, []);
   console.log(
-    "Series info: title/synopsis language selection, edition navigation, persistence, failures and phone layout passed.",
+    "Series info: automatic enrichment, publisher-first synopsis, hidden citations, languages, persistence, failures and phone layout passed.",
   );
 } finally {
   await browser.close();

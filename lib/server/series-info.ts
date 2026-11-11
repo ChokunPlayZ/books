@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { AppError, type Store } from "./store.ts";
 import { canonicalIsbn } from "../domain/isbn.ts";
 import { normalizeBookType } from "../domain/book-type.ts";
+import { digest } from "../domain/hash.ts";
+import { SCRAPE_TTL } from "./scrape-cache.ts";
 import {
   mergeSeriesMetadata,
   seriesAliasesMatch,
@@ -19,6 +21,7 @@ type Request = {
   search?: string;
   mediaId?: number;
   sourceUrl?: string;
+  automatic?: boolean;
 };
 
 export function createSeriesInfoService(
@@ -27,11 +30,12 @@ export function createSeriesInfoService(
     Partial<
       Pick<
         ReturnType<typeof createCatalogService>,
-        "getBookSourceMetadata" | "getSeriesSourceMetadata"
+        "getBookSourceMetadata" | "getSeriesSourceMetadata" | "lookupBook"
       >
     >,
   anime: Pick<ReturnType<typeof createAnimeService>, "getAnimeAdaptations">,
 ) {
+  const pending = new Map<string, Promise<SeriesInfo>>();
   async function profiles() {
     const rows = await store.db
       .prepare(
@@ -127,6 +131,91 @@ export function createSeriesInfoService(
   }
   async function pullSeriesInfo(arg: Request): Promise<SeriesInfo> {
     const books = await validate(arg);
+    if (arg.automatic !== undefined && typeof arg.automatic !== "boolean")
+      throw new AppError("Choose a boolean automatic value.");
+    const automatic =
+      arg.automatic &&
+      arg.search === undefined &&
+      arg.mediaId === undefined &&
+      arg.sourceUrl === undefined;
+    const pendingKey = JSON.stringify([
+      store.currentUser().id,
+      arg.series,
+      arg.type,
+    ]);
+    if (automatic && pending.has(pendingKey)) return pending.get(pendingKey)!;
+    const before = await getSeriesInfo(arg);
+    const discoveryKey = (info: SeriesInfo) =>
+      "series-discovery:v1:" +
+      digest(
+        JSON.stringify([
+          store.currentUser().id,
+          arg.series,
+          arg.type,
+          info.workId,
+          info.manual,
+          info.editions,
+          books
+            .filter((book) =>
+              info.editions.some(
+                (edition) =>
+                  edition.series === book.series &&
+                  normalizeBookType(book.type) === arg.type,
+              ),
+            )
+            .map((book) => [
+              book.row,
+              book.isbn,
+              book.publisher,
+              book.publisherUrl,
+              book.edition,
+              book.volume,
+            ]),
+        ]),
+      );
+    const key = discoveryKey(before);
+    if (automatic) {
+      try {
+        const cached = JSON.parse((await store.cache.get(key)) || "null");
+        if (
+          cached &&
+          Array.isArray(cached.candidates) &&
+          Array.isArray(cached.warnings)
+        )
+          return {
+            ...before,
+            candidates: cached.candidates,
+            warnings: cached.warnings,
+          };
+      } catch {}
+      if (pending.has(pendingKey)) return pending.get(pendingKey)!;
+    }
+    const request = performPull(arg).then(async (result) => {
+      // Cache the attempt, not the profile: later edits/links always read fresh.
+      await Promise.all(
+        [...new Set([key, discoveryKey(result)])].map((key) =>
+          store.cache.put(
+            key,
+            JSON.stringify({
+              candidates: result.candidates,
+              warnings: result.warnings,
+            }),
+            result.warnings.length ? SCRAPE_TTL.retry : SCRAPE_TTL.catalog,
+          ),
+        ),
+      );
+      return result;
+    });
+    if (!automatic) return request;
+    pending.set(pendingKey, request);
+    try {
+      return await request;
+    } finally {
+      pending.delete(pendingKey);
+    }
+  }
+  async function performPull(arg: Request): Promise<SeriesInfo> {
+    const books = await validate(arg);
     if (
       arg.search !== undefined &&
       (typeof arg.search !== "string" ||
@@ -168,36 +257,52 @@ export function createSeriesInfoService(
         )
           return false;
         const key = JSON.stringify([book.series, book.publisher, book.edition]);
-        if (seen.has(key) || (!canonicalIsbn(book.isbn) && !book.publisherUrl))
-          return false;
+        if (seen.has(key)) return false;
         seen.add(key);
         return true;
       })
       .slice(0, 6);
     await Promise.all(
       representatives.map(async (book) => {
+        let sourceMetadata: Partial<SeriesProfile> | undefined;
+        // Prefer the saved publisher product/series page, including no-ISBN books.
+        // A source outage must not prevent ISBN or exact-title fallback.
         try {
-          const result = canonicalIsbn(book.isbn)
-            ? await catalogs.lookupIsbn(book.isbn)
-            : null;
-          if (
-            result?.found &&
-            (!result.details?.isbn ||
-              canonicalIsbn(result.details.isbn) === canonicalIsbn(book.isbn))
-          )
-            records.push(result.details);
-          warnings.push(...(result?.warnings || []));
+          if (book.publisherUrl && catalogs.getBookSourceMetadata) {
+            sourceMetadata = await catalogs.getBookSourceMetadata({
+              row: book.row,
+            });
+            records.push(sourceMetadata);
+          }
         } catch {
           warnings.push(
             "Some publisher metadata could not be loaded. Saved descriptions were kept.",
           );
         }
-        // A failed ISBN provider must not prevent reading the saved source page.
         try {
-          if (book.publisherUrl && catalogs.getBookSourceMetadata)
-            records.push(
-              await catalogs.getBookSourceMetadata({ row: book.row }),
-            );
+          const result = canonicalIsbn(book.isbn)
+            ? await catalogs.lookupIsbn(book.isbn)
+            : !arg.sourceUrl &&
+                !sourceMetadata?.synopses?.length &&
+                catalogs.lookupBook
+              ? await catalogs.lookupBook({
+                  series: book.series,
+                  volume: book.volume,
+                  publisher: book.publisher,
+                  type: arg.type,
+                  edition: book.edition,
+                })
+              : null;
+          if (
+            result?.found &&
+            !result.stale &&
+            !("needsSelection" in result && result.needsSelection) &&
+            (!result.details?.isbn ||
+              !canonicalIsbn(book.isbn) ||
+              canonicalIsbn(result.details.isbn) === canonicalIsbn(book.isbn))
+          )
+            records.push(result.details);
+          warnings.push(...(result?.warnings || []));
         } catch {
           warnings.push(
             "Some publisher metadata could not be loaded. Saved descriptions were kept.",
@@ -241,6 +346,18 @@ export function createSeriesInfoService(
             warnings.push(result.warning);
           for (const item of result.items)
             candidates.set(item.book.id, item.book);
+          // Once the original work is known, do not make users wait for searches
+          // of every translated alias. Ambiguous exact matches still need review.
+          if (
+            arg.mediaId
+              ? candidates.has(arg.mediaId)
+              : [...candidates.values()].some((book) =>
+                  book.titles.some((title) =>
+                    aliases.some((alias) => seriesAliasesMatch([alias], title)),
+                  ),
+                )
+          )
+            break;
         } catch (error) {
           warnings.push(
             error instanceof Error
