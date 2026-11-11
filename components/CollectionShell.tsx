@@ -7,6 +7,8 @@ import SeriesHeader from "./collection/SeriesHeader";
 import SeriesInfoPanel from "./collection/SeriesInfoPanel";
 import SeriesEditor from "./collection/SeriesEditor";
 import SeriesCatalogPanel from "./collection/SeriesCatalogPanel";
+import VolumeIndex from "./collection/VolumeIndex";
+import { normalizeBookType } from "../lib/domain/book-type.ts";
 import ShelfBrowser from "./collection/ShelfBrowser";
 import ReleasesPanel from "./collection/ReleasesPanel";
 import DiscoveryPanel from "./collection/DiscoveryPanel";
@@ -49,17 +51,35 @@ export default async function CollectionShell({
         <div id={"pageError"} className={"banner"} role={"alert"} hidden></div>
         {overview && <CollectionHeading removed={view === "trash"} />}
         {overview && <CollectionStats books={data.books} />}
-        {series !== null && <SeriesHeader series={series} books={data.books} />}
         {series !== null && (
           <SeriesInfoPanel
             key={series}
             series={series}
             books={data.books}
             userId={data.user.id}
-          />
+            header={<SeriesHeader series={series} books={data.books} />}
+          >
+            <SeriesEditor />
+            {shelf && (
+              <ShelfBrowser
+                data={data}
+                series={series}
+                removed={view === "trash"}
+              />
+            )}
+            <VolumeIndex
+              series={series}
+              types={[
+                ...new Set(
+                  data.books
+                    .filter((book) => book.series === series)
+                    .map((book) => normalizeBookType(book.type)),
+                ),
+              ]}
+            />
+          </SeriesInfoPanel>
         )}
-        {series !== null && <SeriesEditor />}
-        {shelf && (
+        {shelf && series === null && (
           <ShelfBrowser
             data={data}
             series={series}

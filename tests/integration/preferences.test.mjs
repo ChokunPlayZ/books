@@ -134,7 +134,7 @@ test("schema initialization preserves accounts, books and active sessions", asyn
   await store.db.exec("ALTER TABLE users DROP COLUMN disabled");
   await store.db.exec("ALTER TABLE oauth_attempts DROP COLUMN relink_hash");
   await store.db.exec(
-    "DROP TABLE series_profiles,admin_events,account_relinks,publisher_request_slots,publisher_crawl_seen,publisher_crawls",
+    "DROP TABLE metadata_suggestions,series_profiles,admin_events,account_relinks,publisher_request_slots,publisher_crawl_seen,publisher_crawls",
   );
   await store.db.exec("DELETE FROM schema_migrations WHERE version>=4");
   await store.close();

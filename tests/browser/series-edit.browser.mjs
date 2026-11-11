@@ -216,6 +216,9 @@ try {
     ),
   });
   await page.getByRole("button", { name: "Dark theme", exact: true }).click();
+  await page.waitForFunction(
+    () => document.documentElement.dataset.theme === "dark",
+  );
   await page.screenshot({
     path: fileURLToPath(
       new URL(
@@ -226,6 +229,9 @@ try {
   });
   assert.equal(await page.locator("html").getAttribute("data-theme"), "dark");
   await page.getByRole("button", { name: "Dark theme", exact: true }).click();
+  await page.waitForFunction(
+    () => document.documentElement.dataset.theme === "light",
+  );
   await details(0).click();
   await page
     .locator(`#volume-${before[0].row}-details .series-edit-details-body`)

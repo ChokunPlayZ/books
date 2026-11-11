@@ -143,6 +143,10 @@ try {
   await runBrowserScenario("book-discovery.browser.mjs", url);
   await runBrowserScenario("search.browser.mjs", url);
   await runBrowserScenario(
+    "series-details.browser.mjs",
+    await start("series-details"),
+  );
+  await runBrowserScenario(
     "loading-feedback.browser.mjs",
     await start("loading-feedback"),
   );

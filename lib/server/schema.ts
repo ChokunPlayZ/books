@@ -126,6 +126,17 @@ const migrations = [
     PRIMARY KEY(user_id,series,type)
   );
   `,
+  `
+  CREATE TABLE metadata_suggestions (
+    id TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id),
+    series TEXT NOT NULL, type TEXT NOT NULL, volume_key TEXT NOT NULL DEFAULT '',
+    field TEXT NOT NULL, proposed TEXT NOT NULL, source_url TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending'
+      CHECK(status IN ('pending','reviewed','rejected')),
+    created_at BIGINT NOT NULL, reviewed_at BIGINT, reviewed_by INTEGER REFERENCES users(id)
+  );
+  CREATE INDEX metadata_suggestions_pending ON metadata_suggestions(status,created_at);
+  `,
 ];
 
 export async function migrateDatabase(pool: Pool) {

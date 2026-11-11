@@ -2,7 +2,12 @@ import type { Release } from "../types.ts";
 import { normalizeBookType } from "./book-type.ts";
 import { bookSeriesTitle, seriesCategoryTitle } from "./title-normalization.ts";
 import { descriptionText as synopsisText } from "./html.ts";
-import type { SeriesTitle, Synopsis } from "./series-info.ts";
+import type {
+  SeriesTitle,
+  Synopsis,
+  SeriesProfile,
+  SeriesFact,
+} from "./series-info.ts";
 
 export const ANIME_SEASONS = ["WINTER", "SPRING", "SUMMER", "FALL"] as const;
 export type AnimeSeason = (typeof ANIME_SEASONS)[number];
@@ -21,6 +26,9 @@ export type AnimeMedia = {
   malUrl: string;
   translatedTitles?: SeriesTitle[];
   synopses?: Synopsis[];
+  facts?: SeriesProfile["facts"];
+  tags?: SeriesProfile["tags"];
+  links?: SeriesProfile["links"];
 };
 export type AnimeAdaptation = { book: AnimeMedia; anime: AnimeMedia[] };
 export type SeasonalBook = {
@@ -221,6 +229,94 @@ export function parseAnimeMedia(value: unknown): AnimeMedia | null {
         ? Number(media.idMal)
         : null;
   const category = kind === "anime" ? "anime" : "manga";
+  const url = `https://anilist.co/${category}/${id}`;
+  const facts: SeriesFact[] = [];
+  const fact = (label: string, value: unknown) => {
+    if (
+      (typeof value === "string" && value.trim()) ||
+      (typeof value === "number" && Number.isFinite(value))
+    )
+      facts.push({
+        label,
+        value: synopsisText(String(value)),
+        source: "AniList",
+        url,
+      });
+  };
+  fact(
+    "Publication status",
+    {
+      RELEASING: "Ongoing",
+      FINISHED: "Completed",
+      NOT_YET_RELEASED: "Upcoming",
+      CANCELLED: "Cancelled",
+      HIATUS: "On hiatus",
+    }[String(media.status)],
+  );
+  fact("Format", media.format);
+  fact("Volumes", media.volumes);
+  fact("Chapters", media.chapters);
+  fact("Country of origin", media.countryOfOrigin);
+  fact("Source material", media.source);
+  fact(
+    "Average score",
+    typeof media.averageScore === "number"
+      ? `${media.averageScore}/100`
+      : undefined,
+  );
+  const date = (value: unknown) => {
+    const item = record(value);
+    return Number.isInteger(item.year)
+      ? [
+          item.year,
+          ...(Number.isInteger(item.month)
+            ? [
+                String(item.month).padStart(2, "0"),
+                ...(Number.isInteger(item.day)
+                  ? [String(item.day).padStart(2, "0")]
+                  : []),
+              ]
+            : []),
+        ].join("-")
+      : "";
+  };
+  fact("First published", date(media.startDate));
+  fact("Final publication", date(media.endDate));
+  const edges = record(media.staff).edges;
+  if (Array.isArray(edges))
+    for (const edge of edges) {
+      const staff = record(edge),
+        name = record(record(staff.node).name);
+      fact(
+        typeof staff.role === "string" ? staff.role : "Creator",
+        name.full || name.native,
+      );
+    }
+  const tags = [
+    ...(Array.isArray(media.genres)
+      ? media.genres
+          .filter((name) => typeof name === "string")
+          .map((name) => ({ name, kind: "Genre", source: "AniList", url }))
+      : []),
+    ...(Array.isArray(media.tags)
+      ? media.tags.flatMap((tag) => {
+          const item = record(tag);
+          return typeof item.name === "string"
+            ? [
+                {
+                  name: item.name,
+                  kind:
+                    item.isMediaSpoiler || item.isGeneralSpoiler
+                      ? "Spoiler tag"
+                      : "Theme",
+                  source: "AniList",
+                  url,
+                },
+              ]
+            : [];
+        })
+      : []),
+  ];
   return {
     id,
     malId,
@@ -263,6 +359,20 @@ export function parseAnimeMedia(value: unknown): AnimeMedia | null {
           },
         ]
       : [],
+    facts,
+    tags,
+    links: [
+      { label: "AniList", language: "und", url },
+      ...(malId
+        ? [
+            {
+              label: "MyAnimeList",
+              language: "und",
+              url: `https://myanimelist.net/${category}/${malId}`,
+            },
+          ]
+        : []),
+    ],
   };
 }
 

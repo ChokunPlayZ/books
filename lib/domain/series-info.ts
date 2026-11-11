@@ -6,6 +6,11 @@ import {
 } from "./html.ts";
 import { animeCatalogTitleKeys } from "./anime.ts";
 import { canonicalIsbn } from "./isbn.ts";
+import { safeCoverUrl } from "./urls.ts";
+import {
+  htmlPublicationFacts,
+  structuredPublicationFacts,
+} from "./series-sources.ts";
 export { descriptionText as synopsisText } from "./html.ts";
 
 export type SeriesTitle = {
@@ -25,7 +30,32 @@ export type SeriesProfile = {
   titles: SeriesTitle[];
   synopses: Synopsis[];
   manual?: boolean;
+  facts?: SeriesFact[];
+  tags?: SeriesTag[];
+  images?: SeriesImage[];
+  links?: SeriesLink[];
 };
+export type SeriesFact = {
+  label: string;
+  value: string;
+  source: string;
+  url: string;
+};
+export type SeriesTag = {
+  name: string;
+  kind: string;
+  source: string;
+  url: string;
+};
+export type SeriesImage = {
+  kind: "banner" | "cover";
+  url: string;
+  source: string;
+  sourceUrl: string;
+  coverId?: string;
+  coverUrl?: string;
+};
+export type SeriesLink = { label: string; language: string; url: string };
 export type SeriesInfo = SeriesProfile & {
   series: string;
   type: string;
@@ -58,7 +88,56 @@ export function publicSourceUrl(value: unknown) {
 export function mergeSeriesMetadata(...records: Partial<SeriesProfile>[]) {
   const titles = new Map<string, SeriesTitle>();
   const synopses = new Map<string, Synopsis>();
+  const facts = new Map<string, SeriesFact>();
+  const tags = new Map<string, SeriesTag>();
+  const images = new Map<string, SeriesImage>();
+  const links = new Map<string, SeriesLink>();
   for (const record of records) {
+    for (const item of Array.isArray(record?.facts) ? record.facts : []) {
+      const label = synopsisText(item?.label).slice(0, 100);
+      const value = synopsisText(item?.value).slice(0, 2000);
+      const url = publicSourceUrl(item?.url);
+      if (label && value && url)
+        facts.set(JSON.stringify([label, value, url]), {
+          label,
+          value,
+          url,
+          source: synopsisText(item.source).slice(0, 200),
+        });
+    }
+    for (const item of Array.isArray(record?.tags) ? record.tags : []) {
+      const name = synopsisText(item?.name).slice(0, 200);
+      const url = publicSourceUrl(item?.url);
+      if (name && url)
+        tags.set(JSON.stringify([name, url]), {
+          name,
+          url,
+          kind: synopsisText(item.kind || "Tag").slice(0, 100),
+          source: synopsisText(item.source).slice(0, 200),
+        });
+    }
+    for (const item of Array.isArray(record?.images) ? record.images : []) {
+      const url = safeCoverUrl(item?.url);
+      const sourceUrl = publicSourceUrl(item?.sourceUrl);
+      if (url && sourceUrl && ["banner", "cover"].includes(item.kind))
+        images.set(JSON.stringify([item.kind, url]), {
+          kind: item.kind,
+          url,
+          coverUrl: url,
+          sourceUrl,
+          source: synopsisText(item.source).slice(0, 200),
+        });
+    }
+    for (const item of Array.isArray(record?.links) ? record.links : []) {
+      const url = publicSourceUrl(item?.url);
+      const label = synopsisText(item?.label).slice(0, 200);
+      if (url && label)
+        links.set(url, {
+          url,
+          label,
+          language: String(item.language || "und").slice(0, 20),
+        });
+    }
     for (const item of Array.isArray(record?.titles) ? record.titles : []) {
       const title = synopsisText(item?.title).slice(0, 500);
       const url = publicSourceUrl(item?.url);
@@ -90,6 +169,10 @@ export function mergeSeriesMetadata(...records: Partial<SeriesProfile>[]) {
   return {
     titles: [...titles.values()].sort(order),
     synopses: [...synopses.values()].sort(order),
+    ...(facts.size ? { facts: [...facts.values()] } : {}),
+    ...(tags.size ? { tags: [...tags.values()] } : {}),
+    ...(images.size ? { images: [...images.values()] } : {}),
+    ...(links.size ? { links: [...links.values()] } : {}),
   };
 }
 
@@ -242,5 +325,9 @@ export function htmlSeriesMetadata(
   return mergeSeriesMetadata({
     titles: descriptionTitles([description, body, raw].join("\n"), source, url),
     synopses: text ? [{ text, language, source, url }] : [],
+    facts: [
+      ...structuredPublicationFacts(html, source, url, isbn),
+      ...htmlPublicationFacts(body, source, url),
+    ],
   });
 }

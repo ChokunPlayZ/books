@@ -5,6 +5,7 @@ import { shelfCoverBook, coverTint } from "../../lib/domain/shelf.ts";
 import { LIST_BATCH_SIZE } from "../../lib/domain/lists.ts";
 import { getTranslations } from "../../lib/server/preferences.ts";
 import CoverImage from "./CoverImage";
+import { volumePath, formatMoney } from "../../lib/domain/series-detail.ts";
 
 async function Cover({
   book,
@@ -125,30 +126,41 @@ export default async function ShelfEntries({
       );
   return volumes.slice(0, LIST_BATCH_SIZE).map((book) =>
     !removed ? (
-      <button
-        className="book-row book-card"
-        type="button"
-        key={book.row}
-        title={
-          book.series + (book.volume !== "" ? ", volume " + book.volume : "")
-        }
-        aria-label={t("Edit {name}", {
-          name:
-            book.series +
-            (book.volume !== ""
-              ? ", " + t("Volume {volume}", { volume: book.volume })
-              : ""),
-        })}
-        aria-haspopup="dialog"
-      >
-        <Cover book={book} gallery="volume" />
-        <span className="shelf-caption">
-          {book.volume === ""
-            ? book.series
-            : t("Volume {volume}", { volume: book.volume })}
-        </span>
-        <span className="shelf-detail">{t(book.status || "No status")}</span>
-      </button>
+      <div className="volume-shelf-entry" key={book.row}>
+        <button
+          className="book-row book-card"
+          type="button"
+          key={book.row}
+          title={
+            book.series + (book.volume !== "" ? ", volume " + book.volume : "")
+          }
+          aria-label={t("Edit {name}", {
+            name:
+              book.series +
+              (book.volume !== ""
+                ? ", " + t("Volume {volume}", { volume: book.volume })
+                : ""),
+          })}
+          aria-haspopup="dialog"
+        >
+          <Cover book={book} gallery="volume" />
+          <span className="shelf-caption">
+            {book.volume === ""
+              ? book.series
+              : t("Volume {volume}", { volume: book.volume })}
+          </span>
+          <span className="shelf-detail">{t(book.status || "No status")}</span>
+        </button>
+        <a
+          className="volume-detail-link"
+          href={volumePath(book.series, "owned-" + book.row)}
+        >
+          {t("Volume details")}
+          {book.msrp !== "" && book.msrp != null
+            ? " · " + formatMoney(book.msrp, book.msrpCurrency)
+            : ""}
+        </a>
+      </div>
     ) : (
       <article className="book-row" key={book.row}>
         <div className="book-info">

@@ -25,6 +25,7 @@ import {
   mergeSeriesMetadata,
 } from "../../domain/series-info.ts";
 import { normalizeRecordTypes } from "../../domain/book-type.ts";
+import { sourceBookFacts } from "../../domain/series-sources.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
 import {
   recordScrapeDiagnostic,
@@ -79,7 +80,12 @@ export function createScraperRegistry(
     const parseBook = scraper.reparseBook;
     const reparseBook = async (book) => {
       if (!book) return book;
-      const parsed = parseBook ? await parseBook(book) : book;
+      const raw = parseBook ? await parseBook(book) : book;
+      if (!raw) return raw;
+      const parsed = {
+        ...raw,
+        ...mergeSeriesMetadata(raw, { facts: sourceBookFacts(raw) }),
+      };
       if (!parsed?.url) return parsed;
       try {
         const snapshot = JSON.parse(

@@ -4,6 +4,7 @@ import { releaseItem } from "./releases.ts";
 import { safeProductUrl, originalCoverUrl } from "./urls.ts";
 import { parsePageCount } from "./page-count.ts";
 import { money, productMsrp } from "./msrp.ts";
+import { htmlPublicationFacts } from "./series-sources.ts";
 
 function phoenixPriceHtml(html: string) {
   // Hyvä's main product uses initPrice<ID>(); recommendation cards use
@@ -64,6 +65,7 @@ export function phoenixBook(html: string, isbn: string, productUrl: string) {
   const offer = Array.isArray(product?.offers)
     ? product.offers[0]
     : product?.offers;
+  const facts = htmlPublicationFacts(html, "Phoenix Next", url, false);
   return {
     ...releaseItem(
       "phoenix",
@@ -79,7 +81,11 @@ export function phoenixBook(html: string, isbn: string, productUrl: string) {
     msrp: phoenixMsrp(html, product),
     msrpCurrency: meta(html, "product:price:currency") || "THB",
     availability:
-      meta(html, "product:availability") || offer?.availability || "",
+      meta(html, "product:availability") ||
+      offer?.availability ||
+      facts.find((fact) => /^StockStatus$/i.test(fact.label))?.value ||
+      "",
     coverUrl: originalCoverUrl(meta(html, "og:image")),
+    facts,
   };
 }

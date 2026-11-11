@@ -7,6 +7,8 @@ import {
 import { canonicalIsbn, volumeCoverKey } from "../domain.ts";
 import { createAnimeService } from "./anime.ts";
 import { createSeriesInfoService } from "./series-info.ts";
+import { createSeriesDetailsService } from "./series-details.ts";
+import { createMetadataSuggestions } from "./metadata-suggestions.ts";
 import { createSeasonalDiscoveryService } from "./seasonal-discovery.ts";
 import { createMetadataService } from "./metadata.ts";
 import { AppError } from "./store.ts";
@@ -44,6 +46,8 @@ export function createApplicationApi(
   const catalogs = createCatalogService(store, fetchImpl);
   const anime = createAnimeService(store, fetchImpl);
   const seriesInfo = createSeriesInfoService(store, catalogs, anime);
+  const seriesDetails = createSeriesDetailsService(store);
+  const suggestions = createMetadataSuggestions(store);
   const seasonal = createSeasonalDiscoveryService(anime, catalogs);
   const maintenance = createMetadataService(store, catalogs);
   const publisherCrawls = createPublisherCrawls(store, catalogs);
@@ -126,7 +130,8 @@ export function createApplicationApi(
     return await attachCoverPlaceholders(store, result);
   }
   const queued = {
-    pullSeriesInfo: seriesInfo.pullSeriesInfo,
+    pullSeriesInfo: async (arg) =>
+      attachImages(await seriesInfo.pullSeriesInfo(arg)),
     ...Object.fromEntries(
       Object.entries({ ...catalogs, ...anime, ...seasonal }).map(
         ([name, method]) => [
@@ -185,6 +190,8 @@ export function createApplicationApi(
     ...anime,
     ...seasonal,
     ...seriesInfo,
+    ...seriesDetails,
+    ...suggestions,
   };
   const api = Object.fromEntries(
     Object.entries(methods).map(([name, method]) => [
@@ -271,6 +278,14 @@ export function createApplicationApi(
   }
   return {
     ...api,
+    ...suggestions,
+    getMetadataBrowse: seriesDetails.getMetadataBrowse,
+    getSeriesVolumes: async (
+      arg: Parameters<typeof seriesDetails.getSeriesVolumes>[0],
+    ) => attachImages(await seriesDetails.getSeriesVolumes(arg)),
+    getSeriesInfo: async (
+      arg: Parameters<typeof seriesInfo.getSeriesInfo>[0],
+    ) => attachImages(await seriesInfo.getSeriesInfo(arg)),
     ...maintenanceApi,
     ...search,
     searchKnownEntities: async (arg) =>

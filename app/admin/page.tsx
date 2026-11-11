@@ -26,6 +26,9 @@ export default async function AdminPage() {
         <div className="top-inner flex items-center justify-between">
           <LibraryBrand />
           <div className="header-links">
+            <a className="btn" href="/admin/suggestions">
+              {t("Metadata suggestions")}
+            </a>
             <LanguageSelect />
             <ThemeToggle />
             <a className="btn" href="/">

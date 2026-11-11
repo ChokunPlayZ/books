@@ -13,6 +13,7 @@ import { createAnimeBrowser } from "./anime.ts";
 import { shelfCoverBook, coverTint } from "../domain/shelf.ts";
 import { coverPlaceholderUrl } from "../domain/cover-placeholder.ts";
 import { seriesPath, type CollectionView } from "../domain/navigation.ts";
+import { volumePath, formatMoney } from "../domain/series-detail.ts";
 import type { StoredBook } from "../types.ts";
 import { createScanner } from "./scanner.ts";
 import { activity, requestActivityLabel } from "./activity.ts";
@@ -1784,7 +1785,18 @@ export function mountCollection({
       button.addEventListener("click", () => openBook(book), {
         signal: events.signal,
       });
-      return button;
+      const wrapper = node("div", "volume-shelf-entry");
+      const details = node(
+        "a",
+        "volume-detail-link",
+        t("Volume details") +
+          (book.msrp !== "" && book.msrp != null
+            ? " · " + formatMoney(book.msrp, book.msrpCurrency)
+            : ""),
+      );
+      details.href = volumePath(book.series, "owned-" + book.row);
+      wrapper.append(button, details);
+      return wrapper;
     }
     const b = entry.book,
       row = node("article", "book-row");

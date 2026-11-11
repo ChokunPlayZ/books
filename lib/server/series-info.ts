@@ -18,13 +18,17 @@ type Request = {
   type: string;
   search?: string;
   mediaId?: number;
+  sourceUrl?: string;
 };
 
 export function createSeriesInfoService(
   store: Store,
   catalogs: Pick<ReturnType<typeof createCatalogService>, "lookupIsbn"> &
     Partial<
-      Pick<ReturnType<typeof createCatalogService>, "getBookSourceMetadata">
+      Pick<
+        ReturnType<typeof createCatalogService>,
+        "getBookSourceMetadata" | "getSeriesSourceMetadata"
+      >
     >,
   anime: Pick<ReturnType<typeof createAnimeService>, "getAnimeAdaptations">,
 ) {
@@ -138,6 +142,17 @@ export function createSeriesInfoService(
     const before = await getSeriesInfo(arg);
     const warnings: string[] = [];
     const records: Partial<SeriesProfile>[] = [];
+    if (arg.sourceUrl !== undefined && arg.sourceUrl !== "") {
+      if (
+        typeof arg.sourceUrl !== "string" ||
+        arg.sourceUrl.length > 2000 ||
+        !catalogs.getSeriesSourceMetadata
+      )
+        throw new AppError("Choose a supported series source URL.");
+      records.push(
+        await catalogs.getSeriesSourceMetadata({ url: arg.sourceUrl }),
+      );
+    }
     // Read one representative volume per edition. Volume descriptions retain their
     // source and edition title; they are not presented as translations of each other.
     const seen = new Set<string>();
@@ -271,7 +286,13 @@ export function createSeriesInfoService(
           current,
           metadata,
           selected
-            ? { titles: selected.translatedTitles, synopses: selected.synopses }
+            ? {
+                titles: selected.translatedTitles,
+                synopses: selected.synopses,
+                facts: selected.facts,
+                tags: selected.tags,
+                links: selected.links,
+              }
             : {},
         ),
       };
@@ -287,6 +308,9 @@ export function createSeriesInfoService(
           mergeSeriesMetadata(...records, {
             titles: selected.translatedTitles,
             synopses: selected.synopses,
+            facts: selected.facts,
+            tags: selected.tags,
+            links: selected.links,
           }),
         );
       }

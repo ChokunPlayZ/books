@@ -35,6 +35,10 @@ import {
 } from "../domain/series-info.ts";
 import { AppError } from "./store.ts";
 import { SCRAPE_TTL } from "./scrape-cache.ts";
+import {
+  phoenixSeriesUrl,
+  phoenixSeriesMetadata,
+} from "../domain/series-sources.ts";
 import { createScraperContext } from "./scrapers/http.ts";
 import {
   createScraperRegistry,
@@ -1444,6 +1448,17 @@ export function createCatalogService(
   }
 
   const methods = {
+    async getSeriesSourceMetadata(request: { url: string }) {
+      const url = phoenixSeriesUrl(request?.url);
+      if (!url)
+        throw new AppError(
+          "Use a Phoenix Next series page URL (https://www.phoenixnext.com/series/…).",
+        );
+      return phoenixSeriesMetadata(
+        await fetchText_(url, false, SCRAPE_TTL.product),
+        url,
+      );
+    },
     async getBookSourceMetadata(request: { row: number }) {
       if (!Number.isSafeInteger(request?.row))
         throw new AppError("Choose a book and try again.");
@@ -1500,7 +1515,27 @@ export function createCatalogService(
       const isbn = canonicalIsbn(book.isbn);
       if (!details || (isbn && canonicalIsbn(details.isbn) !== isbn))
         return { titles: [], synopses: [] };
-      return mergeSeriesMetadata(details);
+      // Follow only an explicit series link on the verified product, never guess
+      // a marketing slug or borrow a recommendation's metadata.
+      let seriesMetadata = {};
+      if (id === "phoenix") {
+        const html = await fetchText_(url, false, SCRAPE_TTL.product);
+        const main = html.split(/<section\b[^>]*\bid=["']related/i)[0];
+        const links = [...main.matchAll(/<a\b[^>]*href=["']([^"']+)["']/gi)]
+          .map((match) => phoenixSeriesUrl(match[1]))
+          .filter(Boolean);
+        const unique = [...new Set(links)];
+        if (unique.length === 1) {
+          try {
+            seriesMetadata = await methods.getSeriesSourceMetadata({
+              url: unique[0],
+            });
+          } catch {
+            /* Product data remains usable. */
+          }
+        }
+      }
+      return mergeSeriesMetadata(details, seriesMetadata);
     },
     lookupBook,
     lookupIsbn,

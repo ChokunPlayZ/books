@@ -55,6 +55,12 @@ Open a series and choose **Pull series details** to retrieve available publisher
 
 Exact original-title matches link automatically, including explicitly labeled romanized names in publisher descriptions. Ambiguous results require **Use this series**. Under **Find or change a series link**, you can also link editions already in your collection or remove an incorrect link. Manga and light novels remain separate, as do each edition's owned volumes and spending. Only source-provided text is used; missing translations are not fabricated. Server backups preserve links and synopsis metadata; the personal library export remains books-only.
 
+The compact series profile displays sourced creators, publication facts, genres and themes. Click a creator, publisher or tag to browse matching library titles and previously discovered public metadata. **Add a publisher series source** accepts Phoenix Next `/series/…` pages, including their banner, author/artist, publication year, age rating, alternate titles and synopsis. Verified Phoenix product pages can also supply an explicit series link. Artwork is stored through the existing authenticated image cache; source URLs remain attached.
+
+**Volume details** opens a separate page for each owned copy and known matching catalog volume. It separates list price, listed store price and your price paid, and includes ISBN, pages, publication facts, personal purchase details, source descriptions and linked language editions. Unknown values remain unrecorded; alternate titles alone do not assert a licensed edition or a complete publication list.
+
+**Suggest an edit** submits a field, correction, optional HTTPS source and explanation into a persistent review queue. It does not alter the series or your owned copies. Your suggestions and review outcomes remain visible in the menu. Administrators review submissions at **Administration → Metadata suggestions** (`/admin/suggestions`); marking a suggestion reviewed records the outcome only. Apply verified metadata changes separately with the existing metadata tools. Queue records are operational database data, not part of personal library exports.
+
 ## Everyday commands
 
 | Command                                       | Purpose                                                   |

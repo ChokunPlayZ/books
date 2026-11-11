@@ -14,7 +14,11 @@ import {
 } from "../domain/anime.ts";
 
 const fields = `id idMal type format status season seasonYear
-  title { english romaji native } synonyms description(asHtml: false)`;
+  title { english romaji native } synonyms description(asHtml: false)
+  volumes chapters countryOfOrigin source averageScore genres
+  startDate { year month day } endDate { year month day }
+  tags { name isMediaSpoiler isGeneralSpoiler }
+  staff(perPage: 25) { edges { role node { name { full native } } } }`;
 const relations = `relations { edges { relationType node { ${fields} } } }`;
 const searchQuery = `query ($search: String!, $formats: [MediaFormat]) {
   Page(page: 1, perPage: 8) {
