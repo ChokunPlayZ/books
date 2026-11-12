@@ -1,6 +1,19 @@
 import { decodeHtml } from "./domain/html.ts";
 import { safeCoverUrl } from "./domain/urls.ts";
 
+export function formatBytes(bytes: number, locale = "en-GB") {
+  if (!Number.isFinite(bytes) || bytes < 0) return "—";
+  const units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"];
+  let size = bytes;
+  let unit = 0;
+  // Promote rounded values too, rather than displaying 1,024 KiB.
+  while (unit < units.length - 1 && Math.round(size * 10) / 10 >= 1024) {
+    size /= 1024;
+    unit++;
+  }
+  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(size)} ${units[unit]}`;
+}
+
 export function unpackRecord(value: unknown): unknown {
   if (typeof value !== "string" || !/^[\s]*[\[{]/.test(value)) return value;
   try {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   fieldLabel,
+  formatBytes,
   readableText,
   recordDate,
   recordFields,
@@ -113,15 +114,7 @@ export function RecordContent({
       </time>
     );
   if (typeof parsed === "number") {
-    if (field === "bytes")
-      return (
-        <span>
-          {new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(
-            parsed / 1024,
-          )}{" "}
-          KiB
-        </span>
-      );
+    if (field === "bytes") return <span>{formatBytes(parsed, locale)}</span>;
     return <span>{new Intl.NumberFormat(locale).format(parsed)}</span>;
   }
   if (typeof parsed === "string") {

@@ -1,6 +1,7 @@
 // Standalone production checks with isolated PostgreSQL schemas, never a real library.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { mkdir } from "node:fs/promises";
 import { createServer } from "node:net";
 import { chromium } from "playwright";
 import { openTestStore, testDatabaseUrl } from "../helpers/database.mjs";
@@ -58,6 +59,14 @@ await store.forUser(readerSession.user, () =>
   }),
 );
 const isbn = "9780316769488";
+await store.cache.put(
+  "scrape:v1:admin-cache-size-fixture",
+  JSON.stringify({
+    title: "Large cached response",
+    value: "x".repeat(1.5 * 1024 ** 2),
+  }),
+  Infinity,
+);
 await store.cache.put(
   "scrape:v1:admin-inspect-fixture",
   JSON.stringify({
@@ -313,12 +322,43 @@ try {
     .getByRole("button", { name: "Metadata & caches", exact: true })
     .click();
   await page
+    .getByRole("row")
+    .filter({ hasText: "scrape:v1:admin-cache-size-fixture" })
+    .getByRole("cell", { name: "1.5 MiB", exact: true })
+    .waitFor();
+  assert.match(
+    await page
+      .locator(".admin-count")
+      .filter({ hasText: "Cached data" })
+      .locator("strong")
+      .innerText(),
+    /^\d+(?:\.\d)? MiB$/,
+  );
+  await mkdir("outputs", { recursive: true });
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      true,
+    );
+    await page.screenshot({
+      path: `outputs/admin-cache-sizes-${width}.png`,
+      fullPage: true,
+    });
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page
     .getByLabel("Search cache", { exact: true })
     .fill("Deep cached browser fixture");
   await page.getByLabel("Search cache", { exact: true }).press("Enter");
   const cachedRow = page
     .getByRole("row")
     .filter({ hasText: "scrape:v1:admin-inspect-fixture" });
+  await cachedRow
+    .getByRole("cell", { name: "39.2 KiB", exact: true })
+    .waitFor();
   await cachedRow.getByRole("button", { name: "Inspect", exact: true }).click();
   const cachePreview = page.locator(".admin-card").filter({
     has: page.getByRole("heading", { name: "Cache preview", exact: true }),

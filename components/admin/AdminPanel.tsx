@@ -21,7 +21,8 @@ import {
   type SystemResource,
 } from "../../lib/admin.ts";
 import { canonicalIsbn } from "../../lib/domain/isbn.ts";
-import { useTranslations } from "../PreferencesProvider";
+import { formatBytes } from "../../lib/admin-presentation.ts";
+import { usePreferences, useTranslations } from "../PreferencesProvider";
 import PublisherCrawlsPanel from "./PublisherCrawlsPanel";
 import AdminUsersPanel from "./AdminUsersPanel";
 import ScraperDebugPanel from "./ScraperDebugPanel";
@@ -94,6 +95,8 @@ export default function AdminPanel({
   initialRecords: SystemRecords;
 }) {
   const t = useTranslations();
+  const { preferences } = usePreferences();
+  const locale = preferences.locale === "th" ? "th-TH" : "en-GB";
   const [tab, setTab] = useState<
     "queue" | "crawls" | "debug" | "users" | "metadata" | "records"
   >("queue");
@@ -622,7 +625,7 @@ export default function AdminPanel({
               {t("Cache entries")}
             </span>
             <span className="admin-count">
-              <strong>{Math.ceil(metadata.summary.bytes / 1024)} KiB</strong>
+              <strong>{formatBytes(metadata.summary.bytes, locale)}</strong>
               {t("Cached data")}
             </span>
             <span className="admin-count">
@@ -840,7 +843,7 @@ export default function AdminPanel({
                         {t("Checked")}: {formatTime(entry.checkedAt)}
                       </small>
                     </td>
-                    <td>{entry.bytes} B</td>
+                    <td>{formatBytes(entry.bytes, locale)}</td>
                     <td>
                       <div className="admin-row-actions">
                         <button

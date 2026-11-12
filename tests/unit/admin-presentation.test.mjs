@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   fieldLabel,
+  formatBytes,
   readableText,
   recordDate,
   recordFields,
@@ -12,6 +13,31 @@ import {
 } from "../../lib/admin-presentation.ts";
 import { cachePreviewData } from "../../lib/server/cache-preview.ts";
 import { translator } from "../../lib/i18n.ts";
+
+test("cache sizes use consistent binary units with at most one decimal place", () => {
+  for (const [bytes, expected] of [
+    [0, "0 B"],
+    [1, "1 B"],
+    [1023, "1,023 B"],
+    [1024, "1 KiB"],
+    [1536, "1.5 KiB"],
+    [10 * 1024, "10 KiB"],
+    [1024 ** 2 - 1, "1 MiB"],
+    [1024 ** 2, "1 MiB"],
+    [1.25 * 1024 ** 2, "1.3 MiB"],
+    [1.5 * 1024 ** 3, "1.5 GiB"],
+    [1024 ** 4, "1 TiB"],
+    [1024 ** 5, "1 PiB"],
+  ])
+    assert.equal(formatBytes(bytes), expected, String(bytes));
+});
+
+test("cache sizes respect the locale and do not render invalid measurements", () => {
+  assert.equal(formatBytes(1536, "th-TH"), "1.5 KiB");
+  assert.equal(formatBytes(1536, "de-DE"), "1,5 KiB");
+  for (const invalid of [-1, NaN, Infinity, -Infinity])
+    assert.equal(formatBytes(invalid), "—");
+});
 
 test("book purchase sources are distinct from metadata sources in both languages", () => {
   assert.equal(fieldLabel("source", "books"), "Bought from");
