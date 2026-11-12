@@ -1,6 +1,6 @@
 import { attr, luckpimItem } from "../../domain.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
-import { httpFailure } from "../scrape-diagnostics.ts";
+import { httpFailure, ScrapeFailure } from "../scrape-diagnostics.ts";
 import type { ScraperContext, ScraperDefinition } from "./types.ts";
 
 export const luckpim: ScraperDefinition = {
@@ -38,7 +38,15 @@ export const luckpim: ScraperDefinition = {
         !Number.isSafeInteger(data.total) ||
         data.total < 0
       )
-        throw new Error("Series search changed");
+        throw new ScrapeFailure({
+          kind: "parser",
+          url: result.url,
+          status: result.status,
+          message:
+            response.message === "fail" && data === "error"
+              ? "Luckpim returned an application-level search failure (status 200, message fail, data error); this is not a confirmed empty search."
+              : "Luckpim search must contain data.list and a non-negative integer data.total.",
+        });
       const items = data.list.map(luckpimItem).filter(Boolean);
       return {
         items: items,

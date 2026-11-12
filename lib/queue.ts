@@ -39,6 +39,8 @@ export type QueueOverview = {
 export type JobDetail = ScrapeJob & {
   payload: unknown;
   result: unknown;
+  eventPage: number;
+  eventPages: number;
   events: {
     id: number;
     createdAt: number;

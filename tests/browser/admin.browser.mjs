@@ -6,6 +6,7 @@ import { chromium } from "playwright";
 import { openTestStore, testDatabaseUrl } from "../helpers/database.mjs";
 import { createAccount, signInWithGoogle } from "../../lib/server/auth.ts";
 import { checkAdminEditConflicts } from "../helpers/admin-edit-conflicts.mjs";
+import { checkPublisherCrawlControls } from "../helpers/publisher-crawl-controls.mjs";
 import {
   createApplicationApi,
   applicationQueue,
@@ -307,6 +308,7 @@ try {
   await page
     .getByRole("button", { name: "Resume queue", exact: true })
     .waitFor();
+  await checkPublisherCrawlControls(page, store, applicationQueue(store));
   await page
     .getByRole("button", { name: "Metadata & caches", exact: true })
     .click();

@@ -336,6 +336,18 @@ export function safePublisherUrl(raw, publisher) {
   }
 }
 
+// A bookstore product is a source for an edition, not a claim that the store
+// published it. Learning the publisher must not invalidate an existing source.
+export function safeBookSourceUrl(raw, publisher) {
+  const url = safePublisherUrl(raw, publisher);
+  if (url) return url;
+  const value = String(raw || "").trim();
+  return value.length <= 2000 &&
+    /^https:\/\/www\.naiin\.com\/product\/detail\/\d+\/?$/.test(value)
+    ? value
+    : "";
+}
+
 export function safeProductUrl(raw, id) {
   const url = decodeHtml(String(raw || ""));
   if (id === "lilyhouse") {

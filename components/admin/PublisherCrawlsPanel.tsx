@@ -9,7 +9,11 @@ import {
 import { useTranslations } from "../PreferencesProvider";
 import { adminRpc } from "./rpc.ts";
 
-export default function PublisherCrawlsPanel() {
+export default function PublisherCrawlsPanel({
+  onInspect,
+}: {
+  onInspect: (jobId: string) => void;
+}) {
   const t = useTranslations();
   const [data, setData] = useState<CrawlOverview | null>(null);
   const [publisherId, setPublisherId] = useState("");
@@ -144,49 +148,64 @@ export default function PublisherCrawlsPanel() {
             </p>
             {crawl.error && <p className="admin-inline-error">{crawl.error}</p>}
             {!!crawl.warnings.length && (
-              <ul>
+              <ul className="admin-crawl-warnings">
                 {crawl.warnings.map((warning) => (
                   <li key={warning}>{warning}</li>
                 ))}
               </ul>
             )}
-            {["running", "paused"].includes(crawl.status) && (
-              <div className="admin-row-actions">
+            <div className="admin-row-actions">
+              {crawl.jobId && (
                 <button
                   className="btn"
                   disabled={busy}
-                  onClick={() =>
-                    action("managePublisherCrawl", {
-                      id: crawl.id,
-                      action: crawl.status === "paused" ? "resume" : "pause",
-                    })
-                  }
+                  onClick={() => onInspect(crawl.jobId)}
                 >
-                  {t(
-                    crawl.status === "paused" ? "Resume crawl" : "Pause crawl",
-                  )}
+                  {t("Task details")}
                 </button>
-                <button
-                  className="btn"
-                  disabled={busy}
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        t(
-                          "Cancel this crawl? Already cached data will be kept.",
-                        ),
-                      )
-                    )
-                      void action("managePublisherCrawl", {
+              )}
+              {["running", "paused", "failed"].includes(crawl.status) && (
+                <div className="admin-row-actions">
+                  <button
+                    className="btn"
+                    disabled={busy}
+                    onClick={() =>
+                      action("managePublisherCrawl", {
                         id: crawl.id,
-                        action: "cancel",
-                      });
-                  }}
-                >
-                  {t("Cancel crawl")}
-                </button>
-              </div>
-            )}
+                        action: crawl.status !== "running" ? "resume" : "pause",
+                      })
+                    }
+                  >
+                    {t(
+                      crawl.status !== "running"
+                        ? "Resume crawl"
+                        : "Pause crawl",
+                    )}
+                  </button>
+                  {crawl.status !== "failed" && (
+                    <button
+                      className="btn"
+                      disabled={busy}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            t(
+                              "Cancel this crawl? Already cached data will be kept.",
+                            ),
+                          )
+                        )
+                          void action("managePublisherCrawl", {
+                            id: crawl.id,
+                            action: "cancel",
+                          });
+                      }}
+                    >
+                      {t("Cancel crawl")}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </article>
         ))}
       </div>

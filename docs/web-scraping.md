@@ -46,6 +46,16 @@ The built-in worker starts with the Node server through `instrumentation.ts`, wi
 
 Queue pause is durable and stops new claims, not current work. Fast-tracking moves a waiting task ahead of normal-priority work but never preempts running tasks or bypasses retry cooldowns. Only waiting tasks can be cancelled. Requeue creates a new task linked in event history and preserves the original record. Job inputs, results, attempts, timings, errors and administrator actions are inspectable. A request waiting longer than 90 seconds returns a background-work notice; paused and cooldown-delayed tasks return an immediate notice while remaining durable.
 
+### Publisher crawl recovery and logs
+
+Publisher crawls persist directory discovery, each series/product stage, catalog page numbers, request URLs, HTTP status, duration and exact failure causes in **Task details**. Diagnostics are saved while work is running, so they survive a worker restart. Logs never contain request headers, session tokens, cookies or response bodies. Task histories display the newest 200 events, with pagination for older events; browsing older pages pauses live refresh.
+
+A failed product or category does not stop unrelated books. Successful checkpoints remain saved; incomplete categories and failed products stay pending, and a series is not marked complete if one of its products failed. Choose **Resume crawl** on a failed crawl to retry its pending work under a new queue task. The original task history remains inspectable in the queue. Failure summaries identify the stage and URL; open **Task details** for individual causes. Existing failed crawls from older versions can also resume their saved frontier.
+
+Background crawling continues to respect publisher `robots.txt`. Yaakz currently disallows `/api/`, which its listing adapter requires. Its manual crawl therefore reports the blocked endpoint rather than bypassing the restriction or claiming an empty/successful result. Foreground metadata lookups are unchanged.
+
+Crawl checkpoints advance a small cursor instead of serializing the full frontier for every book. Publisher bookmarks are read once per run, control checks use one query, and idle or paused queue ticks avoid claim transactions. Forward schema migrations add indexes for active jobs, expired leases, foreground work, cache prefixes/expiry and cover-source references. The worker reclaims at most 500 expired disposable cache rows hourly across all instances; permanent verified metadata (`expires_at=0`) is never pruned, and unchanged permanent cache writes do not create another row version. Migrations apply on the next application connection; no manual production purge or database reset is needed.
+
 `getMetadataOverview` lists system-wide cache records and source targets (private series targets remain scoped to the administrator's own library); `getMetadataCacheEntry` returns a text preview limited to 16,000 characters. `purgeMetadataCache` accepts scoped filters and keeps library books, removed books, saved releases, explicit catalog links, and stored image bytes. Retry cooldowns for scrapers, image downloads, and AniList remain protected. Purging is blocked while scraping tasks are running; independent cover requests can still repopulate cache entries.
 
 `recrawlMetadata` accepts a target from the overview: an owned or previously cached ISBN, linked or previously checked series, release feed, publisher category or directory. It reuses the existing allowlists and timeouts and bypasses both the high-level metadata cache and underlying page/API freshness checks. Failed source cooldowns still apply. Failed refreshes retain previous successful catalog results and, when still retained, ISBN results, with warnings.
@@ -78,6 +88,8 @@ Parsed public names and exact misses reuse durable PostgreSQL snapshots for 24 h
 `lookupBook({ series, volume, publisher?, publisherId?, type?, edition?, isbn?, refresh? })` works without an ISBN or publisher. It checks applicable publishers' series directories before broad title searches, requires an exact normalized series/category match, and caches the series selection separately from its volumes. Matched catalog reads are shared across accounts before private alias annotation. Book-discovery aliases and selections remain account-scoped. Source additions/removals and language/ISBN applicability are part of discovery cache identity.
 
 Sibling lookups reuse that category and visit only their known product pages for additional details; they do not repeat store-wide ISBN searches. Missing volumes use a targeted alternate-store title lookup, not an assumption that the category contains every published book. Conflicting formats/editions, sets and selectable parents require review. Phoenix Next and Naiin can read and verify the main product ISBN directly from a known product URL. Verified product details reuse the permanent source policy; unverified listing ISBNs never fill imported ownership identifiers.
+
+An existing HTTPS Naiin product source remains valid when discovery fills the book's actual publisher. It is retained as bookstore provenance rather than rejected as a mismatched publisher website; publisher-site URL validation and fetch allowlists remain unchanged.
 
 Collection imports atomically enqueue `discoverImportedBooks` with their owned-row bounds. The normal durable worker fills missing fields in 25-book, low-priority continuation batches, retaining account scope and checking revision tokens after network waits. No import preview scrapes, removed books are excluded, and replaying an imported file does not create another discovery chain. See [imports](imports.md).
 
@@ -175,6 +187,8 @@ The ISBN comes from the listing's preview link; the release fetch does not visit
 
 Phoenix availability and release dates are left blank by this scraper. A missing price or ISBN remains blank; the scraper does not infer those values from the product slug.
 
+Some promotional products expose a shop barcode instead of an ISBN: `mg0949-01p.html` reports `1008000250112`. These are unverified product matches, not parser outages. Their BookWalker preview ISBN cannot verify the package or become an ownership identifier. A genuinely missing barcode/ISBN section still reports a parser failure.
+
 Phoenix cover URLs use the original `/media/catalog/product/` image, removing Magento's `/cache/<hash>/` size variant from listing, Open Graph and gallery URLs. Some variants contain white side padding: a live check on November 10, 2026 found a 265×265 Open Graph image for `mg0435-02.html`, while the original cover was 430×608 without padding. The cover download service also normalizes older cached URLs before fetching. Existing stored image IDs keep their bytes and source; use **Pull covers** and select the original image to replace an already-saved padded cover.
 
 Permanent Phoenix ISBN, search and product snapshots are reparsed from their locally pinned product HTML on read, correcting old cover URLs and filling missing MSRP without another remote request. Hyvä's main-product `initPrice<ID>()` price box supplies the explicit `old-price`; recommendation cards and discounted final prices cannot supply MSRP. ISBN `9786164648357` (`mgm0098-01.html`) was verified on November 10, 2026 with an unpadded 430×608 original, THB 175 MSRP and THB 166.25 selling price. **Pull covers** also offers the original for an older stored thumbnail when gallery discovery is unavailable, while retaining the saved image for explicit user selection.
@@ -197,6 +211,8 @@ Luckpim's initial monthly page contains placeholders rather than its book record
 4. Require HTTP 200, `sc === 200`, and an array in `d.data`. Read page 2 if the first page has 100 records and `d.total` indicates more records.
 
 The token and cookies belong to this public catalog request. They are obtained fresh when uncached book data is needed and held only for that fetch; the app does not reuse the user's browser cookies, log in to a publisher account, or persist those credentials. Luckpim caches parsed public book records rather than its token-bearing HTML or response headers, so cached series aliases share book data without replaying an old session.
+
+Luckpim can return HTTP 200 with `message: "fail"` and `data: "error"`. Logs identify this application-level failure and its endpoint explicitly; it is not stored as a confirmed empty search.
 
 | Luckpim field                         | App use                                                                           |
 | ------------------------------------- | --------------------------------------------------------------------------------- |

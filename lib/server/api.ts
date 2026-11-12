@@ -379,7 +379,10 @@ export function createApplicationApi(
       );
     },
     getPublisherCrawls: publisherCrawls.getPublisherCrawls,
-    managePublisherCrawl: publisherCrawls.managePublisherCrawl,
+    managePublisherCrawl: (arg) =>
+      publisherCrawls.managePublisherCrawl(arg, (id, label) =>
+        queue.enqueue("crawlPublisher", { id }, label, -100),
+      ),
     startPublisherCrawl: (arg) =>
       publisherCrawls.startPublisherCrawl(arg, (id, label) =>
         queue.enqueue("crawlPublisher", { id }, label, -100),

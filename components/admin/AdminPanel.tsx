@@ -119,6 +119,7 @@ export default function AdminPanel({
   });
   const [selected, setSelected] = useState<JobDetail | null>(null);
   const selectedId = useRef<string | null>(null);
+  const selectedEventPage = useRef(1);
   const [preview, setPreview] = useState<
     (CachePreview & { key: string }) | null
   >(null);
@@ -155,7 +156,10 @@ export default function AdminPanel({
     }
     if (selectedId.current) {
       const id = selectedId.current;
-      const next = await rpc<JobDetail>("getScrapeJob", { id });
+      const next = await rpc<JobDetail>("getScrapeJob", {
+        id,
+        eventPage: selectedEventPage.current,
+      });
       if (selectedId.current === id && generation === refreshGeneration.current)
         setSelected(next);
     }
@@ -208,10 +212,11 @@ export default function AdminPanel({
       setBusy(false);
     }
   }
-  async function openJob(id: string) {
+  async function openJob(id: string, eventPage = 1) {
     await action(async () => {
       selectedId.current = id;
-      const next = await rpc<JobDetail>("getScrapeJob", { id });
+      selectedEventPage.current = eventPage;
+      const next = await rpc<JobDetail>("getScrapeJob", { id, eventPage });
       if (selectedId.current === id) setSelected(next);
     }, "");
   }
@@ -558,7 +563,7 @@ export default function AdminPanel({
                   <p>{selected.error}</p>
                 </div>
               )}
-              <ol className="admin-events">
+              <ol className="admin-events" tabIndex={0}>
                 {selected.events.map((event) => (
                   <li key={event.id}>
                     <time>{formatTime(event.createdAt)}</time> — {event.message}
@@ -566,6 +571,17 @@ export default function AdminPanel({
                   </li>
                 ))}
               </ol>
+              {selected.eventPages > 1 && (
+                <Pager
+                  page={selected.eventPage}
+                  pages={selected.eventPages}
+                  disabled={busy}
+                  onPage={(eventPage) => {
+                    if (eventPage > 1) setLive(false);
+                    void openJob(selected.id, eventPage);
+                  }}
+                />
+              )}
               <section className="admin-task-content">
                 <h4>{t("Task input")}</h4>
                 <RecordContent value={selected.payload} />
@@ -583,7 +599,14 @@ export default function AdminPanel({
         </section>
       )}
 
-      {tab === "crawls" && <PublisherCrawlsPanel />}
+      {tab === "crawls" && (
+        <PublisherCrawlsPanel
+          onInspect={(id) => {
+            setTab("queue");
+            void openJob(id);
+          }}
+        />
+      )}
       {tab === "users" && <AdminUsersPanel />}
       {tab === "metadata" && (
         <section aria-labelledby="metadataHeading">

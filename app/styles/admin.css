@@ -408,6 +408,13 @@ button.admin-count {
   padding-left: 24px;
   font-size: 13px;
   line-height: 2;
+  max-height: min(60vh, 600px);
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+.admin-crawl-warnings,
+.admin-inline-error {
+  overflow-wrap: anywhere;
 }
 .admin-events time {
   color: var(--muted);

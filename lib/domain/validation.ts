@@ -1,6 +1,6 @@
 import { BOOK_APP, PUBLISHERS } from "./constants.ts";
 import { normalizeIsbn } from "./isbn.ts";
-import { safeCoverUrl, safePublisherUrl } from "./urls.ts";
+import { safeBookSourceUrl, safeCoverUrl } from "./urls.ts";
 import { normalizePageCount } from "./page-count.ts";
 import { normalizeBookType } from "./book-type.ts";
 
@@ -66,7 +66,7 @@ export function normalizePurchaseDetails(input: Record<string, unknown>) {
 
 export function bookMetadata(input) {
   const coverUrl = safeCoverUrl(input.coverUrl);
-  const publisherUrl = safePublisherUrl(input.publisherUrl, input.publisher);
+  const publisherUrl = safeBookSourceUrl(input.publisherUrl, input.publisher);
   if (input.coverUrl && !coverUrl)
     throw new Error(
       "Use a cover URL from a supported publisher or book metadata provider.",

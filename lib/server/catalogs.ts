@@ -17,7 +17,7 @@ import {
   volumeCoverKey,
   safePublisherTitleUrl,
   safeProductUrl,
-  safePublisherUrl,
+  safeBookSourceUrl,
   publisherKey,
   specialSet,
   parsePageCount,
@@ -35,6 +35,8 @@ import {
 } from "../domain/series-info.ts";
 import { AppError } from "./store.ts";
 import { SCRAPE_TTL } from "./scrape-cache.ts";
+import { errorMessage, recordScrapeError } from "./scrape-diagnostics.ts";
+import { isBackgroundScrape, ScrapeInterrupted } from "./scrape-runtime.ts";
 import {
   phoenixSeriesUrl,
   phoenixSeriesMetadata,
@@ -788,7 +790,7 @@ export function createCatalogService(
     const publisherId = publisherKey(book.publisher);
     const supportedPublisher = !!scrapers.get(publisherId)?.catalog;
     const explicit = request.publisherUrl ?? book.publisherUrl;
-    if (explicit && !safePublisherUrl(explicit, publisherId))
+    if (explicit && !safeBookSourceUrl(explicit, publisherId))
       throw new Error("Use an HTTPS link on this publisher’s website.");
     const productUrl =
       explicit &&
@@ -1035,11 +1037,14 @@ export function createCatalogService(
       };
       await cacheJson_(cache, key, result);
       return result;
-    } catch {
+    } catch (error) {
+      if (error instanceof ScrapeInterrupted) throw error;
+      recordScrapeError(error);
       if (previous)
         return {
           ...previous,
           stale: true,
+          failureReason: isBackgroundScrape() ? errorMessage(error) : "",
           error:
             "Could not refresh this publisher category. Showing the previous check.",
         };
@@ -1049,6 +1054,7 @@ export function createCatalogService(
         complete: false,
         checkedAt: "",
         stale: true,
+        failureReason: isBackgroundScrape() ? errorMessage(error) : "",
         error:
           "Could not read this publisher category. Try refreshing or open the publisher website.",
       };
@@ -1088,7 +1094,9 @@ export function createCatalogService(
       };
       await cacheJson_(cache, key, result);
       return result;
-    } catch {
+    } catch (error) {
+      if (error instanceof ScrapeInterrupted) throw error;
+      recordScrapeError(error);
       if (previous)
         return {
           ...previous,
@@ -1222,9 +1230,12 @@ export function createCatalogService(
       await cache.put(key, json, SCRAPE_TTL.retention);
       return result;
     } catch (e) {
+      if (e instanceof ScrapeInterrupted) throw e;
+      recordScrapeError(e);
       if (previous)
         return Object.assign({}, previous, {
           stale: true,
+          failureReason: isBackgroundScrape() ? errorMessage(e) : "",
           error:
             "Could not refresh " +
             publisher.name +
@@ -1235,6 +1246,7 @@ export function createCatalogService(
         items: [],
         checkedAt: "",
         stale: true,
+        failureReason: isBackgroundScrape() ? errorMessage(e) : "",
         error:
           "Could not read " +
           publisher.name +
@@ -1359,6 +1371,8 @@ export function createCatalogService(
       await cacheJson_(cache, key, result);
       return result;
     } catch (error) {
+      if (error instanceof ScrapeInterrupted) throw error;
+      recordScrapeError(error);
       if (previous)
         return Object.assign({}, previous, {
           stale: true,
@@ -1440,14 +1454,18 @@ export function createCatalogService(
       await cacheJson_(cache, key, result);
       return result;
     } catch (error) {
+      if (error instanceof ScrapeInterrupted) throw error;
+      recordScrapeError(error);
       if (previous)
         return Object.assign({}, previous, {
           stale: true,
+          failureReason: isBackgroundScrape() ? errorMessage(error) : "",
           error:
             "Category directory could not refresh. Showing previously found categories.",
         });
       throw new Error(
         "Could not load this publisher’s series categories. Paste its series category URL or try again.",
+        { cause: error },
       );
     }
   }

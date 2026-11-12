@@ -63,9 +63,8 @@ export function createScraperContext(
             const text = robots.status === 200 ? robots.body : "";
             await cache.put(key, text || "# No rules", 86400);
             return text;
-          })().catch((error) => {
+          })().finally(() => {
             robotsPending.delete(origin);
-            throw error;
           }),
         );
       const policy = crawlRobots(await robotsPending.get(origin), parsed);

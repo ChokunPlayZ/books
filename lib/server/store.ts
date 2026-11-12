@@ -1150,6 +1150,19 @@ export async function openStore(
     });
   }
   const cache = {
+    async pruneExpired(limit = 500) {
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 5000)
+        throw new Error("Choose a bounded cache cleanup size.");
+      return (
+        await run(
+          `WITH expired AS (SELECT key FROM cache WHERE expires_at<>0 AND expires_at<=?
+          ORDER BY expires_at LIMIT ? FOR UPDATE SKIP LOCKED)
+          DELETE FROM cache USING expired WHERE cache.key=expired.key`,
+          Date.now(),
+          limit,
+        )
+      ).changes;
+    },
     async claimRateLimit(key: string, limit: number, windowMs: number) {
       const now = Date.now();
       const claimed = await get(
@@ -1219,7 +1232,8 @@ export async function openStore(
       if (key.startsWith("series:v1:") || key.startsWith("book-discovery:"))
         key = `user:${users.current().id}:` + key;
       await run(
-        "INSERT INTO cache VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,expires_at=excluded.expires_at",
+        `INSERT INTO cache VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,expires_at=excluded.expires_at
+          WHERE cache.value IS DISTINCT FROM excluded.value OR cache.expires_at IS DISTINCT FROM excluded.expires_at`,
         key,
         value,
         seconds === Infinity ? 0 : Date.now() + seconds * 1000,

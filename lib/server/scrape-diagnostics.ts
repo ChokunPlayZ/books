@@ -8,6 +8,7 @@ type Context = {
   diagnostics: ScrapeDiagnostic[];
   sourceId?: string;
   operation?: string;
+  onDiagnostic?: (diagnostic: ScrapeDiagnostic) => void;
 };
 const context = new AsyncLocalStorage<Context>();
 
@@ -27,8 +28,9 @@ export class ScrapeFailure extends Error {
 export function withScrapeDiagnostics<T>(
   diagnostics: ScrapeDiagnostic[],
   action: () => T,
+  onDiagnostic?: (diagnostic: ScrapeDiagnostic) => void,
 ): T {
-  return context.run({ diagnostics }, action);
+  return context.run({ diagnostics, onDiagnostic }, action);
 }
 
 export function withScrapeSource<T>(
@@ -56,8 +58,10 @@ export function recordScrapeDiagnostic(diagnostic: ScrapeDiagnostic) {
     !current.diagnostics.some(
       (previous) => JSON.stringify(previous) === JSON.stringify(value),
     )
-  )
+  ) {
     current.diagnostics.push(value);
+    current.onDiagnostic?.(value);
+  }
 }
 
 export function errorMessage(error: unknown): string {

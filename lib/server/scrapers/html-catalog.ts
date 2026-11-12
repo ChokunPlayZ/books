@@ -9,6 +9,8 @@ import {
   PUBLISHERS,
 } from "../../domain.ts";
 import { SCRAPE_TTL } from "../scrape-cache.ts";
+import { ScrapeInterrupted, scrapeProgress } from "../scrape-runtime.ts";
+import { ScrapeFailure } from "../scrape-diagnostics.ts";
 import type { Release } from "../../types.ts";
 import type { CatalogResult, PublisherTitle, ScraperContext } from "./types.ts";
 
@@ -40,8 +42,10 @@ export function createHtmlCatalog(
       try {
         const endpoint = new URL(url);
         if (page > 1) endpoint.searchParams.set(pagination, String(page));
+        await scrapeProgress(`Catalog page ${page} · ${endpoint.href}`);
         html = await fetchText_(endpoint.href, refresh);
       } catch (error) {
+        if (error instanceof ScrapeInterrupted) throw error;
         if (!items.size) throw error;
         break;
       }
@@ -68,7 +72,11 @@ export function createHtmlCatalog(
       }
       if (!parsed.length) {
         if (page === 1 && total !== 0)
-          throw new Error("Category markup changed");
+          throw new ScrapeFailure({
+            kind: "parser",
+            url,
+            message: `Catalog page ${page} contained no readable product cards or explicit zero total.`,
+          });
         break;
       }
       if (listingIds.size === before) break; // A repeated page must not masquerade as a complete catalog.
@@ -97,6 +105,7 @@ export function createHtmlCatalog(
       const endpoint = new URL(releaseUrl);
       if (page > 1) endpoint.searchParams.set(pagination, String(page));
       const url = endpoint.href;
+      await scrapeProgress(`Release page ${page} · ${url}`);
       // Phoenix uses p, First Page Pro uses tskp.
       const html = await fetchText_(url, refresh, SCRAPE_TTL.releases);
       const parsed = parseCatalog(id, html, url);

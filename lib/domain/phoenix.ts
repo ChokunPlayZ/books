@@ -39,16 +39,22 @@ function phoenixMsrp(html: string, product?: Record<string, any>) {
 export function phoenixBook(html: string, isbn: string, productUrl: string) {
   const url = safeProductUrl(productUrl, "phoenix");
   if (!url || (isbn && !canonicalIsbn(isbn))) return null;
-  const barcodes = [
+  const attributes = [
     ...html.matchAll(
       /<div\b(?=[^>]*\bdata-th=["'](?:Barcode|ISBN)["'])[^>]*>([\s\S]*?)<\/div>/gi,
     ),
-  ].map((match) => canonicalIsbn(textHtml(match[1])));
+  ];
+  const barcodes = attributes.map((match) => canonicalIsbn(textHtml(match[1])));
   const metadataIsbn = canonicalIsbn(meta(html, "book:isbn"));
   const codes = [...new Set([...barcodes, metadataIsbn].filter(Boolean))];
   // A title-only lookup may learn the ISBN, but conflicting edition barcodes
   // must never be resolved by simply picking the first one.
   const canonical = canonicalIsbn(isbn) || (codes.length === 1 ? codes[0] : "");
+  // Promotional products can expose a shop barcode (e.g. 1008000250112),
+  // not an ISBN. That is an unverified product, not a broken website. Never
+  // substitute the regular book's BookWalker preview ISBN for this package.
+  if (attributes.some((match) => textHtml(match[1])) && !codes.length)
+    return null;
   if (!barcodes.some(Boolean) && !metadataIsbn)
     throw new Error(
       "Phoenix product ISBN details are unavailable. Try again later.",

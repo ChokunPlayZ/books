@@ -137,6 +137,16 @@ const migrations = [
   );
   CREATE INDEX metadata_suggestions_pending ON metadata_suggestions(status,created_at);
   `,
+  `
+  ALTER TABLE publisher_crawls ADD COLUMN IF NOT EXISTS frontier_offset INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE publisher_crawls ADD COLUMN IF NOT EXISTS failed_tasks JSONB NOT NULL DEFAULT '[]';
+  CREATE INDEX IF NOT EXISTS scrape_jobs_running_lease ON scrape_jobs(lease_until) WHERE status='running';
+  CREATE INDEX IF NOT EXISTS scrape_jobs_active_user ON scrape_jobs(user_id) WHERE status IN ('queued','running');
+  CREATE INDEX IF NOT EXISTS scrape_jobs_foreground ON scrape_jobs(available_at) WHERE kind<>'crawlPublisher' AND status IN ('queued','running');
+  CREATE INDEX IF NOT EXISTS cache_key_prefix ON cache(key text_pattern_ops);
+  CREATE INDEX IF NOT EXISTS cache_expiry ON cache(expires_at) WHERE expires_at<>0;
+  CREATE INDEX IF NOT EXISTS cover_sources_cover ON cover_sources(cover_id);
+  `,
 ];
 
 export async function migrateDatabase(pool: Pool) {

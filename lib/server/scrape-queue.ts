@@ -51,6 +51,7 @@ export function createScrapeQueue(
   let timer: ReturnType<typeof setInterval> | undefined;
   let ticking: Promise<void> | undefined;
   let stopped = false;
+  let nextCleanup = 0;
   const active = new Set<Promise<void>>();
   const event = async (
     id: string,
@@ -136,6 +137,17 @@ export function createScrapeQueue(
     });
   }
   async function claim() {
+    // Most ticks are idle. Avoid opening a transaction/advisory lock and reading
+    // settings/counts when there is neither runnable work nor an expired lease.
+    const ready = await store.db
+      .prepare(
+        `SELECT 1 WHERE
+      EXISTS(SELECT 1 FROM scrape_jobs WHERE status='running' AND lease_until<=?) OR
+      (NOT (SELECT paused FROM scrape_queue_settings WHERE id=1) AND
+       EXISTS(SELECT 1 FROM scrape_jobs WHERE status='queued' AND available_at<=?))`,
+      )
+      .get(Date.now(), Date.now());
+    if (!ready) return null;
     return locked(async () => {
       const now = Date.now();
       const abandoned = await store.db
@@ -182,9 +194,20 @@ export function createScrapeQueue(
   }
   async function perform(row) {
     const diagnostics: ScrapeDiagnostic[] = [];
+    let diagnosticWrites = Promise.resolve();
+    let diagnosticWriteError: unknown;
+    function persistDiagnostic(diagnostic: ScrapeDiagnostic) {
+      // Persist while the job runs, rather than losing hours of diagnostics on
+      // restart. Serialize writes without making synchronous parser hooks async.
+      diagnosticWrites = diagnosticWrites
+        .then(() => event(row.id, formatScrapeDiagnostic(diagnostic)))
+        .catch((error) => {
+          diagnosticWriteError ??= error;
+        });
+    }
     async function saveDiagnostics() {
-      for (const diagnostic of diagnostics)
-        await event(row.id, formatScrapeDiagnostic(diagnostic));
+      await diagnosticWrites;
+      if (diagnosticWriteError) throw diagnosticWriteError;
     }
     function failureReason(reason: string) {
       return [
@@ -202,30 +225,34 @@ export function createScrapeQueue(
     async function checkpoint() {
       for (;;) {
         if (stopped) throw new ScrapeInterrupted("Worker stopping.");
-        const job = await store.db
-          .prepare("SELECT status,lease_token FROM scrape_jobs WHERE id=?")
-          .get(row.id);
-        if (job?.status !== "running" || job.lease_token !== row.lease_token)
-          throw new ScrapeInterrupted("Worker lease changed.");
-        const crawl = await store.db
-          .prepare("SELECT status FROM publisher_crawls WHERE id=?")
-          .get(row.payload.id);
-        if (!crawl || ["cancelled", "failed"].includes(crawl.status))
-          throw new AppError("Publisher crawl stopped.", 409);
-        const user = await store.db
-          .prepare("SELECT role,disabled FROM users WHERE id=?")
-          .get(row.user_id);
-        if (user?.role !== "admin" || user.disabled)
-          throw new AppError("Administrator access revoked.", 403);
-        const settings = await store.db
-          .prepare("SELECT paused FROM scrape_queue_settings WHERE id=1")
-          .get();
-        const foreground = await store.db
+        const state = await store.db
           .prepare(
-            "SELECT 1 FROM scrape_jobs WHERE kind<>'crawlPublisher' AND status IN ('queued','running') AND available_at<=? LIMIT 1",
+            `SELECT j.status,j.lease_token,
+          c.status AS crawl_status,u.role,u.disabled,s.paused,
+          EXISTS(SELECT 1 FROM scrape_jobs WHERE kind<>'crawlPublisher'
+            AND status IN ('queued','running') AND available_at<=?) AS foreground
+          FROM scrape_jobs j LEFT JOIN publisher_crawls c ON c.id=?
+          JOIN users u ON u.id=j.user_id CROSS JOIN scrape_queue_settings s
+          WHERE j.id=? AND s.id=1`,
           )
-          .get(Date.now());
-        if (!settings.paused && crawl.status !== "paused" && !foreground)
+          .get(Date.now(), row.payload.id, row.id);
+        if (
+          state?.status !== "running" ||
+          state.lease_token !== row.lease_token
+        )
+          throw new ScrapeInterrupted("Worker lease changed.");
+        if (
+          !state.crawl_status ||
+          ["cancelled", "failed"].includes(state.crawl_status)
+        )
+          throw new AppError("Publisher crawl stopped.", 409);
+        if (state.role !== "admin" || state.disabled)
+          throw new AppError("Administrator access revoked.", 403);
+        if (
+          !state.paused &&
+          state.crawl_status !== "paused" &&
+          !state.foreground
+        )
           return;
         await delay(250);
       }
@@ -233,6 +260,7 @@ export function createScrapeQueue(
     // Serializes parallel adapter requests as well as pacing across app instances.
     let tail: Promise<unknown> = Promise.resolve();
     let minimumDelay = 10_000;
+    const progress = (message: string) => event(row.id, message.slice(0, 4000));
     function request<T>(url: string, load: () => Promise<T>): Promise<T> {
       const work = tail.then(async () => {
         const host = new URL(url).hostname;
@@ -253,8 +281,13 @@ export function createScrapeQueue(
         let cooldown = minimumDelay;
         try {
           await checkpoint();
+          await progress(`Request started · ${url}`);
+          const started = Date.now();
           const result = await load();
           const response = result as any;
+          await progress(
+            `Request finished · HTTP ${response?.status ?? "unknown"} · ${Date.now() - started}ms · ${url}`,
+          );
           if (response?.status === 429 || response?.status >= 500) {
             const retry = response.headers?.["retry-after"];
             const seconds = /^\d+$/.test(retry || "")
@@ -268,6 +301,8 @@ export function createScrapeQueue(
           return result;
         } catch (error) {
           if (!(error instanceof ScrapeInterrupted)) cooldown = 15 * 60_000;
+          if (!(error instanceof ScrapeInterrupted))
+            await progress(`Request failed · ${url} · ${errorMessage(error)}`);
           throw error;
         } finally {
           await store.db
@@ -293,23 +328,27 @@ export function createScrapeQueue(
     heartbeat.unref();
     try {
       await event(row.id, `Started attempt ${row.attempts}`);
-      const result = await withScrapeDiagnostics(diagnostics, () =>
-        store.forUser({ id: row.user_id } as any, async () => {
-          if (!Object.hasOwn(handlers, row.kind))
-            throw new AppError("This task is no longer supported.");
-          return row.kind === "crawlPublisher"
-            ? withScrapeRuntime(
-                {
-                  checkpoint,
-                  request,
-                  minimumDelay: (ms) => {
-                    minimumDelay = Math.max(minimumDelay, ms);
+      const result = await withScrapeDiagnostics(
+        diagnostics,
+        () =>
+          store.forUser({ id: row.user_id } as any, async () => {
+            if (!Object.hasOwn(handlers, row.kind))
+              throw new AppError("This task is no longer supported.");
+            return row.kind === "crawlPublisher"
+              ? withScrapeRuntime(
+                  {
+                    checkpoint,
+                    request,
+                    minimumDelay: (ms) => {
+                      minimumDelay = Math.max(minimumDelay, ms);
+                    },
+                    progress,
                   },
-                },
-                () => handlers[row.kind](row.payload),
-              )
-            : handlers[row.kind](row.payload);
-        }),
+                  () => handlers[row.kind](row.payload),
+                )
+              : handlers[row.kind](row.payload);
+          }),
+        persistDiagnostic,
       );
       const value = result as any;
       const failed =
@@ -364,6 +403,17 @@ export function createScrapeQueue(
       const retry =
         !(error instanceof AppError && error.status < 500) &&
         row.attempts < row.max_attempts;
+      console.error(
+        JSON.stringify({
+          at: new Date().toISOString(),
+          event: "scrape_job_failed",
+          jobId: row.id,
+          kind: row.kind,
+          attempt: row.attempts,
+          retry,
+          reason: failureReason(errorMessage(error)),
+        }),
+      );
       await store.transaction(async () => {
         const changed = await store.db
           .prepare(
@@ -392,12 +442,26 @@ export function createScrapeQueue(
       });
     } finally {
       clearInterval(heartbeat);
+      await saveDiagnostics();
     }
   }
   async function tick() {
     if (stopped) return;
     if (ticking) return ticking;
     ticking = (async () => {
+      if (Date.now() >= nextCleanup) {
+        nextCleanup = Date.now() + 3600_000;
+        // A durable throttle bounds cleanup across workers/app instances. Only
+        // expired disposable entries qualify; permanent metadata stays pinned.
+        if (
+          !(await store.cache.claimRateLimit(
+            "maintenance:cache-expiry",
+            1,
+            3600_000,
+          ))
+        )
+          await store.cache.pruneExpired();
+      }
       while (!stopped && active.size < CONCURRENCY) {
         const row = await claim();
         if (!row) break;
@@ -530,7 +594,10 @@ export function createScrapeQueue(
       pages,
     };
   }
-  async function getScrapeJob(request: { id: string }): Promise<JobDetail> {
+  async function getScrapeJob(request: {
+    id: string;
+    eventPage?: number;
+  }): Promise<JobDetail> {
     store.requireAdmin();
     if (typeof request?.id !== "string")
       throw new AppError("Choose a scraping task.");
@@ -540,17 +607,30 @@ export function createScrapeQueue(
       )
       .get(request.id);
     if (!row) throw new AppError("Scraping task not found.", 404);
+    const { count } = await store.db
+      .prepare("SELECT COUNT(*) AS count FROM scrape_job_events WHERE job_id=?")
+      .get(row.id);
+    const eventPages = Math.max(1, Math.ceil(count / 200));
+    const eventPage = Math.min(
+      eventPages,
+      Math.max(
+        1,
+        Number.isSafeInteger(request.eventPage) ? request.eventPage : 1,
+      ),
+    );
     const events = await store.db
       .prepare(
         `SELECT e.id,e.created_at AS "createdAt",e.message,u.username AS actor
-      FROM scrape_job_events e LEFT JOIN users u ON u.id=e.actor_id WHERE job_id=? ORDER BY e.id`,
+      FROM scrape_job_events e LEFT JOIN users u ON u.id=e.actor_id WHERE job_id=? ORDER BY e.id DESC LIMIT 200 OFFSET ?`,
       )
-      .all(row.id);
+      .all(row.id, (eventPage - 1) * 200);
     return {
       ...jobRecord(row),
       payload: row.payload,
       result: row.result,
-      events,
+      events: events.reverse(),
+      eventPage,
+      eventPages,
     };
   }
   async function manageScrapeQueue(request: { paused: boolean }) {

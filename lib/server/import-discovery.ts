@@ -1,6 +1,7 @@
 import { canonicalIsbn } from "../domain.ts";
 import type { Store } from "./store.ts";
 import { AppError } from "./store.ts";
+import { errorMessage, recordScrapeDiagnostic } from "./scrape-diagnostics.ts";
 import type { createCatalogService } from "./catalogs.ts";
 import type { createCoverService } from "./covers.ts";
 
@@ -78,7 +79,17 @@ export function createImportDiscovery(
             warnings.add("Some cover images could not be downloaded.");
           }
         }
-        if (await store.fillDiscoveredBook(book, details, coverId)) filled++;
+        try {
+          if (await store.fillDiscoveredBook(book, details, coverId)) filled++;
+        } catch (error) {
+          recordScrapeDiagnostic({
+            kind: "scraper",
+            operation: "fillDiscoveredBook",
+            message: `Applying verified metadata to library row ${book.row} (${book.series}): ${errorMessage(error)}`,
+            url: book.publisherUrl || details.url || undefined,
+          });
+          throw error;
+        }
       }
       return {
         discovered,
