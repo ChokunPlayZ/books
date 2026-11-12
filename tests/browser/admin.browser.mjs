@@ -8,6 +8,7 @@ import { openTestStore, testDatabaseUrl } from "../helpers/database.mjs";
 import { createAccount, signInWithGoogle } from "../../lib/server/auth.ts";
 import { checkAdminEditConflicts } from "../helpers/admin-edit-conflicts.mjs";
 import { checkPublisherCrawlControls } from "../helpers/publisher-crawl-controls.mjs";
+import { checkAdminDialog } from "../helpers/admin-dialog.mjs";
 import {
   createApplicationApi,
   applicationQueue,
@@ -295,6 +296,11 @@ try {
       exact: true,
     })
     .waitFor();
+  const taskDialog = page.getByRole("dialog", {
+    name: "Task details: Queued browser fixture",
+    exact: true,
+  });
+  await checkAdminDialog(page, taskDialog, "task");
   assert.match(
     await page.locator(".admin-events").innerText(),
     /Fast-tracked by administrator/,
@@ -312,6 +318,15 @@ try {
     [...document.querySelectorAll(".admin-task-content img")].some(
       (image) => image.complete && image.naturalWidth > 0,
     ),
+  );
+  await page.keyboard.press("Escape");
+  await taskDialog.waitFor({ state: "detached" });
+  assert.equal(
+    await row
+      .getByRole("button", { name: "Queued browser fixture", exact: true })
+      .evaluate((button) => button === document.activeElement),
+    true,
+    "closing task details restores focus to its row",
   );
   await page.getByRole("button", { name: "Pause queue", exact: true }).click();
   await page
@@ -360,9 +375,11 @@ try {
     .getByRole("cell", { name: "39.2 KiB", exact: true })
     .waitFor();
   await cachedRow.getByRole("button", { name: "Inspect", exact: true }).click();
-  const cachePreview = page.locator(".admin-card").filter({
-    has: page.getByRole("heading", { name: "Cache preview", exact: true }),
+  const cachePreview = page.getByRole("dialog", {
+    name: "Cache preview",
+    exact: true,
   });
+  await checkAdminDialog(page, cachePreview, "cache");
   assert.match(await cachePreview.innerText(), /Deep cached browser fixture/);
   assert.doesNotMatch(
     await cachePreview.innerText(),
@@ -374,15 +391,52 @@ try {
     .getByRole("button", { name: "Next text", exact: true })
     .click();
   await page.waitForFunction(() =>
-    [...document.querySelectorAll(".admin-card .admin-readable-text")].some(
+    [...document.querySelectorAll(".admin-dialog .admin-readable-text")].some(
       (text) =>
         text.textContent.length < 16000 &&
         text.textContent.endsWith("y".repeat(100)),
     ),
   );
+  let releasePreview, previewStarted;
+  const pendingPreview = new Promise((resolve) => (releasePreview = resolve));
+  const previewRequestStarted = new Promise(
+    (resolve) => (previewStarted = resolve),
+  );
+  const delayPreview = async (route) => {
+    if (route.request().postDataJSON()?.name !== "getMetadataCacheEntry")
+      return route.fallback();
+    const response = await route.fetch();
+    previewStarted();
+    await pendingPreview;
+    await route.fulfill({ response });
+  };
+  await page.route("**/api/rpc", delayPreview);
   await cachePreview
-    .getByRole("button", { name: "Close", exact: true })
+    .getByRole("button", { name: "Previous text", exact: true })
     .click();
+  await previewRequestStarted;
+  await page.keyboard.press("Escape");
+  await cachePreview.waitFor({ state: "detached" });
+  releasePreview();
+  await page.waitForFunction(
+    (button) => button === document.activeElement,
+    await cachedRow
+      .getByRole("button", { name: "Inspect", exact: true })
+      .elementHandle(),
+  );
+  await page.unroute("**/api/rpc", delayPreview);
+  assert.equal(
+    await cachePreview.count(),
+    0,
+    "late results do not reopen popups",
+  );
+  assert.equal(
+    await cachedRow
+      .getByRole("button", { name: "Inspect", exact: true })
+      .evaluate((button) => button === document.activeElement),
+    true,
+    "closing a paginated cache preview returns to Inspect",
+  );
   await page.getByLabel("ISBN", { exact: true }).fill(isbn);
   await page
     .getByRole("button", { name: "Re-scrape ISBN", exact: true })
@@ -527,6 +581,11 @@ try {
   assert.equal(await page.locator(".admin-debug-report img").count(), 0);
   await page.getByText("Raw response body", { exact: true }).click();
   assert.equal(await page.locator(".admin-debug-raw").innerText(), debugBody);
+  const debugDialog = page.getByRole("dialog", {
+    name: "9786164648357 · Phoenix Next",
+    exact: true,
+  });
+  await checkAdminDialog(page, debugDialog, "debug");
   assert.equal(await page.evaluate(() => window.adminDebugXss), undefined);
   assert.equal(
     await page
@@ -551,6 +610,14 @@ try {
     true,
   );
   await page.setViewportSize({ width: 1280, height: 900 });
+  await debugDialog.getByRole("button", { name: "Close", exact: true }).click();
+  await debugDialog.waitFor({ state: "detached" });
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Run fresh scrape", exact: true })
+      .evaluate((button) => button === document.activeElement),
+    true,
+  );
   await page.getByLabel("Search by", { exact: true }).selectOption("title");
   await page.getByLabel("Title", { exact: true }).waitFor();
   await provider
@@ -580,6 +647,10 @@ try {
     .getByRole("heading", { name: "Moon & Stars · Phoenix Next", exact: true })
     .waitFor();
   assert.equal(debugCalls, 2);
+  await page
+    .getByRole("dialog", { name: "Moon & Stars · Phoenix Next", exact: true })
+    .getByRole("button", { name: "Close", exact: true })
+    .click();
   expectedDebugRequest = { query: "Missing title", providerId: "phoenix" };
   debugResponse = {
     ...debugResponse,
@@ -598,6 +669,8 @@ try {
   await page
     .getByRole("heading", { name: "No matching results", exact: true })
     .waitFor();
+  await page.keyboard.press("Escape");
+  await page.getByRole("dialog").waitFor({ state: "detached" });
   expectedDebugRequest = { query: "Website failure", providerId: "phoenix" };
   debugResponse = {
     ...debugResponse,
@@ -632,6 +705,8 @@ try {
     /q=Website%20failure/,
   );
   assert.equal(debugCalls, 4);
+  await page.keyboard.press("Escape");
+  await page.getByRole("dialog").waitFor({ state: "detached" });
   expectedDebugRequest = { query: "เกมสารภาพรัก", providerId: "luckpim" };
   debugResponse = {
     ...debugReport,
@@ -660,6 +735,8 @@ try {
     .waitFor();
   assert.equal(debugCalls, 5);
   assert.equal(coverDownloads, 0);
+  await page.keyboard.press("Escape");
+  await page.getByRole("dialog").waitFor({ state: "detached" });
   await page
     .getByRole("button", { name: "System records", exact: true })
     .click();
@@ -698,6 +775,11 @@ try {
     .click();
   assert.equal(libraryRequests, 0);
   assert.equal(await page.getByText("Keep this note").count(), 0);
+  const accountDialog = page.getByRole("dialog", {
+    name: "Account details: reader · #2",
+    exact: true,
+  });
+  await checkAdminDialog(page, accountDialog, "account");
   page.once("dialog", (dialog) => dialog.dismiss());
   await page
     .getByRole("button", {
@@ -724,6 +806,25 @@ try {
     })
     .waitFor();
   assert.equal(libraryRequests, 1);
+  const libraryDialog = page.getByRole("dialog", {
+    name: "Private library: reader · #2",
+    exact: true,
+  });
+  await checkAdminDialog(page, libraryDialog, "library");
+  await libraryDialog
+    .getByRole("button", { name: "Close", exact: true })
+    .click();
+  await libraryDialog.waitFor({ state: "detached" });
+  assert.equal(
+    await accountDialog
+      .getByRole("button", {
+        name: "View library (confirmation required)",
+        exact: true,
+      })
+      .evaluate((button) => button === document.activeElement),
+    true,
+    "closing a private library returns to its account popup",
+  );
   await page
     .getByLabel("Destination Google email", { exact: true })
     .fill("destination@gmail.com");
@@ -735,6 +836,18 @@ try {
   await linkField.waitFor();
   const link = await linkField.inputValue();
   assert.match(link, /\/relink#token=[a-f0-9]{64}$/);
+  await accountDialog
+    .getByRole("button", { name: "Close", exact: true })
+    .click();
+  await accountDialog.waitFor({ state: "detached" });
+  assert.equal(
+    await page
+      .getByRole("row")
+      .filter({ hasText: "reader@gmail.com" })
+      .getByRole("button", { name: "Manage account", exact: true })
+      .evaluate((button) => button === document.activeElement),
+    true,
+  );
   const recipientContext = await browser.newContext();
   const recipient = await recipientContext.newPage();
   await mockGooglePage(recipient, {

@@ -81,11 +81,9 @@ export async function checkPublisherCrawlControls(page, store, queue) {
     });
   }
   await card.getByRole("button", { name: "Task details", exact: true }).click();
-  const detail = page.locator("section.admin-card").filter({
-    has: page.getByRole("heading", {
-      name: "Task details: " + label,
-      exact: true,
-    }),
+  const detail = page.getByRole("dialog", {
+    name: "Task details: " + label,
+    exact: true,
   });
   await detail
     .getByRole("heading", { name: "Task details: " + label, exact: true })
@@ -110,6 +108,21 @@ export async function checkPublisherCrawlControls(page, store, queue) {
   assert.equal(
     await page.getByLabel("Live updates", { exact: true }).isChecked(),
     false,
+  );
+  await detail.getByRole("button", { name: "Close", exact: true }).click();
+  await detail.waitFor({ state: "detached" });
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Publisher crawls", exact: true })
+      .getAttribute("aria-current"),
+    "page",
+    "inspecting a crawl preserves the publisher view",
+  );
+  assert.equal(
+    await card
+      .getByRole("button", { name: "Task details", exact: true })
+      .evaluate((button) => button === document.activeElement),
+    true,
   );
   await page
     .getByRole("button", { name: "Publisher crawls", exact: true })

@@ -443,6 +443,51 @@ button.admin-count {
   color: var(--red);
   font-size: 12px;
 }
+html:has(.admin-dialog[open]) {
+  overflow: hidden;
+  scrollbar-gutter: stable;
+}
+.admin-dialog {
+  width: calc(100% - 32px);
+  max-width: 1000px;
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.admin-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.admin-dialog-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  flex: 0 0 auto;
+  align-items: start;
+}
+.admin-dialog-head h2 {
+  min-width: 0;
+  margin: 0;
+}
+.admin-dialog-body {
+  min-height: 0;
+  padding: 24px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-hover) transparent;
+}
+.admin-dialog-body > :first-child {
+  margin-top: 0;
+}
+.admin-dialog-body > :last-child {
+  margin-bottom: 0;
+}
+.admin-dialog-body > h3:not(:first-child) {
+  margin-top: 24px;
+}
+.admin-debug-report > .admin-section-heading:first-child {
+  margin-top: 0;
+}
 @media (max-width: 640px) {
   .admin-page {
     padding: 24px 16px 60px;
@@ -467,5 +512,9 @@ button.admin-count {
   .admin-detail-field .admin-detail-field {
     grid-template-columns: minmax(0, 1fr);
     gap: 4px;
+  }
+  .admin-dialog-head,
+  .admin-dialog-body {
+    padding: 16px;
   }
 }

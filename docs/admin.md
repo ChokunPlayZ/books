@@ -2,6 +2,13 @@
 
 Only signed-in administrators can open `/admin` or call maintenance APIs.
 
+Task details, cache previews, scraper reports, account management and confirmed
+private-library inspections open in popups rather than below the page results.
+Each popup keeps its heading and **Close** button visible while its contents
+scroll. **Escape** also closes it and returns focus to the control that opened it;
+account changes must finish before closing. Publisher task details preserve the
+current crawl view.
+
 ## Library edit conflicts
 
 Single-book and bulk-volume saves check only the rows being edited. Changes to
@@ -97,7 +104,7 @@ keys: use a title, ISBN, URL or a fragment of response text. Category and expiry
 filters work alongside the search. Filtering and pagination happen in PostgreSQL,
 so browsing does not load every raw response into server memory.
 
-**Inspect** shows parsed data or readable raw source text, positioned near the
+**Inspect** opens a popup with parsed data or readable raw source text, positioned near the
 search match. Large responses have previous/next text controls instead of an
 inaccessible truncated tail. HTML is shown only as escaped text, never executed.
 Inspection and search do not fetch publisher pages, images or modify libraries.

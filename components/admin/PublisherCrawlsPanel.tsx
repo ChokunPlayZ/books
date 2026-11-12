@@ -12,7 +12,7 @@ import { adminRpc } from "./rpc.ts";
 export default function PublisherCrawlsPanel({
   onInspect,
 }: {
-  onInspect: (jobId: string) => void;
+  onInspect: (jobId: string, trigger: HTMLButtonElement) => void;
 }) {
   const t = useTranslations();
   const [data, setData] = useState<CrawlOverview | null>(null);
@@ -159,7 +159,10 @@ export default function PublisherCrawlsPanel({
                 <button
                   className="btn"
                   disabled={busy}
-                  onClick={() => onInspect(crawl.jobId)}
+                  aria-haspopup="dialog"
+                  onClick={(event) =>
+                    onInspect(crawl.jobId, event.currentTarget)
+                  }
                 >
                   {t("Task details")}
                 </button>

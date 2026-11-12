@@ -10,6 +10,7 @@ import type {
 import { useTranslations } from "../PreferencesProvider";
 import { RecordContent } from "./RecordContent";
 import { adminRpc } from "./rpc.ts";
+import AdminDialog from "./AdminDialog";
 
 function RawData({ title, value }: { title: string; value: unknown }) {
   const [open, setOpen] = useState(false);
@@ -34,6 +35,7 @@ export default function ScraperDebugPanel() {
   const [report, setReport] = useState<ScraperDebugResult | null>(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
+  const reportTrigger = useRef<HTMLButtonElement>(null);
   const [error, setError] = useState("");
   useEffect(() => {
     let disposed = false;
@@ -142,7 +144,9 @@ export default function ScraperDebugPanel() {
           </select>
         </label>
         <button
+          ref={reportTrigger}
           className="btn primary"
+          aria-haspopup="dialog"
           disabled={
             busy ||
             (mode === "isbn"
@@ -167,98 +171,102 @@ export default function ScraperDebugPanel() {
         </p>
       )}
       {report && (
-        <div className="admin-debug-report">
-          <div className="admin-section-heading">
-            <div>
-              <h3>
-                {report.query} ·{" "}
-                {sources.find((source) => source.id === report.providerId)
-                  ?.name || report.providerId}
-              </h3>
-              <p>
-                {report.startedAt} · {report.durationMs} ms ·{" "}
-                {report.responses.length} {t("Responses")}
-              </p>
-            </div>
-            <button className="btn" onClick={download}>
-              {t("Download debug report")}
-            </button>
-          </div>
-          {report.error && (
-            <div role="alert" className="admin-error">
-              <h4>{t("Scrape failed")}</h4>
-              {report.error}
-              <RawData title={t("Error stack")} value={report.stack} />
-            </div>
-          )}
-          {!report.error && (
-            <div className="admin-card" role="status">
-              <h4>
-                {t(
-                  report.outcome === "found"
-                    ? "Matching results returned."
-                    : "No matching results",
-                )}
-              </h4>
-              {report.outcome !== "found" && <p>{t(report.message)}</p>}
-            </div>
-          )}
-          {!!report.diagnostics.length && (
-            <section className="admin-card">
-              <h3>{t("Scrape diagnostics")}</h3>
-              <ul>
-                {report.diagnostics.map((diagnostic, index) => (
-                  <li key={index}>{formatScrapeDiagnostic(diagnostic)}</li>
-                ))}
-              </ul>
-            </section>
-          )}
-          {!!report.cooldowns.length && (
-            <div className="admin-card">
-              <h3>{t("Retry cooldowns")}</h3>
-              <RecordContent value={report.cooldowns} images={false} />
-            </div>
-          )}
-          <article className="admin-card">
-            <h3>{t("Parsed result")}</h3>
-            <RecordContent value={report.result} images={false} />
-            <RawData title={t("Raw JSON")} value={report.result} />
-          </article>
-          <h3>{t("Responses")}</h3>
-          {report.responses.map((response, index) => (
-            <article className="admin-card" key={index}>
-              <h3>
-                {index + 1}. {response.method} ·{" "}
-                {response.status ?? t("Failed")} · {response.durationMs} ms
-              </h3>
-              <p className="admin-debug-url">{response.url}</p>
-              <p>
-                {response.contentType || "—"} ·{" "}
-                {response.bytes.toLocaleString()} {t("bytes")}
-              </p>
-              {response.error && (
-                <p className="admin-inline-error">{response.error}</p>
-              )}
-              {response.truncated && (
-                <p className="admin-inline-error">
-                  {t(
-                    "Response capture was truncated at the report size limit. The parser received the complete bounded response.",
-                  )}
+        <AdminDialog
+          title={`${report.query} · ${sources.find((source) => source.id === report.providerId)?.name || report.providerId}`}
+          returnFocus={reportTrigger.current}
+          onClose={() => setReport(null)}
+        >
+          <div className="admin-debug-report">
+            <div className="admin-section-heading">
+              <div>
+                <p>
+                  {report.startedAt} · {report.durationMs} ms ·{" "}
+                  {report.responses.length} {t("Responses")}
                 </p>
-              )}
-              <RawData title={t("Raw response body")} value={response.body} />
-              <RawData title={t("Response headers")} value={response.headers} />
+              </div>
+              <button className="btn" onClick={download}>
+                {t("Download debug report")}
+              </button>
+            </div>
+            {report.error && (
+              <div role="alert" className="admin-error">
+                <h4>{t("Scrape failed")}</h4>
+                {report.error}
+                <RawData title={t("Error stack")} value={report.stack} />
+              </div>
+            )}
+            {!report.error && (
+              <div className="admin-card" role="status">
+                <h4>
+                  {t(
+                    report.outcome === "found"
+                      ? "Matching results returned."
+                      : "No matching results",
+                  )}
+                </h4>
+                {report.outcome !== "found" && <p>{t(report.message)}</p>}
+              </div>
+            )}
+            {!!report.diagnostics.length && (
+              <section className="admin-card">
+                <h3>{t("Scrape diagnostics")}</h3>
+                <ul>
+                  {report.diagnostics.map((diagnostic, index) => (
+                    <li key={index}>{formatScrapeDiagnostic(diagnostic)}</li>
+                  ))}
+                </ul>
+              </section>
+            )}
+            {!!report.cooldowns.length && (
+              <div className="admin-card">
+                <h3>{t("Retry cooldowns")}</h3>
+                <RecordContent value={report.cooldowns} images={false} />
+              </div>
+            )}
+            <article className="admin-card">
+              <h3>{t("Parsed result")}</h3>
+              <RecordContent value={report.result} images={false} />
+              <RawData title={t("Raw JSON")} value={report.result} />
             </article>
-          ))}
-          <h3>{t("Parser snapshots")}</h3>
-          {report.snapshots.map((snapshot, index) => (
-            <article className="admin-card" key={index}>
-              <h3 className="admin-debug-url">{snapshot.source}</h3>
-              <RecordContent value={snapshot.value} images={false} />
-              <RawData title={t("Raw JSON")} value={snapshot.value} />
-            </article>
-          ))}
-        </div>
+            <h3>{t("Responses")}</h3>
+            {report.responses.map((response, index) => (
+              <article className="admin-card" key={index}>
+                <h3>
+                  {index + 1}. {response.method} ·{" "}
+                  {response.status ?? t("Failed")} · {response.durationMs} ms
+                </h3>
+                <p className="admin-debug-url">{response.url}</p>
+                <p>
+                  {response.contentType || "—"} ·{" "}
+                  {response.bytes.toLocaleString()} {t("bytes")}
+                </p>
+                {response.error && (
+                  <p className="admin-inline-error">{response.error}</p>
+                )}
+                {response.truncated && (
+                  <p className="admin-inline-error">
+                    {t(
+                      "Response capture was truncated at the report size limit. The parser received the complete bounded response.",
+                    )}
+                  </p>
+                )}
+                <RawData title={t("Raw response body")} value={response.body} />
+                <RawData
+                  title={t("Response headers")}
+                  value={response.headers}
+                />
+              </article>
+            ))}
+            <h3>{t("Parser snapshots")}</h3>
+            {report.snapshots.map((snapshot, index) => (
+              <article className="admin-card" key={index}>
+                <h3 className="admin-debug-url">{snapshot.source}</h3>
+                <RecordContent value={snapshot.value} images={false} />
+                <RawData title={t("Raw JSON")} value={snapshot.value} />
+              </article>
+            ))}
+          </div>
+        </AdminDialog>
       )}
     </section>
   );

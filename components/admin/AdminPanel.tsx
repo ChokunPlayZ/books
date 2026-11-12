@@ -27,6 +27,7 @@ import PublisherCrawlsPanel from "./PublisherCrawlsPanel";
 import AdminUsersPanel from "./AdminUsersPanel";
 import ScraperDebugPanel from "./ScraperDebugPanel";
 import { RecordCard, RecordContent } from "./RecordContent";
+import AdminDialog from "./AdminDialog";
 
 async function rpc<T>(name: string, arg?: unknown): Promise<T> {
   const response = await fetch("/api/rpc", {
@@ -123,6 +124,9 @@ export default function AdminPanel({
   const [selected, setSelected] = useState<JobDetail | null>(null);
   const selectedId = useRef<string | null>(null);
   const selectedEventPage = useRef(1);
+  const jobTrigger = useRef<HTMLButtonElement | null>(null);
+  const previewTrigger = useRef<HTMLButtonElement | null>(null);
+  const previewRequest = useRef(0);
   const [preview, setPreview] = useState<
     (CachePreview & { key: string }) | null
   >(null);
@@ -234,6 +238,7 @@ export default function AdminPanel({
     );
   }
   function inspectCache(key: string, offset?: number) {
+    const request = ++previewRequest.current;
     return action(async () => {
       const data = await rpc<CachePreview>("getMetadataCacheEntry", {
         key,
@@ -241,7 +246,7 @@ export default function AdminPanel({
         search: offset === undefined ? metadataQuery.search : undefined,
         confirmed: metadataQuery.confirmed === true,
       });
-      setPreview({ key, ...data });
+      if (request === previewRequest.current) setPreview({ key, ...data });
     }, "");
   }
 
@@ -297,7 +302,7 @@ export default function AdminPanel({
           {t("Refresh view")}
         </button>
       </div>
-      {error && (
+      {error && !selected && !preview && (
         <div className="admin-error" role="alert">
           {t(error)}
         </div>
@@ -425,7 +430,11 @@ export default function AdminPanel({
                       <button
                         className="admin-text-button"
                         disabled={busy}
-                        onClick={() => openJob(job.id)}
+                        aria-haspopup="dialog"
+                        onClick={(event) => {
+                          jobTrigger.current = event.currentTarget;
+                          void openJob(job.id);
+                        }}
                       >
                         {job.label}
                       </button>
@@ -541,71 +550,13 @@ export default function AdminPanel({
             disabled={busy}
             onPage={(page) => setQueueQuery({ ...queueQuery, page })}
           />
-          {selected && (
-            <section className="admin-card" aria-labelledby="jobDetailHeading">
-              <div className="admin-section-heading">
-                <h3 id="jobDetailHeading">
-                  {t("Task details")}: {selected.label}
-                </h3>
-                <button
-                  className="btn"
-                  onClick={() => {
-                    selectedId.current = null;
-                    setSelected(null);
-                  }}
-                >
-                  {t("Close")}
-                </button>
-              </div>
-              <p>
-                {selected.id} · {selected.username} · {t(selected.status)}
-              </p>
-              {selected.error && (
-                <div className="admin-error" role="alert">
-                  <h4>{t("Failure reason")}</h4>
-                  <p>{selected.error}</p>
-                </div>
-              )}
-              <ol className="admin-events" tabIndex={0}>
-                {selected.events.map((event) => (
-                  <li key={event.id}>
-                    <time>{formatTime(event.createdAt)}</time> — {event.message}
-                    {event.actor ? ` · ${event.actor}` : ""}
-                  </li>
-                ))}
-              </ol>
-              {selected.eventPages > 1 && (
-                <Pager
-                  page={selected.eventPage}
-                  pages={selected.eventPages}
-                  disabled={busy}
-                  onPage={(eventPage) => {
-                    if (eventPage > 1) setLive(false);
-                    void openJob(selected.id, eventPage);
-                  }}
-                />
-              )}
-              <section className="admin-task-content">
-                <h4>{t("Task input")}</h4>
-                <RecordContent value={selected.payload} />
-              </section>
-              <section className="admin-task-content">
-                <h4>{t("Task result")}</h4>
-                {selected.result === null ? (
-                  <p className="admin-empty-value">{t("No result yet.")}</p>
-                ) : (
-                  <RecordContent value={selected.result} />
-                )}
-              </section>
-            </section>
-          )}
         </section>
       )}
 
       {tab === "crawls" && (
         <PublisherCrawlsPanel
-          onInspect={(id) => {
-            setTab("queue");
+          onInspect={(id, trigger) => {
+            jobTrigger.current = trigger;
             void openJob(id);
           }}
         />
@@ -849,7 +800,11 @@ export default function AdminPanel({
                         <button
                           className="btn"
                           disabled={busy}
-                          onClick={() => inspectCache(entry.key)}
+                          aria-haspopup="dialog"
+                          onClick={(event) => {
+                            previewTrigger.current = event.currentTarget;
+                            void inspectCache(entry.key);
+                          }}
                         >
                           {t("Inspect")}
                         </button>
@@ -901,13 +856,15 @@ export default function AdminPanel({
             onPage={(page) => setMetadataQuery({ ...metadataQuery, page })}
           />
           {preview && (
-            <section className="admin-card">
-              <div className="admin-section-heading">
-                <h3>{t("Cache preview")}</h3>
-                <button className="btn" onClick={() => setPreview(null)}>
-                  {t("Close")}
-                </button>
-              </div>
+            <AdminDialog
+              title={t("Cache preview")}
+              returnFocus={previewTrigger.current}
+              error={error}
+              onClose={() => {
+                previewRequest.current++;
+                setPreview(null);
+              }}
+            >
               <p className="admin-record-key">{preview.key}</p>
               <RecordContent
                 value={preview.data}
@@ -952,7 +909,7 @@ export default function AdminPanel({
                   </button>
                 </div>
               )}
-            </section>
+            </AdminDialog>
           )}
         </section>
       )}
@@ -1068,6 +1025,58 @@ export default function AdminPanel({
             onPage={(page) => setRecordQuery({ ...recordQuery, page })}
           />
         </section>
+      )}
+      {selected && (
+        <AdminDialog
+          title={`${t("Task details")}: ${selected.label}`}
+          returnFocus={jobTrigger.current}
+          error={error}
+          onClose={() => {
+            selectedId.current = null;
+            setSelected(null);
+          }}
+        >
+          <p>
+            {selected.id} · {selected.username} · {t(selected.status)}
+          </p>
+          {selected.error && (
+            <div className="admin-error" role="alert">
+              <h4>{t("Failure reason")}</h4>
+              <p>{selected.error}</p>
+            </div>
+          )}
+          <ol className="admin-events" tabIndex={0}>
+            {selected.events.map((event) => (
+              <li key={event.id}>
+                <time>{formatTime(event.createdAt)}</time> — {event.message}
+                {event.actor ? ` · ${event.actor}` : ""}
+              </li>
+            ))}
+          </ol>
+          {selected.eventPages > 1 && (
+            <Pager
+              page={selected.eventPage}
+              pages={selected.eventPages}
+              disabled={busy}
+              onPage={(eventPage) => {
+                if (eventPage > 1) setLive(false);
+                void openJob(selected.id, eventPage);
+              }}
+            />
+          )}
+          <section className="admin-task-content">
+            <h4>{t("Task input")}</h4>
+            <RecordContent value={selected.payload} />
+          </section>
+          <section className="admin-task-content">
+            <h4>{t("Task result")}</h4>
+            {selected.result === null ? (
+              <p className="admin-empty-value">{t("No result yet.")}</p>
+            ) : (
+              <RecordContent value={selected.result} />
+            )}
+          </section>
+        </AdminDialog>
       )}
     </main>
   );

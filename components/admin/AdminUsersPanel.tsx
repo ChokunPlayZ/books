@@ -9,6 +9,7 @@ import type {
 import { useTranslations } from "../PreferencesProvider";
 import { adminRpc } from "./rpc.ts";
 import { RecordCard } from "./RecordContent";
+import AdminDialog from "./AdminDialog";
 
 export default function AdminUsersPanel() {
   const t = useTranslations();
@@ -16,6 +17,8 @@ export default function AdminUsersPanel() {
   const [query, setQuery] = useState({ search: "", page: 1 });
   const [selected, setSelected] = useState<AdminUser | null>(null);
   const selectedId = useRef<number | null>(null);
+  const accountTrigger = useRef<HTMLButtonElement | null>(null);
+  const libraryTrigger = useRef<HTMLButtonElement>(null);
   const [library, setLibrary] = useState<AdminLibrary | null>(null);
   const [libraryQuery, setLibraryQuery] = useState({
     resource: "books",
@@ -113,12 +116,12 @@ export default function AdminUsersPanel() {
           "Account details do not load private libraries. Opening a library requires confirmation and is recorded in the audit log.",
         )}
       </p>
-      {error && (
+      {error && !selected && (
         <p className="admin-error" role="alert">
           {t(error)}
         </p>
       )}
-      {notice && (
+      {notice && !selected && (
         <p className="admin-notice" role="status">
           {t(notice)}
         </p>
@@ -207,7 +210,11 @@ export default function AdminUsersPanel() {
                   <button
                     className="btn"
                     disabled={busy}
-                    onClick={() => select(user)}
+                    aria-haspopup="dialog"
+                    onClick={(event) => {
+                      accountTrigger.current = event.currentTarget;
+                      select(user);
+                    }}
                   >
                     {t("Manage account")}
                   </button>
@@ -239,173 +246,171 @@ export default function AdminUsersPanel() {
         </div>
       )}
       {selected && (
-        <section
-          className="admin-card"
-          aria-label={t("Account details")}
-          key={selected.id}
-        >
-          <div className="admin-section-heading">
-            <h3>
-              {selected.username} · #{selected.id}
-            </h3>
-            <button
-              className="btn"
-              disabled={busy}
-              onClick={() => select(null)}
-            >
-              {t("Close")}
-            </button>
-          </div>
-          <p>
-            {selected.email} · {selected.role} · {selected.locale} /{" "}
-            {selected.theme}
-          </p>
-          <p>
-            {t("Created")}: {selected.createdAt} · {selected.books} {t("Books")}{" "}
-            · {selected.removed} {t("Removed")} · {selected.savedReleases}{" "}
-            {t("Saved releases")} · {selected.catalogs}{" "}
-            {t("Linked series catalogs")} · {selected.sessions}{" "}
-            {t("Active sessions")}
-          </p>
-          <form
-            className="admin-filters"
-            onSubmit={(e) => {
-              e.preventDefault();
-              manage(
-                "rename",
-                String(new FormData(e.currentTarget).get("username")),
-              );
-            }}
+        <>
+          <AdminDialog
+            title={`${t("Account details")}: ${selected.username} · #${selected.id}`}
+            returnFocus={accountTrigger.current}
+            busy={busy}
+            error={library ? "" : error}
+            notice={library ? "" : notice}
+            onClose={() => select(null)}
+            key={selected.id}
           >
-            <label>
-              {t("Account name")}
-              <input
-                name="username"
-                defaultValue={selected.username}
-                required
-                maxLength={254}
-              />
-            </label>
-            <button className="btn" disabled={busy}>
-              {t("Rename account")}
-            </button>
-          </form>
-          <div className="admin-row-actions">
-            <button
-              className="btn"
-              disabled={busy}
-              onClick={() =>
-                manage("role", selected.role === "admin" ? "user" : "admin")
-              }
-            >
-              {t(
-                selected.role === "admin" ? "Make user" : "Make administrator",
-              )}
-            </button>
-            <button
-              className="btn"
-              disabled={busy}
-              onClick={() => manage(selected.disabled ? "enable" : "disable")}
-            >
-              {t(selected.disabled ? "Enable account" : "Disable account")}
-            </button>
-            <button
-              className="btn"
-              disabled={busy}
-              onClick={() => manage("revoke-sessions")}
-            >
-              {t("Sign out all sessions")}
-            </button>
-          </div>
-          <h3>{t("Re-link Google account")}</h3>
-          <p>
-            {t(
-              "Creates a single-use invitation valid for 24 hours for the destination email. The library stays intact; old sessions are revoked only after successful re-linking. Existing libraries are never merged.",
-            )}
-          </p>
-          <form
-            className="admin-filters"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const email = String(new FormData(e.currentTarget).get("email"));
-              if (
-                window.confirm(
-                  t(
-                    "Generate a re-link invitation for this account and destination email? Any previous invitation will stop working.",
-                  ),
-                )
-              )
-                void action(async () => {
-                  setInvitation(
-                    await adminRpc("createAccountRelink", {
-                      userId: selected.id,
-                      email,
-                    }),
-                  );
-                }, "Re-link invitation created. Copy it now; it is only shown once.");
-            }}
-          >
-            <label>
-              {t("Destination Google email")}
-              <input name="email" type="email" required />
-            </label>
-            <button className="btn" disabled={busy || selected.disabled}>
-              {t("Generate re-link URL")}
-            </button>
-            <button
-              className="btn"
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                if (
-                  window.confirm(t("Revoke outstanding re-link invitations?"))
-                )
-                  void action(async () => {
-                    await adminRpc("revokeAccountRelinks", {
-                      userId: selected.id,
-                    });
-                    setInvitation(null);
-                  });
+            <p>
+              {selected.email} · {selected.role} · {selected.locale} /{" "}
+              {selected.theme}
+            </p>
+            <p>
+              {t("Created")}: {selected.createdAt} · {selected.books}{" "}
+              {t("Books")} · {selected.removed} {t("Removed")} ·{" "}
+              {selected.savedReleases} {t("Saved releases")} ·{" "}
+              {selected.catalogs} {t("Linked series catalogs")} ·{" "}
+              {selected.sessions} {t("Active sessions")}
+            </p>
+            <form
+              className="admin-filters"
+              onSubmit={(e) => {
+                e.preventDefault();
+                manage(
+                  "rename",
+                  String(new FormData(e.currentTarget).get("username")),
+                );
               }}
             >
-              {t("Revoke invitations")}
-            </button>
-          </form>
-          {invitation && (
-            <div>
               <label>
-                {t("Re-link URL")}
+                {t("Account name")}
                 <input
-                  className="admin-link-input"
-                  value={invitation.url}
-                  readOnly
-                  onFocus={(e) => e.target.select()}
+                  name="username"
+                  defaultValue={selected.username}
+                  required
+                  maxLength={254}
                 />
               </label>
-              <p>
-                {invitation.email} · {t("Expires")}:{" "}
-                {new Date(invitation.expiresAt).toLocaleString()}
-              </p>
+              <button className="btn" disabled={busy}>
+                {t("Rename account")}
+              </button>
+            </form>
+            <div className="admin-row-actions">
               <button
                 className="btn"
-                onClick={() => {
-                  void navigator.clipboard
-                    .writeText(invitation.url)
-                    .then(() => setNotice("Link copied."))
-                    .catch(() =>
-                      setError("Select and copy the link manually."),
-                    );
-                }}
+                disabled={busy}
+                onClick={() =>
+                  manage("role", selected.role === "admin" ? "user" : "admin")
+                }
               >
-                {t("Copy link")}
+                {t(
+                  selected.role === "admin"
+                    ? "Make user"
+                    : "Make administrator",
+                )}
+              </button>
+              <button
+                className="btn"
+                disabled={busy}
+                onClick={() => manage(selected.disabled ? "enable" : "disable")}
+              >
+                {t(selected.disabled ? "Enable account" : "Disable account")}
+              </button>
+              <button
+                className="btn"
+                disabled={busy}
+                onClick={() => manage("revoke-sessions")}
+              >
+                {t("Sign out all sessions")}
               </button>
             </div>
-          )}
-          <h3>{t("Private library")}</h3>
-          {!library ? (
+            <h3>{t("Re-link Google account")}</h3>
+            <p>
+              {t(
+                "Creates a single-use invitation valid for 24 hours for the destination email. The library stays intact; old sessions are revoked only after successful re-linking. Existing libraries are never merged.",
+              )}
+            </p>
+            <form
+              className="admin-filters"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const email = String(
+                  new FormData(e.currentTarget).get("email"),
+                );
+                if (
+                  window.confirm(
+                    t(
+                      "Generate a re-link invitation for this account and destination email? Any previous invitation will stop working.",
+                    ),
+                  )
+                )
+                  void action(async () => {
+                    setInvitation(
+                      await adminRpc("createAccountRelink", {
+                        userId: selected.id,
+                        email,
+                      }),
+                    );
+                  }, "Re-link invitation created. Copy it now; it is only shown once.");
+              }}
+            >
+              <label>
+                {t("Destination Google email")}
+                <input name="email" type="email" required />
+              </label>
+              <button className="btn" disabled={busy || selected.disabled}>
+                {t("Generate re-link URL")}
+              </button>
+              <button
+                className="btn"
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  if (
+                    window.confirm(t("Revoke outstanding re-link invitations?"))
+                  )
+                    void action(async () => {
+                      await adminRpc("revokeAccountRelinks", {
+                        userId: selected.id,
+                      });
+                      setInvitation(null);
+                    });
+                }}
+              >
+                {t("Revoke invitations")}
+              </button>
+            </form>
+            {invitation && (
+              <div>
+                <label>
+                  {t("Re-link URL")}
+                  <input
+                    className="admin-link-input"
+                    value={invitation.url}
+                    readOnly
+                    onFocus={(e) => e.target.select()}
+                  />
+                </label>
+                <p>
+                  {invitation.email} · {t("Expires")}:{" "}
+                  {new Date(invitation.expiresAt).toLocaleString()}
+                </p>
+                <button
+                  className="btn"
+                  onClick={() => {
+                    void navigator.clipboard
+                      .writeText(invitation.url)
+                      .then(() => setNotice("Link copied."))
+                      .catch(() =>
+                        setError("Select and copy the link manually."),
+                      );
+                  }}
+                >
+                  {t("Copy link")}
+                </button>
+              </div>
+            )}
+            <h3>{t("Private library")}</h3>
             <button
+              ref={libraryTrigger}
               className="btn"
               disabled={busy}
+              aria-haspopup="dialog"
               onClick={() => {
                 if (
                   window.confirm(
@@ -419,11 +424,16 @@ export default function AdminUsersPanel() {
             >
               {t("View library (confirmation required)")}
             </button>
-          ) : (
-            <>
-              <button className="btn" onClick={() => setLibrary(null)}>
-                {t("Hide library")}
-              </button>
+          </AdminDialog>
+          {library && (
+            <AdminDialog
+              title={`${t("Private library")}: ${selected.username} · #${selected.id}`}
+              returnFocus={libraryTrigger.current}
+              busy={busy}
+              error={error}
+              notice={notice}
+              onClose={() => setLibrary(null)}
+            >
               <form
                 className="admin-filters"
                 onSubmit={(e) => {
@@ -518,9 +528,9 @@ export default function AdminUsersPanel() {
                   {t("Next")}
                 </button>
               </div>
-            </>
+            </AdminDialog>
           )}
-        </section>
+        </>
       )}
     </section>
   );
