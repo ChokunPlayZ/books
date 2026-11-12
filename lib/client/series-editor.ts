@@ -1,4 +1,4 @@
-import { $, node, requestId, fillOptions } from "./dom.ts";
+import { $, node, icon, requestId, fillOptions, number } from "./dom.ts";
 import { t } from "./i18n.ts";
 import { bookSourceApplies } from "../domain/book-sources.ts";
 import { publisherKey } from "./matching.ts";
@@ -19,17 +19,21 @@ const labels = {
   note: "Notes",
   coverUrl: "Cover image URL",
   publisherUrl: "Publisher product URL",
+  edition: "Edition details",
+  msrp: "MSRP / list price",
+  msrpCurrency: "MSRP currency",
 };
 type Field = keyof typeof labels;
 type Control = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 type EditRow = {
   book: StoredBook;
   element: HTMLTableRowElement;
-  details: HTMLTableRowElement;
+  details: HTMLDivElement;
   toggle: HTMLButtonElement;
   heading: HTMLElement;
   metadata: HTMLElement;
   inputs: Record<Field, Control>;
+  summaries: Partial<Record<Field, HTMLElement>>;
 };
 
 export function createSeriesEditor({
@@ -52,6 +56,7 @@ export function createSeriesEditor({
 
   let active = false;
   let rows: EditRow[] = [];
+  let editing: EditRow | null = null;
   let pending: {
     key: string;
     originals: StoredBook[];
@@ -72,14 +77,14 @@ export function createSeriesEditor({
   function fieldChanged(row: EditRow, field: Field) {
     const input = row.inputs[field];
     const value = input.value.trim();
-    if (field === "price" || field === "volume" || field === "pageCount")
+    if (["price", "volume", "pageCount", "msrp"].includes(field))
       return (
         input.validity.badInput ||
         (value === ""
           ? row.book[field] != null && row.book[field] !== ""
           : row.book[field] === "" || Number(value) !== row.book[field])
       );
-    return value !== row.book[field];
+    return value !== String(row.book[field] ?? "");
   }
 
   function changed(row: EditRow) {
@@ -130,7 +135,6 @@ export function createSeriesEditor({
     $("seriesSaveBar").classList.toggle("is-dirty", count > 0);
     for (const row of rows) {
       row.element.classList.toggle("is-dirty", changed(row));
-      row.details.classList.toggle("is-dirty", changed(row));
       row.toggle.disabled = state.busy;
       const volume = row.inputs.volume.value.trim();
       row.heading.textContent =
@@ -138,47 +142,102 @@ export function createSeriesEditor({
       row.metadata.textContent = [
         row.inputs.type.value,
         row.inputs.publisher.value.trim(),
-        row.inputs.isbn.value.trim(),
+        row.inputs.edition.value.trim(),
       ]
         .filter(Boolean)
         .join(" · ");
+      row.toggle.setAttribute(
+        "aria-label",
+        t("Edit {volume}", {
+          volume: row.heading.textContent,
+        }),
+      );
+      for (const field of ["status", "date", "price", "source"] as const) {
+        const value = row.inputs[field].value.trim();
+        row.summaries[field]!.textContent =
+          value === ""
+            ? t("Not recorded")
+            : field === "price"
+              ? "฿" + number(Number(value))
+              : field === "status"
+                ? t(value)
+                : value;
+      }
       for (const input of Object.values(row.inputs))
         input.disabled = state.busy;
     }
+    $("resetSeriesVolume").disabled = !editing || !changed(editing);
   }
 
-  function showDetails(row: EditRow, expanded: boolean) {
-    row.details.hidden = !expanded;
-    row.toggle.setAttribute("aria-expanded", String(expanded));
-    row.toggle.textContent = t(expanded ? "Hide details" : "Book details");
+  function showDetails(row: EditRow) {
+    if (state.busy) return;
+    for (const item of rows) {
+      item.details.hidden = item !== row;
+      item.toggle.setAttribute("aria-expanded", String(item === row));
+    }
+    editing = row;
+    $("seriesVolumeTitle").textContent = row.heading.textContent;
+    $("seriesVolumeSubtitle").textContent = state.selectedSeries;
+    syncViewport();
+    $("seriesVolumeDialog").showModal();
+    $("seriesVolumeFields").scrollTop = 0;
+    $("seriesVolumeTitle").focus();
+    syncControls();
+  }
+
+  function syncViewport() {
+    const viewport = window.visualViewport;
+    $("seriesVolumeDialog").style.setProperty(
+      "--volume-dialog-height",
+      (viewport?.height ?? window.innerHeight) + "px",
+    );
+    $("seriesVolumeDialog").style.setProperty(
+      "--volume-dialog-top",
+      (viewport?.offsetTop ?? 0) + "px",
+    );
+  }
+
+  function closeDetails() {
+    $("seriesVolumeDialog").close();
+    if (editing) {
+      editing.toggle.setAttribute("aria-expanded", "false");
+      editing.toggle.focus();
+    }
+    editing = null;
   }
 
   function editField(
     book: StoredBook,
     field: Field,
     inputs: EditRow["inputs"],
-    compact = false,
   ) {
     if (
       state.data?.user.role !== "admin" &&
-      ["pageCount", "coverUrl", "publisherUrl"].includes(field)
+      [
+        "pageCount",
+        "coverUrl",
+        "publisherUrl",
+        "msrp",
+        "msrpCurrency",
+      ].includes(field)
     ) {
       const input = node("input");
-      input.type = "hidden";
+      input.readOnly = true;
       input.id = `volume-${book.row}-${field}`;
       input.name = field;
       input.value = String(book[field] ?? "");
       inputs[field] = input;
-      return input;
+      const wrapper = node("div", "field");
+      const label = node("label", "", t(labels[field]));
+      label.htmlFor = input.id;
+      input.placeholder = t("Not recorded");
+      wrapper.append(label, input);
+      return wrapper;
     }
     const wrapper = node("div", "field");
     const label = node("label", "", t(labels[field]));
     const id = `volume-${book.row}-${field}`;
     label.htmlFor = id;
-    if (compact) {
-      label.className = "sr-only";
-      label.textContent += ` for ${book.volume === "" ? "unnumbered volume" : "Volume " + book.volume}, ${book.type}, ${book.publisher}`;
-    }
     let input: Control;
     if (field === "status" || field === "type") {
       input = node("select");
@@ -197,12 +256,12 @@ export function createSeriesEditor({
       input.required = true;
     } else if (field === "note") {
       input = node("textarea");
-      input.rows = 3;
+      input.rows = 2;
       input.maxLength = 2000;
       wrapper.classList.add("span-2");
     } else {
       input = node("input");
-      input.type = ["volume", "price", "pageCount"].includes(field)
+      input.type = ["volume", "price", "pageCount", "msrp"].includes(field)
         ? "number"
         : field === "date"
           ? "date"
@@ -210,7 +269,7 @@ export function createSeriesEditor({
             ? "url"
             : "text";
       input.maxLength = field.endsWith("Url") ? 2000 : 500;
-      if (field === "volume" || field === "price") {
+      if (field === "volume" || field === "price" || field === "msrp") {
         input.min = "0";
         input.step = "any";
         input.inputMode = "decimal";
@@ -252,13 +311,16 @@ export function createSeriesEditor({
         }
         input.placeholder =
           field === "source"
-            ? "Store or seller"
-            : "Choose or enter a publisher";
+            ? t("Store or seller")
+            : t("Choose or enter a publisher");
       } else if (field === "isbn") {
         input.placeholder = "978… or ISBN-10";
         input.maxLength = 40;
-      } else {
+      } else if (field.endsWith("Url")) {
         input.placeholder = "https://…";
+      } else if (field === "msrpCurrency") {
+        input.maxLength = 3;
+        input.placeholder = "THB, USD, JPY";
       }
     }
     input.id = id;
@@ -283,7 +345,14 @@ export function createSeriesEditor({
         const headingCell = node("th");
         headingCell.scope = "row";
         const volume =
-          book.volume === "" ? "Unnumbered volume" : `Volume ${book.volume}`;
+          book.volume === ""
+            ? t("Unnumbered volume")
+            : t("Volume {volume}", { volume: book.volume });
+        const toggle = node("button", "series-edit-toggle");
+        toggle.type = "button";
+        toggle.setAttribute("aria-controls", "seriesVolumeDialog");
+        toggle.setAttribute("aria-haspopup", "dialog");
+        toggle.setAttribute("aria-expanded", "false");
         const title = node("strong", "", volume);
         title.id = `volume-${book.row}-title`;
         const metadata = node(
@@ -291,66 +360,45 @@ export function createSeriesEditor({
           "hint",
           [book.type, book.publisher, book.isbn].filter(Boolean).join(" · "),
         );
-        headingCell.append(title, metadata);
+        const editIcon = icon("edit");
+        toggle.append(title, editIcon);
+        headingCell.append(toggle, metadata);
         element.append(headingCell);
         const inputs = {} as EditRow["inputs"];
+        const summaries: EditRow["summaries"] = {};
         for (const field of ["status", "date", "price", "source"] as const) {
           const cell = node("td");
-          cell.append(editField(book, field, inputs, true));
+          cell.dataset.label = t(labels[field]);
+          const value = node("span");
+          summaries[field] = value;
+          cell.append(value);
           element.append(cell);
         }
-        const details = node("tr", "series-edit-details");
+        const details = node("div", "series-edit-details-body");
         details.id = `volume-${book.row}-details`;
         details.hidden = true;
-        const detailsCell = node("td");
-        detailsCell.colSpan = 6;
-        const detailsBody = node("div", "series-edit-details-body");
-        const detailsTitle = node(
-          "h3",
-          "",
-          `Book details for ${volume.toLowerCase()}`,
-        );
-        detailsTitle.id = `volume-${book.row}-details-title`;
-        detailsBody.setAttribute("role", "group");
-        detailsBody.setAttribute("aria-labelledby", detailsTitle.id);
-        const fields = node("div", "series-edit-metadata");
-        for (const field of [
-          "volume",
-          "isbn",
-          "type",
-          "publisher",
-          "pageCount",
-          "note",
-          "coverUrl",
-          "publisherUrl",
-        ] as const)
-          fields.append(editField(book, field, inputs));
-        detailsBody.append(
-          detailsTitle,
-          fields,
-          node(
-            "p",
-            "hint",
-            t(
-              state.data?.user.role === "admin"
-                ? "Edition changes apply to this copy only. Use supported publisher or book metadata links for covers; clear the cover URL to use automatic artwork."
-                : "Edition changes apply to this copy only.",
-            ),
-          ),
-        );
-        detailsCell.append(detailsBody);
-        details.append(detailsCell);
-        const toggleCell = node("td");
-        const toggle = node(
-          "button",
-          "btn series-edit-toggle",
-          t("Book details"),
-        );
-        toggle.type = "button";
-        toggle.setAttribute("aria-controls", details.id);
-        toggle.setAttribute("aria-expanded", "false");
-        toggleCell.append(toggle);
-        element.append(toggleCell);
+        for (const [heading, fields] of [
+          [
+            "Edition & publication",
+            ["volume", "isbn", "type", "publisher", "edition"],
+          ],
+          [
+            "Your copy & purchase",
+            ["status", "date", "price", "source", "note"],
+          ],
+          [
+            "Book metadata",
+            ["msrp", "msrpCurrency", "pageCount", "coverUrl", "publisherUrl"],
+          ],
+        ] as [string, Field[]][]) {
+          const section = node("fieldset", "volume-editor-section");
+          section.append(node("legend", "", t(heading)));
+          const grid = node("div", "volume-editor-grid");
+          for (const field of fields)
+            grid.append(editField(book, field, inputs));
+          section.append(grid);
+          details.append(section);
+        }
         const row = {
           book: { ...book },
           element,
@@ -359,12 +407,12 @@ export function createSeriesEditor({
           heading: title,
           metadata,
           inputs,
+          summaries,
         };
         return row;
       });
-    $("seriesEditRows").replaceChildren(
-      ...rows.flatMap((row) => [row.element, row.details]),
-    );
+    $("seriesEditRows").replaceChildren(...rows.map((row) => row.element));
+    $("seriesVolumeFields").replaceChildren(...rows.map((row) => row.details));
     pending = null;
     active = true;
     $("seriesEditError").hidden = true;
@@ -376,11 +424,13 @@ export function createSeriesEditor({
   }
 
   function close() {
+    closeDetails();
     active = false;
     rows = [];
     pending = null;
     form.hidden = true;
     $("seriesEditRows").replaceChildren();
+    $("seriesVolumeFields").replaceChildren();
     $("libraryMain").classList.remove("series-editing");
     $("editVolumesButton").setAttribute("aria-expanded", "false");
     syncControls();
@@ -388,7 +438,17 @@ export function createSeriesEditor({
 
   async function save(event: SubmitEvent) {
     event.preventDefault();
-    if (state.busy || !active || !form.reportValidity()) return;
+    if (state.busy || !active) return;
+    for (const row of rows) {
+      const invalid = Object.values(row.inputs).find(
+        (input) => !input.validity.valid,
+      );
+      if (invalid) {
+        showDetails(row);
+        invalid.reportValidity();
+        return;
+      }
+    }
     const edits = changes();
     if (!edits.length) return;
     const content = { series: state.selectedSeries!, changes: edits };
@@ -453,32 +513,54 @@ export function createSeriesEditor({
     "click",
     (event) => {
       if (state.busy || !(event.target instanceof Element)) return;
-      const toggle = event.target.closest(".series-edit-toggle");
-      const row = rows.find((row) => row.toggle === toggle);
+      const element = event.target.closest(".series-edit-volume");
+      const row = rows.find((row) => row.element === element);
       if (!row) return;
-      showDetails(row, row.details.hidden);
-      if (!row.details.hidden)
-        row.details.firstElementChild?.scrollIntoView({
-          block: "nearest",
-          inline: "start",
-        });
+      showDetails(row);
     },
     { signal },
   );
   form.addEventListener("input", onEdit, { signal });
   form.addEventListener("change", onEdit, { signal });
-  form.addEventListener(
-    "invalid",
+  for (const id of ["closeSeriesVolume", "doneSeriesVolume"] as const)
+    $(id).addEventListener("click", closeDetails, { signal });
+  $("seriesVolumeDialog").addEventListener(
+    "cancel",
     (event) => {
-      if (event.target instanceof HTMLElement) {
-        const target = event.target;
-        const row = rows.find((row) => row.details.contains(target));
-        if (row) showDetails(row, true);
+      event.preventDefault();
+      closeDetails();
+    },
+    { signal },
+  );
+  $("seriesVolumeDialog").addEventListener(
+    "keydown",
+    (event) => {
+      if (
+        event.key === "Enter" &&
+        !event.defaultPrevented &&
+        event.target instanceof HTMLInputElement &&
+        event.target.getAttribute("aria-expanded") !== "true"
+      ) {
+        event.preventDefault();
+        closeDetails();
       }
     },
-    { capture: true, signal },
+    { signal },
+  );
+  $("resetSeriesVolume").addEventListener(
+    "click",
+    () => {
+      if (!editing) return;
+      for (const field of Object.keys(labels) as Field[])
+        editing.inputs[field].value = String(editing.book[field] ?? "");
+      onEdit();
+    },
+    { signal },
   );
   form.addEventListener("submit", (event) => void save(event), { signal });
+  window.visualViewport?.addEventListener("resize", syncViewport, { signal });
+  window.visualViewport?.addEventListener("scroll", syncViewport, { signal });
+  window.addEventListener("resize", syncViewport, { signal });
   window.addEventListener(
     "beforeunload",
     (event) => {

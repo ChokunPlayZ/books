@@ -59,7 +59,6 @@ export default async function CollectionShell({
             userId={data.user.id}
             header={<SeriesHeader series={series} books={data.books} />}
           >
-            <SeriesEditor />
             {shelf && (
               <ShelfBrowser
                 data={data}
@@ -79,6 +78,7 @@ export default async function CollectionShell({
             />
           </SeriesInfoPanel>
         )}
+        {series !== null && <SeriesEditor />}
         {shelf && series === null && (
           <ShelfBrowser
             data={data}

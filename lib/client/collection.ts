@@ -3663,6 +3663,7 @@ export function mountCollection({
   function openBook(book, defaults = null) {
     if (state.busy || !state.data) return;
     state.editing = book || null;
+    $("bookDialog").classList.toggle("book-dialog-editing", !!book);
     state.typeTouched = false;
     state.publisherTouched = false;
     state.pendingSave = null;

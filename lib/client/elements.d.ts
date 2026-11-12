@@ -244,6 +244,13 @@ interface LibraryElements {
   seriesEditRows: HTMLTableSectionElement;
   seriesEditor: HTMLFormElement;
   seriesEditorTitle: HTMLHeadingElement;
+  seriesVolumeDialog: HTMLDialogElement;
+  seriesVolumeTitle: HTMLHeadingElement;
+  seriesVolumeSubtitle: HTMLParagraphElement;
+  seriesVolumeFields: HTMLDivElement;
+  closeSeriesVolume: HTMLButtonElement;
+  doneSeriesVolume: HTMLButtonElement;
+  resetSeriesVolume: HTMLButtonElement;
   seriesGaps: HTMLDivElement;
   seriesHeader: HTMLDivElement;
   seriesMissing: HTMLElement;

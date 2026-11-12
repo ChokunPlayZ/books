@@ -260,13 +260,20 @@ try {
     assert.equal(updated[field], aliceBook[field], field + " is preserved");
   await alicePage.locator("#editVolumesButton").click();
   await alicePage.locator(".series-edit-volume button").click();
-  for (const field of ["pageCount", "coverUrl", "publisherUrl"])
+  for (const field of [
+    "pageCount",
+    "coverUrl",
+    "publisherUrl",
+    "msrp",
+    "msrpCurrency",
+  ])
     assert.equal(
       await alicePage
         .locator(`#seriesEditor [name="${field}"]`)
-        .getAttribute("type"),
-      "hidden",
+        .evaluate((input) => input.readOnly),
+      true,
     );
+  await alicePage.locator("#doneSeriesVolume").click();
   await alicePage.locator("#cancelSeriesEdit").click();
   await bobPage.goto(url + "/data");
   assert.equal(await bobPage.locator("#metadata-maintenance").count(), 0);

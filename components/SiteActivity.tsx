@@ -52,10 +52,14 @@ export default function SiteActivity() {
     document.addEventListener("click", navigate);
     window.addEventListener("pagehide", reset);
     window.addEventListener("pageshow", reset);
+    // A cancelled native leave-page prompt does not emit pageshow/pagehide.
+    // Stop the navigation task as soon as the browser reaches that decision.
+    window.addEventListener("beforeunload", reset);
     return () => {
       document.removeEventListener("click", navigate);
       window.removeEventListener("pagehide", reset);
       window.removeEventListener("pageshow", reset);
+      window.removeEventListener("beforeunload", reset);
       reset();
     };
   }, []);

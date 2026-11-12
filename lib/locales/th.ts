@@ -543,6 +543,7 @@ export const thai: Record<string, string> = {
   "Choose a title or enter a new one": "เลือกเรื่องหรือกรอกชื่อเรื่องใหม่",
   "Type *": "ประเภท *",
   "Choose or enter a publisher": "เลือกหรือกรอกสำนักพิมพ์",
+  "Store or seller": "ร้านค้าหรือผู้ขาย",
   Edition: "ฉบับ",
   "Edit shared details from the title page.":
     "แก้ไขรายละเอียดร่วมได้จากหน้าของเรื่อง",
@@ -903,6 +904,15 @@ export const thai: Record<string, string> = {
   "Check availability": "ตรวจสอบสินค้า",
   Checked: "ตรวจสอบเมื่อ",
   "Edit volume details": "แก้ไขรายละเอียดเล่ม",
+  "Select a volume to edit all its details. Review your edits here, then save all changes together.":
+    "เลือกเล่มเพื่อแก้ไขรายละเอียดทั้งหมด ตรวจสอบการแก้ไขที่นี่ แล้วบันทึกการเปลี่ยนแปลงทั้งหมดพร้อมกัน",
+  "Close volume details": "ปิดรายละเอียดเล่ม",
+  "Book metadata & duplicate copy": "ข้อมูลหนังสือและสำเนาซ้ำ",
+  "Duplicate copy": "สำเนาซ้ำ",
+  "Edits are kept in the table. Save changes there when you’re finished.":
+    "การแก้ไขจะเก็บไว้ในตาราง เมื่อเสร็จแล้วให้กดบันทึกการเปลี่ยนแปลงที่ตาราง",
+  "Reset this volume": "คืนค่าเดิมของเล่มนี้",
+  "Edit {volume}": "แก้ไข {volume}",
   "Edit reading status and purchases in the table. Open Book details on any row to edit its volume number, ISBN, edition, notes and cover links. Save all changes together.":
     "แก้ไขสถานะการอ่านและการซื้อในตาราง เปิดรายละเอียดหนังสือเพื่อแก้ไขเลขเล่ม ISBN ฉบับ บันทึก และลิงก์ปก แล้วบันทึกการเปลี่ยนแปลงทั้งหมดพร้อมกัน",
   "Editable owned volumes": "เล่มที่มีซึ่งแก้ไขได้",

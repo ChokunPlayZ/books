@@ -1,0 +1,432 @@
+/* Volume editing owns the available width, not the series metadata column. */
+.series-editing .series-profile-banner,
+.series-editing .series-profile-cover,
+.series-editing .series-profile-tags,
+.series-editing .series-section-nav,
+.series-editing .series-info-heading,
+.series-editing .series-information-grid,
+.series-editing .series-info-matching,
+.series-editing .series-corrections,
+.series-editing #seriesAnime {
+  display: none;
+}
+
+.series-editing .series-profile-heading {
+  display: block;
+}
+
+.series-editing .series-info > :is(p, label) {
+  display: none;
+}
+
+.series-editor-heading {
+  margin-block: 12px 20px;
+}
+
+.series-edit-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.series-edit-table th:first-child {
+  width: 30%;
+}
+
+.series-edit-volume {
+  cursor: pointer;
+}
+
+.series-edit-volume:hover {
+  background: var(--button-hover);
+}
+
+.series-edit-volume:focus-within {
+  background: var(--tab-active);
+}
+
+.series-edit-volume > th {
+  min-width: 0;
+  max-width: none;
+}
+
+.series-edit-volume td {
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+}
+
+.series-edit-volume > th .series-edit-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  text-align: start;
+  white-space: normal;
+  font: inherit;
+  cursor: pointer;
+}
+
+.series-edit-toggle svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.series-edit-volume > th .hint {
+  margin-top: 0;
+}
+
+.volume-editor-dialog {
+  width: calc(100% - 40px);
+  max-width: 1240px;
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
+}
+
+.volume-editor-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.volume-editor-dialog .dialog-head {
+  flex-shrink: 0;
+  padding: 20px 24px 16px;
+}
+
+.volume-editor-dialog .dialog-head p {
+  overflow-wrap: anywhere;
+}
+
+.volume-editor-dialog .dialog-head h2:focus {
+  outline: none;
+}
+
+.volume-editor-dialog .dialog-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 24px;
+}
+
+.series-edit-details-body {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  width: 100%;
+}
+
+.volume-editor-section {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.volume-editor-section legend {
+  padding: 0;
+  margin-bottom: 16px;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.volume-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 12px;
+}
+
+.volume-editor-grid
+  .field:has(
+    :is(
+      [name="publisher"],
+      [name="edition"],
+      [name="source"],
+      [name="coverUrl"],
+      [name="publisherUrl"],
+      [name="pageCount"]
+    )
+  ) {
+  grid-column: 1 / -1;
+}
+
+.volume-editor-grid input[readonly] {
+  background: var(--surface-inset);
+  color: var(--muted);
+}
+
+.volume-editor-grid textarea {
+  height: 92px;
+  min-height: 92px;
+}
+
+.volume-editor-dialog .dialog-foot {
+  position: static;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+}
+
+.volume-editor-dialog .dialog-foot .hint {
+  max-width: 52ch;
+}
+
+.volume-editor-dialog .buttons {
+  flex-shrink: 0;
+}
+
+@media (min-width: 1100px) {
+  #bookDialog.book-dialog-editing {
+    width: calc(100% - 40px);
+    max-width: 1320px;
+    max-height: calc(100dvh - 32px);
+  }
+
+  .book-dialog-editing .dialog-head {
+    padding: 16px 24px;
+  }
+
+  .book-dialog-editing .dialog-body {
+    padding: 16px 24px;
+  }
+
+  .book-dialog-editing .dialog-body > .form-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+    gap: 14px 24px;
+  }
+
+  .book-dialog-editing .book-details-column {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+    gap: 14px 12px;
+  }
+
+  .book-dialog-editing .book-purchase-column {
+    grid-column: 2;
+    grid-row: 1;
+    gap: 14px 12px;
+  }
+
+  .book-dialog-editing #bookExtras {
+    grid-column: 3;
+    grid-row: 1;
+    border: 0;
+  }
+
+  .book-dialog-editing #bookExtras > summary {
+    display: none;
+  }
+
+  .book-dialog-editing #metadataManager {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-column: 1 / -1;
+    gap: 12px;
+  }
+
+  .book-dialog-editing #metadataManager > .field + .field {
+    margin-top: 0;
+  }
+
+  .book-dialog-editing #metadataManager > .field:has(#publisherUrl),
+  .book-dialog-editing
+    #metadataManager
+    > :is(.cover-editor, .cover-choices, .hint) {
+    grid-column: 1 / -1;
+  }
+
+  .book-dialog-editing .field:has(#note) {
+    grid-column: 1 / -1;
+  }
+
+  .book-dialog-editing .isbn-entry {
+    padding: 0;
+    background: none;
+  }
+
+  .book-dialog-editing .isbn-entry > .hint,
+  .book-dialog-editing .purchase-field > .hint,
+  .book-dialog-editing .purchase-price > .form-grid > .field > .hint,
+  .book-dialog-editing .price-calculator .hint,
+  .book-dialog-editing #metadataManager > .field > .hint,
+  .book-dialog-editing .cover-editor .hint,
+  .book-dialog-editing #metadataManager > .hint {
+    display: none;
+  }
+
+  .book-dialog-editing .title-entry,
+  .book-dialog-editing .purchase-price,
+  .book-dialog-editing #metadataManager {
+    padding: 0;
+    border: 0;
+    margin: 0;
+  }
+
+  .book-dialog-editing
+    :is(.title-entry, .purchase-price, #metadataManager)
+    > legend {
+    padding: 0;
+    margin-bottom: 12px;
+  }
+
+  .book-dialog-editing .form-grid {
+    gap: 12px;
+  }
+
+  .book-dialog-editing .price-calculator {
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .book-dialog-editing .price-calculator > .form-grid {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr);
+  }
+
+  .book-dialog-editing .discount-line select {
+    max-width: 60%;
+    flex-shrink: 1;
+  }
+
+  .book-dialog-editing .cover-editor {
+    display: grid;
+    grid-template-columns: 58px minmax(0, 1fr);
+    gap: 12px;
+    margin-top: 0;
+  }
+
+  .book-dialog-editing .metadata-cover {
+    width: 58px;
+    height: 82px;
+  }
+
+  .book-dialog-editing .cover-choices:empty {
+    display: none;
+  }
+
+  .book-dialog-editing .book-dialog-foot {
+    padding: 12px 24px;
+  }
+}
+
+@media (max-width: 1099px) {
+  .series-edit-details-body {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .volume-editor-section:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .series-editing
+    .series-profile-title
+    :is(.series-header-actions, .series-summary-line) {
+    margin-left: 0;
+  }
+
+  .series-edit-scroll {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  .series-edit-table,
+  .series-edit-table tbody {
+    display: block;
+  }
+
+  .series-edit-table thead {
+    display: none;
+  }
+
+  .series-edit-table .series-edit-volume {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 12px 16px 16px;
+    margin-bottom: 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--white);
+    gap: 12px 16px;
+  }
+
+  .series-edit-table .series-edit-volume.is-dirty {
+    border-color: var(--warning-line);
+    background: var(--warning-background);
+  }
+
+  .series-edit-table .series-edit-volume > th {
+    grid-column: 1 / -1;
+    width: auto;
+    padding: 0 0 12px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .series-edit-table .series-edit-volume > td {
+    padding: 0;
+    border: 0;
+  }
+
+  .series-edit-volume > td::before {
+    display: block;
+    content: attr(data-label);
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .volume-editor-dialog {
+    position: fixed;
+    inset: var(--volume-dialog-top, 0px) 0 auto;
+    margin: 0;
+    width: 100%;
+    max-width: none;
+    height: var(--volume-dialog-height, 100dvh);
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .volume-editor-dialog .dialog-head {
+    padding: max(16px, env(safe-area-inset-top)) 16px 16px;
+  }
+
+  .volume-editor-dialog .dialog-body {
+    flex: 1;
+    padding: 20px 16px;
+  }
+
+  .series-edit-details-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+
+  .volume-editor-grid {
+    gap: 16px 12px;
+  }
+
+  .volume-editor-dialog .dialog-foot {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+  }
+
+  .volume-editor-dialog .buttons {
+    width: 100%;
+  }
+
+  .volume-editor-dialog .buttons .btn {
+    flex: 1;
+    min-height: 48px;
+  }
+}

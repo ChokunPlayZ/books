@@ -597,6 +597,7 @@ try {
     "mobile-adding.browser.mjs",
     "series-entry.browser.mjs",
     "series-edit.browser.mjs",
+    "volume-dialog.browser.mjs",
     "title-details.browser.mjs",
     "series-missing.browser.mjs",
     "volume-editions.browser.mjs",

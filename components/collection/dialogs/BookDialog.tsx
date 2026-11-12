@@ -51,246 +51,263 @@ export default async function BookDialog({
             hidden
           ></div>
           <div className={"form-grid"}>
-            <div
-              className={"field isbn-entry span-2"}
-              data-series-detail
-              data-lookup-detail
-            >
-              <label htmlFor={"isbn"}>
-                {"ISBN "}
-                <span className={"hint"}>{t("optional")}</span>
-              </label>
-              <div className={"isbn-line"}>
-                <input
-                  id={"isbn"}
-                  name={"isbn"}
-                  type={"text"}
-                  inputMode={"text"}
-                  enterKeyHint={"search"}
-                  placeholder={t("978… or ISBN-10")}
-                  maxLength={40}
-                  autoComplete={"off"}
-                />
-                <button id={"lookupButton"} className={"btn"} type={"button"}>
-                  {t("Look up")}
-                </button>
-                <button id={"scanButton"} className={"btn"} type={"button"}>
-                  <svg aria-hidden={"true"}>
-                    <use href={"#i-scan"} />
-                  </svg>
-                  {t("Scan")}
-                </button>
-              </div>
-              <p className={"hint"}>
-                {t(
-                  "Scan a barcode, enter an ISBN, or enter a series and volume with ISBN blank, then choose Look up.",
-                )}
-              </p>
-            </div>
-            <div
-              id={"lookupResult"}
-              className={"lookup span-2"}
-              role={"status"}
-              hidden
-            ></div>
-            <ExternalLink
-              id="metadataPublisherLink"
-              className="text-btn span-2"
-              target="_blank"
-              hidden
-            >
-              {t("View on publisher site")}
-              <span aria-hidden="true">↗</span>
-            </ExternalLink>
-            <button
-              id="toggleLookupDetails"
-              className="text-btn span-2"
-              type="button"
-              aria-expanded="false"
-              hidden
-            >
-              {t("Edit book details")}
-            </button>
-            <fieldset
-              id="titleEntry"
-              className="title-entry span-2"
-              data-lookup-detail
-            >
-              <legend>{t("Title details")}</legend>
-              <div className="form-grid">
-                <div id="titleNameField" className="field span-2">
-                  <label htmlFor="series">{t("Series name *")}</label>
+            <div className="book-details-column form-grid span-2">
+              <div
+                className={"field isbn-entry span-2"}
+                data-series-detail
+                data-lookup-detail
+              >
+                <label htmlFor={"isbn"}>
+                  {"ISBN "}
+                  <span className={"hint"}>{t("optional")}</span>
+                </label>
+                <div className={"isbn-line"}>
                   <input
-                    id="series"
-                    name="series"
-                    list="seriesOptions"
-                    required
-                    maxLength={500}
-                    placeholder={t("Choose a title or enter a new one")}
+                    id={"isbn"}
+                    name={"isbn"}
+                    type={"text"}
+                    inputMode={"text"}
+                    enterKeyHint={"search"}
+                    placeholder={t("978… or ISBN-10")}
+                    maxLength={40}
+                    autoComplete={"off"}
                   />
-                  <datalist id="seriesOptions" />
+                  <button id={"lookupButton"} className={"btn"} type={"button"}>
+                    {t("Look up")}
+                  </button>
+                  <button id={"scanButton"} className={"btn"} type={"button"}>
+                    <svg aria-hidden={"true"}>
+                      <use href={"#i-scan"} />
+                    </svg>
+                    {t("Scan")}
+                  </button>
                 </div>
-                <div className="field" data-title-field>
-                  <label htmlFor="type">{t("Type *")}</label>
-                  <select id="type" name="type" required />
-                </div>
-                <div className="field" data-title-field>
-                  <label htmlFor="publisher">{t("Publisher")}</label>
-                  <input
-                    id="publisher"
-                    name="publisher"
-                    list="publisherOptions"
-                    maxLength={500}
-                    placeholder={t("Choose or enter a publisher")}
-                  />
-                  <datalist id="publisherOptions" />
-                </div>
+                <p className={"hint"}>
+                  {t(
+                    "Scan a barcode, enter an ISBN, or enter a series and volume with ISBN blank, then choose Look up.",
+                  )}
+                </p>
               </div>
-            </fieldset>
-            <div
-              id="seriesDefaults"
-              className="series-defaults span-2"
-              data-lookup-detail
-              hidden
-            >
-              <p id="seriesDefaultsText" role="status" />
-              <div id="editionField" className="field">
-                <label htmlFor="bookEdition">{t("Edition")}</label>
-                <select id="bookEdition" />
-              </div>
-              <p className="hint">
-                {t("Edit shared details from the title page.")}
-              </p>
+              <div
+                id={"lookupResult"}
+                className={"lookup span-2"}
+                role={"status"}
+                hidden
+              ></div>
+              <ExternalLink
+                id="metadataPublisherLink"
+                className="text-btn span-2"
+                target="_blank"
+                hidden
+              >
+                {t("View on publisher site")}
+                <span aria-hidden="true">↗</span>
+              </ExternalLink>
               <button
-                id="toggleBookDetails"
-                className="text-btn"
+                id="toggleLookupDetails"
+                className="text-btn span-2"
                 type="button"
                 aria-expanded="false"
+                hidden
               >
-                {t("Edit other volume details")}
+                {t("Edit book details")}
               </button>
-            </div>
-            <div className={"field"} data-lookup-detail>
-              <label htmlFor={"volume"}>{t("Volume")}</label>
-              <input
-                id={"volume"}
-                name={"volume"}
-                type={"number"}
-                inputMode={"decimal"}
-                min={"0"}
-                step={"any"}
-                placeholder={t("e.g. 1 or 4.5")}
-              />
-            </div>
-            <div className={"field"} data-lookup-detail>
-              <label htmlFor={"status"}>{t("Reading status *")}</label>
-              <select id={"status"} name={"status"} required></select>
-            </div>
-            <div className={"field purchase-field"}>
-              <label htmlFor={"source"}>{t("Bought from")}</label>
-              <input
-                id={"source"}
-                name={"source"}
-                list={"sourceOptions"}
-                maxLength={500}
-                autoComplete="off"
-                placeholder={t("Shop, book fair, or gift")}
-                aria-describedby="sourceHint"
-              />
-              <datalist id={"sourceOptions"}></datalist>
-              <p id="sourceHint" className="hint">
-                {t("Enter where you bought this copy.")}
-              </p>
-            </div>
-            <div className={"field purchase-field"} data-lookup-detail>
-              <label htmlFor={"date"}>{t("Date bought")}</label>
-              <input id={"date"} name={"date"} type={"date"} />
-            </div>
-            <fieldset className={"purchase-price span-2"}>
-              <legend>{t("Purchase price")}</legend>
-              <div className={"form-grid"}>
-                <div className={"field span-2"}>
-                  <label htmlFor={"price"}>{t("Price paid")}</label>
-                  <input
-                    id={"price"}
-                    name={"price"}
-                    type={"number"}
-                    inputMode={"decimal"}
-                    min={"0"}
-                    step={"any"}
-                    placeholder={"0.00"}
-                  />
-                  <p className={"hint"}>
-                    {t("Use your collection’s currency.")}
-                  </p>
-                  <p id="listedPriceHint" className="hint" hidden />
+              <fieldset
+                id="titleEntry"
+                className="title-entry span-2"
+                data-lookup-detail
+              >
+                <legend>{t("Title details")}</legend>
+                <div className="form-grid">
+                  <div id="titleNameField" className="field span-2">
+                    <label htmlFor="series">{t("Series name *")}</label>
+                    <input
+                      id="series"
+                      name="series"
+                      list="seriesOptions"
+                      required
+                      maxLength={500}
+                      placeholder={t("Choose a title or enter a new one")}
+                    />
+                    <datalist id="seriesOptions" />
+                  </div>
+                  <div className="field" data-title-field>
+                    <label htmlFor="type">{t("Type *")}</label>
+                    <select id="type" name="type" required />
+                  </div>
+                  <div className="field" data-title-field>
+                    <label htmlFor="publisher">{t("Publisher")}</label>
+                    <input
+                      id="publisher"
+                      name="publisher"
+                      list="publisherOptions"
+                      maxLength={500}
+                      placeholder={t("Choose or enter a publisher")}
+                    />
+                    <datalist id="publisherOptions" />
+                  </div>
                 </div>
-                <details
-                  id={"priceCalculator"}
-                  className={"price-calculator span-2"}
-                  open
-                  data-lookup-detail
+              </fieldset>
+              <div
+                id="seriesDefaults"
+                className="series-defaults span-2"
+                data-lookup-detail
+                hidden
+              >
+                <p id="seriesDefaultsText" role="status" />
+                <div id="editionField" className="field">
+                  <label htmlFor="bookEdition">{t("Edition")}</label>
+                  <select id="bookEdition" />
+                </div>
+                <p className="hint">
+                  {t("Edit shared details from the title page.")}
+                </p>
+                <button
+                  id="toggleBookDetails"
+                  className="text-btn"
+                  type="button"
+                  aria-expanded="false"
                 >
-                  <summary>{t("Calculate a discounted price")}</summary>
-                  <div className={"form-grid"}>
-                    <div className={"field"}>
-                      <label htmlFor={"regularPrice"}>
-                        {t("Regular price")}{" "}
-                        <span className={"hint"}>{t("optional")}</span>
-                      </label>
-                      <input
-                        id={"regularPrice"}
-                        type={"number"}
-                        inputMode={"decimal"}
-                        min={"0"}
-                        step={"any"}
-                        placeholder={t("Before discount")}
-                      />
-                    </div>
-                    <div className={"field"}>
-                      <label htmlFor={"discount"}>
-                        {t("Discount")}{" "}
-                        <span className={"hint"}>{t("optional")}</span>
-                      </label>
-                      <div className={"discount-line"}>
+                  {t("Edit other volume details")}
+                </button>
+              </div>
+              <div className={"field"} data-lookup-detail>
+                <label htmlFor={"volume"}>{t("Volume")}</label>
+                <input
+                  id={"volume"}
+                  name={"volume"}
+                  type={"number"}
+                  inputMode={"decimal"}
+                  min={"0"}
+                  step={"any"}
+                  placeholder={t("e.g. 1 or 4.5")}
+                />
+              </div>
+              <div className={"field"} data-lookup-detail>
+                <label htmlFor={"status"}>{t("Reading status *")}</label>
+                <select id={"status"} name={"status"} required></select>
+              </div>
+            </div>
+            <div className="book-purchase-column form-grid span-2">
+              <div className={"field purchase-field"}>
+                <label htmlFor={"source"}>{t("Bought from")}</label>
+                <input
+                  id={"source"}
+                  name={"source"}
+                  list={"sourceOptions"}
+                  maxLength={500}
+                  autoComplete="off"
+                  placeholder={t("Shop, book fair, or gift")}
+                  aria-describedby="sourceHint"
+                />
+                <datalist id={"sourceOptions"}></datalist>
+                <p id="sourceHint" className="hint">
+                  {t("Enter where you bought this copy.")}
+                </p>
+              </div>
+              <div className={"field purchase-field"} data-lookup-detail>
+                <label htmlFor={"date"}>{t("Date bought")}</label>
+                <input id={"date"} name={"date"} type={"date"} />
+              </div>
+              <fieldset className={"purchase-price span-2"}>
+                <legend>{t("Purchase price")}</legend>
+                <div className={"form-grid"}>
+                  <div className={"field span-2"}>
+                    <label htmlFor={"price"}>{t("Price paid")}</label>
+                    <input
+                      id={"price"}
+                      name={"price"}
+                      type={"number"}
+                      inputMode={"decimal"}
+                      min={"0"}
+                      step={"any"}
+                      placeholder={"0.00"}
+                    />
+                    <p className={"hint"}>
+                      {t("Use your collection’s currency.")}
+                    </p>
+                    <p id="listedPriceHint" className="hint" hidden />
+                  </div>
+                  <details
+                    id={"priceCalculator"}
+                    className={"price-calculator span-2"}
+                    open
+                    data-lookup-detail
+                  >
+                    <summary>{t("Calculate a discounted price")}</summary>
+                    <div className={"form-grid"}>
+                      <div className={"field"}>
+                        <label htmlFor={"regularPrice"}>
+                          {t("Regular price")}{" "}
+                          <span className={"hint"}>{t("optional")}</span>
+                        </label>
                         <input
-                          id={"discount"}
+                          id={"regularPrice"}
                           type={"number"}
                           inputMode={"decimal"}
                           min={"0"}
-                          max={"100"}
                           step={"any"}
-                          placeholder={"0"}
-                          aria-describedby={"discountHint"}
+                          placeholder={t("Before discount")}
                         />
-                        <select
-                          id={"discountType"}
-                          aria-label={t("Discount type")}
-                        >
-                          <option value={"percent"}>{t("% off")}</option>
-                          <option value={"amount"}>{t("Amount off")}</option>
-                        </select>
                       </div>
-                      <p id={"discountHint"} className={"hint"}>
-                        {t("Enter a percentage from 0 to 100.")}
+                      <div className={"field"}>
+                        <label htmlFor={"discount"}>
+                          {t("Discount")}{" "}
+                          <span className={"hint"}>{t("optional")}</span>
+                        </label>
+                        <div className={"discount-line"}>
+                          <input
+                            id={"discount"}
+                            type={"number"}
+                            inputMode={"decimal"}
+                            min={"0"}
+                            max={"100"}
+                            step={"any"}
+                            placeholder={"0"}
+                            aria-describedby={"discountHint"}
+                          />
+                          <select
+                            id={"discountType"}
+                            aria-label={t("Discount type")}
+                          >
+                            <option value={"percent"}>{t("% off")}</option>
+                            <option value={"amount"}>{t("Amount off")}</option>
+                          </select>
+                        </div>
+                        <p id={"discountHint"} className={"hint"}>
+                          {t("Enter a percentage from 0 to 100.")}
+                        </p>
+                      </div>
+                      <p className={"hint span-2"}>
+                        {t(
+                          "Regular price and discount are used only for this calculation.",
+                        )}
                       </p>
                     </div>
-                    <p className={"hint span-2"}>
-                      {t(
-                        "Regular price and discount are used only for this calculation.",
-                      )}
-                    </p>
-                  </div>
-                </details>
-                <p
-                  id={"priceSummary"}
-                  className={"hint span-2"}
-                  role={"status"}
-                  hidden
-                  data-lookup-detail
-                ></p>
+                  </details>
+                  <p
+                    id={"priceSummary"}
+                    className={"hint span-2"}
+                    role={"status"}
+                    hidden
+                    data-lookup-detail
+                  ></p>
+                </div>
+              </fieldset>
+              <div
+                className="field span-2"
+                data-series-detail
+                data-lookup-detail
+              >
+                <label htmlFor="note">{t("Notes")}</label>
+                <textarea
+                  id="note"
+                  name="note"
+                  maxLength={2000}
+                  placeholder={t("Special edition, a gift, a good find…")}
+                />
               </div>
-            </fieldset>
+            </div>
             <details
               id="bookExtras"
               className="book-extras span-2"
@@ -301,8 +318,8 @@ export default async function BookDialog({
               <summary>
                 {t(
                   canEditMetadata
-                    ? "Pages, cover, notes & duplicate copy"
-                    : "Notes & duplicate copy",
+                    ? "Book metadata & duplicate copy"
+                    : "Duplicate copy",
                 )}
               </summary>
               <div className="form-grid">
@@ -429,15 +446,6 @@ export default async function BookDialog({
                     <input id="coverUrl" type="hidden" />
                   </>
                 )}
-                <div className={"field span-2"} data-series-detail>
-                  <label htmlFor={"note"}>{t("Notes")}</label>
-                  <textarea
-                    id={"note"}
-                    name={"note"}
-                    maxLength={2000}
-                    placeholder={t("Special edition, a gift, a good find…")}
-                  ></textarea>
-                </div>
                 <label className={"check span-2"} data-series-detail>
                   <input type={"checkbox"} id={"allowDuplicate"} />
                   {t("Another copy of an ISBN already on my shelf")}

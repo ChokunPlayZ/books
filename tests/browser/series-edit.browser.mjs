@@ -112,20 +112,55 @@ try {
   const input = (index, field) =>
     page.locator(`#volume-${before[index].row}-${field}`);
   const details = (index) => row(index).locator(".series-edit-toggle");
+  const done = () => page.locator("#doneSeriesVolume").click();
   assert.equal(await page.getByRole("table").count(), 1);
   assert.equal(
     await page.locator("#seriesEditRows > tr.series-edit-volume").count(),
     3,
   );
   assert.equal(await details(0).getAttribute("aria-expanded"), "false");
+  await details(0).click();
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1366, height: 768 },
+    { width: 1280, height: 720 },
+  ]) {
+    await page.setViewportSize(viewport);
+    assert.equal(
+      await page
+        .locator("#seriesVolumeFields")
+        .evaluate((body) => body.scrollHeight <= body.clientHeight + 1),
+      true,
+      `All volume fields fit at ${viewport.width}×${viewport.height}`,
+    );
+    assert.equal(
+      await page
+        .locator("#seriesVolumeDialog")
+        .evaluate((dialog) => dialog.scrollWidth <= dialog.clientWidth),
+      true,
+    );
+  }
+  await input(0, "edition").fill("Temporary edition");
+  await page.locator("#resetSeriesVolume").click();
+  assert.equal(await input(0, "edition").inputValue(), before[0].edition || "");
+  await input(0, "status").click();
+  await page.locator(".dropdown-menu:popover-open").waitFor();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Enter");
+  assert.equal(await page.locator("#seriesVolumeDialog").isVisible(), true);
+  await page.locator("#resetSeriesVolume").click();
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await input(0, "price").fill("90.00");
   assert.equal(await page.locator("#saveSeriesEdits").isDisabled(), true);
   await input(0, "date").fill("2026-10-15");
   await input(0, "price").fill("0");
   await input(0, "source").fill("New shop");
+  await done();
+  await details(1).click();
   await input(1, "date").fill("");
   await input(1, "price").fill("");
   await input(1, "source").fill("");
+  await done();
   await details(0).click();
   assert.equal(await details(0).getAttribute("aria-expanded"), "true");
   await input(0, "volume").fill("1.5");
@@ -134,6 +169,9 @@ try {
   await input(0, "type").selectOption("Light novel");
   await input(0, "publisher").fill("Updated press");
   await input(0, "pageCount").fill("260");
+  await input(0, "edition").fill("Collector’s edition");
+  await input(0, "msrp").fill("180");
+  await input(0, "msrpCurrency").fill("THB");
   await input(0, "note").fill("Updated notes, including =literal text");
   await input(0, "coverUrl").fill(
     "https://www.phoenixnext.com/media/catalog/product/cached-test.png",
@@ -141,10 +179,10 @@ try {
   await input(0, "publisherUrl").fill(
     "https://www.phoenixnext.com/series-01.html",
   );
-  await details(0).click();
+  await done();
   await details(1).click();
   await input(1, "volume").fill("");
-  await details(1).click();
+  await done();
   await page.locator(".series-edit-scroll").evaluate((element) => {
     element.scrollLeft = 0;
   });
@@ -169,17 +207,15 @@ try {
   });
 
   await details(0).click();
-  await page
-    .locator(`#volume-${before[0].row}-details .series-edit-details-body`)
-    .screenshot({
-      path: fileURLToPath(
-        new URL(
-          "../../outputs/browser-series-edit-details-desktop.png",
-          import.meta.url,
-        ),
+  await page.locator("#seriesVolumeDialog").screenshot({
+    path: fileURLToPath(
+      new URL(
+        "../../outputs/browser-series-edit-details-desktop.png",
+        import.meta.url,
       ),
-    });
-  await details(0).click();
+    ),
+  });
+  await done();
 
   let warned = false;
   page.once("dialog", async (dialog) => {
@@ -189,8 +225,23 @@ try {
   });
   await page.locator("#backSeries").click();
   assert.equal(warned, true);
+  await page.locator(".site-activity").waitFor({ state: "hidden" });
   assert.equal(await input(0, "source").inputValue(), "New shop");
 
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  await details(0).focus();
+  await details(0).press("Enter");
+  await page.setViewportSize({ width: 390, height: 430 });
+  await page.waitForFunction(() => {
+    const box = document
+      .getElementById("doneSeriesVolume")
+      .getBoundingClientRect();
+    return box.y >= 0 && box.bottom <= innerHeight + 1;
+  });
+  const keyboardDone = await page.locator("#doneSeriesVolume").boundingBox();
+  assert.ok(keyboardDone.y >= 0 && keyboardDone.y + keyboardDone.height <= 431);
+  await page.locator("#closeSeriesVolume").click();
   await page.setViewportSize({ width: 390, height: 844 });
 
   assert.equal(
@@ -202,7 +253,7 @@ try {
   assert.equal(
     await page
       .locator(".series-edit-scroll")
-      .evaluate((element) => element.scrollWidth > element.clientWidth),
+      .evaluate((element) => element.scrollWidth <= element.clientWidth),
     true,
   );
   const phoneBar = await page.locator("#seriesSaveBar").boundingBox();
@@ -233,17 +284,20 @@ try {
     () => document.documentElement.dataset.theme === "light",
   );
   await details(0).click();
-  await page
-    .locator(`#volume-${before[0].row}-details .series-edit-details-body`)
-    .screenshot({
-      path: fileURLToPath(
-        new URL(
-          "../../outputs/browser-series-edit-details-phone.png",
-          import.meta.url,
-        ),
+  await page.locator("#seriesVolumeDialog").screenshot({
+    path: fileURLToPath(
+      new URL(
+        "../../outputs/browser-series-edit-details-phone.png",
+        import.meta.url,
       ),
-    });
-  await details(0).click();
+    ),
+  });
+  await page.keyboard.press("Escape");
+  assert.equal(await page.locator("#seriesVolumeDialog").isVisible(), false);
+  assert.equal(
+    await details(0).evaluate((button) => button === document.activeElement),
+    true,
+  );
   await page.setViewportSize({ width: 320, height: 740 });
   assert.equal(
     await page.evaluate(
@@ -297,6 +351,9 @@ try {
   assert.equal(saved[0].type, "Light novel");
   assert.equal(saved[0].publisher, "Updated press");
   assert.equal(saved[0].pageCount, 260);
+  assert.equal(saved[0].edition, "Collector’s edition");
+  assert.equal(saved[0].msrp, 180);
+  assert.equal(saved[0].msrpCurrency, "THB");
   assert.equal(saved[0].note, "Updated notes, including =literal text");
   assert.equal(saved[1].volume, "");
   const afterExport = await (
@@ -324,13 +381,15 @@ try {
     "Updated notes, including =literal text",
   );
   await input(0, "isbn").fill("invalid isbn");
+  await done();
   await page.locator("#saveSeriesEdits").click();
   await page.locator("#seriesEditError").waitFor();
   await ready();
   assert.equal(await input(0, "isbn").inputValue(), "invalid isbn");
+  await details(0).click();
   await input(0, "isbn").fill("0140328726");
   await input(0, "publisherUrl").fill("not a URL");
-  await details(0).click();
+  await done();
   assert.equal(await input(0, "publisherUrl").isVisible(), false);
   await page.locator("#saveSeriesEdits").click();
   assert.equal(await input(0, "publisherUrl").isVisible(), true);
@@ -346,9 +405,11 @@ try {
       .evaluate((form) => form.checkValidity()),
     false,
   );
+  await done();
   await page.locator("#saveSeriesEdits").click();
   assert.equal(attempts.length, 3);
   await input(0, "price").fill("999");
+  await done();
   await page
     .getByRole("button", { name: "Discard changes", exact: true })
     .click();
@@ -363,7 +424,7 @@ try {
   assert.equal(saved[0].price, 0);
   assert.deepEqual(errors, []);
   console.log(
-    "PASS series export, table editing with expandable volume details, responsive desktop/mobile save prompt, navigation warning, validation, retry, persistence and discard",
+    "PASS series export, full volume dialog without desktop scrolling, responsive summary table, reset, focus restoration, navigation warning, validation, retry, persistence and discard",
   );
 } finally {
   await browser.close();

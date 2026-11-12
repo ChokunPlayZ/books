@@ -3,14 +3,14 @@ import { getTranslations } from "../../lib/server/preferences.ts";
 export default async function SeriesEditor() {
   const t = await getTranslations();
   return (
-    <form id="seriesEditor" className="series-editor" hidden>
+    <form id="seriesEditor" className="series-editor" noValidate hidden>
       <div className="series-editor-heading">
         <h2 id="seriesEditorTitle" tabIndex={-1}>
           {t("Edit volume details")}
         </h2>
         <p id="seriesEditorHint" className="hint">
           {t(
-            "Edit reading status and purchases in the table. Open Book details on any row to edit its volume number, ISBN, edition, notes and cover links. Save all changes together.",
+            "Select a volume to edit all its details. Review your edits here, then save all changes together.",
           )}
         </p>
       </div>
@@ -30,12 +30,50 @@ export default async function SeriesEditor() {
               <th scope="col">{t("Purchase date")}</th>
               <th scope="col">{t("Price paid (฿)")}</th>
               <th scope="col">{t("Bought from")}</th>
-              <th scope="col">{t("Book details")}</th>
             </tr>
           </thead>
           <tbody id="seriesEditRows" />
         </table>
       </div>
+      <dialog
+        id="seriesVolumeDialog"
+        className="volume-editor-dialog"
+        aria-labelledby="seriesVolumeTitle"
+        aria-describedby="seriesVolumeHint"
+      >
+        <div className="dialog-head">
+          <div>
+            <h2 id="seriesVolumeTitle" tabIndex={-1} />
+            <p id="seriesVolumeSubtitle" />
+          </div>
+          <button
+            id="closeSeriesVolume"
+            className="close"
+            type="button"
+            aria-label={t("Close volume details")}
+          >
+            <svg aria-hidden="true">
+              <use href="#i-close" />
+            </svg>
+          </button>
+        </div>
+        <div id="seriesVolumeFields" className="dialog-body" />
+        <div className="dialog-foot">
+          <p id="seriesVolumeHint" className="hint">
+            {t(
+              "Edits are kept in the table. Save changes there when you’re finished.",
+            )}
+          </p>
+          <div className="buttons">
+            <button id="resetSeriesVolume" className="btn" type="button">
+              {t("Reset this volume")}
+            </button>
+            <button id="doneSeriesVolume" className="btn primary" type="button">
+              {t("Done")}
+            </button>
+          </div>
+        </div>
+      </dialog>
       <div
         id="seriesSaveBar"
         className="series-save-bar"

@@ -137,10 +137,17 @@ export async function checkAdminEditConflicts(page, post, bumpRevision) {
     await page
       .locator(`#volume-${original[index].row}-note`)
       .fill(`Bulk mine ${index}`);
+    await page.locator("#doneSeriesVolume").click();
   }
+  await page
+    .locator(
+      `.series-edit-volume[data-row="${original[2].row}"] .series-edit-toggle`,
+    )
+    .click();
   await page
     .locator(`#volume-${original[2].row}-source`)
     .fill("Bulk untouched row");
+  await page.locator("#doneSeriesVolume").click();
   await remoteEdit(0, { note: "Bulk remote 0", pageCount: 333 });
   await remoteEdit(1, { note: "Bulk remote 1" });
   await page.locator("#saveSeriesEdits").click();

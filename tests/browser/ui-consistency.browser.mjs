@@ -7,6 +7,10 @@ import { chromium } from "playwright";
 import { openTestStore, testDatabaseUrl } from "../helpers/database.mjs";
 import { signInWithGoogle } from "../../lib/server/auth.ts";
 import { seriesPath } from "../../lib/domain/navigation.ts";
+import {
+  volumePath,
+  metadataBrowsePath,
+} from "../../lib/domain/series-detail.ts";
 import { googleTestEnvironment } from "../helpers/mock-google.mjs";
 
 const key = "ui-consistency-" + crypto.randomUUID();
@@ -17,6 +21,7 @@ const owner = await signInWithGoogle(
   "ui-owner@gmail.com",
 );
 const title = "เรื่องทดสอบ / A collector’s unusually long series title";
+let firstBook;
 await store.forUser(owner.user, async () => {
   for (const volume of [1, 3])
     await store.api.saveBook({
@@ -41,6 +46,9 @@ await store.forUser(owner.user, async () => {
       volume: 1,
     },
   });
+  firstBook = (await store.api.getCollection()).books.find(
+    (book) => book.series === title,
+  );
 });
 await store.close();
 
@@ -261,6 +269,9 @@ try {
     "/data",
     "/terms",
     "/privacy",
+    "/browse",
+    metadataBrowsePath("Publisher", firstBook.publisher),
+    volumePath(title, "owned-" + firstBook.row),
     seriesPath(title),
   ];
   for (const theme of ["light", "dark"]) {
@@ -271,7 +282,7 @@ try {
         await page.waitForFunction(() => !!window.bookCollection?.state.data);
       await page.locator(".site-activity").waitFor({ state: "hidden" });
       await sizes(
-        `${theme}-${path.startsWith("/series/") ? "series" : path.slice(1) || "shelf"}`,
+        `${theme}-${path.includes("/volumes/") ? "volume" : path.startsWith("/series/") ? "series" : path.startsWith("/browse?") ? "browse-matches" : path.slice(1) || "shelf"}`,
       );
     }
   }
@@ -315,6 +326,7 @@ try {
   await page.goto(url + seriesPath(title));
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await page.locator(".book-card").first().click();
+  await sizes("owned-volume");
   await page.locator("#removeButton").click();
   await sizes("remove-book");
   await page.locator("#cancelRemove").click();
@@ -325,9 +337,14 @@ try {
   await page.locator("#editVolumesButton").click();
   await page.locator(".series-edit-toggle").first().click();
   await sizes("volume-editor");
+  await page.locator("#doneSeriesVolume").click();
+  await sizes("volume-editor-table");
+  await page.locator("#cancelSeriesEdit").click();
 
   for (const theme of ["light", "dark"]) {
     await context.request.patch(url + "/api/preferences", { data: { theme } });
+    await page.goto(url + "/admin/suggestions");
+    await sizes(`${theme}-admin-suggestions`);
     await page.goto(url + "/admin");
     await page
       .getByRole("heading", { name: "Scraping queue", exact: true })
@@ -351,6 +368,10 @@ try {
           .first()
           .click();
         await sizes(`${theme}-account-management`);
+        await page
+          .getByRole("dialog")
+          .getByRole("button", { name: "Close", exact: true })
+          .click();
       }
     }
   }
@@ -376,6 +397,7 @@ try {
     "controls.browser.mjs",
     "mobile-adding.browser.mjs",
     "series-edit.browser.mjs",
+    "volume-dialog.browser.mjs",
   ]) {
     const child = spawn(process.execPath, ["tests/browser/" + scenario], {
       env: {
