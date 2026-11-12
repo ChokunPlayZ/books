@@ -37,6 +37,20 @@ export default async function SeriesCatalogPanel() {
         </p>
       </details>
       <div id={"seriesReleaseList"} className={"release-grid"}></div>
+      <section
+        id={"seriesRevisedEditions"}
+        className={"series-revised-editions"}
+        aria-labelledby={"seriesRevisedTitle"}
+        hidden
+      >
+        <h3 id={"seriesRevisedTitle"}>{t("Revised editions")}</h3>
+        <p className={"hint"}>
+          {t(
+            "Publisher-listed alternatives. These do not change your owned books or missing-volume counts.",
+          )}
+        </p>
+        <ul id={"seriesRevisedList"} className={"series-revised-list"}></ul>
+      </section>
       <details id={"seriesReleaseReview"} className={"series-review"} hidden>
         <summary id={"seriesReleaseReviewSummary"}></summary>
         <div id={"seriesReleaseReviewList"} className={"release-grid"}></div>

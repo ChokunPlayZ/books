@@ -26,3 +26,18 @@ export function seriesCategoryTitle(title) {
     .replace(/\s+(?:เล่ม(?:ที่)?|vol(?:ume)?\.?)\s*\d+(?:\.\d+)?\s*$/i, "")
     .trim();
 }
+
+// Recognize only an explicit edition suffix, never arbitrary words in a title.
+// This is for displaying alternatives, not for merging ownership or shelf gaps.
+export function isRevisedEditionOf(title: string, series: string) {
+  const normalized = String(title || "")
+    .normalize("NFKC")
+    .trim();
+  const suffix = /\s*\((?:ฉบับปรับปรุง(?:ใหม่)?|revised\s+edition)\)\s*$/i;
+  if (!suffix.test(normalized)) return false;
+  const base = catalogSeriesKey(normalized.replace(suffix, ""));
+  return (
+    !!base &&
+    base === catalogSeriesKey(String(series || "").replace(suffix, ""))
+  );
+}

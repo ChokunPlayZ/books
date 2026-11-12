@@ -147,6 +147,10 @@ try {
     await start("series-details"),
   );
   await runBrowserScenario(
+    "revised-editions.browser.mjs",
+    await start("revised-editions"),
+  );
+  await runBrowserScenario(
     "loading-feedback.browser.mjs",
     await start("loading-feedback"),
   );

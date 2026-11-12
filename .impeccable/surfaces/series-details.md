@@ -23,6 +23,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 ## Finish evidence
 
+### Revised-edition extension
+
+Keep the existing Operate surface and visual system. A compact notice by the series title jumps to explicitly labeled revised editions in an always-visible, source-linked list beside the series catalog results, even for a complete shelf. Preserve publisher titles and ISBNs; distinguish alternatives from missing volumes and leave owned records and matching rules untouched. Exclude unrelated category variants and sets from this section. Verify English/Thai copy, handheld/desktop layouts and stale/empty catalog states.
+
+The independent finish review returned `ship` for this extension after inspecting desktop light, handheld light/dark and handheld Thai captures. The isolated feature passed the production build, formatting, type checking, all 565 unit/integration tests and the revised-edition browser scenario; the full browser suite also passed. Existing DESIGN.md and its sidecar are unchanged; detector advisories concern pre-existing CSS values outside the changed rules. No shipping raster assets were added.
+
 The independent finish review returned `fix`; its verdict pass returned `ship` with all three listed findings resolved: visible handheld export/edit labels, consistent sourced availability, and matching handheld DOM/visual order. This verdict covers those fixes, not a new whole-surface audit.
 
 Verified production build, formatting, all 544 unit/integration tests (serialized after a concurrency-sensitive cache test), and browser scenarios for detailed series records, existing title/synopsis selection, series editing and volume entry. Captures cover 1440px and the reference's 1456px desktop width, 390px handheld, light/dark themes, the suggestion form and individual volume pages. Existing editing checks also cover 320px overflow and the persistent save bar.

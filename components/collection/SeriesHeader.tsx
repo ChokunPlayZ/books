@@ -85,6 +85,14 @@ export default async function SeriesHeader({
           {t("Catalog details")}
         </button>
       </div>
+      <a
+        id={"seriesRevisedNotice"}
+        className={"series-revised-notice"}
+        href={"#seriesRevisedEditions"}
+        hidden
+      >
+        {t("Revised editions available")}
+      </a>
     </div>
   );
 }

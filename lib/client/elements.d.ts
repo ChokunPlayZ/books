@@ -257,6 +257,9 @@ interface LibraryElements {
   seriesReleaseReviewSummary: HTMLElement;
   seriesReleaseSources: HTMLDivElement;
   seriesReleaseStatus: HTMLParagraphElement;
+  seriesRevisedEditions: HTMLElement;
+  seriesRevisedList: HTMLUListElement;
+  seriesRevisedNotice: HTMLAnchorElement;
   seriesSaveBar: HTMLDivElement;
   seriesSaveHint: HTMLParagraphElement;
   seriesSaveStatus: HTMLParagraphElement;

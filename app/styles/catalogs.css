@@ -258,6 +258,38 @@
   margin-top: 15px;
 }
 
+.series-revised-editions {
+  margin-top: 24px;
+}
+
+.series-revised-notice {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 600;
+}
+
+.series-revised-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.series-revised-list li {
+  padding: 8px 0 12px;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+
+.series-revised-list a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  width: fit-content;
+  max-width: 100%;
+  font-weight: 600;
+}
+
 .series-review summary {
   @apply cursor-pointer;
   color: var(--warning-ink);

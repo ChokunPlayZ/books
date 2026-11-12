@@ -1389,4 +1389,9 @@ export const thai: Record<string, string> = {
   "Next text": "ข้อความถัดไป",
   "Known sources include this cache page and your own library. Use cache search to find another source.":
     "แหล่งข้อมูลที่รู้จักมาจากหน้าแคชนี้และคลังของคุณ ใช้การค้นหาแคชเพื่อหาแหล่งข้อมูลอื่น",
+  "Revised editions": "ฉบับปรับปรุงใหม่",
+  "Revised editions available": "มีฉบับปรับปรุงใหม่",
+  "{count} revised-edition listings": "ฉบับปรับปรุงใหม่ {count} รายการ",
+  "Publisher-listed alternatives. These do not change your owned books or missing-volume counts.":
+    "ฉบับทางเลือกจากรายการของสำนักพิมพ์ ไม่เปลี่ยนหนังสือที่คุณมีหรือจำนวนเล่มที่ขาด",
 };

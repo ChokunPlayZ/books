@@ -63,6 +63,8 @@ The compact series profile displays creators, publication facts, genres and them
 
 **Volume details** opens a separate page for each owned copy and known matching catalog volume. It separates list price, listed store price and your price paid, and includes ISBN, pages, publication facts, personal purchase details, source descriptions and linked language editions. Unknown values remain unrecorded; alternate titles alone do not assert a licensed edition or a complete publication list.
 
+Series catalogs show explicitly labeled **Revised editions** as visible publisher-linked alternatives, even when your shelf has no gaps. These listings do not change owned books or missing-volume counts; unrelated editions and sets remain in the catalog review section.
+
 **Suggest an edit** submits a field, correction, optional HTTPS source and explanation into a persistent review queue. It does not alter the series or your owned copies. Your suggestions and review outcomes remain visible in the menu. Administrators review submissions at **Administration → Metadata suggestions** (`/admin/suggestions`); marking a suggestion reviewed records the outcome only. Apply verified metadata changes separately with the existing metadata tools. Queue records are operational database data, not part of personal library exports.
 
 ## Everyday commands

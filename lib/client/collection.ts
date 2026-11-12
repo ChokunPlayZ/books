@@ -25,6 +25,7 @@ import {
 } from "../domain/outbound-links.ts";
 import { bookSourceApplies, isbnSearchLinks } from "../domain/book-sources.ts";
 import { bookEditionKey, normalizeBookType } from "../domain/book-type.ts";
+import { isRevisedEditionOf } from "../domain/title-normalization.ts";
 import { money } from "../domain/msrp.ts";
 import {
   releaseSeriesKey,
@@ -952,6 +953,16 @@ export function mountCollection({
           if (!previous || (previous.uncertain && same))
             catalogItems.set(item.id, {
               item: { ...item, catalogSeries: spec.series },
+              revised:
+                same &&
+                !item.special &&
+                releaseSingleVolume(item) &&
+                (isRevisedEditionOf(item.series, spec.series) ||
+                  isRevisedEditionOf(
+                    item.series,
+                    state.seriesCatalogs.get(seriesCatalogKey(spec))?.title ||
+                      "",
+                  )),
               uncertain:
                 !item.type ||
                 !same ||
@@ -971,9 +982,11 @@ export function mountCollection({
           a.item.title.localeCompare(b.item.title),
       );
     const missingVolumes = new Map();
+    const revised = matches.filter((entry) => entry.revised);
     matches
       .filter(
-        ({ item, match, uncertain }) =>
+        ({ item, match, uncertain, revised }) =>
+          !revised &&
           !match.owned.length &&
           !match.possible.length &&
           releaseSingleVolume(item) &&
@@ -994,7 +1007,8 @@ export function mountCollection({
       });
     const missing = [...missingVolumes.values()];
     const review = matches.filter(
-      ({ item, match, uncertain }) =>
+      ({ item, match, uncertain, revised }) =>
+        !revised &&
         !match.owned.length &&
         (match.possible.length || !releaseSingleVolume(item) || uncertain),
     );
@@ -1002,6 +1016,7 @@ export function mountCollection({
     const needsAttention = !!(
       gaps ||
       missing.length ||
+      revised.length ||
       review.some(
         ({ item, match, uncertain }) =>
           !match.possible.length || !releaseSingleVolume(item) || uncertain,
@@ -1016,9 +1031,11 @@ export function mountCollection({
     $("seriesMissingTitle").textContent =
       gaps || missing.length
         ? "What you’re missing"
-        : needsAttention
-          ? "Check your collection"
-          : "Catalog details";
+        : revised.length && !review.length && !choose && !failed
+          ? t("Revised editions available")
+          : needsAttention
+            ? "Check your collection"
+            : "Catalog details";
     $("seriesCatalogToggle").hidden = needsAttention || !specs.length;
     $("seriesCatalogToggle").disabled = pending || state.catalogRefreshing;
     $("seriesCatalogToggle").textContent =
@@ -1054,7 +1071,11 @@ export function mountCollection({
       number(gaps) +
       (gaps === 1 ? " gap" : " gaps") +
       " in your shelf" +
-      (specs.length ? " · " + catalogSummary : "");
+      (specs.length ? " · " + catalogSummary : "") +
+      (revised.length
+        ? " · " +
+          t("{count} revised-edition listings", { count: revised.length })
+        : "");
     $("seriesGaps").replaceChildren();
     editions.forEach((edition) => {
       const card = node("div", "missing-edition");
@@ -1150,6 +1171,29 @@ export function mountCollection({
         releaseCard(item, saved.has(item.id), { catalog: true, alternatives }),
       ),
     );
+    $("seriesRevisedEditions").hidden = !revised.length;
+    $("seriesRevisedNotice").hidden = !revised.length;
+    $("seriesRevisedList").replaceChildren();
+    revised.forEach(({ item, match }) => {
+      const row = node("li");
+      row.append(releaseLink(item.title, item.url));
+      row.append(
+        node(
+          "p",
+          "hint",
+          [
+            item.publisher,
+            t("Volume {volume}", { volume: item.volume }),
+            item.isbn ? "ISBN " + item.isbn : "",
+            item.availability,
+            match.owned.length ? t("On your shelf · ISBN match") : "",
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        ),
+      );
+      $("seriesRevisedList").append(row);
+    });
     $("seriesReleaseReview").hidden = !review.length;
     $("seriesReleaseReviewSummary").textContent =
       number(review.length) +
