@@ -137,6 +137,11 @@ try {
     "Author",
   );
   assert.equal(await page.locator(".metadata-attribution").count(), 0);
+  assert.equal(
+    await page.locator(".synopsis-source").innerText(),
+    "Source: Synthetic publisher",
+  );
+  assert.equal(await page.getByLabel("Synopsis language").count(), 0);
   assert.doesNotMatch(
     await page.locator(".metadata-facts").textContent(),
     /Synthetic publisher|Your library/,

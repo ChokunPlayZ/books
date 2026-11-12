@@ -61,7 +61,7 @@ try {
     ],
     synopses: [
       {
-        text: "The publisher’s full English story.\nA second paragraph from the publisher.",
+        text: "----------\n\nThe publisher’s full English story.\n\nA second paragraph from the publisher.\n----------",
         language: "en",
         source: "Yen Press",
         url: "https://yenpress.com/series/moon-library",
@@ -79,13 +79,13 @@ try {
         url: source,
       },
       {
-        text: "月の光の下だけで開く図書館。新しい司書は、本に町の記憶が宿っていることを知る。",
+        text: "月の光の下だけで開く図書館。新しい司書は、本に町の記憶が宿っていることを知る。\n(Source: Kodansha)",
         language: "ja",
         source: "Publisher",
         url: "https://www.kodansha.co.jp/book/products/0000000001",
       },
       {
-        text: "ห้องสมุดที่เปิดเฉพาะใต้แสงจันทร์ บรรณารักษ์คนใหม่ได้พบความทรงจำของเมืองในหนังสือแต่ละเล่ม",
+        text: "----------\n\nเรื่อง:\n\nห้องสมุดที่เปิดเฉพาะใต้แสงจันทร์\n\nบรรณารักษ์คนใหม่ได้พบความทรงจำของเมืองในหนังสือแต่ละเล่ม\n\nเมื่อหนังสือเล่มหนึ่งหายไป เธอจึงต้องออกตามหาความจริง\n\nและค้นพบเรื่องราวที่เชื่อมโยงผู้คนในเมืองเข้าด้วยกัน\n----------",
         language: "th",
         source: "Publisher",
         url: "https://www.phoenixnext.com/book.html",
@@ -193,10 +193,14 @@ try {
   );
   assert.equal(
     await page.locator(".series-synopsis-text").innerText(),
-    info.synopses[0].text,
+    "The publisher’s full English story.\nA second paragraph from the publisher.",
     "The publisher wins automatically over bookstores and AniList",
   );
   assert.equal(await page.locator(".series-synopsis a").count(), 0);
+  assert.equal(
+    await page.locator(".synopsis-source").innerText(),
+    "Source: Yen Press",
+  );
   assert.doesNotMatch(
     await page.getByLabel("Synopsis language").textContent(),
     /Publisher|AniList|Yen Press|Naiin/,
@@ -214,11 +218,20 @@ try {
     await page.locator(".series-synopsis-text").textContent(),
     /月の光/,
   );
+  assert.equal(
+    await page.locator(".synopsis-source").count(),
+    0,
+    "An existing publisher credit must not be repeated",
+  );
   await page.getByLabel("Synopsis language").selectOption("th");
   assert.equal(
     await page.locator(".series-synopsis-text").innerText(),
-    info.synopses.find((item) => item.language === "th").text,
+    "เรื่อง:\nห้องสมุดที่เปิดเฉพาะใต้แสงจันทร์\nบรรณารักษ์คนใหม่ได้พบความทรงจำของเมืองในหนังสือแต่ละเล่ม\nเมื่อหนังสือเล่มหนึ่งหายไป เธอจึงต้องออกตามหาความจริง\nและค้นพบเรื่องราวที่เชื่อมโยงผู้คนในเมืองเข้าด้วยกัน",
     "Publisher text must be readable in the app, not only through its link",
+  );
+  assert.equal(
+    await page.locator(".synopsis-source").innerText(),
+    "Source: Publisher",
   );
   await page.getByLabel("Synopsis language").selectOption("ja");
   await page.waitForFunction(
@@ -265,8 +278,51 @@ try {
     );
     await page.screenshot({ path, fullPage: true });
   };
+  await page.getByLabel("Synopsis language").selectOption("th");
+  await page.getByText("Titles from sources", { exact: true }).click();
+  await page.getByText("Find or change a series link", { exact: true }).click();
+  const controlsShareRow = () =>
+    page.locator(".series-language-controls").evaluate((controls) => {
+      const fields = [...controls.querySelectorAll(".field")];
+      return (
+        fields.length === 2 &&
+        Math.abs(
+          fields[0].getBoundingClientRect().top -
+            fields[1].getBoundingClientRect().top,
+        ) < 1
+      );
+    });
+  assert.equal(await controlsShareRow(), true);
+  assert.equal(
+    await page
+      .locator(".series-language-controls select")
+      .evaluateAll((fields) =>
+        fields.every((field) => {
+          const style = getComputedStyle(field);
+          return (
+            field.getBoundingClientRect().height >= 44 &&
+            Number.parseFloat(style.fontSize) >= 16
+          );
+        }),
+      ),
+    true,
+    "Compact controls must remain readable and touch-sized",
+  );
+  assert.equal(
+    await page.locator(".series-synopsis-text").evaluate((text) => {
+      const style = getComputedStyle(text);
+      return (
+        !text.textContent.includes("\n\n") &&
+        !text.textContent.includes("----------") &&
+        Number.parseFloat(style.lineHeight) <=
+          Number.parseFloat(style.fontSize) * 1.65
+      );
+    }),
+    true,
+  );
   await capture(".impeccable/review/synopsis-desktop.png");
   await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(await controlsShareRow(), true);
   assert.equal(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -274,12 +330,33 @@ try {
     true,
   );
   await capture(".impeccable/review/synopsis-mobile.png");
+  const captureSynopsis = async (path) => {
+    const description = page.locator(".series-description-column");
+    await description.evaluate((element) =>
+      element.scrollIntoView({ block: "center", behavior: "instant" }),
+    );
+    await description.screenshot({ path });
+  };
+  await captureSynopsis(".impeccable/review/synopsis-mobile-detail.png");
   await page.getByRole("button", { name: "Dark theme", exact: true }).click();
   await page.waitForFunction(
     () => document.documentElement.dataset.theme === "dark",
   );
   await capture(".impeccable/review/synopsis-mobile-dark.png");
+  await captureSynopsis(".impeccable/review/synopsis-mobile-detail-dark.png");
+  await page.setViewportSize({ width: 320, height: 844 });
+  assert.equal(await controlsShareRow(), false);
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+    true,
+  );
+  await capture(".impeccable/review/synopsis-small-mobile-dark.png");
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Dark theme", exact: true }).click();
+  await page.getByLabel("Synopsis language").selectOption("ja");
+  await page.getByText("Find or change a series link", { exact: true }).click();
   await page
     .locator(".series-info-candidates")
     .getByRole("button", { name: "Use this series" })
@@ -347,7 +424,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "Series info: automatic enrichment, publisher-first synopsis, hidden citations, languages, persistence, failures and phone layout passed.",
+    "Series info: automatic enrichment, compact publisher synopsis, single source credits, languages, persistence, failures and phone layout passed.",
   );
 } finally {
   await browser.close();

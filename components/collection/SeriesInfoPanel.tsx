@@ -15,6 +15,7 @@ import CoverImage from "./CoverImage";
 import MetadataFacts from "./MetadataFacts";
 import SuggestEditMenu from "./SuggestEditMenu";
 import SeriesLanguageDetails from "./SeriesLanguageDetails";
+import SynopsisText from "./SynopsisText";
 
 function emptyInfo(series: string, type: string): SeriesInfo {
   return {
@@ -330,39 +331,33 @@ export default function SeriesInfoPanel({
       {info && (
         <div className="series-information-grid">
           <div className="series-description-column">
-            {languages.length > 0 && (
-              <label className="field series-info-language">
-                <span>{t("View series title in")}</span>
-                <select
-                  value={titleLanguage}
-                  onChange={(event) => {
-                    setTitleLanguage(event.target.value);
-                    try {
-                      localStorage.setItem(
-                        "series-title-language:" + key,
-                        event.target.value,
-                      );
-                    } catch {}
-                  }}
-                >
-                  <option value="">{t("Collection title")}</option>
-                  {languages.map((code) => (
-                    <option key={code} value={code}>
-                      {language(code)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            {titleLanguage && (
-              <p className="hint">
-                {t("Collection title")}: {series}
-              </p>
-            )}
-            {synopsis ? (
-              <div className="series-synopsis">
-                <h3>{t("Synopsis")}</h3>
-                {synopses.length > 1 && (
+            {(languages.length > 0 || synopses.length > 1) && (
+              <div className="series-language-controls">
+                {languages.length > 0 && (
+                  <label className="field series-info-language">
+                    <span>{t("View series title in")}</span>
+                    <select
+                      value={titleLanguage}
+                      onChange={(event) => {
+                        setTitleLanguage(event.target.value);
+                        try {
+                          localStorage.setItem(
+                            "series-title-language:" + key,
+                            event.target.value,
+                          );
+                        } catch {}
+                      }}
+                    >
+                      <option value="">{t("Collection title")}</option>
+                      {languages.map((code) => (
+                        <option key={code} value={code}>
+                          {language(code)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {synopsis && synopses.length > 1 && (
                   <label className="field series-info-language">
                     <span>{t("Synopsis language")}</span>
                     <select
@@ -385,9 +380,17 @@ export default function SeriesInfoPanel({
                     </select>
                   </label>
                 )}
-                <p className="series-synopsis-text" lang={synopsis.language}>
-                  {synopsis.text}
-                </p>
+              </div>
+            )}
+            {titleLanguage && (
+              <p className="hint series-collection-title">
+                {t("Collection title")}: {series}
+              </p>
+            )}
+            {synopsis ? (
+              <div className="series-synopsis">
+                <h3>{t("Synopsis")}</h3>
+                <SynopsisText synopsis={synopsis} sourceLabel={t("Source")} />
               </div>
             ) : (
               !loading &&

@@ -1,5 +1,6 @@
 import { PUBLISHERS } from "./constants.ts";
 import type { Synopsis } from "./series-info.ts";
+import { compactSynopsisText } from "./synopsis.ts";
 
 const publisherHosts = new Set(
   PUBLISHERS.filter((publisher) => publisher.id !== "yaakz").map(
@@ -27,7 +28,7 @@ export function metadataSourcePriority(url: string) {
 export function preferredSynopses(synopses: Synopsis[]) {
   const selected = new Map<string, Synopsis>();
   const ordered = [...synopses]
-    .filter((item) => item.text.trim())
+    .filter((item) => compactSynopsisText(item.text))
     .sort(
       (a, b) =>
         metadataSourcePriority(a.url) - metadataSourcePriority(b.url) ||

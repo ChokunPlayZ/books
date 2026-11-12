@@ -33,8 +33,26 @@
   min-height: 48px;
 }
 
-.series-info-language {
-  max-width: 320px;
+.series-language-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  gap: 8px 12px;
+  max-width: 560px;
+  margin-bottom: 12px;
+}
+
+.series-language-controls .field {
+  gap: 4px;
+  font-size: 13px;
+}
+
+.series-language-controls select {
+  min-height: 44px;
+  padding-block: 8px;
+}
+
+.series-collection-title {
+  margin-bottom: 10px;
 }
 
 .series-info summary {
@@ -55,16 +73,22 @@
 }
 
 .series-synopsis {
-  margin-block: 12px;
+  margin-block: 0 12px;
 }
 
 .series-synopsis-text {
+  max-width: 75ch;
+  margin: 6px 0 0;
   line-height: 1.6;
   white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
-.series-synopsis > .field {
-  margin-top: 10px;
+.synopsis-source {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .series-edition-links {
@@ -495,13 +519,6 @@
 .preserve-lines {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-.volume-synopses p {
-  line-height: 1.65;
-  max-width: 75ch;
-}
-.volume-synopses a {
-  font-size: 12px;
 }
 .volume-language-editions li {
   display: flex;

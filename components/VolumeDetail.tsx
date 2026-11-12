@@ -1,6 +1,7 @@
 import LibraryShell from "./LibraryShell";
 import CoverImage from "./collection/CoverImage";
 import MetadataFacts from "./collection/MetadataFacts";
+import SynopsisText from "./collection/SynopsisText";
 import SuggestEditMenu from "./collection/SuggestEditMenu";
 import ExternalLink from "./ExternalLink";
 import { getTranslations } from "../lib/server/preferences.ts";
@@ -201,9 +202,7 @@ export default async function VolumeDetail({
           {synopsis && (
             <section className="volume-synopses">
               <h2>{t("Synopsis")}</h2>
-              <p className="preserve-lines" lang={synopsis.language}>
-                {synopsis.text}
-              </p>
+              <SynopsisText synopsis={synopsis} sourceLabel={t("Source")} />
             </section>
           )}
           <section className="volume-language-editions">
