@@ -11,6 +11,181 @@ import {
 } from "../../lib/server/scrape-runtime.ts";
 import { createAccount } from "../../lib/server/auth.ts";
 
+const product = (title) => ({
+  kind: "book",
+  title,
+  url: `https://yenpress.com/titles/9780316769488-${title}`,
+});
+
+function recoveryService(store, warmed) {
+  return createPublisherCrawls(store, {
+    [CATALOG_CRAWLER]: {
+      sources: [{ id: "yenpress", name: "Yen Press", full: true }],
+      warm: async (_id, item) => warmed.push(item.url),
+    },
+  });
+}
+
+test("restarted crawls recover expired or missing leases at the attempt limit and retain their cursor", async (t) => {
+  for (const [status, lease] of [
+    ["running", Date.now() - 100],
+    ["running", null],
+    ["paused", Date.now() - 100],
+  ]) {
+    await t.test(
+      `${status}/${lease === null ? "missing" : "expired"} lease`,
+      async (t) => {
+        const key = crypto.randomUUID();
+        const before = await openTestStore(key);
+        const service = recoveryService(before, []);
+        const oldQueue = createScrapeQueue(before, {
+          crawlPublisher: service.crawlPublisher,
+        });
+        const { id } = await service.startPublisherCrawl(
+          { publisherId: "yenpress", mode: "all" },
+          (id, label) =>
+            oldQueue.enqueue("crawlPublisher", { id }, label, -100),
+        );
+        const { jobId } = (await service.getPublisherCrawls()).crawls[0];
+        const done = product("done"),
+          pending = product("pending");
+        await before.db
+          .prepare(
+            "UPDATE publisher_crawls SET status=?,frontier=?::jsonb,frontier_offset=1,processed=1,discovered=2 WHERE id=?",
+          )
+          .run(status, JSON.stringify([done, pending]), id);
+        await before.db
+          .prepare(
+            "UPDATE scrape_jobs SET status='running',attempts=max_attempts,lease_token='old',lease_until=? WHERE id=?",
+          )
+          .run(lease, jobId);
+        await before.close();
+
+        const store = await openTestStore(key);
+        t.after(() => store.close());
+        const warmed = [];
+        const recovered = recoveryService(store, warmed);
+        const queue = createScrapeQueue(store, {
+          crawlPublisher: recovered.crawlPublisher,
+        });
+        await queue.tick();
+        const job = await store.db
+          .prepare("SELECT status,lease_token FROM scrape_jobs WHERE id=?")
+          .get(jobId);
+        assert.notEqual(
+          job.status,
+          "failed",
+          "restarts do not exhaust a crawl",
+        );
+        assert.notEqual(
+          job.lease_token,
+          "old",
+          "the abandoned worker is fenced",
+        );
+        if (status === "paused") {
+          assert.equal(
+            (await recovered.getPublisherCrawls()).crawls[0].status,
+            "paused",
+          );
+          assert.deepEqual(warmed, []);
+          await recovered.managePublisherCrawl({ id, action: "resume" });
+          assert.equal(
+            (await recovered.getPublisherCrawls()).crawls[0].jobId,
+            jobId,
+          );
+        }
+        await queue.wait(jobId);
+        assert.deepEqual(warmed, [pending.url]);
+        const crawl = (await recovered.getPublisherCrawls()).crawls[0];
+        assert.equal(crawl.status, "completed");
+        assert.equal(crawl.processed, 2);
+        assert.equal(crawl.remaining, 0);
+        const detail = await queue.getScrapeJob({ id: jobId });
+        assert.equal(detail.attempts, detail.maxAttempts);
+        assert.ok(
+          detail.events.some((event) => /interrupted/.test(event.message)),
+        );
+      },
+    );
+  }
+});
+
+test("orphaned running and paused crawls can resume pending work through reconciliation or directly", async (t) => {
+  for (const [status, jobStatus, reconcile] of [
+    ["running", "failed", true],
+    ["paused", null, true],
+    ["running", "failed", false],
+    ["paused", "cancelled", false],
+  ]) {
+    await t.test(`${status}/${jobStatus}/${reconcile}`, async (t) => {
+      const store = await openTestStore();
+      t.after(() => store.close());
+      const warmed = [];
+      const service = recoveryService(store, warmed);
+      const queue = createScrapeQueue(store, {
+        crawlPublisher: service.crawlPublisher,
+      });
+      const enqueue = (id, label) =>
+        queue.enqueue("crawlPublisher", { id }, label, -100);
+      await queue.manageScrapeQueue({ paused: true });
+      const { id } = await service.startPublisherCrawl(
+        { publisherId: "yenpress", mode: "all" },
+        enqueue,
+      );
+      const { jobId } = (await service.getPublisherCrawls()).crawls[0];
+      const done = product("done"),
+        pending = product("pending"),
+        failed = product("failed");
+      await store.db
+        .prepare(
+          "UPDATE publisher_crawls SET status=?,frontier=?::jsonb,frontier_offset=1,failed_tasks=?::jsonb,processed=1 WHERE id=?",
+        )
+        .run(
+          status,
+          JSON.stringify([done, pending]),
+          JSON.stringify([failed]),
+          id,
+        );
+      if (jobStatus)
+        await store.db
+          .prepare(
+            "UPDATE scrape_jobs SET status=?,error='Worker stopped' WHERE id=?",
+          )
+          .run(jobStatus, jobId);
+      else
+        await store.db.prepare("DELETE FROM scrape_jobs WHERE id=?").run(jobId);
+
+      if (reconcile) {
+        await queue.tick();
+        const orphan = (await service.getPublisherCrawls()).crawls[0];
+        assert.equal(
+          orphan.status,
+          "failed",
+          "a finished worker cannot leave an active crawl",
+        );
+        assert.ok(orphan.error);
+        assert.equal(orphan.processed, 1);
+      }
+      await service.managePublisherCrawl({ id, action: "resume" }, enqueue);
+      const resumed = (await service.getPublisherCrawls()).crawls[0];
+      assert.equal(resumed.status, "running");
+      assert.notEqual(resumed.jobId, jobId);
+      await service.managePublisherCrawl({ id, action: "resume" }, enqueue);
+      assert.equal(
+        (await service.getPublisherCrawls()).crawls[0].jobId,
+        resumed.jobId,
+      );
+      await queue.manageScrapeQueue({ paused: false });
+      await queue.wait(resumed.jobId);
+      assert.deepEqual(warmed, [pending.url, failed.url]);
+      assert.equal(
+        (await service.getPublisherCrawls()).crawls[0].status,
+        "completed",
+      );
+    });
+  }
+});
+
 test("manual publisher runs discover all series, retain checkpoints, distinguish new books/new series and enforce admin gates", async (t) => {
   const store = await openTestStore();
   t.after(() => store.close());
@@ -116,7 +291,15 @@ test("running background work stops at the next request for user lookups, reserv
     finishUser();
     await store.close();
   });
-  await queue.enqueue("crawlPublisher", { id: crawlId }, "Background", -100);
+  const jobId = await queue.enqueue(
+    "crawlPublisher",
+    { id: crawlId },
+    "Background",
+    -100,
+  );
+  await store.db
+    .prepare("UPDATE publisher_crawls SET job_id=? WHERE id=?")
+    .run(jobId, crawlId);
   await queue.tick();
   await firstRequest;
   const user = queue.run("lookup", null, "Unknown ISBN");

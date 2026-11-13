@@ -108,20 +108,32 @@ export function createPublisherCrawls(
       const row = await store.db
         .prepare("SELECT * FROM publisher_crawls WHERE id=? FOR UPDATE")
         .get(request.id);
-      const retry = row?.status === "failed" && request.action === "resume";
-      if (!row || (!retry && !["running", "paused"].includes(row.status)))
+      if (
+        !row ||
+        (!["running", "paused"].includes(row.status) &&
+          !(row.status === "failed" && request.action === "resume"))
+      )
         throw new AppError("This crawl is no longer active.", 409);
+      const job =
+        request.action === "resume"
+          ? await store.db
+              .prepare("SELECT status FROM scrape_jobs WHERE id=?")
+              .get(row.job_id)
+          : null;
+      // Also repair older active crawls whose worker finished or disappeared.
+      // Flipping their status alone cannot restart checkpointed work.
+      const retry =
+        request.action === "resume" &&
+        (row.status === "failed" ||
+          !["running", "queued"].includes(job?.status));
       if (retry) {
         if (!enqueue)
           throw new AppError("Start a new publisher crawl to retry.", 409);
         const active = await store.db
           .prepare(
-            "SELECT 1 FROM publisher_crawls WHERE publisher_id=? AND status IN ('running','paused')",
+            "SELECT 1 FROM publisher_crawls WHERE publisher_id=? AND id<>? AND status IN ('running','paused')",
           )
-          .get(row.publisher_id);
-        const job = await store.db
-          .prepare("SELECT status FROM scrape_jobs WHERE id=?")
-          .get(row.job_id);
+          .get(row.publisher_id, row.id);
         if (active || ["running", "queued"].includes(job?.status))
           throw new AppError(
             "Wait for the active publisher task to finish before retrying.",

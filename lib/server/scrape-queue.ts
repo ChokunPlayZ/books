@@ -22,6 +22,8 @@ const LEASE_MS = 60_000;
 const RETRY_MS = 15 * 60_000;
 const WAIT_MS = 90_000;
 const QUEUE_LOCK = 726005;
+const ORPHANED_CRAWL = `c.status IN ('running','paused') AND NOT EXISTS(
+  SELECT 1 FROM scrape_jobs j WHERE j.id=c.job_id AND j.status IN ('queued','running'))`;
 
 function jobRecord(row): ScrapeJob {
   return {
@@ -138,11 +140,13 @@ export function createScrapeQueue(
   }
   async function claim() {
     // Most ticks are idle. Avoid opening a transaction/advisory lock and reading
-    // settings/counts when there is neither runnable work nor an expired lease.
+    // settings/counts unless there is runnable work or recovery to perform.
     const ready = await store.db
       .prepare(
         `SELECT 1 WHERE
-      EXISTS(SELECT 1 FROM scrape_jobs WHERE status='running' AND lease_until<=?) OR
+      EXISTS(SELECT 1 FROM scrape_jobs WHERE status='running'
+        AND (lease_until<=? OR lease_until IS NULL OR lease_token IS NULL)) OR
+      EXISTS(SELECT 1 FROM publisher_crawls c WHERE ${ORPHANED_CRAWL}) OR
       (NOT (SELECT paused FROM scrape_queue_settings WHERE id=1) AND
        EXISTS(SELECT 1 FROM scrape_jobs WHERE status='queued' AND available_at<=?))`,
       )
@@ -150,14 +154,17 @@ export function createScrapeQueue(
     if (!ready) return null;
     return locked(async () => {
       const now = Date.now();
+      // A restart is not a failed publisher request: resume the saved cursor
+      // without consuming its retry budget.
       const abandoned = await store.db
         .prepare(
           `
-        UPDATE scrape_jobs SET status=CASE WHEN attempts<max_attempts THEN 'queued' ELSE 'failed' END,
+        UPDATE scrape_jobs SET status=CASE WHEN kind='crawlPublisher' OR attempts<max_attempts THEN 'queued' ELSE 'failed' END,
+          attempts=CASE WHEN kind='crawlPublisher' THEN GREATEST(0,attempts-1) ELSE attempts END,
           lease_token=NULL,lease_until=NULL,available_at=?,
-          finished_at=CASE WHEN attempts>=max_attempts THEN ?::bigint ELSE NULL END,
+          finished_at=CASE WHEN kind<>'crawlPublisher' AND attempts>=max_attempts THEN ?::bigint ELSE NULL END,
           error='Worker lease expired; recovered after interruption.'
-        WHERE status='running' AND lease_until<=? RETURNING id,status
+        WHERE status='running' AND (lease_until<=? OR lease_until IS NULL OR lease_token IS NULL) RETURNING id,status
       `,
         )
         .all(now, now, now);
@@ -166,6 +173,16 @@ export function createScrapeQueue(
           row.id,
           `Worker interrupted; ${row.status === "queued" ? "requeued" : "attempt limit reached"}`,
         );
+      // Older terminal/missing jobs need a resumable crawl status, even while
+      // the shared queue is paused.
+      await store.db
+        .prepare(
+          `UPDATE publisher_crawls c SET status='failed',updated_at=?,
+          error=COALESCE(NULLIF((SELECT error FROM scrape_jobs WHERE id=c.job_id),''),
+            'Publisher crawl worker stopped. Resume this crawl to continue from its saved checkpoint.')
+          WHERE ${ORPHANED_CRAWL}`,
+        )
+        .run(now);
       const settings = await store.db
         .prepare("SELECT paused FROM scrape_queue_settings WHERE id=1")
         .get();

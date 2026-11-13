@@ -165,6 +165,53 @@ test("restart recovery retries expired leases and never reclaims a healthy runni
   assert.ok(detail.events.some((e) => /interrupted/.test(e.message)));
 });
 
+test("recovery repairs missing leases, preserves healthy workers and retains ordinary attempt limits", async (t) => {
+  const calls = [];
+  const { store, queue } = await setup(t, {
+    scrape: async ({ name }) => {
+      calls.push(name);
+      return name;
+    },
+  });
+  const expired = await queue.enqueue("scrape", { name: "expired" }, "Expired");
+  const missing = await queue.enqueue("scrape", { name: "missing" }, "Missing");
+  const healthy = await queue.enqueue("scrape", { name: "healthy" }, "Healthy");
+  await store.db
+    .prepare(
+      "UPDATE scrape_jobs SET status='running',attempts=max_attempts,lease_token='expired',lease_until=? WHERE id=?",
+    )
+    .run(Date.now() - 100, expired);
+  await store.db
+    .prepare("UPDATE scrape_jobs SET status='running',attempts=1 WHERE id=?")
+    .run(missing);
+  const leaseUntil = Date.now() + 60_000;
+  await store.db
+    .prepare(
+      "UPDATE scrape_jobs SET status='running',attempts=1,lease_token='healthy',lease_until=? WHERE id=?",
+    )
+    .run(leaseUntil, healthy);
+  await queue.tick();
+  await queue.stop();
+  assert.deepEqual(calls, ["missing"]);
+  assert.equal((await queue.getScrapeJob({ id: expired })).status, "failed");
+  const recovered = await queue.getScrapeJob({ id: missing });
+  assert.equal(recovered.status, "succeeded");
+  assert.equal(recovered.attempts, 2);
+  assert.deepEqual(
+    await store.db
+      .prepare(
+        "SELECT status,attempts,lease_token,lease_until FROM scrape_jobs WHERE id=?",
+      )
+      .get(healthy),
+    {
+      status: "running",
+      attempts: 1,
+      lease_token: "healthy",
+      lease_until: leaseUntil,
+    },
+  );
+});
+
 test("failed tasks back off, stop at the attempt limit, and keep stale source results inspectable", async (t) => {
   const { queue, store } = await setup(t, {
     scrape: async () => {
