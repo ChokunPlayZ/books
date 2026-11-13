@@ -22,13 +22,19 @@ test("account preferences are private, survive restart and follow new sessions",
     assert.deepEqual(await store.preferences.get(), {
       locale: "en",
       theme: "system",
+      seriesTitleLanguage: "",
     });
-    await store.preferences.update({ locale: "th", theme: "dark" });
+    await store.preferences.update({
+      locale: "th",
+      theme: "dark",
+      seriesTitleLanguage: "ja",
+    });
   });
   await store.forUser(bob, async () => {
     assert.deepEqual(await store.preferences.get(), {
       locale: "en",
       theme: "system",
+      seriesTitleLanguage: "",
     });
     await store.preferences.update({ theme: "light" });
   });
@@ -47,6 +53,7 @@ test("account preferences are private, survive restart and follow new sessions",
         assert.deepEqual(await store.preferences.get(), {
           locale: "th",
           theme: "dark",
+          seriesTitleLanguage: "ja",
         }),
       );
     }
@@ -54,16 +61,23 @@ test("account preferences are private, survive restart and follow new sessions",
       assert.deepEqual(await store.preferences.update({ theme: "light" }), {
         locale: "th",
         theme: "light",
+        seriesTitleLanguage: "ja",
       });
       assert.deepEqual(await store.preferences.update({ locale: "en" }), {
         locale: "en",
         theme: "light",
+        seriesTitleLanguage: "ja",
       });
+      assert.deepEqual(
+        await store.preferences.update({ seriesTitleLanguage: "" }),
+        { locale: "en", theme: "light", seriesTitleLanguage: "" },
+      );
     });
     await store.forUser(bob, async () =>
       assert.deepEqual(await store.preferences.get(), {
         locale: "en",
         theme: "light",
+        seriesTitleLanguage: "",
       }),
     );
   } finally {
@@ -83,6 +97,12 @@ test("preference updates validate all fields before changing anything", async (t
     { theme: "sepia" },
     { locale: ["en"] },
     { theme: null },
+    { seriesTitleLanguage: null },
+    { seriesTitleLanguage: ["ja"] },
+    { seriesTitleLanguage: "unknown" },
+    { locale: "th", seriesTitleLanguage: "invalid" },
+    { series_title_language: "ja" },
+    { constructor: "ja" },
     { userId: 2, locale: "th" },
     { locale: "th", theme: "bad" },
   ]) {
@@ -92,6 +112,7 @@ test("preference updates validate all fields before changing anything", async (t
     assert.deepEqual(await store.preferences.get(), {
       locale: "en",
       theme: "system",
+      seriesTitleLanguage: "",
     });
   }
 });
@@ -131,6 +152,7 @@ test("schema initialization preserves accounts, books and active sessions", asyn
   ).version;
   // Recreate the previous schema so reopening exercises the photo migration.
   await store.db.exec("ALTER TABLE users DROP COLUMN picture");
+  await store.db.exec("ALTER TABLE users DROP COLUMN series_title_language");
   await store.db.exec("ALTER TABLE users DROP COLUMN disabled");
   await store.db.exec("ALTER TABLE oauth_attempts DROP COLUMN relink_hash");
   await store.db.exec(
@@ -154,6 +176,7 @@ test("schema initialization preserves accounts, books and active sessions", asyn
     assert.deepEqual(await store.preferences.get(), {
       locale: "en",
       theme: "system",
+      seriesTitleLanguage: "",
     });
   } finally {
     await store.close();

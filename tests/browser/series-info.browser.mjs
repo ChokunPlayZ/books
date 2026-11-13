@@ -11,9 +11,10 @@ const browser = await chromium.launch({
     : {}),
 });
 try {
-  const page = await browser.newPage({
+  const context = await browser.newContext({
     viewport: { width: 1440, height: 1000 },
   });
+  const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   // Published fixture titles and descriptions are synthetic test data.
@@ -209,7 +210,35 @@ try {
     await page.getByLabel("Synopsis language").locator("option").count(),
     3,
   );
-  await page.getByLabel("View series title in").selectOption("ja");
+  assert.equal(await page.getByLabel("View series title in").count(), 0);
+  const settings = await page.context().newPage();
+  await settings.goto(url + "/settings");
+  for (const [code, title, lang] of [
+    ["ja", "月の図書館", "ja"],
+    ["ja-Latn", "Tsuki no Toshokan", "ja-Latn"],
+    ["th", "Moon Library", ""],
+    ["", "Moon Library", ""],
+    ["ja", "月の図書館", "ja"],
+  ]) {
+    const saved = settings.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/preferences") &&
+        response.request().method() === "PATCH",
+    );
+    await settings
+      .getByLabel("View series title in", { exact: true })
+      .selectOption(code);
+    assert.equal((await saved).ok(), true);
+    await page.waitForFunction(
+      ({ title, lang }) => {
+        const heading = document.getElementById("seriesTitle");
+        return heading?.textContent === title && heading.lang === lang;
+      },
+      { title, lang },
+    );
+  }
+  await settings.close();
+  await page.reload();
   await page.waitForFunction(
     () => document.getElementById("seriesTitle")?.textContent === "月の図書館",
   );
@@ -281,18 +310,16 @@ try {
   await page.getByLabel("Synopsis language").selectOption("th");
   await page.getByText("Titles from sources", { exact: true }).click();
   await page.getByText("Find or change a series link", { exact: true }).click();
-  const controlsShareRow = () =>
+  const synopsisControlFits = () =>
     page.locator(".series-language-controls").evaluate((controls) => {
       const fields = [...controls.querySelectorAll(".field")];
       return (
-        fields.length === 2 &&
-        Math.abs(
-          fields[0].getBoundingClientRect().top -
-            fields[1].getBoundingClientRect().top,
-        ) < 1
+        fields.length === 1 &&
+        fields[0].getBoundingClientRect().width <=
+          controls.getBoundingClientRect().width
       );
     });
-  assert.equal(await controlsShareRow(), true);
+  assert.equal(await synopsisControlFits(), true);
   assert.equal(
     await page
       .locator(".series-language-controls select")
@@ -322,7 +349,7 @@ try {
   );
   await capture(".impeccable/review/synopsis-desktop.png");
   await page.setViewportSize({ width: 390, height: 844 });
-  assert.equal(await controlsShareRow(), true);
+  assert.equal(await synopsisControlFits(), true);
   assert.equal(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -345,7 +372,7 @@ try {
   await capture(".impeccable/review/synopsis-mobile-dark.png");
   await captureSynopsis(".impeccable/review/synopsis-mobile-detail-dark.png");
   await page.setViewportSize({ width: 320, height: 844 });
-  assert.equal(await controlsShareRow(), false);
+  assert.equal(await synopsisControlFits(), true);
   assert.equal(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

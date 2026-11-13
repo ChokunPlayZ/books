@@ -131,7 +131,11 @@ test("account management lists safe information, requires explicit library confi
 test("single-use email-bound invitations complete through browser-bound signed Google OAuth and preserve all user-owned records", async (t) => {
   const { store, reader, api } = await setup(t);
   await store.forUser(reader.user, () =>
-    store.preferences.update({ locale: "th", theme: "dark" }),
+    store.preferences.update({
+      locale: "th",
+      theme: "dark",
+      seriesTitleLanguage: "ja-Latn",
+    }),
   );
   const before = await store.forUser(reader.user, () => store.exportData());
   const invitation = await api.createAccountRelink({
@@ -172,7 +176,7 @@ test("single-use email-bound invitations complete through browser-bound signed G
   assert.deepEqual({ ...after, exportedAt: before.exportedAt }, before);
   assert.deepEqual(
     await store.forUser(login.user, () => store.preferences.get()),
-    { locale: "th", theme: "dark" },
+    { locale: "th", theme: "dark", seriesTitleLanguage: "ja-Latn" },
   );
   await assert.rejects(beginGoogleSignIn(store, "/", token), { status: 403 });
 });

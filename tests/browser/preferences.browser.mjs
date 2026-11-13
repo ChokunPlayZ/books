@@ -162,6 +162,14 @@ try {
     ).status(),
     400,
   );
+  assert.equal(
+    (
+      await context.request.patch(url + "/api/preferences", {
+        data: { theme: "dark", seriesTitleLanguage: "invalid" },
+      })
+    ).status(),
+    400,
+  );
   await page.goto(url);
   await page.waitForFunction(
     () => !document.getElementById("addButton").disabled,
@@ -228,6 +236,22 @@ try {
     1,
   );
   await page.getByText("Google account", { exact: true }).waitFor();
+  const titleLanguage = page.getByRole("combobox", {
+    name: "View series title in",
+    exact: true,
+  });
+  assert.equal(await titleLanguage.inputValue(), "");
+  await titleLanguage.selectOption("ja");
+  await page.waitForFunction(
+    () =>
+      document.querySelector('[aria-labelledby="seriesTitleLanguageLabel"]')
+        ?.value === "ja" &&
+      !document.querySelector('[aria-labelledby="seriesTitleLanguageLabel"]')
+        ?.disabled,
+  );
+  assert.equal((await preferences()).seriesTitleLanguage, "ja");
+  await page.reload();
+  assert.equal(await titleLanguage.inputValue(), "ja");
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     assert.equal(
@@ -322,7 +346,11 @@ try {
   await page.waitForFunction(
     () => document.documentElement.dataset.theme === "dark",
   );
-  assert.deepEqual(await preferences(), { locale: "en", theme: "dark" });
+  assert.deepEqual(await preferences(), {
+    locale: "en",
+    theme: "dark",
+    seriesTitleLanguage: "ja",
+  });
   await page
     .getByRole("combobox", { name: "Language", exact: true })
     .selectOption("th");
@@ -388,7 +416,11 @@ try {
   );
   await page.keyboard.press("Escape");
   await page.goto(url);
-  assert.deepEqual(await preferences(), { locale: "th", theme: "dark" });
+  assert.deepEqual(await preferences(), {
+    locale: "th",
+    theme: "dark",
+    seriesTitleLanguage: "ja",
+  });
 
   // A fresh browser has no localStorage and an opposing system theme.
   const device = await browser.newContext({ colorScheme: "light" });
@@ -401,6 +433,12 @@ try {
   assert.equal(
     await fresh.locator("#collectionTitle").textContent(),
     "คลังหนังสือของคุณ",
+  );
+  await fresh.goto(url + "/settings", { waitUntil: "domcontentloaded" });
+  assert.equal(
+    await fresh.getByLabel("ภาษาของชื่อเรื่อง", { exact: true }).inputValue(),
+    "ja",
+    "A fresh device receives the saved title language from the account",
   );
   await device.close();
 
@@ -425,6 +463,29 @@ try {
     await page.goto(url + path);
     await page.getByRole("heading", { name: heading, exact: true }).waitFor();
     assert.equal(await page.locator("html").getAttribute("lang"), "th");
+    if (path === "/settings") {
+      assert.equal(
+        await page
+          .getByLabel("ภาษาของชื่อเรื่อง", { exact: true })
+          .inputValue(),
+        "ja",
+      );
+      for (const width of [390, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        assert.equal(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth,
+          ),
+          true,
+          `Thai settings overflow at ${width}`,
+        );
+        await page.screenshot({
+          path: join(directory, `settings-th-dark-${width}.png`),
+          fullPage: true,
+        });
+      }
+      await page.setViewportSize({ width: 390, height: 844 });
+    }
   }
   await page.goto(url);
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
@@ -444,7 +505,11 @@ try {
   await page.waitForFunction(
     () => document.documentElement.dataset.theme === "light",
   );
-  assert.deepEqual(await preferences(), { locale: "th", theme: "light" });
+  assert.deepEqual(await preferences(), {
+    locale: "th",
+    theme: "light",
+    seriesTitleLanguage: "ja",
+  });
 
   // Failed writes stay visibly failed and do not silently change the account.
   await other.route("**/api/preferences", (route) =>
@@ -461,7 +526,19 @@ try {
     .selectOption("dark");
   await other.locator(".preference-error[role='alert']").waitFor();
   assert.equal(await other.locator("html").getAttribute("data-theme"), "light");
-  assert.deepEqual(await preferences(), { locale: "th", theme: "light" });
+  await other
+    .getByLabel("ภาษาของชื่อเรื่อง", { exact: true })
+    .selectOption("en");
+  await other.locator(".preference-error[role='alert']").waitFor();
+  assert.equal(
+    await other.getByLabel("ภาษาของชื่อเรื่อง", { exact: true }).inputValue(),
+    "ja",
+  );
+  assert.deepEqual(await preferences(), {
+    locale: "th",
+    theme: "light",
+    seriesTitleLanguage: "ja",
+  });
   await other.unroute("**/api/preferences");
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
@@ -483,7 +560,11 @@ try {
     .getByRole("heading", { name: "Account preferences", exact: true })
     .waitFor();
   await page.waitForFunction(() => document.documentElement.lang === "en");
-  assert.deepEqual(await preferences(), { locale: "en", theme: "light" });
+  assert.deepEqual(await preferences(), {
+    locale: "en",
+    theme: "light",
+    seriesTitleLanguage: "ja",
+  });
 
   // Switching accounts on the same browser must not reuse Alice's language/theme.
   await context.addCookies([cookie(bob.token)]);
@@ -495,7 +576,11 @@ try {
   await page.waitForFunction(
     () => document.documentElement.dataset.theme === "light",
   );
-  assert.deepEqual(await preferences(), { locale: "en", theme: "system" });
+  assert.deepEqual(await preferences(), {
+    locale: "en",
+    theme: "system",
+    seriesTitleLanguage: "",
+  });
   await page.goto(url + "/settings");
   assert.equal(
     await page.locator("#accountEmail").textContent(),

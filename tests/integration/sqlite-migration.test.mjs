@@ -36,7 +36,9 @@ async function sqliteFixture(store, path, version) {
       );
       const included = columns.filter(
         ({ column_name }) =>
-          !["disabled", "relink_hash"].includes(column_name) &&
+          !["disabled", "relink_hash", "series_title_language"].includes(
+            column_name,
+          ) &&
           !(version < 7 && ["locale", "theme"].includes(column_name)) &&
           !(version < 6 && ["google_subject", "email"].includes(column_name)),
       );
@@ -110,8 +112,8 @@ for (const version of [5, 6, 7]) {
       assert.deepEqual(
         await target.preferences.get(),
         version === 7
-          ? { locale: "th", theme: "dark" }
-          : { locale: "en", theme: "system" },
+          ? { locale: "th", theme: "dark", seriesTitleLanguage: "" }
+          : { locale: "en", theme: "system", seriesTitleLanguage: "" },
       );
       const saved = await target.api.saveBook({
         requestId: "after_migration_001",

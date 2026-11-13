@@ -134,7 +134,13 @@ export const thai: Record<string, string> = {
   "Choose the matching original series. No automatic link was made.":
     "เลือกซีรีส์ต้นฉบับที่ตรงกัน ยังไม่ได้เชื่อมโยงโดยอัตโนมัติ",
   "Use this series": "เลือกซีรีส์นี้",
+  English: "อังกฤษ",
+  Thai: "ไทย",
+  Japanese: "ญี่ปุ่น",
   Romaji: "โรมาจิ",
+  Korean: "เกาหลี",
+  Chinese: "จีน",
+  "Traditional Chinese": "จีนตัวเต็ม",
   "Language unspecified": "ไม่ระบุภาษา",
   "Choose a series and book type.": "เลือกซีรีส์และประเภทหนังสือ",
   "This series is not in your library.": "ไม่พบซีรีส์นี้ในคลังของคุณ",
@@ -382,8 +388,10 @@ export const thai: Record<string, string> = {
   "Could not sign out. Please try again.":
     "ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง",
   "Account preferences": "การตั้งค่าบัญชี",
-  "Your language and appearance are saved to your account and follow you across devices.":
-    "ภาษาและรูปแบบการแสดงผลจะบันทึกไว้ในบัญชีของคุณ และใช้ได้กับทุกอุปกรณ์",
+  "Your preferences are saved to your account and follow you across devices.":
+    "การตั้งค่าจะบันทึกไว้ในบัญชีของคุณ และใช้ได้กับทุกอุปกรณ์",
+  "Applies to all series. Uses the collection title when this language is unavailable.":
+    "ใช้กับทุกเรื่อง หากไม่มีชื่อเรื่องในภาษานี้ จะแสดงชื่อที่บันทึกไว้ในคลัง",
   Language: "ภาษา",
   Appearance: "รูปแบบการแสดงผล",
   "Use device setting": "ตามการตั้งค่าอุปกรณ์",
@@ -396,6 +404,7 @@ export const thai: Record<string, string> = {
   "Changes are saved automatically.": "บันทึกการเปลี่ยนแปลงโดยอัตโนมัติ",
   "Preferences could not be saved. Please try again.":
     "บันทึกการตั้งค่าไม่สำเร็จ กรุณาลองอีกครั้ง",
+  "Choose valid account preferences.": "เลือกการตั้งค่าบัญชีที่ถูกต้อง",
   meemai: "มีมั้ย",
   "meemai home": "หน้าหลักมีมั้ย",
   "Skip to library": "ข้ามไปยังคลังหนังสือ",

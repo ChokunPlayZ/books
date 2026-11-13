@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useTranslations } from "../PreferencesProvider";
+import { usePreferences, useTranslations } from "../PreferencesProvider";
 import ExternalLink from "../ExternalLink";
 import { normalizeBookType } from "../../lib/domain/book-type.ts";
 import type { StoredBook } from "../../lib/types.ts";
@@ -76,6 +76,7 @@ export default function SeriesInfoPanel({
   children?: ReactNode;
 }) {
   const t = useTranslations();
+  const { preferences } = usePreferences();
   const types = [
     ...new Set(
       books
@@ -89,7 +90,7 @@ export default function SeriesInfoPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState(series.slice(0, 200));
-  const [titleLanguage, setTitleLanguage] = useState("");
+  const titleLanguage = preferences.seriesTitleLanguage;
   const [synopsisLanguage, setSynopsisLanguage] = useState("");
   const [targetSeries, setTargetSeries] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
@@ -100,6 +101,9 @@ export default function SeriesInfoPanel({
   }, [info?.candidates]);
   const key = userId + ":" + (info?.workId || series);
   const language = (code: string) => t(languageName(code));
+  const preferredTitle = info.titles.find(
+    (item) => item.language === titleLanguage,
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -140,29 +144,24 @@ export default function SeriesInfoPanel({
   }, [series, type]);
   useEffect(() => {
     try {
-      setTitleLanguage(
-        localStorage.getItem("series-title-language:" + key) || "",
-      );
       setSynopsisLanguage(
         localStorage.getItem("series-synopsis-language:" + key) || "",
       );
     } catch {}
   }, [key]);
   useEffect(() => {
-    const title =
-      info?.titles.find((item) => item.language === titleLanguage)?.title ||
-      series;
+    const title = preferredTitle?.title || series;
     const heading = document.getElementById("seriesTitle");
     if (!heading) return;
     heading.dataset.translatedTitle = title;
     heading.textContent = title;
-    heading.lang = titleLanguage || "";
+    heading.lang = preferredTitle?.language || "";
     return () => {
       delete heading.dataset.translatedTitle;
       heading.textContent = series;
       heading.lang = "";
     };
-  }, [info, titleLanguage, series]);
+  }, [preferredTitle, series]);
   useEffect(() => {
     const heading = document.getElementById("seriesTitle");
     if (!heading) return;
@@ -210,9 +209,6 @@ export default function SeriesInfoPanel({
         .map((book) => book.series),
     ),
   ].sort();
-  const languages = [
-    ...new Set(info?.titles.map((item) => item.language) || []),
-  ];
   const owned = books.filter((book) => book.series === series);
   const cover = owned.find((book) => book.coverId) || owned[0];
   const banner = info?.images?.find((image) => image.kind === "banner");
@@ -331,58 +327,32 @@ export default function SeriesInfoPanel({
       {info && (
         <div className="series-information-grid">
           <div className="series-description-column">
-            {(languages.length > 0 || synopses.length > 1) && (
+            {synopsis && synopses.length > 1 && (
               <div className="series-language-controls">
-                {languages.length > 0 && (
-                  <label className="field series-info-language">
-                    <span>{t("View series title in")}</span>
-                    <select
-                      value={titleLanguage}
-                      onChange={(event) => {
-                        setTitleLanguage(event.target.value);
-                        try {
-                          localStorage.setItem(
-                            "series-title-language:" + key,
-                            event.target.value,
-                          );
-                        } catch {}
-                      }}
-                    >
-                      <option value="">{t("Collection title")}</option>
-                      {languages.map((code) => (
-                        <option key={code} value={code}>
-                          {language(code)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-                {synopsis && synopses.length > 1 && (
-                  <label className="field series-info-language">
-                    <span>{t("Synopsis language")}</span>
-                    <select
-                      value={synopsis.language}
-                      onChange={(event) => {
-                        setSynopsisLanguage(event.target.value);
-                        try {
-                          localStorage.setItem(
-                            "series-synopsis-language:" + key,
-                            event.target.value,
-                          );
-                        } catch {}
-                      }}
-                    >
-                      {synopses.map((item) => (
-                        <option key={item.language} value={item.language}>
-                          {language(item.language)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
+                <label className="field series-info-language">
+                  <span>{t("Synopsis language")}</span>
+                  <select
+                    value={synopsis.language}
+                    onChange={(event) => {
+                      setSynopsisLanguage(event.target.value);
+                      try {
+                        localStorage.setItem(
+                          "series-synopsis-language:" + key,
+                          event.target.value,
+                        );
+                      } catch {}
+                    }}
+                  >
+                    {synopses.map((item) => (
+                      <option key={item.language} value={item.language}>
+                        {language(item.language)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
             )}
-            {titleLanguage && (
+            {preferredTitle && preferredTitle.title !== series && (
               <p className="hint series-collection-title">
                 {t("Collection title")}: {series}
               </p>

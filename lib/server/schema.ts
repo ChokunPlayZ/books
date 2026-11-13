@@ -147,6 +147,10 @@ const migrations = [
   CREATE INDEX IF NOT EXISTS cache_expiry ON cache(expires_at) WHERE expires_at<>0;
   CREATE INDEX IF NOT EXISTS cover_sources_cover ON cover_sources(cover_id);
   `,
+  `
+  ALTER TABLE users ADD COLUMN series_title_language TEXT NOT NULL DEFAULT ''
+    CHECK(series_title_language IN ('','en','th','ja','ja-Latn','ko','zh','zh-Hant','und'));
+  `,
 ];
 
 export async function migrateDatabase(pool: Pool) {

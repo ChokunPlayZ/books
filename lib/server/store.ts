@@ -7,7 +7,11 @@ import {
   fillScrapedMetadata,
 } from "../domain/scraped-metadata.ts";
 import { createUserContext, type User } from "./user-context.ts";
-import type { Preferences } from "../preferences.ts";
+import {
+  SERIES_TITLE_LANGUAGES,
+  type Preferences,
+  type SeriesTitleLanguage,
+} from "../preferences.ts";
 import { exportLibraryBook } from "../domain/library-export.ts";
 import { mergeSeriesMetadata } from "../domain/series-info.ts";
 import { COVER_PREVIEW_VERSION } from "./cover-images.ts";
@@ -135,34 +139,44 @@ export async function openStore(
   const preferences = {
     async get(): Promise<Preferences> {
       const row = await get(
-        "SELECT locale,theme FROM users WHERE id=app_user_id()",
+        "SELECT locale,theme,series_title_language FROM users WHERE id=app_user_id()",
       );
       if (!row) throw new AppError("Sign in to open your library.", 401);
       return {
         locale: row.locale as Preferences["locale"],
         theme: row.theme as Preferences["theme"],
+        seriesTitleLanguage: row.series_title_language as SeriesTitleLanguage,
       };
     },
     async update(input: unknown): Promise<Preferences> {
       if (!input || typeof input !== "object" || Array.isArray(input))
-        throw new AppError("Choose a valid language or theme.");
+        throw new AppError("Choose valid account preferences.");
       const changes = input as Record<string, unknown>;
       const keys = Object.keys(changes);
+      const columns = {
+        locale: "locale",
+        theme: "theme",
+        seriesTitleLanguage: "series_title_language",
+      };
       if (
         !keys.length ||
-        keys.some((key) => key !== "locale" && key !== "theme") ||
+        keys.some((key) => !Object.hasOwn(columns, key)) ||
         (Object.hasOwn(changes, "locale") &&
           (typeof changes.locale !== "string" ||
             !["en", "th"].includes(changes.locale))) ||
         (Object.hasOwn(changes, "theme") &&
           (typeof changes.theme !== "string" ||
-            !["light", "dark", "system"].includes(changes.theme)))
+            !["light", "dark", "system"].includes(changes.theme))) ||
+        (Object.hasOwn(changes, "seriesTitleLanguage") &&
+          !SERIES_TITLE_LANGUAGES.includes(
+            changes.seriesTitleLanguage as SeriesTitleLanguage,
+          ))
       )
-        throw new AppError("Choose a valid language or theme.");
+        throw new AppError("Choose valid account preferences.");
       return await transaction(async () => {
         for (const key of keys)
           await run(
-            `UPDATE users SET ${key}=? WHERE id=app_user_id()`,
+            `UPDATE users SET ${columns[key]}=? WHERE id=app_user_id()`,
             changes[key] as string,
           );
         return preferences.get();

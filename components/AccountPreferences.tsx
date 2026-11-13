@@ -2,7 +2,12 @@
 
 import { usePreferences, useTranslations } from "./PreferencesProvider";
 import LanguageSelect from "./LanguageSelect";
-import type { Theme } from "../lib/preferences.ts";
+import {
+  SERIES_TITLE_LANGUAGES,
+  type SeriesTitleLanguage,
+  type Theme,
+} from "../lib/preferences.ts";
+import { languageName } from "../lib/domain/series-detail.ts";
 
 export default function AccountPreferences() {
   const { preferences, saving, update } = usePreferences();
@@ -16,7 +21,7 @@ export default function AccountPreferences() {
       <h2 id="preferencesTitle">{t("Account preferences")}</h2>
       <p>
         {t(
-          "Your language and appearance are saved to your account and follow you across devices.",
+          "Your preferences are saved to your account and follow you across devices.",
         )}
       </p>
       <div className="preference-fields">
@@ -38,6 +43,31 @@ export default function AccountPreferences() {
             <option value="light">{t("Light")}</option>
             <option value="dark">{t("Dark")}</option>
           </select>
+        </label>
+        <label className="field">
+          <span id="seriesTitleLanguageLabel">{t("View series title in")}</span>
+          <select
+            value={preferences.seriesTitleLanguage}
+            disabled={saving}
+            aria-labelledby="seriesTitleLanguageLabel"
+            aria-describedby="seriesTitleLanguageHint"
+            onChange={(event) =>
+              void update({
+                seriesTitleLanguage: event.target.value as SeriesTitleLanguage,
+              })
+            }
+          >
+            {SERIES_TITLE_LANGUAGES.map((code) => (
+              <option key={code} value={code}>
+                {t(code ? languageName(code) : "Collection title")}
+              </option>
+            ))}
+          </select>
+          <span className="hint" id="seriesTitleLanguageHint">
+            {t(
+              "Applies to all series. Uses the collection title when this language is unavailable.",
+            )}
+          </span>
         </label>
       </div>
       <p className="hint" role="status">

@@ -205,6 +205,8 @@
 .series-information-grid {
   display: grid;
   grid-template-columns: minmax(195px, 0.8fr) minmax(0, 2fr);
+  /* Keep a tall facts sidebar from stretching the gap above the volumes. */
+  grid-template-rows: auto 1fr;
   gap: 12px 24px;
   align-items: start;
 }
@@ -635,6 +637,7 @@
   }
   .series-information-grid {
     grid-template-columns: 1fr;
+    grid-template-rows: none;
     gap: 16px;
   }
   .series-fact-column {
