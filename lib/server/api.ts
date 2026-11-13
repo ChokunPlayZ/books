@@ -46,7 +46,9 @@ export function createApplicationApi(
   const catalogs = createCatalogService(store, fetchImpl);
   const anime = createAnimeService(store, fetchImpl);
   const seriesInfo = createSeriesInfoService(store, catalogs, anime);
-  const seriesDetails = createSeriesDetailsService(store);
+  const seriesDetails = createSeriesDetailsService(store, async (request) =>
+    api.getSeriesCatalog(request),
+  );
   const suggestions = createMetadataSuggestions(store);
   const seasonal = createSeasonalDiscoveryService(anime, catalogs);
   const maintenance = createMetadataService(store, catalogs);

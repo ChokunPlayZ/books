@@ -147,6 +147,10 @@ try {
     await start("series-details"),
   );
   await runBrowserScenario(
+    "series-catalog-cache.browser.mjs",
+    await start("series-catalog-cache"),
+  );
+  await runBrowserScenario(
     "revised-editions.browser.mjs",
     await start("revised-editions"),
   );

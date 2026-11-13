@@ -263,7 +263,7 @@ try {
   await page.locator("#collectionSort").selectOption("spent");
   assert.deepEqual(
     await page
-      .locator(".book-card")
+      .locator(".book-row.book-card")
       .evaluateAll((cards) => cards.map((card) => card.title)),
     [2, 1, 3].map((volume) => `${marker}Alpha, volume ${volume}`),
   );

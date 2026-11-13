@@ -6,6 +6,7 @@ import { createSeriesDetailsService } from "../../lib/server/series-details.ts";
 import { createMetadataSuggestions } from "../../lib/server/metadata-suggestions.ts";
 import { createSeriesInfoService } from "../../lib/server/series-info.ts";
 import { createCatalogService } from "../../lib/server/catalogs.ts";
+import { createApplicationApi } from "../../lib/server/api.ts";
 import { readFileSync } from "node:fs";
 
 async function add(store, series, extra = {}) {
@@ -128,6 +129,74 @@ test("volume records retain separate owned copies, discover known catalog volume
   } finally {
     await store.close();
   }
+});
+
+test("a first volume-list visit pulls its linked catalog, reuses it for a day and refreshes automatically at expiry", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+  const store = await openTestStore();
+  t.after(() => store.close());
+  const series = "Synthetic linked shelf";
+  const url =
+    "https://www.phoenixnext.com/book-series/kaoru-hana-wa-rin-to-saku.html";
+  await add(store, series, {
+    publisher: "PHOENIX Next",
+    edition: "(TH)",
+    volume: 1,
+  });
+  await store.api.setSeriesCatalog({
+    series,
+    type: "Manga",
+    publisherId: "phoenix",
+    url,
+  });
+  const html = readFileSync(
+    new URL(
+      "../fixtures/series-catalogs/phoenix-category.html",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  let requests = 0;
+  let offline = false;
+  const api = createApplicationApi(
+    store,
+    {
+      ensure: async () => {
+        throw new Error("No fixture images");
+      },
+    },
+    async (endpoint) => {
+      assert.equal(endpoint, url);
+      requests++;
+      return new Response(offline ? "Unavailable" : html, {
+        status: offline ? 503 : 200,
+      });
+    },
+  );
+  const request = { series, type: "Manga" };
+  const first = await api.getSeriesVolumes(request);
+  const missing = first.items.filter((item) => !item.owned);
+  assert.ok(missing.length > 0, "No earlier discovery visit is required");
+  assert.ok(missing.every((item) => item.series === series));
+  assert.equal(requests, 1);
+  t.mock.timers.tick(24 * 60 * 60 * 1000 - 1);
+  await api.getSeriesVolumes(request);
+  assert.equal(requests, 1);
+  t.mock.timers.tick(1);
+  await api.getSeriesVolumes(request);
+  assert.equal(requests, 2, "Expiry re-pulls without a forced refresh");
+
+  offline = true;
+  t.mock.timers.tick(24 * 60 * 60 * 1000);
+  const fallback = await api.getSeriesVolumes(request);
+  assert.equal(requests, 3);
+  assert.deepEqual(
+    fallback.items.map((item) => item.key),
+    first.items.map((item) => item.key),
+    "An outage retains the known missing list and owned books",
+  );
+  await api.getSeriesVolumes(request);
+  assert.equal(requests, 3, "Failed sources respect their retry cooldown");
 });
 
 test("suggestions persist without editing books or profiles, stay account-scoped, and require an administrator to review", async () => {

@@ -1338,11 +1338,14 @@ export function createCatalogService(
           title: spec.series,
           url: scraper.searchSeriesUrl(spec.series),
         };
+      const source =
+        "series-catalog:v1:" + spec.publisherId + ":" + category.url;
       const catalog = await context.scrapeCache.get(
-        "series-catalog:v1:" + spec.publisherId + ":" + category.url,
+        source,
         { maxAge: SCRAPE_TTL.catalog, refresh: spec.refresh },
         () => scraper.catalog(category.url, spec.refresh),
       );
+      const snapshot = await cachedJson_(cache, "scrape:v1:" + digest(source));
       if (
         scraper.preserveCompleteSeries &&
         previous?.complete &&
@@ -1358,7 +1361,8 @@ export function createCatalogService(
         type: spec.type,
         title: category.title,
         url: category.url,
-        checkedAt: new Date().toISOString(),
+        // Linking another shelf title must not restart the source's one-day TTL.
+        checkedAt: new Date(snapshot?.checkedAt ?? Date.now()).toISOString(),
         stale: false,
         needsSelection: !!catalog.search && !catalog.items.length,
         error:

@@ -1,6 +1,9 @@
 import { digest } from "../domain/hash.ts";
 import { canonicalIsbn } from "../domain/isbn.ts";
 import { normalizeBookType } from "../domain/book-type.ts";
+import { bookSourceApplies } from "../domain/book-sources.ts";
+import { PUBLISHERS } from "../domain/constants.ts";
+import { publisherKey } from "../domain/urls.ts";
 import {
   seriesAliasesMatch,
   mergeSeriesMetadata,
@@ -8,7 +11,7 @@ import {
   type SeriesProfile,
 } from "../domain/series-info.ts";
 import { editionLanguage } from "../domain/series-detail.ts";
-import type { StoredBook } from "../types.ts";
+import type { Release, StoredBook } from "../types.ts";
 import type { Store } from "./store.ts";
 import { AppError } from "./store.ts";
 
@@ -28,7 +31,16 @@ export type KnownVolume = Partial<StoredBook> &
     checkedAt?: string;
   };
 
-export function createSeriesDetailsService(store: Store) {
+type LoadSeriesCatalog = (request: {
+  series: string;
+  type: string;
+  publisherId: string;
+}) => Promise<{ items: Release[] }>;
+
+export function createSeriesDetailsService(
+  store: Store,
+  loadCatalog?: LoadSeriesCatalog,
+) {
   async function getSeriesVolumes(arg: { series: string; type: string }) {
     if (
       typeof arg?.series !== "string" ||
@@ -44,6 +56,26 @@ export function createSeriesDetailsService(store: Store) {
     );
     if (!owned.length)
       throw new AppError("This series is not in your library.", 404);
+    // A first visit must discover volumes too, rather than depending on a prior
+    // release/catalog page to have warmed the cache. The loader owns its TTL.
+    const publisherIds = new Set(
+      owned
+        .filter((book) => bookSourceApplies(publisherKey(book.publisher), book))
+        .map((book) => publisherKey(book.publisher))
+        .filter((id) => PUBLISHERS.some((publisher) => publisher.id === id)),
+    );
+    const catalogs = loadCatalog
+      ? await Promise.all(
+          [...publisherIds].map(async (publisherId) => {
+            try {
+              return await loadCatalog({ ...arg, publisherId });
+            } catch {
+              // Keep owned volumes and known metadata usable during an outage.
+              return { items: [] };
+            }
+          }),
+        )
+      : [];
     const profileRow = await store.db
       .prepare(
         "SELECT data FROM series_profiles WHERE user_id=app_user_id() AND series=? AND type=?",
@@ -69,6 +101,7 @@ export function createSeriesDetailsService(store: Store) {
       }
     }
     snapshots.push(...data.savedReleases);
+    snapshots.push(...catalogs.flatMap((catalog) => catalog.items));
     const items: KnownVolume[] = owned.map((book) => {
       const isbn = canonicalIsbn(book.isbn);
       const records = snapshots.filter(
@@ -115,7 +148,10 @@ export function createSeriesDetailsService(store: Store) {
         continue;
       if (
         normalizeBookType(item.type) !== arg.type ||
-        !seriesAliasesMatch(aliases, item.series || item.title || "")
+        !seriesAliasesMatch(
+          aliases,
+          item.catalogSeries || item.series || item.title || "",
+        )
       )
         continue;
       const isbn = canonicalIsbn(item.isbn);

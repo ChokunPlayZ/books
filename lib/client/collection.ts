@@ -6,6 +6,7 @@ import { createInfiniteList } from "./infinite-list.ts";
 import { createBulkSelection } from "./bulk-selection.ts";
 import { createPublisherIsbnSearch } from "./publisher-isbn-search.ts";
 import { createSeriesEditor } from "./series-editor.ts";
+import { catalogRefreshAt } from "./catalog-cache.ts";
 import {
   missingShelfVolumes,
   type MissingShelfVolume,
@@ -90,6 +91,8 @@ export function mountCollection({
   if (view === "discover") state.discoveryUrl = $("discoveryUrl").value;
   let toastTimer;
   let seriesVolumesGeneration = 0;
+  let seriesCatalogRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+  const seriesCatalogReceivedAt = new Map<string, number>();
   const missingBrowser = createMissingBrowser({
     rpc,
     signal: events.signal,
@@ -270,7 +273,6 @@ export function mountCollection({
       }
       if (state.selectedSeries !== null && !state.catalogRefreshing)
         void loadSeriesCatalogs();
-      if (state.selectedSeries !== null) void loadSeriesVolumes();
     } catch (error) {
       errorAt("pageError", error);
       if (!state.data && $("bookList"))
@@ -818,6 +820,25 @@ export function mountCollection({
   function seriesCatalogKey(spec) {
     return JSON.stringify([spec.series, spec.publisherId, spec.type]);
   }
+  function seriesCatalogRefreshAt(key: string) {
+    const feed = state.seriesCatalogs.get(key);
+    const receivedAt = seriesCatalogReceivedAt.get(key);
+    return feed && receivedAt !== undefined
+      ? catalogRefreshAt(feed, receivedAt)
+      : 0;
+  }
+  function scheduleSeriesCatalogRefresh() {
+    clearTimeout(seriesCatalogRefreshTimer);
+    if (events.signal.aborted || state.selectedSeries === null) return;
+    const times = seriesCatalogSpecs().map((spec) =>
+      seriesCatalogRefreshAt(seriesCatalogKey(spec)),
+    );
+    if (!times.length || times.some((time) => !time)) return;
+    seriesCatalogRefreshTimer = setTimeout(
+      () => void loadSeriesCatalogs(),
+      Math.max(1, Math.min(...times) - Date.now()),
+    );
+  }
   async function loadSeriesVolumes() {
     const series = state.selectedSeries;
     if (series === null || !state.data) return;
@@ -867,7 +888,7 @@ export function mountCollection({
           const key = seriesCatalogKey(spec);
           if (
             state.catalogLoading.has(key) ||
-            (!refresh && state.seriesCatalogs.has(key))
+            (!refresh && seriesCatalogRefreshAt(key) > Date.now())
           )
             return;
           state.catalogLoading.add(key);
@@ -894,13 +915,17 @@ export function mountCollection({
                 "Unable to check this series catalog. Try Refresh catalog.",
             });
           } finally {
+            seriesCatalogReceivedAt.set(key, Date.now());
             state.catalogLoading.delete(key);
             render();
           }
         }),
       );
     } finally {
+      // Catalog discovery finishes before reading the enriched volume records.
+      if (!events.signal.aborted) await loadSeriesVolumes();
       if (refresh) state.catalogRefreshing = false;
+      scheduleSeriesCatalogRefresh();
       render();
     }
   }
@@ -956,6 +981,7 @@ export function mountCollection({
         refresh: true,
       });
       state.seriesCatalogs.set(key, catalog);
+      seriesCatalogReceivedAt.set(key, Date.now());
       if (editor) {
         editor.open = false;
         editor.version++;
@@ -965,6 +991,8 @@ export function mountCollection({
       errorAt("seriesReleaseError", error);
     } finally {
       state.catalogLoading.delete(key);
+      if (!events.signal.aborted) await loadSeriesVolumes();
+      scheduleSeriesCatalogRefresh();
       render();
     }
   }
@@ -4674,6 +4702,14 @@ export function mountCollection({
     () => void loadSeriesCatalogs(true),
     { signal: events.signal },
   );
+  document.addEventListener(
+    "visibilitychange",
+    () => {
+      if (!document.hidden && state.selectedSeries !== null)
+        void loadSeriesCatalogs();
+    },
+    { signal: events.signal },
+  );
   $("seriesCatalogToggle")?.addEventListener(
     "click",
     () => {
@@ -4785,6 +4821,7 @@ export function mountCollection({
     coverObserver.disconnect();
     titleObserver.disconnect();
     clearTimeout(toastTimer);
+    clearTimeout(seriesCatalogRefreshTimer);
     if (applicationWindow.bookCollection?.state === state)
       delete applicationWindow.bookCollection;
   };

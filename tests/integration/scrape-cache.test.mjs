@@ -64,9 +64,12 @@ test("discovery and concurrent series aliases share pages across restarts withou
   const third = "New shelf alias after restart";
   await store.api.setSeriesCatalog({ ...spec(third), url: category });
   service = createCatalogService(store, remote);
-  assert.equal((await service.getSeriesCatalog(spec(third))).complete, true);
+  t.mock.timers.tick(23 * hour);
+  const linked = await service.getSeriesCatalog(spec(third));
+  assert.equal(linked.complete, true);
+  assert.equal(linked.checkedAt, first.checkedAt);
   assert.equal(calls.length, 1, "A new lookup reuses the durable page cache");
-  t.mock.timers.tick(day - 1);
+  t.mock.timers.tick(hour - 1);
   await service.getSeriesCatalog(spec(third));
   assert.equal(calls.length, 1);
   t.mock.timers.tick(1);
