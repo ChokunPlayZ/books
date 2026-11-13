@@ -7,8 +7,6 @@ import SeriesHeader from "./collection/SeriesHeader";
 import SeriesInfoPanel from "./collection/SeriesInfoPanel";
 import SeriesEditor from "./collection/SeriesEditor";
 import SeriesCatalogPanel from "./collection/SeriesCatalogPanel";
-import VolumeIndex from "./collection/VolumeIndex";
-import { normalizeBookType } from "../lib/domain/book-type.ts";
 import ShelfBrowser from "./collection/ShelfBrowser";
 import ReleasesPanel from "./collection/ReleasesPanel";
 import DiscoveryPanel from "./collection/DiscoveryPanel";
@@ -66,16 +64,6 @@ export default async function CollectionShell({
                 removed={view === "trash"}
               />
             )}
-            <VolumeIndex
-              series={series}
-              types={[
-                ...new Set(
-                  data.books
-                    .filter((book) => book.series === series)
-                    .map((book) => normalizeBookType(book.type)),
-                ),
-              ]}
-            />
           </SeriesInfoPanel>
         )}
         {series !== null && <SeriesEditor />}

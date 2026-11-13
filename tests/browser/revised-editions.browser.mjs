@@ -103,8 +103,7 @@ try {
     );
   await settled();
   const section = page.locator("#seriesRevisedEditions");
-  await section.waitFor();
-  await page.locator(".series-volume-index li").first().waitFor();
+  await page.locator("#bookList .book-row").first().waitFor();
   const notice = page.getByRole("link", {
     name: "Revised editions available",
     exact: true,
@@ -117,6 +116,7 @@ try {
     true,
   );
   await notice.click();
+  await section.waitFor();
   assert.equal(new URL(page.url()).hash, "#seriesRevisedEditions");
   assert.equal(await page.locator("#seriesRevisedList li").count(), 2);
   assert.match(
@@ -222,7 +222,10 @@ try {
   );
   await page.reload();
   await settled();
-  await page.locator(".series-volume-index li").first().waitFor();
+  await page.locator("#bookList .book-row").first().waitFor();
+  await page
+    .getByRole("link", { name: "มีฉบับปรับปรุงใหม่", exact: true })
+    .click();
   await section
     .getByRole("heading", { name: "ฉบับปรับปรุงใหม่", exact: true })
     .waitFor();

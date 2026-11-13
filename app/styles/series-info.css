@@ -286,21 +286,6 @@
 .series-owned-content .infinite-scroll {
   padding-block: 10px;
 }
-.series-owned-content .series-volume-index li > a {
-  grid-template-columns: 85px minmax(0, 1fr) 65px;
-  gap: 4px 8px;
-}
-.series-owned-content .series-volume-index .volume-index-isbn {
-  grid-column: 2;
-  grid-row: 2;
-}
-.series-owned-content .series-volume-index li > a > span:nth-last-child(2) {
-  grid-column: 2;
-}
-.series-owned-content .series-volume-index .status {
-  grid-column: 3;
-  grid-row: 1;
-}
 .series-info-aliases li {
   display: grid;
   grid-template-columns: 78px minmax(0, 1fr) auto;
@@ -381,10 +366,6 @@
   font-size: 16px;
   margin: 0 0 6px;
 }
-.series-volume-index > .hint {
-  max-width: 80ch;
-  font-size: 12px;
-}
 .series-volume-index ul,
 .volume-language-editions ul,
 .metadata-review-queue ul {
@@ -392,32 +373,43 @@
   margin: 0;
   padding: 0;
 }
-.series-volume-index li > a {
-  display: grid;
-  grid-template-columns: 90px minmax(120px, 1fr) minmax(140px, auto) 100px 65px;
-  align-items: center;
-  gap: 10px;
-  min-height: 54px;
-  padding-block: 8px;
-  border-bottom: 1px solid var(--line);
-  text-decoration: none;
-  font-size: 12px;
-}
-.series-volume-index li > a:hover {
-  background: var(--button-hover);
-}
-.series-volume-index li span:not(.status) {
-  color: var(--muted);
-}
-.series-volume-index .status {
-  justify-self: end;
-}
 .series-page .collection.cover-grid {
   grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
   gap: 18px 14px;
 }
 .volume-shelf-entry {
   min-width: 0;
+}
+.cover-grid .missing-book-card .volume-cover {
+  border: 2px solid var(--primary);
+  box-shadow: none;
+}
+.missing-cover-label {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 4px 6px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+}
+.missing-book-card .cover-placeholder {
+  padding-bottom: 34px;
+}
+.is-missing .shelf-caption {
+  color: var(--primary);
+}
+.is-selecting .is-missing {
+  display: none;
+}
+.series-catalog-options > summary {
+  min-height: 44px;
+  padding-block: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
 }
 .volume-detail-link {
   display: flex;
@@ -576,13 +568,6 @@
     grid-template-columns: minmax(160px, 0.8fr) minmax(0, 1.6fr);
     gap: 18px;
   }
-  .series-volume-index li > a {
-    grid-template-columns: 90px minmax(0, 1fr) 90px 60px;
-  }
-  .series-volume-index .volume-index-isbn {
-    grid-column: 2;
-    grid-row: 2;
-  }
   .volume-facts {
     grid-template-columns: 1fr;
   }
@@ -698,17 +683,6 @@
   }
   .suggest-edit-panel form {
     grid-template-columns: 1fr;
-  }
-  .series-volume-index li > a {
-    grid-template-columns: 85px minmax(0, 1fr) 58px;
-    gap: 4px 8px;
-  }
-  .series-volume-index li .status {
-    grid-column: 3;
-    grid-row: 1;
-  }
-  .series-volume-index li > a > span:nth-last-child(2) {
-    grid-column: 2;
   }
   .series-page .collection.cover-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));

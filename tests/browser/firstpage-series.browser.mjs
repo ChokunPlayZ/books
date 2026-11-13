@@ -105,6 +105,13 @@ try {
     await page.waitForFunction(
       () => !window.bookCollection?.state.catalogLoading.size,
     );
+    if (
+      (await page.locator("#seriesMissing").isVisible()) &&
+      !(await page
+        .locator("#seriesMissing")
+        .evaluate((details) => details.open))
+    )
+      await page.locator("#seriesMissing > summary").click();
   };
   const missing = page.locator("#seriesReleaseList .release-card");
 

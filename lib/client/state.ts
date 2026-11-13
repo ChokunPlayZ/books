@@ -8,6 +8,10 @@ export function createCollectionState() {
     view: "collection" as CollectionView,
     selectedSeries: null as string | null,
     seriesDetailsExpanded: false,
+    knownSeriesVolumes:
+      [] as import("../server/series-details.ts").KnownVolume[],
+    missingSeriesVolumes:
+      [] as import("./series-shelf.ts").MissingShelfVolume[],
     editing: null as import("../types").StoredBook | null,
     busy: false,
     lookupGeneration: 0,

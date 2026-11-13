@@ -18,9 +18,10 @@ try {
   page.on("pageerror", (failure) => errors.push(failure.message));
   // All names, prices and personal records in this scenario are synthetic.
   const series = "Synthetic Detail Library";
-  for (const [title, edition] of [
-    [series, "(EN)"],
-    ["合成図書館", "(JP)"],
+  for (const [title, edition, volume] of [
+    [series, "(EN)", 1],
+    [series, "(EN)", 3],
+    ["合成図書館", "(JP)", 1],
   ]) {
     const response = await page.request.post(url + "/api/rpc", {
       data: {
@@ -32,7 +33,7 @@ try {
             edition,
             type: "Manga",
             publisher: "Synthetic Detail Press",
-            volume: 1,
+            volume,
             isbn: "",
             price: 80,
             msrp: 160,
@@ -62,6 +63,24 @@ try {
   const source = "https://example.com/synthetic-book";
   await page.route("**/api/rpc", async (route) => {
     const { name, arg } = route.request().postDataJSON();
+    if (name === "getSeriesVolumes")
+      return route.fulfill({
+        json: {
+          items: [1, 2, 3, 4, 4].map((volume, index) => ({
+            key: "catalog-synthetic-" + index,
+            series,
+            title: series + " Vol. " + volume,
+            type: "Manga",
+            edition: "(EN)",
+            language: "en",
+            publisher: "Synthetic Detail Press",
+            volume,
+            isbn: "",
+            owned: false,
+            url: source + "-" + index,
+          })),
+        },
+      });
     if (name === "getSeriesInfo" || name === "pullSeriesInfo")
       return route.fulfill({
         json: {
@@ -124,6 +143,38 @@ try {
   });
   await page.goto(url + seriesPath(series));
   await page.getByRole("heading", { name: "Publication details" }).waitFor();
+  await page.waitForFunction(
+    () => document.querySelectorAll("#bookList .is-missing").length === 2,
+  );
+  assert.equal(await page.locator(".series-volume-index").count(), 0);
+  assert.equal(await page.locator("#bookList .volume-shelf-entry").count(), 4);
+  assert.deepEqual(
+    await page.locator("#bookList .shelf-caption").allTextContents(),
+    ["Volume 1", "Volume 2", "Volume 3", "Volume 4"],
+  );
+  assert.deepEqual(
+    await page
+      .locator("#bookList .is-missing .missing-cover-label")
+      .allTextContents(),
+    ["Missing", "Missing"],
+  );
+  assert.equal(
+    await page.locator("#bookList .book-row .missing-cover-label").count(),
+    0,
+  );
+  assert.match(
+    await page.locator("#resultCount").textContent(),
+    /2 owned volumes · 2 missing/,
+  );
+  await page.locator("#toggleSelection").click();
+  assert.equal(
+    await page.locator("#bookList .is-missing").first().isVisible(),
+    false,
+  );
+  await page.locator("#toggleSelection").click();
+  await page.locator("#statusFilter").selectOption("Read");
+  assert.equal(await page.locator("#bookList .is-missing").count(), 0);
+  await page.locator("#statusFilter").selectOption("");
   assert.match(
     await page.locator(".series-profile-tags").textContent(),
     /Romance/,
@@ -177,6 +228,37 @@ try {
     path: ".impeccable/review/publication-mobile.png",
     fullPage: true,
   });
+  for (const [width, theme] of [
+    [390, "dark"],
+    [320, "light"],
+  ]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.evaluate((theme) => {
+      document.documentElement.dataset.theme = theme;
+    }, theme);
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      true,
+    );
+    assert.equal(
+      await page
+        .locator("#bookList .is-missing .volume-cover")
+        .first()
+        .evaluate(
+          (cover) =>
+            getComputedStyle(cover).borderColor ===
+            getComputedStyle(cover.querySelector(".missing-cover-label"))
+              .backgroundColor,
+        ),
+      true,
+    );
+    await page.locator("#collectionBrowser").screenshot({
+      path: `.impeccable/review/series-grid-${width}-${theme}.png`,
+    });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(
     await page
       .locator(".title-edit-label")
@@ -214,6 +296,20 @@ try {
     true,
   );
   await page.locator(".suggest-edit > summary").click();
+  await page.getByRole("button", { name: /Add missing volume 2 of/ }).click();
+  assert.equal(await page.locator("#volume").inputValue(), "2");
+  assert.equal(await page.locator("#edition").inputValue(), "(EN)");
+  await page.locator("#saveButton").click();
+  await page.waitForFunction(
+    () =>
+      !document.getElementById("bookDialog").open &&
+      document.querySelectorAll("#bookList .is-missing").length === 1,
+  );
+  assert.deepEqual(
+    await page.locator("#bookList .shelf-caption").allTextContents(),
+    ["Volume 1", "Volume 2", "Volume 3", "Volume 4"],
+  );
+  assert.equal(await page.locator("#bookList .book-row").count(), 3);
   const detail = page.locator(".volume-detail-link").first();
   await detail.waitFor();
   await detail.click();

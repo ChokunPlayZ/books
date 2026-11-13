@@ -171,6 +171,7 @@ try {
     await page.locator("#seriesReleaseSources").textContent(),
     /Lily House/,
   );
+  await page.locator("#seriesMissing > summary").click();
   await page.locator("#seriesCatalogDetails > summary").click();
   await page
     .getByRole("button", { name: "Change search title", exact: true })

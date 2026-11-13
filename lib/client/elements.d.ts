@@ -253,9 +253,10 @@ interface LibraryElements {
   resetSeriesVolume: HTMLButtonElement;
   seriesGaps: HTMLDivElement;
   seriesHeader: HTMLDivElement;
-  seriesMissing: HTMLElement;
+  seriesMissing: HTMLDetailsElement;
   seriesMissingSummary: HTMLParagraphElement;
-  seriesMissingTitle: HTMLHeadingElement;
+  seriesMissingTitle: HTMLElement;
+  seriesVolumesError: HTMLParagraphElement;
   seriesOptions: HTMLDataListElement;
   seriesReleaseError: HTMLDivElement;
   seriesReleaseList: HTMLDivElement;

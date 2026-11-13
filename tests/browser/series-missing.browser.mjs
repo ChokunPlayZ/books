@@ -255,6 +255,9 @@ try {
   assert.equal(await page.locator("#seriesMissing").isVisible(), true);
   assert.equal(await page.locator("#typeFilter").inputValue(), "");
   assert.equal(await page.locator(".book-row").count(), 9);
+  assert.equal(await page.locator("#seriesMissing").getAttribute("open"), null);
+  assert.equal(await page.locator("#bookList .is-missing").count(), 4);
+  await page.locator("#seriesMissing > summary").click();
   assert.match(
     await page.locator("#seriesMissingSummary").textContent(),
     /4 gaps/,
@@ -323,6 +326,7 @@ try {
     () => !window.bookCollection?.state.catalogLoading.size,
   );
   assert.equal(feedCalls.length, 6);
+  await page.locator("#seriesMissing > summary").click();
   assert.equal(recentCalls, 0);
   assert.equal(
     await page

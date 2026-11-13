@@ -3,13 +3,12 @@ import { getTranslations } from "../../lib/server/preferences.ts";
 export default async function SeriesCatalogPanel() {
   const t = await getTranslations();
   return (
-    <section
+    <details
       id={"seriesMissing"}
-      className={"series-missing"}
-      aria-labelledby={"seriesMissingTitle"}
+      className={"series-missing series-catalog-options"}
       hidden
     >
-      <h2 id={"seriesMissingTitle"}>{t("What you’re missing")}</h2>
+      <summary id={"seriesMissingTitle"}>{t("Catalog details")}</summary>
       <p id={"seriesMissingSummary"} className={"hint"} role={"status"}></p>
       <div id={"seriesGaps"} className={"missing-editions"}></div>
       <div id={"seriesCatalogHeading"} className={"series-release-head"}>
@@ -55,6 +54,6 @@ export default async function SeriesCatalogPanel() {
         <summary id={"seriesReleaseReviewSummary"}></summary>
         <div id={"seriesReleaseReviewList"} className={"release-grid"}></div>
       </details>
-    </section>
+    </details>
   );
 }

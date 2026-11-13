@@ -176,6 +176,9 @@ export default async function ShelfBrowser({
         </div>
       </div>
       <BulkActions removed={removed} grouped={!removed && series === null} />
+      {series !== null && (
+        <p id="seriesVolumesError" className="form-error" role="alert" hidden />
+      )}
       <section
         id={"bookList"}
         className={"collection" + (gallery ? " cover-grid" : "")}
@@ -184,7 +187,7 @@ export default async function ShelfBrowser({
             ? "Removed books"
             : series === null
               ? "Series"
-              : "Owned volumes in {series}",
+              : "Volumes in {series}",
           { series: series ?? "" },
         )}
       >

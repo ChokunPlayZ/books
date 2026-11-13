@@ -284,7 +284,7 @@ export default function SeriesInfoPanel({
       </div>
       <nav className="series-section-nav" aria-label={t("Series sections")}>
         <a href="#seriesMetadata">{t("Information")}</a>
-        <a href="#bookList">{t("Owned volumes")}</a>
+        <a href="#bookList">{t("Volumes")}</a>
         <a href="#seriesLanguages">{t("Titles & languages")}</a>
         <a href="#seriesCorrections">{t("Corrections & sources")}</a>
       </nav>

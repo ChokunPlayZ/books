@@ -6,6 +6,10 @@ import { createInfiniteList } from "./infinite-list.ts";
 import { createBulkSelection } from "./bulk-selection.ts";
 import { createPublisherIsbnSearch } from "./publisher-isbn-search.ts";
 import { createSeriesEditor } from "./series-editor.ts";
+import {
+  missingShelfVolumes,
+  type MissingShelfVolume,
+} from "./series-shelf.ts";
 import { BookEditConflictError } from "../book-edit-conflicts.ts";
 import { saveBookEdits } from "./book-edit-conflicts.ts";
 import { createMissingBrowser } from "./missing.ts";
@@ -85,6 +89,7 @@ export function mountCollection({
   const savePagePreferences = restorePagePreferences(view);
   if (view === "discover") state.discoveryUrl = $("discoveryUrl").value;
   let toastTimer;
+  let seriesVolumesGeneration = 0;
   const missingBrowser = createMissingBrowser({
     rpc,
     signal: events.signal,
@@ -265,6 +270,7 @@ export function mountCollection({
       }
       if (state.selectedSeries !== null && !state.catalogRefreshing)
         void loadSeriesCatalogs();
+      if (state.selectedSeries !== null) void loadSeriesVolumes();
     } catch (error) {
       errorAt("pageError", error);
       if (!state.data && $("bookList"))
@@ -549,7 +555,7 @@ export function mountCollection({
           : "",
       ]),
     );
-    let entries;
+    let entries: any[];
     if (grouped) {
       const groups = new Map();
       books.forEach((b) => {
@@ -600,7 +606,7 @@ export function mountCollection({
         grouped
           ? "Series"
           : state.selectedSeries !== null
-            ? "Owned volumes in {series}"
+            ? "Volumes in {series}"
             : "Removed books",
         { series: state.selectedSeries ?? "" },
       ),
@@ -654,9 +660,38 @@ export function mountCollection({
       selectionKey,
       state.data.options.status,
     );
+    if (state.selectedSeries !== null && state.view === "collection") {
+      const missing = state.missingSeriesVolumes.filter(({ book }) =>
+        matches(book),
+      );
+      entries.push(
+        ...missing.map((item) => ({ book: item.book, missing: item })),
+      );
+      entries.sort((a, b) => compareCollectionEntries(a, b, sort, false));
+      if (missing.length)
+        $("resultCount").textContent +=
+          " · " +
+          t("{count} missing", {
+            count: number(
+              missing.reduce(
+                (sum, item) =>
+                  sum +
+                  (item.rangeEnd
+                    ? item.rangeEnd - Number(item.book.volume) + 1
+                    : 1),
+                0,
+              ),
+            ),
+          });
+    }
     shelfList.render(
       entries,
-      (entry) => (grouped ? seriesRow(entry) : bookRow(entry)),
+      (entry) =>
+        grouped
+          ? seriesRow(entry)
+          : entry.missing
+            ? missingBookRow(entry.missing)
+            : bookRow(entry),
       {
         key: JSON.stringify([state.view, state.selectedSeries, filters, sort]),
         label: grouped
@@ -783,6 +818,31 @@ export function mountCollection({
   function seriesCatalogKey(spec) {
     return JSON.stringify([spec.series, spec.publisherId, spec.type]);
   }
+  async function loadSeriesVolumes() {
+    const series = state.selectedSeries;
+    if (series === null || !state.data) return;
+    const generation = ++seriesVolumesGeneration;
+    const types = [
+      ...new Set(
+        state.data.books
+          .filter((book) => seriesKey(book) === series)
+          .map((book) => normalizeBookType(book.type)),
+      ),
+    ];
+    try {
+      const groups = await Promise.all(
+        types.map((type) => rpc("getSeriesVolumes", { series, type })),
+      );
+      if (generation !== seriesVolumesGeneration || events.signal.aborted)
+        return;
+      state.knownSeriesVolumes = groups.flatMap((group) => group.items);
+      $("seriesVolumesError").hidden = true;
+      render();
+    } catch (error) {
+      if (generation === seriesVolumesGeneration && !events.signal.aborted)
+        errorAt("seriesVolumesError", error);
+    }
+  }
   async function loadSeriesCatalogs(
     refresh = false,
     series = state.selectedSeries,
@@ -791,7 +851,7 @@ export function mountCollection({
     if (refresh) {
       state.catalogRefreshing = true;
       if ($("seriesReleaseError")) $("seriesReleaseError").hidden = true;
-      renderSeriesMissing();
+      render();
       try {
         await load();
       } catch (error) {
@@ -811,7 +871,7 @@ export function mountCollection({
           )
             return;
           state.catalogLoading.add(key);
-          renderSeriesMissing();
+          render();
           try {
             state.seriesCatalogs.set(
               key,
@@ -835,13 +895,13 @@ export function mountCollection({
             });
           } finally {
             state.catalogLoading.delete(key);
-            renderSeriesMissing();
+            render();
           }
         }),
       );
     } finally {
       if (refresh) state.catalogRefreshing = false;
-      renderSeriesMissing();
+      render();
     }
   }
   async function chooseSeriesCategory(spec) {
@@ -851,7 +911,7 @@ export function mountCollection({
     editor.open = !editor.open;
     editor.version++;
     state.catalogEditors.set(key, editor);
-    renderSeriesMissing();
+    render();
     if (
       !editor.open ||
       editor.categories ||
@@ -860,7 +920,7 @@ export function mountCollection({
       return;
     editor.loading = true;
     editor.version++;
-    renderSeriesMissing();
+    render();
     try {
       const directory = feed?.categories
         ? { categories: feed.categories }
@@ -871,7 +931,7 @@ export function mountCollection({
     } finally {
       editor.loading = false;
       editor.version++;
-      renderSeriesMissing();
+      render();
     }
   }
   async function saveSeriesCategory(spec, url, title) {
@@ -880,7 +940,7 @@ export function mountCollection({
     if (state.catalogLoading.has(key)) return;
     state.catalogLoading.add(key);
     if ($("seriesReleaseError")) $("seriesReleaseError").hidden = true;
-    renderSeriesMissing();
+    render();
     try {
       await rpc("setSeriesCatalog", {
         series: spec.series,
@@ -905,7 +965,7 @@ export function mountCollection({
       errorAt("seriesReleaseError", error);
     } finally {
       state.catalogLoading.delete(key);
-      renderSeriesMissing();
+      render();
     }
   }
 
@@ -1006,6 +1066,11 @@ export function mountCollection({
         else missingVolumes.set(key, { ...entry, alternatives: [] });
       });
     const missing = [...missingVolumes.values()];
+    state.missingSeriesVolumes = missingShelfVolumes(
+      owned,
+      state.knownSeriesVolumes,
+      missing.map(({ item }) => item),
+    );
     const review = matches.filter(
       ({ item, match, uncertain, revised }) =>
         !revised &&
@@ -1028,14 +1093,9 @@ export function mountCollection({
     );
     if (needsAttention) state.seriesDetailsExpanded = false;
     $("seriesMissing").hidden = !needsAttention && !state.seriesDetailsExpanded;
-    $("seriesMissingTitle").textContent =
-      gaps || missing.length
-        ? "What you’re missing"
-        : revised.length && !review.length && !choose && !failed
-          ? t("Revised editions available")
-          : needsAttention
-            ? "Check your collection"
-            : "Catalog details";
+    $("seriesMissingTitle").textContent = t("Catalog details");
+    if (choose || failed || state.seriesDetailsExpanded)
+      $("seriesMissing").open = true;
     $("seriesCatalogToggle").hidden = needsAttention || !specs.length;
     $("seriesCatalogToggle").disabled = pending || state.catalogRefreshing;
     $("seriesCatalogToggle").textContent =
@@ -1884,6 +1944,64 @@ export function mountCollection({
     });
     row.append(restore);
     return row;
+  }
+  function missingBookRow(entry: MissingShelfVolume) {
+    const { book, catalog, detailKey, rangeEnd } = entry;
+    const wrapper = node("div", "volume-shelf-entry is-missing");
+    const button = node("button", "book-card missing-book-card");
+    button.type = "button";
+    button.disabled = state.busy;
+    button.setAttribute("aria-haspopup", "dialog");
+    button.setAttribute(
+      "aria-label",
+      t("Add missing volume {volume} of {series}, {edition}", {
+        volume: book.volume,
+        series: book.series,
+        edition: [bookEditionKey(book), book.publisher]
+          .filter(Boolean)
+          .join(", "),
+      }),
+    );
+    const cover = coverImage(
+      book.coverId,
+      book.series,
+      "shelf-cover volume-cover",
+    );
+    cover.append(node("span", "missing-cover-label", t("Missing")));
+    button.append(
+      cover,
+      node(
+        "span",
+        "shelf-caption",
+        rangeEnd
+          ? t("Volumes {from}–{to}", { from: book.volume, to: rangeEnd })
+          : t("Volume {volume}", { volume: book.volume }),
+      ),
+      node("span", "shelf-detail", t(bookEditionKey(book))),
+    );
+    button.addEventListener(
+      "click",
+      () => {
+        if (state.busy) return;
+        if (catalog) openRelease(catalog, releaseMatches(catalog));
+        else
+          openBook(null, {
+            series: book.series,
+            volume: book.volume,
+            type: book.type,
+            edition: book.edition,
+            publisher: book.publisher,
+          });
+      },
+      { signal: events.signal },
+    );
+    wrapper.append(button);
+    if (detailKey) {
+      const details = node("a", "volume-detail-link", t("Volume details"));
+      details.href = volumePath(book.series, detailKey);
+      wrapper.append(details);
+    }
+    return wrapper;
   }
   function releaseMatches(item) {
     return matchRelease(item, state.data.books);
@@ -3250,7 +3368,7 @@ export function mountCollection({
     if ($("discoveryError")) $("discoveryError").hidden = true;
     renderReleases();
     renderDiscovery();
-    renderSeriesMissing();
+    render();
     try {
       const result = await rpc("setSavedRelease", { release: item, saved });
       state.data.savedReleases = result.savedReleases;
@@ -3263,7 +3381,7 @@ export function mountCollection({
       state.savingReleases.delete(item.id);
       renderReleases();
       renderDiscovery();
-      renderSeriesMissing();
+      render();
     }
   }
   function openRelease(item, match, { saveForLater = false } = {}) {
@@ -4560,8 +4678,16 @@ export function mountCollection({
     "click",
     () => {
       state.seriesDetailsExpanded = !state.seriesDetailsExpanded;
+      $("seriesMissing").open = state.seriesDetailsExpanded;
       $("seriesCatalogDetails").open = state.seriesDetailsExpanded;
-      renderSeriesMissing();
+      render();
+    },
+    { signal: events.signal },
+  );
+  $("seriesRevisedNotice")?.addEventListener(
+    "click",
+    () => {
+      $("seriesMissing").open = true;
     },
     { signal: events.signal },
   );

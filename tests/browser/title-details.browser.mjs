@@ -294,7 +294,7 @@ try {
         !window.bookCollection.state.busy,
     );
   await ready();
-  await page.locator("#seriesGaps .missing-volume").click();
+  await page.locator("#bookList .missing-book-card").click();
   assert.equal(await page.locator("#edition").inputValue(), "Manga (TH)");
   await page.locator("#cancelBook").click();
   await page.locator("#addButton").click();

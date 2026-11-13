@@ -131,8 +131,14 @@ try {
     await page.waitForFunction(
       () => !window.bookCollection?.state.catalogLoading.size,
     );
+    await page.locator("#seriesMissing > summary").click();
   };
   await openSeries(title);
+  await page
+    .locator(".series-owned-content .infinite-scroll")
+    .scrollIntoViewIfNeeded();
+  await page.locator("#bookList .is-missing").waitFor();
+  assert.equal(await page.locator("#bookList .is-missing").count(), 1);
   const missing = page.locator("#seriesReleaseList .release-card");
   assert.equal(await missing.count(), 1);
   assert.match(await missing.textContent(), /Volume 22/);
@@ -191,6 +197,7 @@ try {
   await page.locator("#backSeries").click();
   await page.waitForFunction(() => !!window.bookCollection?.state.data);
   await openSeries(colorTitle);
+  assert.equal(await page.locator("#bookList .is-missing").count(), 2);
   assert.equal(await page.locator(".missing-edition").count(), 1);
   assert.match(
     await page.locator("#seriesGaps").textContent(),

@@ -55,6 +55,11 @@ export const thai: Record<string, string> = {
   "Use the publisher’s series page for its banner, creators, tags and synopsis. Choose the same original work.":
     "ใช้หน้าซีรีส์ของสำนักพิมพ์เพื่อดึงแบนเนอร์ ผู้สร้าง แท็ก และเรื่องย่อ โดยเลือกผลงานต้นฉบับเดียวกัน",
   "Volume details": "รายละเอียดเล่ม",
+  Volumes: "เล่มทั้งหมด",
+  Missing: "ยังขาด",
+  "Volumes {from}–{to}": "เล่ม {from}–{to}",
+  "Add missing volume {volume} of {series}, {edition}":
+    "เพิ่มเล่ม {volume} ที่ยังขาดของ {series}, {edition}",
   "Suggest an edit": "เสนอแก้ไขข้อมูล",
   "Suggest a correction": "เสนอข้อมูลที่ถูกต้อง",
   "Suggestions go to a review queue. Current metadata and your owned copies are not changed.":
