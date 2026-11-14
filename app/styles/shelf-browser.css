@@ -1,0 +1,218 @@
+/* Shelf controls adapt to their content column, including beside the rail. */
+.shelf-browser {
+  --shelf-control-gap: 8px;
+  --shelf-field-gap: 16px;
+  --shelf-group-gap: 24px;
+  container: collection-shelf / inline-size;
+  min-width: 0;
+}
+
+.shelf-browser .toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
+  gap: var(--shelf-control-gap);
+  margin: 0 0 4px;
+}
+
+.shelf-browser .toolbar .search {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.shelf-browser .toolbar select {
+  width: 100%;
+  max-width: none;
+  min-height: 48px;
+  padding-inline-start: 10px;
+  font-size: 14px;
+}
+
+.shelf-browser .toolbar > .refresh {
+  min-height: 48px;
+}
+
+.shelf-browser .collection-filters {
+  margin: 0 0 4px;
+}
+
+.shelf-browser .collection-filters[open] {
+  margin-bottom: 12px;
+  padding-bottom: var(--shelf-field-gap);
+  border-bottom: 1px solid var(--line);
+}
+
+.shelf-browser .collection-filters summary {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.shelf-browser .collection-filter-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--shelf-group-gap);
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.collection-filter-group {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.collection-filter-group legend {
+  padding: 0;
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.collection-filter-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--shelf-field-gap) 12px;
+}
+
+.shelf-browser #collectionFilterHint {
+  max-width: 75ch;
+  margin: var(--shelf-field-gap) 0 0;
+}
+
+.shelf-browser .list-label {
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-bottom: 12px;
+  min-height: 44px;
+}
+
+.shelf-browser .collection-results {
+  align-items: center;
+  min-width: 0;
+}
+
+.shelf-browser .collection-results .text-btn {
+  min-height: 44px;
+}
+
+.shelf-browser .selection-tools {
+  margin-inline-start: auto;
+}
+
+.shelf-browser .bulk-actions {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  margin-bottom: var(--shelf-group-gap);
+  padding: var(--shelf-field-gap);
+  border-radius: var(--ui-radius);
+}
+
+.bulk-selection-summary,
+.bulk-selection-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.bulk-selection-summary {
+  justify-content: space-between;
+}
+
+.bulk-selection-summary #selectionCount {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bulk-selection-controls .text-btn {
+  padding-inline: 0;
+}
+
+.bulk-edit-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--shelf-control-gap);
+}
+
+.bulk-status-actions,
+.bulk-organize-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: var(--shelf-control-gap);
+  min-width: 0;
+}
+
+.bulk-organize-actions:only-child,
+.bulk-organize-actions > :only-child {
+  grid-column: 1 / -1;
+}
+
+.shelf-browser .bulk-actions select {
+  width: 100%;
+  max-width: none;
+}
+
+.bulk-edit-actions .btn {
+  min-width: 0;
+  padding-inline: 10px;
+  overflow-wrap: anywhere;
+}
+
+.shelf-browser .selection-hint {
+  flex-basis: auto;
+}
+
+@container collection-shelf (width < 320px) {
+  .shelf-browser .toolbar {
+    grid-template-columns: minmax(0, 1fr) minmax(120px, 1fr) 44px;
+  }
+
+  .shelf-browser .toolbar select {
+    padding-inline-start: 6px;
+    font-size: 13px;
+  }
+}
+
+@container collection-shelf (min-width: 320px) {
+  .collection-filter-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .collection-publisher-filter {
+    grid-column: 1 / -1;
+  }
+}
+
+@container collection-shelf (min-width: 640px) {
+  .shelf-browser .toolbar {
+    grid-template-columns: minmax(0, 1fr) 144px 160px 44px;
+  }
+
+  .shelf-browser .toolbar .search {
+    grid-column: auto;
+  }
+
+  .collection-book-filters .collection-filter-fields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .collection-publisher-filter {
+    grid-column: auto;
+  }
+
+  .bulk-edit-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container collection-shelf (min-width: 800px) {
+  .shelf-browser .collection-filter-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  }
+
+  .collection-book-filters .collection-filter-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

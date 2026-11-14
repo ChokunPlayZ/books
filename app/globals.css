@@ -27,6 +27,7 @@
 @import "./styles/edit-conflicts.css" layer(components);
 @import "./styles/series-info.css" layer(components);
 @import "./styles/volume-editor.css" layer(components);
+@import "./styles/shelf-browser.css" layer(components);
 @source "../components";
 @source "../lib/client";
 

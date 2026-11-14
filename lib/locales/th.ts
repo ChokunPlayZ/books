@@ -718,6 +718,7 @@ export const thai: Record<string, string> = {
   "Save this book to look for publisher and bookstore covers.":
     "บันทึกหนังสือก่อนค้นหาปกจากสำนักพิมพ์และร้านหนังสือ",
   "Book details": "รายละเอียดหนังสือ",
+  "Purchase details": "รายละเอียดการซื้อ",
   "A few details, one well-kept shelf.":
     "เติมรายละเอียดเพื่อดูแลคลังหนังสือของคุณ",
   Sealed: "ยังไม่แกะซีล",

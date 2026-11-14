@@ -24,7 +24,7 @@ export default async function ShelfBrowser({
         ).length;
   const gallery = !removed;
   return (
-    <div id={"collectionBrowser"}>
+    <div id={"collectionBrowser"} className="shelf-browser">
       <div className={"toolbar"}>
         <div className={"search"}>
           <svg aria-hidden={"true"}>
@@ -67,73 +67,85 @@ export default async function ShelfBrowser({
           {t("More filters & sorting")}
         </summary>
         <div className="collection-filter-grid">
-          <div className="field">
-            <label htmlFor="publisherFilter">{t("Publisher")}</label>
-            <select id="publisherFilter">
-              <option value="">{t("All publishers")}</option>
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="sourceFilter">{t("Bought from")}</label>
-            <select id="sourceFilter">
-              <option value="">{t("All stores")}</option>
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="isbnFilter">ISBN</label>
-            <select id="isbnFilter">
-              <option value="">{t("Any ISBN")}</option>
-              <option value="present">{t("With ISBN")}</option>
-              <option value="missing">{t("Missing ISBN")}</option>
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="priceFilter">{t("Recorded price")}</label>
-            <select id="priceFilter">
-              <option value="">{t("Any price")}</option>
-              <option value="present">{t("With price")}</option>
-              <option value="missing">{t("Missing price")}</option>
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="minPriceFilter">{t("Minimum paid (฿)")}</label>
-            <input
-              id="minPriceFilter"
-              type="number"
-              min="0"
-              step="any"
-              inputMode="decimal"
-              placeholder={t("No minimum")}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="maxPriceFilter">{t("Maximum paid (฿)")}</label>
-            <input
-              id="maxPriceFilter"
-              type="number"
-              min="0"
-              step="any"
-              inputMode="decimal"
-              placeholder={t("No maximum")}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="dateFromFilter">{t("Bought on or after")}</label>
-            <input id="dateFromFilter" type="date" />
-          </div>
-          <div className="field">
-            <label htmlFor="dateToFilter">{t("Bought on or before")}</label>
-            <input id="dateToFilter" type="date" />
-          </div>
-          <div className="field">
-            <label htmlFor="collectionSort">{t("Sort by")}</label>
-            <select id="collectionSort">
-              <option value="default">{t("Series A–Z")}</option>
-              <option value="spent">{t("Most spent")}</option>
-              <option value="books">{t("Most books")}</option>
-              <option value="recent">{t("Recently bought")}</option>
-            </select>
-          </div>
+          <fieldset className="collection-filter-group collection-book-filters">
+            <legend>{t("Book details")}</legend>
+            <div className="collection-filter-fields">
+              <div className="field collection-publisher-filter">
+                <label htmlFor="publisherFilter">{t("Publisher")}</label>
+                <select id="publisherFilter">
+                  <option value="">{t("All publishers")}</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="isbnFilter">ISBN</label>
+                <select id="isbnFilter">
+                  <option value="">{t("Any ISBN")}</option>
+                  <option value="present">{t("With ISBN")}</option>
+                  <option value="missing">{t("Missing ISBN")}</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="collectionSort">{t("Sort by")}</label>
+                <select id="collectionSort">
+                  <option value="default">{t("Series A–Z")}</option>
+                  <option value="spent">{t("Most spent")}</option>
+                  <option value="books">{t("Most books")}</option>
+                  <option value="recent">{t("Recently bought")}</option>
+                </select>
+              </div>
+            </div>
+          </fieldset>
+          <fieldset className="collection-filter-group">
+            <legend>{t("Purchase details")}</legend>
+            <div className="collection-filter-fields">
+              <div className="field">
+                <label htmlFor="sourceFilter">{t("Bought from")}</label>
+                <select id="sourceFilter">
+                  <option value="">{t("All stores")}</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="priceFilter">{t("Recorded price")}</label>
+                <select id="priceFilter">
+                  <option value="">{t("Any price")}</option>
+                  <option value="present">{t("With price")}</option>
+                  <option value="missing">{t("Missing price")}</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="minPriceFilter">{t("Minimum paid (฿)")}</label>
+                <input
+                  id="minPriceFilter"
+                  type="number"
+                  min="0"
+                  step="any"
+                  inputMode="decimal"
+                  placeholder={t("No minimum")}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="maxPriceFilter">{t("Maximum paid (฿)")}</label>
+                <input
+                  id="maxPriceFilter"
+                  type="number"
+                  min="0"
+                  step="any"
+                  inputMode="decimal"
+                  placeholder={t("No maximum")}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="dateFromFilter">
+                  {t("Bought on or after")}
+                </label>
+                <input id="dateFromFilter" type="date" />
+              </div>
+              <div className="field">
+                <label htmlFor="dateToFilter">{t("Bought on or before")}</label>
+                <input id="dateToFilter" type="date" />
+              </div>
+            </div>
+          </fieldset>
         </div>
         <p id="collectionFilterHint" className="hint">
           {t(

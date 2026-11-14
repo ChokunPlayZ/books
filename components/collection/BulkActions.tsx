@@ -38,40 +38,57 @@ export default async function BulkActions({
         aria-label={t("Selected books")}
         hidden
       >
-        <span id="selectionCount" role="status">
-          {t("0 books selected")}
-        </span>
-        <button id="selectAllBooks" type="button" className="text-btn">
-          {t("Select all results")}
-        </button>
-        <button id="clearSelection" type="button" className="text-btn">
-          {t("Clear selection")}
-        </button>
-        {grouped && !removed && (
-          <button id="mergeSeriesButton" type="button" className="btn" disabled>
-            {t("Merge series")}
-          </button>
-        )}
-        {!removed && (
-          <>
-            <label htmlFor="bulkStatus" className="sr-only">
-              {t("Reading status for selected books")}
-            </label>
-            <select id="bulkStatus" defaultValue="Read">
-              <option value="Read">{t("Read")}</option>
-            </select>
-            <button id="applyBulkStatus" type="button" className="btn primary">
-              {t("Set status")}
+        <div className="bulk-selection-summary">
+          <span id="selectionCount" role="status">
+            {t("0 books selected")}
+          </span>
+          <div className="bulk-selection-controls">
+            <button id="selectAllBooks" type="button" className="text-btn">
+              {t("Select all results")}
             </button>
-          </>
-        )}
-        <button
-          id="bulkMoveBooks"
-          type="button"
-          className={"btn" + (removed ? "" : " danger")}
-        >
-          {t(removed ? "Restore selected" : "Remove selected")}
-        </button>
+            <button id="clearSelection" type="button" className="text-btn">
+              {t("Clear selection")}
+            </button>
+          </div>
+        </div>
+        <div className="bulk-edit-actions">
+          {!removed && (
+            <div className="bulk-status-actions">
+              <label htmlFor="bulkStatus" className="sr-only">
+                {t("Reading status for selected books")}
+              </label>
+              <select id="bulkStatus" defaultValue="Read">
+                <option value="Read">{t("Read")}</option>
+              </select>
+              <button
+                id="applyBulkStatus"
+                type="button"
+                className="btn primary"
+              >
+                {t("Set status")}
+              </button>
+            </div>
+          )}
+          <div className="bulk-organize-actions">
+            {grouped && !removed && (
+              <button
+                id="mergeSeriesButton"
+                type="button"
+                className="btn"
+                disabled
+              >
+                {t("Merge series")}
+              </button>
+            )}
+            <button
+              id="bulkMoveBooks"
+              type="button"
+              className={"btn" + (removed ? "" : " danger")}
+            >
+              {t(removed ? "Restore selected" : "Remove selected")}
+            </button>
+          </div>
+        </div>
         <span className="hint selection-hint">
           {t(
             grouped
