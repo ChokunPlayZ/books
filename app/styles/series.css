@@ -585,34 +585,32 @@
 
 .purchase-price {
   margin: 0;
-  padding: 14px 16px 17px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  @apply bg-paper;
+  padding: 0;
+  border: 0;
   @apply min-w-0;
 }
 
-.purchase-price legend {
-  padding: 0 6px;
-  font-size: 12px;
-  font-weight: 600;
+.price-paid-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
 }
 
 .discount-line {
-  @apply flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
   gap: 8px;
 }
 
 .discount-line input {
-  flex: 1;
   @apply min-w-0;
 }
 
 .discount-line select {
   width: auto;
-  @apply flex-none;
   padding-left: 9px;
-  padding-right: 9px;
 }
 
 #priceSummary {
@@ -655,9 +653,6 @@
 @media (max-width: 560px) {
   .purchase-price .form-grid {
     grid-template-columns: 1fr;
-  }
-  .purchase-price {
-    padding: 12px;
   }
 }
 
@@ -707,14 +702,53 @@
   margin-bottom: 0;
 }
 
-.price-calculator summary {
+.price-calculator {
+  container: price-calculator / inline-size;
+  border-top: 1px solid var(--line);
+}
+
+.price-calculator > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding-block: 10px;
+  list-style: none;
   @apply cursor-pointer;
-  font-size: 12px;
+  font-size: 13px;
   @apply text-green;
 }
 
-.price-calculator[open] summary {
-  margin-bottom: 12px;
+.price-calculator > summary::-webkit-details-marker {
+  display: none;
+}
+
+.price-calculator > summary:hover {
+  color: var(--primary-hover);
+}
+
+.price-calculator > summary svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.price-calculator[open] > summary svg {
+  transform: rotate(90deg);
+}
+
+.price-calculator-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px 12px;
+  padding-top: 8px;
+}
+
+@container price-calculator (min-width: 480px) {
+  .price-calculator-fields {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  }
 }
 
 .tabs {

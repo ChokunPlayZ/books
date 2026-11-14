@@ -210,10 +210,19 @@ export default async function BookDialog({
                 <input id={"date"} name={"date"} type={"date"} />
               </div>
               <fieldset className={"purchase-price span-2"}>
-                <legend>{t("Purchase price")}</legend>
+                <legend className="sr-only">{t("Purchase price")}</legend>
                 <div className={"form-grid"}>
                   <div className={"field span-2"}>
-                    <label htmlFor={"price"}>{t("Price paid")}</label>
+                    <div className="price-paid-label">
+                      <label htmlFor={"price"}>{t("Price paid")}</label>
+                      <p
+                        id={"priceSummary"}
+                        className={"hint"}
+                        role={"status"}
+                        hidden
+                        data-lookup-detail
+                      ></p>
+                    </div>
                     <input
                       id={"price"}
                       name={"price"}
@@ -234,8 +243,13 @@ export default async function BookDialog({
                     open
                     data-lookup-detail
                   >
-                    <summary>{t("Calculate a discounted price")}</summary>
-                    <div className={"form-grid"}>
+                    <summary>
+                      {t("Calculate a discounted price")}
+                      <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path d="m9 5 7 7-7 7" />
+                      </svg>
+                    </summary>
+                    <div className="price-calculator-fields">
                       <div className={"field"}>
                         <label htmlFor={"regularPrice"}>
                           {t("Regular price")}{" "}
@@ -247,7 +261,7 @@ export default async function BookDialog({
                           inputMode={"decimal"}
                           min={"0"}
                           step={"any"}
-                          placeholder={t("Before discount")}
+                          placeholder="0.00"
                         />
                       </div>
                       <div className={"field"}>
@@ -285,13 +299,6 @@ export default async function BookDialog({
                       </p>
                     </div>
                   </details>
-                  <p
-                    id={"priceSummary"}
-                    className={"hint span-2"}
-                    role={"status"}
-                    hidden
-                    data-lookup-detail
-                  ></p>
                 </div>
               </fieldset>
               <div

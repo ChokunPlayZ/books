@@ -205,7 +205,7 @@
 
   .book-dialog-editing .book-details-column {
     grid-column: 1;
-    grid-row: 1 / span 3;
+    grid-row: 1;
     gap: 14px 12px;
   }
 
@@ -281,19 +281,8 @@
     gap: 12px;
   }
 
-  .book-dialog-editing .price-calculator {
-    margin: 0;
-    padding: 0;
-    border: 0;
-  }
-
-  .book-dialog-editing .price-calculator > .form-grid {
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr);
-  }
-
-  .book-dialog-editing .discount-line select {
-    max-width: 60%;
-    flex-shrink: 1;
+  .book-dialog-editing .price-calculator-fields {
+    gap: 12px;
   }
 
   .book-dialog-editing .cover-editor {
